@@ -309,6 +309,10 @@ namespace CinderCourt.View
             // wave 2), so seed the opening lore line here.
             _loreText.text = LoreBeats[0];
             _loreTimer = 6f;
+
+            // Companion command console: adopt a #gemini= fragment key once
+            // (fragments never reach the server — see GeminiCommandClient).
+            GeminiCommandClient.AdoptUrlKeyIfPresent();
         }
 
         // =============================================== mobile layout core --
@@ -318,6 +322,8 @@ namespace CinderCourt.View
             // Cheap dirty-check (two int compares + rect compare); RectTransform
             // writes happen only on actual resolution / safe-area changes.
             SyncLayout(false);
+
+            UpdateCommandConsole();
 
             if (_rotateHintTimer > 0f)
             {
@@ -863,6 +869,10 @@ namespace CinderCourt.View
             _bossAliveAtDeath = false;
             ResetTransientCeremonies();
             HideEmberRest();
+            // Trap guard: a run can end while the console is open (death/clear).
+            // Without this, CommandConsoleOpen pins timeScale at 0.2 and
+            // TextInputActive keeps the keyboard dead into the lobby.
+            CloseCommandConsole(submit: false);
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             SetTouchCombatControlsVisible(true);
             if (_bossBar != null) _bossBar.SetActive(false);
@@ -1042,6 +1052,221 @@ namespace CinderCourt.View
         public void HidePrologueToast()
         {
             if (_prologueToast != null) _prologueToast.SetActive(false);
+        }
+
+        // ============================================ companion command console --
+        // Text orders for the guardian (집중공격/방어/복귀…) + player skill casts.
+        // Local keyword parse first; free-form falls through to Gemini when the
+        // player has stored a key (runtime only — never in the build). Every
+        // resolved intent becomes a deterministic InputAdapter latch.
+        GameObject _consoleRoot;
+        InputField _consoleField;
+        Text _consoleToast;
+        float _consoleToastTimer;
+        bool _consoleBusy;               // one in-flight Gemini call max
+        /// <summary>GameView caps timeScale at 0.2 while this is true — typing
+        /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
+        /// reduced-motion players get the same breathing room.</summary>
+        public bool CommandConsoleOpen { get; private set; }
+
+        void BuildCommandConsole()
+        {
+            var root = (Transform)_safeRoot;
+            _consoleRoot = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0, 300), new Vector2(460, 40), new Color(0.03f, 0.04f, 0.09f, 0.92f));
+            _consoleRoot.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+            _consoleRoot.GetComponent<Image>().raycastTarget = true;   // field hit surface
+
+            var fieldObject = new GameObject("CommandField");
+            fieldObject.transform.SetParent(_consoleRoot.transform, false);
+            var fieldRect = fieldObject.AddComponent<RectTransform>();
+            fieldRect.anchorMin = Vector2.zero;
+            fieldRect.anchorMax = Vector2.one;
+            fieldRect.offsetMin = new Vector2(10, 4);
+            fieldRect.offsetMax = new Vector2(-10, -4);
+
+            var text = Label(fieldObject.transform, 0, 0, 440, 32, "", 16, TextAnchor.MiddleLeft);
+            var textRect = text.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            text.supportRichText = false;
+
+            var placeholder = Label(fieldObject.transform, 0, 0, 440, 32,
+                "명령 입력: 집중공격 · 방어 · 복귀 · 노바 · 결계 …", 16, TextAnchor.MiddleLeft);
+            var placeholderRect = placeholder.rectTransform;
+            placeholderRect.anchorMin = Vector2.zero;
+            placeholderRect.anchorMax = Vector2.one;
+            placeholderRect.offsetMin = Vector2.zero;
+            placeholderRect.offsetMax = Vector2.zero;
+            placeholder.color = new Color(0.65f, 0.68f, 0.78f, 0.55f);
+
+            _consoleField = fieldObject.AddComponent<InputField>();
+            _consoleField.textComponent = text;
+            _consoleField.placeholder = placeholder;
+            _consoleField.characterLimit = 60;
+            _consoleField.lineType = InputField.LineType.SingleLine;
+
+            _consoleToast = Label(root, 0, 346, 560, 28, "", 15, TextAnchor.MiddleCenter);
+            var toastRect = _consoleToast.rectTransform;
+            toastRect.anchorMin = toastRect.anchorMax = new Vector2(0.5f, 0f);
+            toastRect.pivot = new Vector2(0.5f, 0f);
+            toastRect.anchoredPosition = new Vector2(0, 346);
+            _consoleToast.color = new Color(0.62f, 0.95f, 0.88f, 0f);
+
+            _consoleRoot.SetActive(false);
+        }
+
+        public void ToggleCommandConsole()
+        {
+            if (CommandConsoleOpen) CloseCommandConsole(submit: false);
+            else OpenCommandConsole();
+        }
+
+        void OpenCommandConsole()
+        {
+            // Dungeon-only surface: orders need a guardian on the field.
+            if (_dungeonRoot == null || !_dungeonRoot.activeSelf) return;
+            if (_consoleRoot == null) BuildCommandConsole();
+            _consoleRoot.SetActive(true);
+            CommandConsoleOpen = true;
+            if (Input != null) Input.TextInputActive = true;
+            _consoleField.text = string.Empty;
+            _consoleField.ActivateInputField();
+            if (!GeminiCommandClient.HasKey)
+                ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 · 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
+        }
+
+        void CloseCommandConsole(bool submit)
+        {
+            if (_consoleRoot == null) return;
+            var raw = _consoleField.text;
+            _consoleField.DeactivateInputField();
+            _consoleRoot.SetActive(false);
+            CommandConsoleOpen = false;
+            if (Input != null) Input.TextInputActive = false;
+            if (submit && !string.IsNullOrWhiteSpace(raw)) SubmitCommand(raw.Trim());
+        }
+
+        void SubmitCommand(string raw)
+        {
+            // Key registration: "키 AIza..." / "key AIza..." — stored locally
+            // (PlayerPrefs), never in the build. Fragment URL (#gemini=) works too.
+            if (raw.StartsWith("키 ") || raw.StartsWith("key ", System.StringComparison.OrdinalIgnoreCase))
+            {
+                var key = raw.Substring(raw.IndexOf(' ') + 1).Trim();
+                if (key.Length > 8)
+                {
+                    GeminiCommandClient.StoreKey(key);
+                    ShowConsoleToast("Gemini 키 저장됨 (이 기기에만) — 자유 문장 명령 활성화", 3f);
+                }
+                else ShowConsoleToast("키가 너무 짧습니다", 2f);
+                return;
+            }
+
+            var intent = CompanionCommandParser.Parse(raw);
+            if (intent != CompanionCommandIntent.Unknown)
+            {
+                ApplyCommandIntent(intent);
+                return;
+            }
+            if (!GeminiCommandClient.HasKey)
+            {
+                ShowConsoleToast("알 수 없는 명령 — 키워드: 집중공격/방어/복귀/노바/결계/파동/화살/질주", 3f);
+                return;
+            }
+            if (_consoleBusy) { ShowConsoleToast("이전 명령 해석 중…", 1.5f); return; }
+            _consoleBusy = true;
+            ShowConsoleToast("해석 중…", 1.5f);
+            StartCoroutine(ClassifyRemote(raw));
+        }
+
+        System.Collections.IEnumerator ClassifyRemote(string raw)
+        {
+            yield return GeminiCommandClient.Classify(raw, intent =>
+            {
+                _consoleBusy = false;
+                if (intent == CompanionCommandIntent.Unknown)
+                    ShowConsoleToast("해석 실패 — 키워드 명령을 써보세요: 집중공격/방어/복귀", 2.5f);
+                else ApplyCommandIntent(intent);
+            });
+        }
+
+        /// <summary>Intent -> deterministic latch. The reply copy is honest about
+        /// the actor: guardian orders say 수호자, skill casts say 시전 (the sim
+        /// has no companion skills — §S3 gate; PLAYER casts them).</summary>
+        void ApplyCommandIntent(CompanionCommandIntent intent)
+        {
+            if (Input == null) return;
+            switch (intent)
+            {
+                case CompanionCommandIntent.FocusAttack:
+                    Input.QueueCompanionHold();
+                    ShowConsoleToast("수호자: 현재 지점 사수 — 근접 적 집중공격", 2.5f);
+                    break;
+                case CompanionCommandIntent.Defend:
+                    Input.QueueCompanionRecall();
+                    ShowConsoleToast("수호자: 방어태세 — 곁으로 복귀해 호위", 2.5f);
+                    break;
+                case CompanionCommandIntent.Recall:
+                    Input.QueueCompanionRecall();
+                    ShowConsoleToast("수호자: 복귀", 2f);
+                    break;
+                case CompanionCommandIntent.PickupInfo:
+                    ShowConsoleToast("수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요", 3f);
+                    break;
+                case CompanionCommandIntent.SkillBolt:
+                    Input.QueueBolt(); ShowConsoleToast("균열 화살 시전", 1.5f); break;
+                case CompanionCommandIntent.SkillPulse:
+                    Input.QueuePulse(); ShowConsoleToast("묘지 파동 시전", 1.5f); break;
+                case CompanionCommandIntent.SkillNova:
+                    Input.QueueNova(); ShowConsoleToast("잿불 노바 시전", 1.5f); break;
+                case CompanionCommandIntent.SkillAegis:
+                    Input.QueueWard(); ShowConsoleToast("공허 방패 시전", 1.5f); break;
+                case CompanionCommandIntent.SkillDash:
+                    Input.QueueDash(); ShowConsoleToast("질주", 1.5f); break;
+            }
+        }
+
+        void ShowConsoleToast(string message, float seconds)
+        {
+            if (_consoleToast == null) return;
+            _consoleToast.text = message;
+            _consoleToastTimer = seconds;
+            var c = _consoleToast.color;
+            _consoleToast.color = new Color(c.r, c.g, c.b, 1f);
+        }
+
+        void UpdateCommandConsole()
+        {
+            // Console keys are read OUTSIDE InputAdapter's TextInputActive gate —
+            // otherwise Enter/ESC would be swallowed and the player trapped.
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null)
+            {
+                if (CommandConsoleOpen)
+                {
+                    if (keyboard.escapeKey.wasPressedThisFrame) CloseCommandConsole(submit: false);
+                    else if (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                        CloseCommandConsole(submit: true);
+                }
+                else if ((keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame)
+                    && _dungeonRoot != null && _dungeonRoot.activeSelf
+                    && (_gameOverPanel == null || !_gameOverPanel.activeSelf))
+                {
+                    OpenCommandConsole();
+                }
+            }
+            if (_consoleToastTimer > 0f)
+            {
+                _consoleToastTimer -= Time.unscaledDeltaTime;   // survives slow-mo
+                if (_consoleToastTimer <= 1f && _consoleToast != null)
+                {
+                    var c = _consoleToast.color;
+                    _consoleToast.color = new Color(c.r, c.g, c.b, Mathf.Clamp01(_consoleToastTimer));
+                }
+            }
         }
 
         // =================================================== dungeon HUD (v0.2) --

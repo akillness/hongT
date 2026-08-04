@@ -118,9 +118,14 @@ namespace CinderCourt.View
 
 
 
+        /// <summary>True while the command console owns the keyboard — WASD and
+        /// hotkeys must not fire mid-sentence. Latches set by UI buttons still
+        /// pass (mobile can tap skills while typing is open).</summary>
+        public bool TextInputActive;
+
         public SimInput Sample()
         {
-            var keyboard = Keyboard.current;
+            var keyboard = TextInputActive ? null : Keyboard.current;
             float moveX = 0f, moveY = 0f;
             if (keyboard != null)
             {

@@ -253,19 +253,25 @@ namespace CinderCourt.View
         /// </summary>
         void ApplyTimeScale()
         {
+            // Console slow-mo first and OUTSIDE TimeEffectsAllowed: it buys
+            // typing time (accessibility), not decoration — reduced-motion
+            // players need it most. Determinism: timeScale only stretches
+            // wall-clock per tick; tick size and input rules are unchanged
+            // (presentation-impact-spec determinism note).
+            var consoleOpen = Hud != null && Hud.CommandConsoleOpen;
             if (!ViewPrefs.TimeEffectsAllowed)
             {
                 _hitStopTimer = 0f;
                 _slowMoTimer = 0f;
-                Time.timeScale = 1f;
+                Time.timeScale = consoleOpen ? 0.2f : 1f;
                 return;
             }
             var dt = Time.unscaledDeltaTime;
-            var target = 1f;
+            var target = consoleOpen ? 0.2f : 1f;
             if (_slowMoTimer > 0f)
             {
                 _slowMoTimer -= dt;
-                target = _slowMoScale;
+                target = Mathf.Min(target, _slowMoScale);
             }
             if (_hitStopTimer > 0f)
             {

@@ -51,6 +51,23 @@ namespace CinderCourt.View
         float _corpseX, _corpseY;     // view-cached corpse position
         LineRenderer _channelBeam;
         Material _channelMaterial;
+        // --- VFX impact pass: AOE scorch decals + bolt streak -----------------
+        // Research-backed (isometric readability): ground-anchored shapes read
+        // better than airborne particles; consistent color language per skill.
+        // All quads/lines are pooled and reuse MakeUnlit (WebGL transparent
+        // seed contract — ViewWorld.cs) — zero per-cast allocation.
+        struct Scorch
+        {
+            public Transform Quad;
+            public Material Material;
+            public float Life, MaxLife;
+            public Color Color;
+        }
+        readonly Scorch[] _scorches = new Scorch[4];
+        int _scorchCursor;
+        LineRenderer _boltStreak;
+        Material _boltStreakMaterial;
+        float _boltStreakTime;
 
         // --- campaign hazards (built once on first SyncHazards call) ---------
         struct HazardView
@@ -134,6 +151,16 @@ namespace CinderCourt.View
                 _novaX = sim.NovaX;
                 _novaY = sim.NovaY;
                 _novaRing.enabled = true;
+                // Impact pass: trailing shockwave echo + ground scorch. The
+                // echo ring is slower/smaller so the pair reads as one blast
+                // wave; the scorch anchors the burn area for 1.2 s (isometric
+                // readability: ground shapes > airborne glow).
+                SpawnBurst(sim.NovaX, sim.NovaY, new Color(0.953f, 0.349f, 0.173f, 0.55f), 1.7f, 0.6f);
+                // Radius: arena NovaRadius=250; dungeon ash-nova is 230 — the
+                // 8% visual overshoot is imperceptible on a fading decal, so
+                // one constant serves both modes (decoration, not judgement).
+                SpawnScorch(sim.NovaX, sim.NovaY, SimConfig.NovaRadius * ViewWorld.Scale * 2f,
+                    new Color(0.35f, 0.12f, 0.05f, 0.5f), 1.2f);
             }
             // --- dungeon kit one-shots (v0.2) --------------------------------
             if ((events & SimEvents.DashUsed) != 0)
@@ -156,7 +183,12 @@ namespace CinderCourt.View
                 }
             }
             if ((events & SimEvents.BoltCast) != 0)
+            {
                 SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.75f, 0.55f, 1f, 0.7f), 0.3f, 0.2f);
+                // Streak toward the nearest living enemy (the sim's bolt rule);
+                // fallback: facing direction at full range.
+                FireBoltStreak(sim);
+            }
             // Grave Pulse (#7): the E field persists 3 s in the sim but only
             // had a 0.2 s burst — show the actual damage radius for the full
             // duration, anchored at the cast position (field never moves).
@@ -166,7 +198,13 @@ namespace CinderCourt.View
                 _pulseX = sim.Player.X;
                 _pulseY = sim.Player.Y;
                 _pulseRing.enabled = true;
+                // Cast-moment scorch under the field so the 3 s ring has a
+                // grounded fill, not just an outline.
+                SpawnScorch(sim.Player.X, sim.Player.Y, 190f * 2f * ViewWorld.Scale,
+                    new Color(0.09f, 0.22f, 0.16f, 0.42f), 3f);
             }
+            if ((events & SimEvents.WardCast) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.56f, 0.85f, 1f, 0.8f), 0.5f, 0.3f);
             // Pickup absorption (#13): tells the next SyncPickups sweep that a
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
@@ -264,11 +302,106 @@ namespace CinderCourt.View
             slot.Ring.enabled = true;
         }
 
+        /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
+        /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
+        /// Pool of 4 — nova(8s cd) + pulse(4s cd) can't exceed it in play.</summary>
+        void SpawnScorch(float simX, float simY, float diameterWorld, Color color, float life)
+        {
+            ref var slot = ref _scorches[_scorchCursor];
+            _scorchCursor = (_scorchCursor + 1) % _scorches.Length;
+            if (slot.Quad == null)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                Destroy(quad.GetComponent<Collider>());
+                quad.name = "AoeScorch";
+                quad.transform.SetParent(transform, false);
+                // Flat on the ground, iso-squashed like every ground ring.
+                quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                slot.Quad = quad.transform;
+                slot.Material = ViewWorld.MakeUnlit(color, true);   // transparent seed contract
+                quad.GetComponent<Renderer>().sharedMaterial = slot.Material;
+                quad.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            slot.Quad.position = ViewWorld.ToWorld(simX, simY, 0.02f);
+            slot.Quad.localScale = new Vector3(diameterWorld, diameterWorld / SimConfig.IsoY, 1f);
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            slot.Material.color = color;
+            slot.Quad.gameObject.SetActive(true);
+        }
+
+        void UpdateScorches(float deltaTime)
+        {
+            for (var i = 0; i < _scorches.Length; i++)
+            {
+                ref var scorch = ref _scorches[i];
+                if (scorch.Quad == null || !scorch.Quad.gameObject.activeSelf) continue;
+                scorch.Life -= deltaTime;
+                if (scorch.Life <= 0f) { scorch.Quad.gameObject.SetActive(false); continue; }
+                var faded = scorch.Color;
+                faded.a = scorch.Color.a * Mathf.Clamp01(scorch.Life / scorch.MaxLife);
+                scorch.Material.color = faded;
+            }
+        }
+
+        /// <summary>Bolt streak: 2-point line from the player toward the nearest
+        /// living enemy (mirrors the sim's bolt targeting); facing-direction
+        /// fallback at full range. 0.16 s fade.</summary>
+        void FireBoltStreak(ISimSnapshot sim)
+        {
+            if (_boltStreak == null)
+            {
+                var streakObject = new GameObject("BoltStreak");
+                streakObject.transform.SetParent(transform, false);
+                _boltStreak = streakObject.AddComponent<LineRenderer>();
+                _boltStreak.positionCount = 2;
+                _boltStreak.useWorldSpace = true;
+                _boltStreak.startWidth = 0.07f;
+                _boltStreak.endWidth = 0.015f;
+                _boltStreakMaterial = ViewWorld.MakeUnlit(new Color(0.75f, 0.55f, 1f, 0.9f), true);
+                _boltStreak.sharedMaterial = _boltStreakMaterial;
+                _boltStreak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var player = sim.Player;
+            const float BoltRange = 420f;   // HackSpec.BoltRange (view copy — decoration)
+            var bestSq = BoltRange * BoltRange;
+            float targetX = player.X + player.Facing * BoltRange, targetY = player.Y;
+            var enemies = sim.Enemies;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var e = enemies[i];
+                if (e.Dead) continue;
+                var dx = e.X - player.X;
+                var dy = (e.Y - player.Y) * SimConfig.IsoY;
+                var dSq = dx * dx + dy * dy;
+                if (dSq >= bestSq) continue;
+                bestSq = dSq;
+                targetX = e.X;
+                targetY = e.Y;
+            }
+            _boltStreak.SetPosition(0, ViewWorld.ToWorld(player.X, player.Y, 1.1f));
+            _boltStreak.SetPosition(1, ViewWorld.ToWorld(targetX, targetY, 0.9f));
+            _boltStreakTime = 0.16f;
+            _boltStreak.enabled = true;
+        }
+
+        void UpdateBoltStreak(float deltaTime)
+        {
+            if (_boltStreak == null || !_boltStreak.enabled) return;
+            _boltStreakTime -= deltaTime;
+            if (_boltStreakTime <= 0f) { _boltStreak.enabled = false; return; }
+            var c = _boltStreakMaterial.color;
+            c.a = 0.9f * Mathf.Clamp01(_boltStreakTime / 0.16f);
+            _boltStreakMaterial.color = c;
+        }
+
         void UpdateBursts(float deltaTime)
         {
             _sparkBudget = 0;   // §C3 per-frame spawn budget resets here
             StepRingPool(_bursts, deltaTime);
             StepRingPool(_sparks, deltaTime);
+            UpdateScorches(deltaTime);
+            UpdateBoltStreak(deltaTime);
         }
 
         static void StepRingPool(Burst[] pool, float deltaTime)
@@ -311,6 +444,9 @@ namespace CinderCourt.View
                 if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
             for (var i = 0; i < _sparks.Length; i++)
                 if (_sparks[i].Ring != null) _sparks[i].Ring.enabled = false;
+            for (var i = 0; i < _scorches.Length; i++)
+                if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
+            if (_boltStreak != null) _boltStreak.enabled = false;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
             if (_pulseRing != null) _pulseRing.enabled = false;
