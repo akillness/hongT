@@ -116,3 +116,9 @@ _workspace/**/pipeline/
 .DS_Store
 .gh-pages-worktree/
 node_modules/
+
+# agent session runtime state (not repo artifacts)
+.gjc/
+.jeo/
+.omc/
+.pi/
