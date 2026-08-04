@@ -19,7 +19,7 @@ namespace CinderCourt.View
         {
             Application.targetFrameRate = -1;   // browser vsync owns pacing
 
-            PlayerPrefab = Resources.Load<GameObject>("Characters/guard");
+            PlayerPrefab = Resources.Load<GameObject>("Characters/lantern-reaver");
             LoadEnemy(EnemyVisual.EmberCohort, "Characters/ember-cohort");
             LoadEnemy(EnemyVisual.Scout, "Characters/scout");
             LoadEnemy(EnemyVisual.Shade, "Characters/shade");

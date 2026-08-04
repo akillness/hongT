@@ -331,7 +331,9 @@ namespace CinderCourt.View
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
                 if (_companionView != null)
                 {
+                    var preparation = _sim as IRunPreparationSnapshot;
                     _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,
+                        preparation != null ? preparation.CompanionFacing : 0,
                         hack.CompanionAttacking);
                 }
             }

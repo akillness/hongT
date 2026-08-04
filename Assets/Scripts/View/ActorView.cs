@@ -124,10 +124,14 @@ namespace CinderCourt.View
 
         float _companionLastX;
 
-        /// <summary>Companion follower (spec §4): position + attack pose, no bars.</summary>
-        public void SyncCompanion(float simX, float simY, bool attacking)
+        /// <summary>Companion follower (spec §4): position + attack pose, no bars.
+        /// The simulation provides attack-facing; zero preserves the legacy
+        /// movement-derived fallback for snapshots that do not expose it.</summary>
+        public void SyncCompanion(float simX, float simY, int attackFacing, bool attacking)
         {
-            var facing = simX >= _companionLastX ? 1 : -1;
+            var facing = attackFacing == 0
+                ? (simX >= _companionLastX ? 1 : -1)
+                : attackFacing;
             _companionLastX = simX;
             Apply(simX, simY, facing,
                   attacking ? ActorAction.Attack : ActorAction.Move,

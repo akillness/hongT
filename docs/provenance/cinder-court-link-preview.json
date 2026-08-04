@@ -1,0 +1,28 @@
+{
+  "asset": "docs/branding/cinder-court-link-preview.png",
+  "purpose": "GitHub Pages Open Graph and Twitter social link preview",
+  "created": "2026-08-04",
+  "tool": {
+    "name": "god-tibo-imagen",
+    "command": "gti --prompt <recorded prompt> --size 2048x1152 --output docs/branding/cinder-court-link-preview-source.png",
+    "provider": "private-codex",
+    "model": "gpt-5.4",
+    "dryRunValidated": true,
+    "dryRunValidation": "Exact request completed with gti --dry-run on 2026-08-04; no warnings."
+  },
+  "prompt": "Create original premium dark-fantasy game key art for Cinder Court. A battle-worn human Lantern Reaver in ash-black and antique bronze armor, holding a small ember lantern and a short blade, stands in the right third of an immense ruined tribunal dungeon. A spectral cyan guardian echo emerges from a circular floor sigil; gigantic broken arches, non-walkable elevated galleries, hanging chains, distant colossal statues, and a glowing gate establish grand scale. In the foreground: readable ember-orange runes and a small reward reliquary; in the distance: ash fog and an original humanoid corrupt enforcer silhouette. Cinematic 3/4 ground-level composition, charcoal / ember orange / spectral cyan palette, clear left-side negative space for a future social title, dark-souls-like mood but entirely original. No copied characters, named game symbols, logos, UI, captions, typography, watermarks, or readable text. Avoid sexualization, gore, and close-up top-down camera.",
+  "referenceInputs": [
+    "User-provided Achilles: Legends Untold short and screenshots were analyzed only for broad readability and cinematic staging; no image was supplied to the generator.",
+    "Cinder Court approved visual palette and Lantern Reaver story specification."
+  ],
+  "sourceOutput": {
+    "path": "docs/branding/cinder-court-link-preview-source.png",
+    "returnedSize": "1672x941"
+  },
+  "derivative": {
+    "path": "docs/branding/cinder-court-link-preview.png",
+    "method": "Centered 1672x878 crop followed by Lanczos resize through macOS sips",
+    "size": "1200x630"
+  },
+  "originality": "Original Cinder Court asset. It deliberately excludes copied characters, logos, UI, names, screenshots, and recognizable protected designs."
+}

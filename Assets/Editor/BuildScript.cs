@@ -82,9 +82,9 @@ namespace CinderCourt.EditorTools
 
             if (!html.Contains("name=\"twitter:card\""))
             {
-                var headMarker = "<meta charset=\"UTF-8\">";
-                if (html.Contains(headMarker))
-                    html = html.Replace(headMarker, $"{headMarker}\n    {SocialHeadBlock}");
+                const string headEnd = "</head>";
+                if (html.Contains(headEnd))
+                    html = html.Replace(headEnd, $"{SocialHeadBlock}\n  {headEnd}");
             }
 
             // Static viewport meta + responsive canvas CSS — injected AFTER
@@ -132,16 +132,7 @@ namespace CinderCourt.EditorTools
             }
 
             var destination = Path.Combine(outputDir, SocialPreviewFile);
-            if (!File.Exists(destination))
-                File.Copy(source, destination);
-            else if (!FileEquals(source, destination))
-                File.Copy(source, destination, true);
-        }
-
-        static bool FileEquals(string a, string b)
-        {
-            if (!File.Exists(a) || !File.Exists(b)) return false;
-            return new FileInfo(a).Length == new FileInfo(b).Length;
+            File.Copy(source, destination, true);
         }
 
         /// <summary>Head block: static viewport meta + responsive canvas CSS.

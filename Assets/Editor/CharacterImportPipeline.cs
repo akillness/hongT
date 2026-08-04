@@ -21,7 +21,7 @@ namespace CinderCourt.EditorTools
         // Full roster per docs/SIM_SPEC.md §Roster. Import fails when any is absent.
         static readonly string[] Roster =
         {
-            "guard", "ember-cohort", "scout", "shade", "possessed",
+            "guard", "lantern-reaver", "ember-cohort", "scout", "shade", "possessed",
             "shadow-commander-boss", "broken-court-monarch-boss",
         };
 

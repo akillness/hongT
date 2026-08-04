@@ -38,6 +38,36 @@ namespace CinderCourt.Tests
                 $"unknown stage {stageId}");
             return config;
         }
+        private static CinderSim ClearedCinderSpan()
+        {
+            var config = Dungeon(attack: 10, vitality: 10, swiftness: 10, weapon: 5, lantern: 5, cloak: 5);
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 60 * 400; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if (sim.StageCleared)
+                {
+                    return sim;
+                }
+                if (sim.Mode == SimMode.GameOver)
+                {
+                    break;
+                }
+            }
+
+            Assert.Fail($"the max-stat pilot must clear cinder-span (reason {sim.Digest.Reason})");
+            return sim;
+        }
+
+        private static void AssertSamePreparationOffer(
+            PreparationOffer expected,
+            PreparationOffer actual,
+            string label)
+        {
+            Assert.That(actual.Kind, Is.EqualTo(expected.Kind), $"{label} kind");
+            Assert.That(actual.Variant, Is.EqualTo(expected.Variant), $"{label} variant");
+            Assert.That(actual.Magnitude, Is.EqualTo(expected.Magnitude), $"{label} magnitude");
+        }
 
         private static SimInput Script(int tick)
         {
@@ -1414,6 +1444,102 @@ namespace CinderCourt.Tests
             }
             Assert.That(dealt, Is.EqualTo(expected).Within(1e-2f),
                 "the companion hits for 60% of the player's attack");
+        }
+
+        [Test]
+        public void Companion_AttackingLeftTarget_PublishesLeftFacing()
+        {
+            var config = Dungeon(companionId: "ember-cohort");
+            var sim = new CinderSim(in config);
+            var beforeIds = new System.Collections.Generic.List<int>();
+            var beforeHealth = new System.Collections.Generic.List<float>();
+            bool sawVisibleAttackAgainstLeftTarget = false;
+
+            for (int tick = 0; tick < 60 * 6; tick += 1)
+            {
+                beforeIds.Clear();
+                beforeHealth.Clear();
+                for (int index = 0; index < sim.Enemies.Count; index += 1)
+                {
+                    beforeIds.Add(sim.Enemies[index].Id);
+                    beforeHealth.Add(sim.Enemies[index].Health);
+                }
+
+                sim.Tick(new SimInput { MoveX = 1f });
+                if ((sim.Events & SimEvents.EnemyHit) == SimEvents.None)
+                {
+                    continue;
+                }
+
+                EnemyState damaged = default;
+                bool foundDamaged = false;
+                for (int index = 0; index < sim.Enemies.Count; index += 1)
+                {
+                    EnemyState enemy = sim.Enemies[index];
+                    int beforeIndex = beforeIds.IndexOf(enemy.Id);
+                    if (beforeIndex < 0 || enemy.Health >= beforeHealth[beforeIndex])
+                    {
+                        continue;
+                    }
+                    damaged = enemy;
+                    foundDamaged = true;
+                    break;
+                }
+
+                if (!foundDamaged || damaged.X >= sim.CompanionX)
+                {
+                    continue;
+                }
+
+                sawVisibleAttackAgainstLeftTarget = true;
+                Assert.That(sim.CompanionAttacking, Is.True,
+                    "the target-facing direction is published while the companion swing is visible");
+                Assert.That(sim.CompanionFacing, Is.EqualTo(-1),
+                    "a visible companion attack must face its damaged target to the left");
+                break;
+            }
+
+            Assert.That(sawVisibleAttackAgainstLeftTarget, Is.True,
+                "the deterministic rightward input must produce a visible companion attack against a target to its left");
+        }
+
+        [Test]
+        public void EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose()
+        {
+            var unclearedConfig = Dungeon();
+            var uncleared = new CinderSim(in unclearedConfig);
+            Assert.That(uncleared.BeginEmberRest(2, 173), Is.False,
+                "Ember Rest cannot open before a dungeon stage is cleared");
+
+            var sim = ClearedCinderSpan();
+            IRunPreparationSnapshot rest = sim;
+            const int RoomIndex = 2;
+            const int RewardSeed = 173;
+
+            Assert.That(sim.BeginEmberRest(RoomIndex, RewardSeed), Is.True,
+                "a cleared dungeon stage can open Ember Rest");
+            PreparationOffer first0 = rest.EmberRestOffer0;
+            PreparationOffer first1 = rest.EmberRestOffer1;
+            PreparationOffer first2 = rest.EmberRestOffer2;
+            Assert.That(first0.IsValid && first1.IsValid && first2.IsValid, Is.True,
+                "an open Ember Rest publishes all three selectable offers");
+
+            Assert.That(sim.EndEmberRest(), Is.True);
+            Assert.That(rest.EmberRestOpen, Is.False,
+                "ending an Ember Rest removes the active choice state");
+
+            Assert.That(sim.BeginEmberRest(RoomIndex, RewardSeed), Is.True,
+                "the same cleared stage can revisit Ember Rest after the prior choice closes");
+            AssertSamePreparationOffer(first0, rest.EmberRestOffer0, "first offer");
+            AssertSamePreparationOffer(first1, rest.EmberRestOffer1, "second offer");
+            AssertSamePreparationOffer(first2, rest.EmberRestOffer2, "third offer");
+
+            Assert.That(sim.TrySelectPreparation(1), Is.True);
+            Assert.That(sim.EndEmberRest(), Is.True);
+            Assert.That(rest.EmberRestOpen, Is.False,
+                "selection closes through the public Ember Rest exit");
+            AssertSamePreparationOffer(first1, rest.SelectedPreparation,
+                "the selected offer persists after the rest closes");
         }
 
         // --- §7 boss phase 2 ------------------------------------------------------

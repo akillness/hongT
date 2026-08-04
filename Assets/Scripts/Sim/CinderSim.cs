@@ -16,7 +16,7 @@ namespace CinderCourt.Sim
     /// (docs/SIM_SPEC_HACKSLASH.md) — prologue, combo, dash, skills, elites,
     /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
-    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot
+    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot, IRunPreparationSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -174,6 +174,12 @@ namespace CinderCourt.Sim
         private float _companionX, _companionY;
         private float _companionTimer;
         private float _companionShow;
+        private int _companionFacing;
+        private bool _emberRestOpen;
+        private int _emberRestRoomIndex;
+        private int _emberRestSeed;
+        private PreparationOffer _emberRestOffer0, _emberRestOffer1, _emberRestOffer2;
+        private PreparationOffer _selectedPreparation;
         private float _bossHp, _bossMaxHp;
         private int _bossPhase;
         private bool _bossPhase2Done;
@@ -302,6 +308,14 @@ namespace CinderCourt.Sim
         public float BossMaxHp => _bossMaxHp;
         public int BossPhase => _bossPhase;
         public int RosterMask => _rosterMask;
+        public int EmberRestRoomIndex => _emberRestRoomIndex;
+        public bool EmberRestOpen => _emberRestOpen;
+        public int EmberRestSeed => _emberRestSeed;
+        public PreparationOffer EmberRestOffer0 => _emberRestOffer0;
+        public PreparationOffer EmberRestOffer1 => _emberRestOffer1;
+        public PreparationOffer EmberRestOffer2 => _emberRestOffer2;
+        public PreparationOffer SelectedPreparation => _selectedPreparation;
+        public int CompanionFacing => _companionFacing;
 
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
@@ -385,6 +399,103 @@ namespace CinderCourt.Sim
             StartWave(1);
             _events = SimEvents.None;
             Publish();
+        }
+
+        /// <summary>
+        /// Opens the post-room preparation state only after a cleared dungeon stage.
+        /// The caller owns presentation and the next-stage handoff; the simulation
+        /// owns the reproducible offers and selected temporary preparation.
+        /// </summary>
+        public bool BeginEmberRest(int roomIndex, int rewardSeed)
+        {
+            if (!_dungeon || !_stageCleared || _emberRestOpen || roomIndex < 1 || roomIndex > 3)
+            {
+                return false;
+            }
+
+            _emberRestOpen = true;
+            _emberRestRoomIndex = roomIndex;
+            _emberRestSeed = rewardSeed;
+            _emberRestOffer0 = BuildPreparationOffer(rewardSeed, roomIndex, 0);
+            _emberRestOffer1 = BuildPreparationOffer(rewardSeed, roomIndex, 1);
+            _emberRestOffer2 = BuildPreparationOffer(rewardSeed, roomIndex, 2);
+            _selectedPreparation = default;
+            return true;
+        }
+
+        /// <summary>Selects an offered temporary preparation; false for invalid state or index.</summary>
+        public bool TrySelectPreparation(int offerIndex)
+        {
+            if (!_emberRestOpen)
+            {
+                return false;
+            }
+
+            PreparationOffer offer;
+            switch (offerIndex)
+            {
+                case 0: offer = _emberRestOffer0; break;
+                case 1: offer = _emberRestOffer1; break;
+                case 2: offer = _emberRestOffer2; break;
+                default: return false;
+            }
+
+            if (!offer.IsValid)
+            {
+                return false;
+            }
+
+            _selectedPreparation = offer;
+            return true;
+        }
+
+        /// <summary>Records an explicit no-choice outcome for the current Ember Rest.</summary>
+        public bool DeferPreparation()
+        {
+            if (!_emberRestOpen)
+            {
+                return false;
+            }
+
+            _selectedPreparation = default;
+            return true;
+        }
+
+        /// <summary>Closes Ember Rest while preserving the selected run-scoped preparation.</summary>
+        public bool EndEmberRest()
+        {
+            if (!_emberRestOpen)
+            {
+                return false;
+            }
+
+            _emberRestOpen = false;
+            return true;
+        }
+
+        private static PreparationOffer BuildPreparationOffer(int seed, int roomIndex, int slot)
+        {
+            uint value = PreparationHash(seed, roomIndex, slot);
+            return new PreparationOffer
+            {
+                Kind = (PreparationOfferKind)(1 + (int)(value % 3u)),
+                Variant = 1 + (int)((value >> 8) % 3u),
+                Magnitude = 1 + (int)((value >> 16) % 2u),
+            };
+        }
+
+        private static uint PreparationHash(int seed, int roomIndex, int slot)
+        {
+            unchecked
+            {
+                uint value = (uint)seed;
+                value ^= (uint)roomIndex * 0x9E3779B9u;
+                value ^= (uint)(slot + 1) * 0x85EBCA6Bu;
+                value ^= value >> 16;
+                value *= 0xC2B2AE35u;
+                value ^= value >> 13;
+                return value;
+            }
         }
 
         public void Tick(in SimInput input)
@@ -909,13 +1020,24 @@ namespace CinderCourt.Sim
             _companionTimer = MathF.Max(0f, _companionTimer - deltaTime);
             if (_companionTimer > 0f)
             {
+                if (_companionShow <= 0f)
+                {
+                    _companionFacing = _player.Facing;
+                }
                 return;
             }
 
             int target = NearestEnemyIndex(_companionX, _companionY, HackSpec.CompanionAttackRange);
             if (target < 0)
             {
+                _companionFacing = _player.Facing;
                 return;
+            }
+
+            float targetDeltaX = _enemies[target].State.X - _companionX;
+            if (MathF.Abs(targetDeltaX) > MoveEpsilon)
+            {
+                _companionFacing = targetDeltaX > 0f ? 1 : -1;
             }
 
             _companionTimer = HackSpec.CompanionAttackInterval;
@@ -1887,6 +2009,13 @@ namespace CinderCourt.Sim
             _corpseCount = 0;
             _companionTimer = HackSpec.CompanionAttackInterval;
             _companionShow = 0f;
+            _emberRestOpen = false;
+            _emberRestRoomIndex = 0;
+            _emberRestSeed = 0;
+            _emberRestOffer0 = default;
+            _emberRestOffer1 = default;
+            _emberRestOffer2 = default;
+            _selectedPreparation = default;
             _bossHp = 0f;
             _bossMaxHp = 0f;
             _bossPhase = 0;
@@ -1903,6 +2032,7 @@ namespace CinderCourt.Sim
         {
             _companionX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
             _companionY = _player.Y;
+            _companionFacing = _player.Facing;
         }
 
         private void RaiseRank(int slot)
