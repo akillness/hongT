@@ -169,16 +169,20 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 
 좌표는 전부 frozen 배치 테이블(CampaignTypes L163-182)의 검증된 값 재사용 — 아레나 경계 내 성립이 자동 보장된다. 해저드 4개 동시는 AbyssChancel로 기존 증명. 페어별 최소 중심거리 실측치를 병기: 반경 합 + 회피 통로 검증은 `CampaignSpec.VentRadius/PillarRadius/AltarRadius` 실측 후 EditMode 테스트로 고정한다 `[TARGET]`.
 
-| # | id | 앵커(심) | 웨이브+보스 | 해저드 구성 | 전술 의도 |
-|---|---|---|---|---|---|
-| S1 | cinder-span | cinder-span | 5+Commander | (불변) Vent(560,480,φ0)·Vent(980,720,φ1.2) | 벤트 타이밍 학습 |
-| S2 | ember-gallery (1+2) | abyss-chancel | 6+Commander | Vent(560,480,φ0)·Vent(980,720,φ1.2)·Vent(1100,450,φ0.6)·Pillar(768,604) | 중앙 기둥을 등지고 3벤트 로테이션 판독 — 스팬의 "타이밍"과 챈슬의 "엄폐"가 한 판에. 최소 페어거리 241.7 |
-| S3 | abyss-chancel | abyss-chancel | 6+Commander | (불변) Pillar×3·Vent(1100,450,φ0.6) | 기둥 홀드 교전 |
-| S4 | witness-well (2+3) | echo-throne | 7+Monarch | Altar(768,604)·Pillar(640,500)·Pillar(900,700)·Vent(1030,480,φ1.2) | 제단 축성 채널을 기둥 페어로 엄호, 동측 카이트 레인은 벤트가 봉쇄. 최소 페어거리 163.2(제단-기둥 — 반경 실측 게이트 대상) |
-| S5 | echo-throne | echo-throne | 7+Monarch | (불변) Altar·Vent(500,700,φ0)·Vent(1030,480,φ1.2) | 제단+벤트 압박 |
-| S6 | ash-verdict (1+3, 최종) | echo-throne | 7+Monarch | Altar(768,604)·Vent(560,480,φ0)·Vent(980,720,φ1.2)·Vent(1030,480,φ0.6) | 제단 채널 vs 3벤트 1/3박 로테이션 — 캠페인 전술 총결산. 최소 페어거리 242 |
+**앵커 = 보상 슬롯이다 [OBSERVED]**: 캠페인 보스 처치의 확정 보상은 `RaiseRank(_config.StageIndex % EquipSlotCount)`(CinderSim L1647, `EquipSlotCount=3` CampaignTypes L127) — 앵커 StageIndex가 무기(0)/랜턴(1)/클록(2) 슬롯을 결정한다. 조합 스테이지의 앵커는 **두 부모 중 슬롯 분포가 2/2/2가 되는 쪽**으로 선택했다(해저드는 override가 이기므로 앵커는 웨이브 수·보스 비주얼·보상 슬롯 3가지만 결정): 완주 시 무기×2/랜턴×2/클록×2. 앵커를 임의로 바꾸면 이 분포가 깨진다 — 카탈로그 주석에 이 제약을 남길 것. 랭크는 런 시작 1회 적용 계약이라 획득 랭크는 **다음 런부터 반영**(L1727 주석 문법 동일) — Ember Rest/결과 화면에 "다음 강하부터" 표기.
 
-- **보스 변주 (View, §P2 문법 재사용)**: S2 "회랑 감독관" = Commander + 엠버 림 / S4 "우물의 증인" = Monarch + 바이올렛 틴트 + 스케일 1.1 / S6 "판결자" = Monarch + 골드-재 틴트. 이름은 StoryCatalog 확장(카탈로그 storyKey).
+| # | id | 앵커(심) | 웨이브+보스 | 보상 슬롯 | 해저드 구성 | 전술 의도 |
+|---|---|---|---|---|---|---|
+| S1 | cinder-span | cinder-span | 5+Commander | 무기 | (불변) Vent(560,480,φ0)·Vent(980,720,φ1.2) | 벤트 타이밍 학습 |
+| S2 | ember-gallery (1+2) | cinder-span | 5+Commander | 무기 | Vent(560,480,φ0)·Vent(980,720,φ1.2)·Vent(1100,450,φ0.6)·Pillar(768,604) | 중앙 기둥을 등지고 3벤트 로테이션 판독 — 스팬의 "타이밍"과 챈슬의 "엄폐"가 한 판에. 최소 페어거리 241.7 |
+| S3 | abyss-chancel | abyss-chancel | 6+Commander | 랜턴 | (불변) Pillar×3·Vent(1100,450,φ0.6) | 기둥 홀드 교전 |
+| S4 | witness-well (2+3) | abyss-chancel | 6+Commander | 랜턴 | Altar(768,604)·Pillar(640,500)·Pillar(900,700)·Vent(1030,480,φ1.2) | 제단 축성 채널을 기둥 페어로 엄호, 동측 카이트 레인은 벤트가 봉쇄. 최소 페어거리 163.2(제단-기둥 — 반경 실측 게이트 대상) |
+| S5 | echo-throne | echo-throne | 7+Monarch | 클록 | (불변) Altar·Vent(500,700,φ0)·Vent(1030,480,φ1.2) | 제단+벤트 압박 |
+| S6 | ash-verdict (1+3, 최종) | echo-throne | 7+Monarch | 클록 | Altar(768,604)·Vent(560,480,φ0)·Vent(980,720,φ1.2)·Vent(1030,480,φ0.6) | 제단 채널 vs 3벤트 1/3박 로테이션 — 캠페인 전술 총결산. 최소 페어거리 242 |
+
+웨이브 곡선 5,5,6,6,7,7 단조 증가 + 최종 2연전만 Monarch — 난이도 클라이맥스 유지.
+
+- **보스 변주 (View, §P2 문법 재사용)**: S2 "회랑 감독관" = Commander + 엠버 림 / S4 "우물의 증인" = Commander + 바이올렛 틴트 + 스케일 1.1(S3 무변주 Commander와 구분) / S6 "판결자" = Monarch + 골드-재 틴트. 이름은 StoryCatalog 확장(카탈로그 storyKey).
 - **스토리 비트 (원본, 복제 금지 계약 내)**: S2 아카이브의 잿불이 회랑으로 번지며 **집행자가 판결문을 위조하는 첫 융합 기억** 목격 → S4 증언 기둥이 우물로 가라앉고 수호자 메아리가 **위조 전 원본 증언** 회수 → S6 재와 제단이 겹친 최종 법정에서 회수한 기억 전부를 제단에 세워 **집행자의 이름을 판결문에 되새김** → Tribunal Arena 개방.
 - **터레인/조명**: 신규 FBX 없이 시작 — S2 = terrain-abyss-chancel + 스팬 엠버 벤트 프롭·엠버 accent, S4 = terrain-echo-throne + 챈슬 기둥 프롭·바이올렛-시안 accent, S6 = terrain-echo-throne + 스팬 재 잔해 프롭·골드-재 accent. accent는 카탈로그 필드로 LobbyStaging switch 대체.
 
@@ -188,7 +192,7 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 - **예산**: 캐릭터 ≤25k tri·총 빌드 ≤120 MB 불변 — 프롭 킷은 스테이지당 합계 ≤8k tri 목표 `[TARGET]`.
 
 ### T5. 검증
-- EditMode 신규: (a) 카탈로그 6엔트리 무결성(앵커 존재·prereq 체인 무순환·terrainId 프리팹 존재), (b) 해저드 override 쌍별 거리 ≥ 반경합+80(회피 통로), (c) T2 마이그레이션(레거시 3 bool → 마스크). 기존 `CampaignSimTests`는 frozen 앵커 불변이므로 무수정 통과가 곧 회귀 증명.
+- EditMode 신규: (a) 카탈로그 6엔트리 무결성(앵커 존재·prereq 체인 무순환·terrainId 프리팹 존재), (b) 해저드 override 쌍별 거리 ≥ 반경합+80(회피 통로), (c) T2 마이그레이션(레거시 3 bool → 마스크), (d) **보상 분포 — 카탈로그 6엔트리의 `anchorStageIndex % 3`이 정확히 {0,0,1,1,2,2}** (완주 시 무기+2/랜턴+2/클록+2 — 앵커 변경 회귀를 여기서 잡는다). 기존 `CampaignSimTests`는 frozen 앵커 불변이므로 무수정 통과가 곧 회귀 증명.
 - 스모크: 6스테이지 순차 클리어 1회 통주 — 각 스테이지 진입 스크린샷 + 해금 체인 확인.
 
 ---
