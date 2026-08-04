@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.6020075">
+  <test-suite type="TestSuite" id="1000" name="Abyssal Lantern — Cinder Court" fullname="Abyssal Lantern — Cinder Court" runstate="Runnable" testcasecount="109" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.602008" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1121" name="CinderCourt.Tests.EditMode.dll" fullname="/Users/jangyoung/orca/workspaces/HongT/main/Library/ScriptAssemblies/CinderCourt.Tests.EditMode.dll" runstate="Runnable" testcasecount="109" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.588609" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="38077" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1122" name="CinderCourt" fullname="CinderCourt" runstate="Runnable" testcasecount="109" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.585111" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1123" name="Tests" fullname="CinderCourt.Tests" runstate="Runnable" testcasecount="109" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.582516" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1038" name="GameDirectorCampaignRouteTests" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.578168" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="ParameterizedMethod" id="1043" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.574597" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1041" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(True)" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(True)" methodname="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="1133148068" result="Passed" start-time="2026-08-04 20:52:18Z" end-time="2026-08-04 20:52:19Z" duration="0.563813" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1042" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(False)" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(False)" methodname="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="1895193685" result="Passed" start-time="2026-08-04 20:52:19Z" end-time="2026-08-04 20:52:19Z" duration="0.001745" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: /Users/jangyoung/Library/Application Support/HongT/Abyssal Lantern — Cinder Court/TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

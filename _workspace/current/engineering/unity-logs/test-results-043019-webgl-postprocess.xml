@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.0693209">
+  <test-suite type="TestSuite" id="1000" name="Abyssal Lantern — Cinder Court" fullname="Abyssal Lantern — Cinder Court" runstate="Runnable" testcasecount="105" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.069321" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1116" name="CinderCourt.Tests.EditMode.dll" fullname="/Users/jangyoung/orca/workspaces/HongT/main/Library/ScriptAssemblies/CinderCourt.Tests.EditMode.dll" runstate="Runnable" testcasecount="105" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.062556" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="85982" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1117" name="CinderCourt" fullname="CinderCourt" runstate="Runnable" testcasecount="105" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.060920" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1118" name="Tests" fullname="CinderCourt.Tests" runstate="Runnable" testcasecount="105" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.058808" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="BuildScriptWebGlPostprocessTests" fullname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" classname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.044500" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1002" name="PolishIndexHtml_FixesBackingStoreBeforeLoader_AndIsIdempotent" fullname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests.PolishIndexHtml_FixesBackingStoreBeforeLoader_AndIsIdempotent" methodname="PolishIndexHtml_FixesBackingStoreBeforeLoader_AndIsIdempotent" classname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" runstate="Runnable" seed="405077074" result="Passed" start-time="2026-08-04 19:29:57Z" end-time="2026-08-04 19:29:58Z" duration="0.032157" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: /Users/jangyoung/Library/Application Support/HongT/Abyssal Lantern — Cinder Court/TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -11,7 +11,7 @@
 
 | # | 제출물 | 제출 형태 | 이 저장소의 산출물 | 상태 |
 |---|---|---|---|---|
-| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 102/102 통과 |
+| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 111/111 통과 |
 | 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (48.1 s) | 캡처 완료 · **업로드 필요** |
 | 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) | 마크다운 갱신 · 제출 PDF는 그대로 보존 |
 | 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) (0-bis Unity 증보 포함) | 마크다운 갱신 · 제출 PDF는 그대로 보존 |

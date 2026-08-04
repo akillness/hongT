@@ -16,7 +16,7 @@ lang: ko
 | 3D 캐릭터 재스키닝 | Blender 5.1 headless + 에이전트 워크플로 | 8종 휴머노이드 FBX (본히트 자동 웨이트) |
 | 모션 | Mixamo 벤치 FBX → Unity Humanoid 리타겟 | 11액션 공유 라이브러리 |
 | 사운드 | **ElevenLabs sound-generation API** | SFX 8종 + 로어 앰비언트 + BGM 루프 (`docs/provenance/audio.json`) |
-| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 102/102 통과, 실패 0 |
+| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 111/111 통과, 실패 0 |
 | 플레이 영상 | CDP 스크린캐스트 하니스 | 배포 빌드 실플레이 48 s |
 | UI 아이콘 세트 | god-tibo-imagen (gpt-5.4) + 마젠타 키 매팅 | 스킬 7·장비 3·스탯 3·픽업 3·앱 1·버튼 9-slice 플레이트 (256px 스프라이트, `Assets/Resources/Icons/`) |
 | 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX 변환 → URP Unlit 리맵 | 3개 지형 앵커를 공유하는 6단계 캠페인 바닥·소품·피처 프리팹 (`Assets/Resources/Terrain/`) |

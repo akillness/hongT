@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.1200787">
+  <test-suite type="TestSuite" id="1000" name="Abyssal Lantern — Cinder Court" fullname="Abyssal Lantern — Cinder Court" runstate="Runnable" testcasecount="109" result="Failed" site="Child" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.120079" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1121" name="CinderCourt.Tests.EditMode.dll" fullname="/Users/jangyoung/orca/workspaces/HongT/main/Library/ScriptAssemblies/CinderCourt.Tests.EditMode.dll" runstate="Runnable" testcasecount="109" result="Failed" site="Child" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.110793" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="20307" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1122" name="CinderCourt" fullname="CinderCourt" runstate="Runnable" testcasecount="109" result="Failed" site="Child" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.105462" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1123" name="Tests" fullname="CinderCourt.Tests" runstate="Runnable" testcasecount="109" result="Failed" site="Child" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.099461" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestFixture" id="1015" name="CharacterRosterAnimationTests" fullname="CinderCourt.Tests.CharacterRosterAnimationTests" classname="CinderCourt.Tests.CharacterRosterAnimationTests" runstate="Runnable" testcasecount="1" result="Failed" site="Child" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.073326" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-case id="1016" name="CharacterRoster_ActorsRenderAndAnimateSharedAttack" fullname="CinderCourt.Tests.CharacterRosterAnimationTests.CharacterRoster_ActorsRenderAndAnimateSharedAttack" methodname="CharacterRoster_ActorsRenderAndAnimateSharedAttack" classname="CinderCourt.Tests.CharacterRosterAnimationTests" runstate="Runnable" seed="1946552009" result="Failed" start-time="2026-08-04 21:18:42Z" end-time="2026-08-04 21:18:42Z" duration="0.056776" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <failure>
+                <message><![CDATA[  guard SkinnedMeshRenderer 'Body' at attack normalized time 0.2 expanded 1.00x beyond its rest extent radius; rest=(1.20, 1.35, 1.11), attack=(1.20, 1.35, 1.11)
+  Expected: less than or equal to 0.00999999978f
+  But was:  1.0f
+]]></message>
+                <stack-trace><![CDATA[at CinderCourt.Tests.CharacterRosterAnimationTests.AssertAttackBoundsRemainPlausible (System.String characterId, System.Single normalizedTime, System.Collections.Generic.IReadOnlyDictionary`2[TKey,TValue] restBoundsByRenderer) [0x000b4] in /Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CharacterRosterAnimationTests.cs:136
+at CinderCourt.Tests.CharacterRosterAnimationTests.CharacterRoster_ActorsRenderAndAnimateSharedAttack () [0x003c2] in /Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CharacterRosterAnimationTests.cs:85
+]]></stack-trace>
+              </failure>
+              <output><![CDATA[Saving results to: /Users/jangyoung/Library/Application Support/HongT/Abyssal Lantern — Cinder Court/TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

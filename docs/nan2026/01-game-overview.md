@@ -144,7 +144,7 @@ python3 -m http.server 4173 --directory build-webgl
 ## 3.3 검증 실행
 
 ```bash
-bash tools/unity_batch.sh tests   # EditMode 테스트 102/102 통과, 실패 0
+bash tools/unity_batch.sh tests   # EditMode 테스트 111/111 통과, 실패 0
 ```
 Unity 6000.5.6f1 WebGL 빌드도 통과했습니다.
 
