@@ -62,7 +62,7 @@
 
 - **V1. 시전 동기화** (C2 개조): Attack/skill 액션 프레임에 손 본 수렴 글로우 0.12s → 방출. 판정 불변(장식 선행).
 - **V2. 벤트 fill 임박도**: 텔레그래프 링 내부 fill이 CycleT에 비례해 차오름 — 기존 HazardView 문법 확장. 리서치 1순위 항목.
-- **V3. 원소별 파티클 임팩트 (+interjection)**: **풀링 ParticleSystem 4종**(원소당 1, `Emit(count)` 무할당) — 볼트=보라 관통 잔광, 파동=녹색 틱 리플(0.5s 공명), 노바=엠버 낙하 파편, 에이기스=시안 흡수 플래시. maxParticles 상한, 머티리얼 원소당 1개 고정(MakeUnlit 시드 계약), reduced-motion 시 count 절반.
+- **V3. 원소별 파티클 임팩트 (+interjection)**: **풀링 ParticleSystem 4종**(원소당 1 시스템 사전 생성, `Emit(count)` 무할당 — 스폰마다 GameObject 생성 금지) — 볼트=보라 관통 잔광, 파동=녹색 틱 리플(0.5s 공명), 노바=엠버 낙하 파편, 에이기스=시안 흡수 플래시. maxParticles 상한, reduced-motion 시 count 절반. **기존 링/스파크 문법을 교체가 아니라 증강** — 검증된 LineRenderer 계층은 유지. **WebGL 셰이더 스트리핑 계약**: URP Particles 셰이더는 현재 빌드에 참조 머티리얼이 0개라 그대로 쓰면 변형이 스트립되어 분홍/불투명 렌더 — `RuntimeMaterialSeeds.Seed()`에 `particle-additive-seed.mat` 시드 블록 추가(빌드 훅 기배선), 런타임은 시드 클론만. `new Material(Shader.Find(...))` 직접 생성 금지.
 - **V4. URP 포스트 (블룸/비네트)**: 마지막 — WebGL p95 16.7ms 게이트 실측 선행, 초과 시 quality tier로 강등 또는 컷.
 - **인수**: 각 단계 EditMode 초록 + 데스크톱 스모크 스크린샷; V4는 프로파일 수치 첨부 없이 PASS 불가.
 
