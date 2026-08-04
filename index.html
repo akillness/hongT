@@ -7,6 +7,39 @@
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="apple-touch-icon" href="app-icon-192.png">
     <link rel="stylesheet" href="TemplateData/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <style>
+      /* mobile-layout spec #10-#13: brand letterbox + responsive canvas */
+      html, body { background: #050812; }
+      #unity-canvas { background: #050812; }
+      /* Desktop / wide: letterbox preserving 1280:853 (~3:2), never overflow
+         the viewport (spec #12 — fixes sub-1280 windows + iPadOS desktop UA). */
+      #unity-canvas.unity-responsive {
+        width: min(1280px, 100vw, calc(100vh * 1280 / 853));
+        height: auto;
+        aspect-ratio: 1280 / 853;
+      }
+      /* Narrow viewports (~phones reporting desktop UA): fill (spec #13 —
+         3D perspective renders any aspect; camera aspect-widen keeps the
+         arena visible; HUD corner-anchors adapt). */
+      @media (max-width: 500px) {
+        #unity-container.unity-desktop {
+          left: 0; top: 0; transform: none;
+          position: fixed; width: 100%; height: 100%;
+        }
+        #unity-canvas.unity-responsive {
+          width: 100%; height: 100%; aspect-ratio: auto;
+        }
+        #unity-footer { display: none; }
+      }
+      /* Notch safe-area (spec #10): pad the mobile container, not the canvas —
+         canvas padding would skew the WebGL pointer mapping. */
+      #unity-container.unity-mobile {
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                 env(safe-area-inset-bottom) env(safe-area-inset-left);
+        box-sizing: border-box; background: #050812;
+      }
+    </style>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -64,6 +97,7 @@
         productName: "Abyssal Lantern — Cinder Court",
         productVersion: "0.1.0",
         showBanner: unityShowBanner,
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
         // errorHandler: function(err, url, line) {
         //    alert("error " + err + " occurred at line " + line);
         //    // Return 'true' if you handled this error and don't want Unity
@@ -93,7 +127,7 @@
 
         var meta = document.createElement('meta');
         meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes, viewport-fit=cover';
         document.getElementsByTagName('head')[0].appendChild(meta);
         document.querySelector("#unity-container").className = "unity-mobile";
         canvas.className = "unity-mobile";
@@ -105,8 +139,7 @@
 
       } else {
         // Desktop style: Render the game canvas in a window that can be maximized to fullscreen:
-        canvas.style.width = "1280px";
-        canvas.style.height = "853px";
+        canvas.classList.add("unity-responsive");
       }
 
       document.querySelector("#unity-loading-bar").style.display = "block";
