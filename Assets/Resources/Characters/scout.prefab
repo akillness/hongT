@@ -52,10 +52,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: scout
       objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: 51eb32d37a995451ebcbd4a780a73cc0, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 51eb32d37a995451ebcbd4a780a73cc0, type: 3}
       propertyPath: m_Controller
       value: 

@@ -68,10 +68,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: shade
       objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: f720c2f6799fa49b9add0d67abe3712f, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5667219160841661371, guid: f720c2f6799fa49b9add0d67abe3712f, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.75013924

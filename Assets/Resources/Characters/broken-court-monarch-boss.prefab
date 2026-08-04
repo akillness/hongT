@@ -68,10 +68,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: broken-court-monarch-boss
       objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: dd5db15c44d0b4ab9bc8d08e3abff251, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: dd5db15c44d0b4ab9bc8d08e3abff251, type: 3}
       propertyPath: m_Controller
       value: 

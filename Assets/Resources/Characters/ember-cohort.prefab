@@ -52,10 +52,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: ember-cohort
       objectReference: {fileID: 0}
-    - target: {fileID: 1630794972795428178, guid: 239b65403869543f3aaf2ed5ad070358, type: 3}
-      propertyPath: 'm_Materials.Array.data[0]'
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 239b65403869543f3aaf2ed5ad070358, type: 3}
       propertyPath: m_Controller
       value: 
