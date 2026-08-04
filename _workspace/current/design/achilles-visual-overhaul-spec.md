@@ -167,7 +167,7 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 
 ### T3. 레벨디자인 — 6스테이지 사양
 
-좌표는 전부 frozen 배치 테이블(CampaignTypes L163-182)의 검증된 값 재사용 — 아레나 경계 내 성립이 자동 보장된다. 해저드 4개 동시는 AbyssChancel로 기존 증명. 페어별 최소 중심거리 실측치를 병기: 반경 합 + 회피 통로 검증은 `CampaignSpec.VentRadius/PillarRadius/AltarRadius` 실측 후 EditMode 테스트로 고정한다 `[TARGET]`.
+좌표는 전부 frozen 배치 테이블(CampaignTypes L163-182)의 검증된 값 재사용 — 아레나 경계 내 성립이 자동 보장된다. 해저드 4개 동시는 AbyssChancel로 기존 증명. 반경 실측 [OBSERVED]: `VentRadius=90` / `PillarRadius=40` / `AltarRadius=70` / `PlayerPushRadius=26` (CampaignSpec L113-122). **통로를 실제로 막는 해저드는 기둥뿐** — 밀어내기 루프가 `Kind != ObsidianPillar → continue`(CinderSim L2163-2167). 제단은 목적지(1.2s 홀드), 벤트는 주기 타이밍 존이라 통과 가능. 따라서 통로 규칙은 기둥 쌍에만 건다(T5(b)).
 
 **앵커 = 보상 슬롯이다 [OBSERVED]**: 캠페인 보스 처치의 확정 보상은 `RaiseRank(_config.StageIndex % EquipSlotCount)`(CinderSim L1647, `EquipSlotCount=3` CampaignTypes L127) — 앵커 StageIndex가 무기(0)/랜턴(1)/클록(2) 슬롯을 결정한다. 조합 스테이지의 앵커는 **두 부모 중 슬롯 분포가 2/2/2가 되는 쪽**으로 선택했다(해저드는 override가 이기므로 앵커는 웨이브 수·보스 비주얼·보상 슬롯 3가지만 결정): 완주 시 무기×2/랜턴×2/클록×2. 앵커를 임의로 바꾸면 이 분포가 깨진다 — 카탈로그 주석에 이 제약을 남길 것. 랭크는 런 시작 1회 적용 계약이라 획득 랭크는 **다음 런부터 반영**(L1727 주석 문법 동일) — Ember Rest/결과 화면에 "다음 강하부터" 표기.
 
@@ -192,7 +192,7 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 - **예산**: 캐릭터 ≤25k tri·총 빌드 ≤120 MB 불변 — 프롭 킷은 스테이지당 합계 ≤8k tri 목표 `[TARGET]`.
 
 ### T5. 검증
-- EditMode 신규: (a) 카탈로그 6엔트리 무결성(앵커 존재·prereq 체인 무순환·terrainId 프리팹 존재), (b) 해저드 override 쌍별 거리 ≥ 반경합+80(회피 통로), (c) T2 마이그레이션(레거시 3 bool → 마스크), (d) **보상 분포 — 카탈로그 6엔트리의 `anchorStageIndex % 3`이 정확히 {0,0,1,1,2,2}** (완주 시 무기+2/랜턴+2/클록+2 — 앵커 변경 회귀를 여기서 잡는다). 기존 `CampaignSimTests`는 frozen 앵커 불변이므로 무수정 통과가 곧 회귀 증명.
+- EditMode 신규: (a) 카탈로그 6엔트리 무결성(앵커 존재·prereq 체인 무순환·terrainId 프리팹 존재), (b) 해저드 override 배치 — **2규칙 분리**: ① 전 종류 쌍별 비중첩 `거리 > r합` (S4 제단-기둥 163.2 > 110, S6 벤트-벤트 245.2 > 180 — 전 스테이지 통과 확인), ② **기둥 쌍만** 회피 통로 `거리 ≥ r합 + 2×PlayerPushRadius(=52)` — 상수 유도 규칙, 임의 여유값 금지. S4 기둥쌍(640,500)-(900,700) 328.0 ≥ 132 통과. 단일 규칙 "+80"은 제단/벤트에 개념 오류 + 기존 frozen 배치도 아슬아슬해 폐기, (c) T2 마이그레이션(레거시 3 bool → 마스크), (d) **보상 분포 — 카탈로그 6엔트리의 `anchorStageIndex % 3`이 정확히 {0,0,1,1,2,2}** (완주 시 무기+2/랜턴+2/클록+2 — 앵커 변경 회귀를 여기서 잡는다). 기존 `CampaignSimTests`는 frozen 앵커 불변이므로 무수정 통과가 곧 회귀 증명.
 - 스모크: 6스테이지 순차 클리어 1회 통주 — 각 스테이지 진입 스크린샷 + 해금 체인 확인.
 
 ---
