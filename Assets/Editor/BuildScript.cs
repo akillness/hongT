@@ -3,6 +3,7 @@
 // fallback (no server config needed), relative template paths.
 using System;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 

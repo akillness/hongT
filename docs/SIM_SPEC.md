@@ -107,11 +107,17 @@
 | wave | triangle | 240→480 | 0.42 | 0.06 |
 | gameover | sine | 300→60 | 0.9 | 0.09 |
 
-생성 규칙: `tools/audio/gen_sfx.py`가 ElevenLabs `/v1/sound-generation`
-(하한 0.5 s)에 큐별 프롬프트로 요청한다. 생성 길이는 스크립트 소관(0.7–2.2 s,
-원본보다 김). 재생 계약: AudioDirector는 `PlayOneShot`으로 재생하고 **겹침을
-허용**한다(트리밍·컷 없음). 산출: `Assets/Art/Audio/cue-<name>.mp3` +
-`docs/provenance/audio.json`. 키는 env/`.env.game-audio`(커밋 금지)에서만 읽는다.
+생성 규칙 (사용자 지시 2026-08-04: SFX+BGM만, **음성 내레이션 금지**):
+`tools/audio/gen_sfx.py`가 ElevenLabs `/v1/sound-generation`(0.5–22 s)에 큐별
+프롬프트로 요청한다. 추가 큐 2종:
+- `lore` (4 s) — 웨이브 시작 로어 텍스트 밑에 깔리는 앰비언트 텍스처.
+  스피치/보컬 금지 프롬프트 강제. `wave` 스팅어(1.4 s)와 겹쳐도 대역이 달라
+  충돌하지 않는다 (lore는 저역 앰비언트, wave는 브라스 스웰).
+- `bgm` (22 s, `loop: true`, prompt_influence 0.3) — 런 전체에 깔리는 루프 베드.
+  AudioDirector가 전용 AudioSource(loop=true, volume 0.35)로 씬 시작 시 재생.
+재생 계약: 원샷 큐는 `PlayOneShot`으로 겹침 허용(트리밍·컷 없음).
+산출: `Assets/Resources/Audio/cue-<name>.mp3` + `docs/provenance/audio.json`.
+키는 env/`.env.game-audio`(커밋 금지)에서만 읽는다.
 
 ## Input
 

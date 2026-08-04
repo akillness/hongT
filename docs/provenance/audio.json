@@ -1,55 +1,77 @@
 {
   "tool": "elevenlabs sound-generation",
   "endpoint": "https://api.elevenlabs.io/v1/sound-generation",
-  "generatedAt": "2026-08-04T15:22:32+0900",
+  "generatedAt": "2026-08-04T15:49:26+0900",
   "cues": {
     "strike": {
-      "file": "Assets/Art/Audio/cue-strike.mp3",
+      "file": "Assets/Resources/Audio/cue-strike.mp3",
       "bytes": 13836,
       "durationSeconds": 0.8,
-      "prompt": "Short crisp fantasy sword swing whoosh, dark metallic swipe, tight low arcade hit, no tail reverb, game SFX one-shot"
+      "prompt": "Short crisp fantasy sword swing whoosh, dark metallic swipe, tight low arcade hit, no tail reverb, game SFX one-shot",
+      "promptInfluence": 0.55
     },
     "hit": {
-      "file": "Assets/Art/Audio/cue-hit.mp3",
+      "file": "Assets/Resources/Audio/cue-hit.mp3",
       "bytes": 13836,
       "durationSeconds": 0.8,
-      "prompt": "Quick gritty impact thud on armor, low sawtooth-like crunch, arcade enemy damage tick, dry, game SFX one-shot"
+      "prompt": "Quick gritty impact thud on armor, low sawtooth-like crunch, arcade enemy damage tick, dry, game SFX one-shot",
+      "promptInfluence": 0.55
     },
     "kill": {
-      "file": "Assets/Art/Audio/cue-kill.mp3",
+      "file": "Assets/Resources/Audio/cue-kill.mp3",
       "bytes": 17180,
       "durationSeconds": 1.0,
-      "prompt": "Ember burst enemy defeat pop, falling triangle chime with soft ash crackle, short dark fantasy kill confirm, game SFX one-shot"
+      "prompt": "Ember burst enemy defeat pop, falling triangle chime with soft ash crackle, short dark fantasy kill confirm, game SFX one-shot",
+      "promptInfluence": 0.55
     },
     "nova": {
-      "file": "Assets/Art/Audio/cue-nova.mp3",
+      "file": "Assets/Resources/Audio/cue-nova.mp3",
       "bytes": 26793,
       "durationSeconds": 1.6,
-      "prompt": "Massive fiery shockwave nova burst radiating outward, deep descending roar with ember sizzle tail, arena AoE blast, game SFX"
+      "prompt": "Massive fiery shockwave nova burst radiating outward, deep descending roar with ember sizzle tail, arena AoE blast, game SFX",
+      "promptInfluence": 0.55
     },
     "ward": {
-      "file": "Assets/Art/Audio/cue-ward.mp3",
+      "file": "Assets/Resources/Audio/cue-ward.mp3",
       "bytes": 20106,
       "durationSeconds": 1.2,
-      "prompt": "Rising magical shield seal, warm glassy sine sweep upward, protective lantern barrier engage shimmer, game SFX one-shot"
+      "prompt": "Rising magical shield seal, warm glassy sine sweep upward, protective lantern barrier engage shimmer, game SFX one-shot",
+      "promptInfluence": 0.55
     },
     "pickup": {
-      "file": "Assets/Art/Audio/cue-pickup.mp3",
+      "file": "Assets/Resources/Audio/cue-pickup.mp3",
       "bytes": 12164,
       "durationSeconds": 0.7,
-      "prompt": "Bright tiny relic pickup sparkle, quick ascending glass chime, cheerful arcade collect blip, game SFX one-shot"
+      "prompt": "Bright tiny relic pickup sparkle, quick ascending glass chime, cheerful arcade collect blip, game SFX one-shot",
+      "promptInfluence": 0.55
     },
     "wave": {
-      "file": "Assets/Art/Audio/cue-wave.mp3",
+      "file": "Assets/Resources/Audio/cue-wave.mp3",
       "bytes": 23031,
       "durationSeconds": 1.4,
-      "prompt": "Ominous war horn signaling a new enemy wave, rising dark brass swell with distant ember hiss, short stinger, game SFX"
+      "prompt": "Ominous war horn signaling a new enemy wave, rising dark brass swell with distant ember hiss, short stinger, game SFX",
+      "promptInfluence": 0.55
     },
     "gameover": {
-      "file": "Assets/Art/Audio/cue-gameover.mp3",
+      "file": "Assets/Resources/Audio/cue-gameover.mp3",
       "bytes": 36406,
       "durationSeconds": 2.2,
-      "prompt": "Lantern extinguishing defeat sting, deep descending sine drone fading to cold silence, somber game over, game SFX"
+      "prompt": "Lantern extinguishing defeat sting, deep descending sine drone fading to cold silence, somber game over, game SFX",
+      "promptInfluence": 0.55
+    },
+    "lore": {
+      "file": "Assets/Resources/Audio/cue-lore.mp3",
+      "bytes": 65245,
+      "durationSeconds": 4.0,
+      "prompt": "Ethereal abyssal ambience swell, ghostly airy texture with faint ash-wind and deep sub rumble, mysterious ancient reliquary atmosphere, instrumental sound design only, absolutely no voice, no whispering words, no speech, no vocals",
+      "promptInfluence": 0.55
+    },
+    "bgm": {
+      "file": "Assets/Resources/Audio/cue-bgm.mp3",
+      "bytes": 353219,
+      "durationSeconds": 22.0,
+      "prompt": "Dark fantasy arena ambient music loop, low ember drone bed, distant deep choir-like synth pads, slow ominous two-note pulse, smoldering coals crackle sparsely, seamless loop, instrumental only, no melody spikes, no percussion breaks, no vocals",
+      "promptInfluence": 0.3
     }
   }
 }

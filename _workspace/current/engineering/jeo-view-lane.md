@@ -62,6 +62,11 @@
    WardCast→ward, PickupCollected→pickup, WaveStarted→wave, GameOver→gameover.
    겹침 허용(트리밍 금지). HUD 우상단 음소거 토글, PlayerPrefs 키
    "abyssal-lantern:cinder-court:muted".
+   추가 (2026-08-04 갱신, 사용자 지시: 음성 내레이션 금지):
+   - `Resources/Audio/cue-bgm` — 전용 AudioSource(loop=true, volume 0.35)로
+     씬 시작 시 재생. 음소거 토글에 함께 반응.
+   - `Resources/Audio/cue-lore` — WaveStarted 시 wave 스팅어와 **함께** 재생
+     (volume 0.5). 로어 텍스트의 앰비언트 밑깔개 역할.
 7. `VfxDirector.cs` — 코드 생성 이펙트만 (에셋 의존 금지):
    - Nova: LineRenderer 원형 링, 반경 0→2.5 (250*0.01), 0.42 s 확장+페이드.
      스냅샷 NovaX/NovaY 원점.

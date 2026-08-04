@@ -15,7 +15,7 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-OUT_DIR = REPO / "Assets" / "Art" / "Audio"
+OUT_DIR = REPO / "Assets" / "Resources" / "Audio"
 PROV = REPO / "docs" / "provenance" / "audio.json"
 ENDPOINT = "https://api.elevenlabs.io/v1/sound-generation"
 
@@ -31,7 +31,9 @@ def _find_env_fallback():
 
 ENV_FALLBACK = _find_env_fallback()
 
-# Prompt table mirrors docs/SIM_SPEC.md audio-cue semantics.
+# Prompt table mirrors docs/SIM_SPEC.md audio semantics.
+# User directive 2026-08-04: SFX + BGM only — NO voice narration anywhere.
+# The lore beat at wave start gets an ambient TEXTURE cue, not speech.
 CUES = {
     "strike": (0.8, "Short crisp fantasy sword swing whoosh, dark metallic swipe, "
                "tight low arcade hit, no tail reverb, game SFX one-shot"),
@@ -49,6 +51,16 @@ CUES = {
              "swell with distant ember hiss, short stinger, game SFX"),
     "gameover": (2.2, "Lantern extinguishing defeat sting, deep descending sine "
                  "drone fading to cold silence, somber game over, game SFX"),
+    # Ambient texture under the wave-start lore line — explicitly NO voice.
+    "lore": (4.0, "Ethereal abyssal ambience swell, ghostly airy texture with "
+             "faint ash-wind and deep sub rumble, mysterious ancient reliquary "
+             "atmosphere, instrumental sound design only, absolutely no voice, "
+             "no whispering words, no speech, no vocals"),
+    # Looping background bed for the whole run (Unity AudioSource loop=true).
+    "bgm": (22.0, "Dark fantasy arena ambient music loop, low ember drone bed, "
+            "distant deep choir-like synth pads, slow ominous two-note pulse, "
+            "smoldering coals crackle sparsely, seamless loop, instrumental "
+            "only, no melody spikes, no percussion breaks, no vocals"),
 }
 
 
@@ -63,12 +75,15 @@ def resolve_key():
     raise SystemExit("FATAL: no ELEVENLABS_API_KEY in env or .env.game-audio")
 
 
-def generate(key, name, duration, prompt, retries=3):
-    payload = json.dumps({
+def generate(key, name, duration, prompt, influence=0.55, retries=3):
+    body = {
         "text": prompt,
-        "duration_seconds": duration,
-        "prompt_influence": 0.55,
-    }).encode("utf-8")
+        "duration_seconds": duration,   # API hard cap: 22 s
+        "prompt_influence": influence,
+    }
+    if name == "bgm":
+        body["loop"] = True             # seamless loop hint for the bed track
+    payload = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(
         ENDPOINT, data=payload, method="POST",
         headers={"xi-api-key": key, "Content-Type": "application/json"})
@@ -76,7 +91,19 @@ def generate(key, name, duration, prompt, retries=3):
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
                 return response.read()
-        except Exception as error:  # noqa: BLE001 — report and retry
+        except urllib.error.HTTPError as error:
+            detail = ""
+            try:
+                detail = error.read().decode("utf-8", "replace")[:300]
+            except Exception:  # noqa: BLE001
+                pass
+            print(f"  HTTP {error.code} for {name}: {detail}")
+            if error.code < 500:
+                raise  # 4xx never succeeds on retry (bad key/field/quota shape)
+            if attempt == retries:
+                raise
+            time.sleep(2.0 * attempt)
+        except Exception as error:  # noqa: BLE001 — network/timeout: retry
             print(f"  attempt {attempt}/{retries} failed for {name}: {error}")
             if attempt == retries:
                 raise
@@ -100,11 +127,14 @@ def main():
         duration, prompt = CUES[name]
         out = OUT_DIR / f"cue-{name}.mp3"
         print(f"GEN {name} ({duration}s) ...")
-        audio = generate(key, name, duration, prompt)
+        # BGM: lower prompt_influence for musicality; SFX: tighter adherence.
+        influence = 0.3 if name == "bgm" else 0.55
+        audio = generate(key, name, duration, prompt, influence=influence)
         out.write_bytes(audio)
         provenance["cues"][name] = {
-            "file": f"Assets/Art/Audio/{out.name}", "bytes": len(audio),
+            "file": f"Assets/Resources/Audio/{out.name}", "bytes": len(audio),
             "durationSeconds": duration, "prompt": prompt,
+            "promptInfluence": influence,
         }
         print(f"  wrote {out.name} ({len(audio)} bytes)")
     PROV.write_text(json.dumps(provenance, indent=2, ensure_ascii=False))
