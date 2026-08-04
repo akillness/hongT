@@ -8,34 +8,64 @@ cd "$(dirname "$0")/../.."
 
 BUILD_DIR="build-webgl"
 WORKTREE=".gh-pages-worktree"
+STAGING=".gh-pages-stage"
 MESSAGE="${1:-deploy: WebGL build $(date +%Y-%m-%dT%H:%M:%S)}"
+WORKTREE_CREATED=0
+STAGING_CREATED=0
+
+cleanup() {
+  if [ "$STAGING_CREATED" -eq 1 ]; then
+    rm -rf "$STAGING"
+  fi
+  if [ "$WORKTREE_CREATED" -eq 1 ] && [ -d "$WORKTREE" ]; then
+    git worktree remove --force "$WORKTREE" || true
+  fi
+}
+trap cleanup EXIT
 
 [ -f "$BUILD_DIR/index.html" ] || { echo "FATAL: $BUILD_DIR/index.html missing — build first"; exit 1; }
 
 git fetch origin
 if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-  git worktree add "$WORKTREE" gh-pages 2>/dev/null || true
+  git worktree add "$WORKTREE" gh-pages
+  WORKTREE_CREATED=1
 else
-  git worktree add --detach "$WORKTREE" 2>/dev/null || true
+  git worktree add --detach "$WORKTREE"
+  WORKTREE_CREATED=1
   git -C "$WORKTREE" checkout --orphan gh-pages
   git -C "$WORKTREE" rm -rf . >/dev/null 2>&1 || true
 fi
 
-# Sync build output (delete removed files, keep .git), then overlay static
-# pages from web/ (campaign hub etc.) — NO --delete on the overlay so Unity
-# output and static pages coexist.
-rsync -a --delete --exclude ".git" \
-  --exclude "*_BurstDebugInformation_DoNotShip" \
-  "$BUILD_DIR/" "$WORKTREE/"
-[ -d web ] && rsync -a web/ "$WORKTREE/"
-touch "$WORKTREE/.nojekyll"   # Pages: serve Build/ files verbatim, no Jekyll
+WORKTREE_ROOT="$(git -C "$WORKTREE" rev-parse --show-toplevel)"
+EXPECTED_ROOT="$(cd "$WORKTREE" && pwd -P)"
+[ "$WORKTREE_ROOT" = "$EXPECTED_ROOT" ] ||
+  { echo "FATAL: Pages worktree did not initialize at $WORKTREE"; exit 1; }
 
-git -C "$WORKTREE" add -A
+# Build an exact candidate tree before synchronizing the isolated Pages
+# worktree. This keeps arbitrary web/ additions/removals in the deployment
+# while never copying its .git metadata.
+[ ! -e "$STAGING" ] ||
+  { echo "FATAL: deployment staging path already exists: $STAGING"; exit 1; }
+mkdir -p "$STAGING"
+STAGING_CREATED=1
+rsync -a --exclude "*_BurstDebugInformation_DoNotShip" "$BUILD_DIR/" "$STAGING/"
+[ -d web ] && rsync -a web/ "$STAGING/"
+touch "$STAGING/.nojekyll"   # Pages: serve Build/ files verbatim, no Jekyll
+rsync -a --delete --exclude ".git" "$STAGING/" "$WORKTREE/"
+
+# Stage each changed path explicitly: root checkout changes are user work,
+# while this isolated worktree contains only the deployment candidate.
+stage_paths() {
+  while IFS= read -r -d '' path; do
+    git -C "$WORKTREE" add -- "$path"
+  done
+}
+stage_paths < <(git -C "$WORKTREE" ls-files -m -d -z)
+stage_paths < <(git -C "$WORKTREE" ls-files --others --exclude-standard -z)
 if git -C "$WORKTREE" diff --cached --quiet; then
   echo "No changes to deploy."
 else
   git -C "$WORKTREE" commit -m "$MESSAGE"
   git -C "$WORKTREE" push origin gh-pages
 fi
-git worktree remove --force "$WORKTREE"
 echo "Deployed. Verify: https://akillness.github.io/hongT/"

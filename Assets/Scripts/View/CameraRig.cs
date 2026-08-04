@@ -56,6 +56,7 @@ namespace CinderCourt.View
             _profile = profile;
             _profileTime = 0f;
             _revealT = 0f;
+            _focusTimer = 0f;   // stale boss focus must not survive a run exit
             if (_camera == null) return;
             switch (profile)
             {
@@ -103,9 +104,11 @@ namespace CinderCourt.View
 
         void Shake(float duration, float amplitude)
         {
+            var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
+            if (scaledAmplitude <= 0f) return;
             _shakeDuration = duration;
             _shakeTime = duration;
-            _shakeAmplitude = amplitude;
+            _shakeAmplitude = scaledAmplitude;
         }
 
         void ApplyAspect(bool force)
@@ -185,13 +188,41 @@ namespace CinderCourt.View
                     _dungeonDistance = Mathf.Lerp(
                         _dungeonDistance, _dungeonTargetDistance,
                         1f - Mathf.Exp(-Time.deltaTime * 2.2f));
-                    PlaceOrbit(55f, _dungeonDistance * _aspectWiden, ArenaCenter);
+                    // Boss-intro focus pull (cycle2 A1): blend orbit focus
+                    // toward the pulse target, then back. View-only.
+                    var focus = ArenaCenter;
+                    if (_focusTimer > 0f)
+                    {
+                        _focusTimer -= Time.deltaTime;
+                        var phase = 1f - Mathf.Clamp01(_focusTimer / _focusDuration);
+                        // ease out to target in first half, ease back in second
+                        var blend = phase < 0.5f
+                            ? Mathf.SmoothStep(0f, 1f, phase * 2f)
+                            : Mathf.SmoothStep(1f, 0f, (phase - 0.5f) * 2f);
+                        focus = Vector3.Lerp(ArenaCenter, _focusTarget, blend * 0.55f);
+                    }
+                    PlaceOrbit(55f, _dungeonDistance * _aspectWiden, focus);
                     ApplyShakeOffset();
                     break;
                 }
             }
         }
 
+
+        float _focusTimer, _focusDuration = 1f;
+        Vector3 _focusTarget;
+
+        /// <summary>
+        /// Dungeon-only camera focus pull toward a world point (boss intro).
+        /// Blends 55% of the way out and back over <paramref name="duration"/>.
+        /// </summary>
+        public void FocusPulse(Vector3 worldTarget, float duration)
+        {
+            if (ViewPrefs.ReducedMotion) return;   // A5 accessibility gate
+            _focusTarget = worldTarget;
+            _focusDuration = Mathf.Max(0.2f, duration);
+            _focusTimer = _focusDuration;
+        }
         void PlaceOrbit(float pitch, float distance, Vector3 focus)
         {
             var rotation = Quaternion.Euler(pitch, 0f, 0f);
@@ -234,18 +265,18 @@ namespace CinderCourt.View
         /// <summary>
         /// Request a shake without stomping a stronger one already playing:
         /// a weaker punch only lands once the current shake has decayed below
-        /// its amplitude. Reuses the existing profile-aware shake pipeline.
-        /// </summary>
         public void Punch(float amplitude, float duration)
         {
+            var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
+            if (scaledAmplitude <= 0f) return;
             if (_shakeTime > 0f)
             {
                 var falloff = Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration));
-                if (_shakeAmplitude * falloff >= amplitude) return;
+                if (_shakeAmplitude * falloff >= scaledAmplitude) return;
             }
             _shakeDuration = duration;
             _shakeTime = duration;
-            _shakeAmplitude = amplitude;
+            _shakeAmplitude = scaledAmplitude;
         }
     }
 }

@@ -73,6 +73,7 @@ namespace CinderCourt.View
             _isDungeon = config.Mode == GameMode.Dungeon;
             _accumulator = 0f;
             _digestWritten = false;
+            if (Hud != null) Hud.ResetRunUi();
             if (_playerView == null) Start();
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
@@ -183,6 +184,13 @@ namespace CinderCourt.View
         /// </summary>
         void ApplyTimeScale()
         {
+            if (!ViewPrefs.TimeEffectsAllowed)
+            {
+                _hitStopTimer = 0f;
+                _slowMoTimer = 0f;
+                Time.timeScale = 1f;
+                return;
+            }
             var dt = Time.unscaledDeltaTime;
             var target = 1f;
             if (_slowMoTimer > 0f)
@@ -214,15 +222,16 @@ namespace CinderCourt.View
             // is 80 ms; Max() merges overlapping pulses instead of stacking).
             if ((events & SimEvents.ComboFinisher) != 0)
             {
-                _hitStopTimer = Mathf.Max(_hitStopTimer, 0.07f);
+                if (ViewPrefs.TimeEffectsAllowed)
+                    _hitStopTimer = Mathf.Max(_hitStopTimer, 0.07f);
                 _finisherTick = true;   // gold damage numbers this batch (#6)
             }
-            else if ((events & SimEvents.EnemyKilled) != 0)
+            else if ((events & SimEvents.EnemyKilled) != 0 && ViewPrefs.TimeEffectsAllowed)
             {
                 _hitStopTimer = Mathf.Max(_hitStopTimer, 0.04f);
             }
             // Boss phase-2 slow-mo beat, synced with the taunt bubble (#3).
-            if ((events & SimEvents.BossPhase2) != 0)
+            if ((events & SimEvents.BossPhase2) != 0 && ViewPrefs.TimeEffectsAllowed)
             {
                 _slowMoTimer = 0.5f;
                 _slowMoScale = 0.35f;

@@ -50,6 +50,8 @@ namespace CinderCourt.View
 
             _data = CampaignStore.Load();
             _hud.OnReturnHome = ReturnToLobby;
+            _hud.OnRetryStage = RetryStage;
+            _input.OnDungeonRetryShortcut = TryRetryStageShortcut;
             _game.OnRunEvents = OnRunEvents;
 
             var callbacks = new LobbyCallbacks
@@ -105,6 +107,25 @@ namespace CinderCourt.View
         }
 
         void ReturnToLobby() => EnterLobby();
+
+        void RetryStage()
+        {
+            if (_state == State.Dungeon && !string.IsNullOrEmpty(_runStageId))
+            {
+                StartDungeon(_runStageId);
+                return;
+            }
+            _input.QueueRestart();
+        }
+
+        bool TryRetryStageShortcut()
+        {
+            if (_state != State.Dungeon || _game == null || _game.Sim == null ||
+                _hud == null || !_hud.RetryModalVisible)
+                return false;
+            RetryStage();
+            return true;
+        }
 
         bool IsStageUnlocked(string stageId)
         {
@@ -382,7 +403,12 @@ namespace CinderCourt.View
         {
             if ((events & SimEvents.BossSpawned) != 0 &&
                 StoryCatalog.TryGet(_runStageId, StoryCatalog.BossEntry, out var entrySpeaker, out var entryText))
-                _speech.Show(entrySpeaker, entryText, BossAnchor(sim));
+            {
+                var bossAnchor = BossAnchor(sim);
+                _speech.Show(entrySpeaker, entryText, bossAnchor);
+                _hud.ShowBossIntro(entrySpeaker);
+                _rig.FocusPulse(bossAnchor, 0.8f);
+            }
             if ((events & SimEvents.BossPhase2) != 0 &&
                 StoryCatalog.TryGet(_runStageId, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
                 _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));

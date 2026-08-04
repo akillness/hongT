@@ -45,6 +45,8 @@ namespace CinderCourt.View
         static readonly string[] StageTitles = { "재의 다리", "서약의 성당", "메아리 왕좌" };
         static readonly string[] StageBosses = { "Cinder Warden", "Veil Tactician", "Gate Sovereign" };
         static readonly int[] StageWaves = { 5, 6, 7 };
+        // cycle2 B1: stage hazard glyphs (skill icon reuse — vent/pillar/echo).
+        static readonly string[] StageHazardIcons = { "skill-nova", "skill-aegis", "skill-pulse" };
 
         const int StatCap = 10;
         const int EquipCap = 5;
@@ -81,6 +83,9 @@ namespace CinderCourt.View
         readonly Text[] _stageStatus = new Text[3];
         readonly Button[] _stageButtons = new Button[3];
         readonly CanvasGroup[] _stageGroups = new CanvasGroup[3];
+        // cycle2 B3: prologue card border lines pulse ember until PrologueDone.
+        Image[] _prologueBorder;
+        bool _prologueGuide;
 
         // Tabs.
         GameObject[] _tabContents;
@@ -91,6 +96,8 @@ namespace CinderCourt.View
         readonly Button[] _statButtons = new Button[3];
         readonly CanvasGroup[] _statGroups = new CanvasGroup[3];
         Text _pointsLeftText;
+        // cycle2 B4: 모션 약함 toggle label (ViewPrefs-backed).
+        Text _motionLabel;
 
         // Equipment rows.
         readonly Text[] _equipValues = new Text[3];
@@ -150,6 +157,8 @@ namespace CinderCourt.View
             _prologueStatus.text = data.PrologueDone ? "재훈련 가능" : "필수 훈련";
             _prologueStatus.color = data.PrologueDone ? Gold : Ember;
             _prologueButtonLabel.text = data.PrologueDone ? "재훈련" : "점화 훈련";
+            // cycle2 B3: first-run guide — ember border pulse until done.
+            SetPrologueGuide(!data.PrologueDone);
 
             var stageCleared0 = data.CinderSpanCleared;
             var stageCleared1 = data.AbyssChancelCleared;
@@ -174,6 +183,7 @@ namespace CinderCourt.View
                 _statButtons[i].interactable = can;
                 _statGroups[i].alpha = can ? 1f : 0.45f;
             }
+            RefreshMotionLabel();
 
             // --- equipment -------------------------------------------------------
             for (var i = 0; i < 3; i++)
@@ -203,6 +213,25 @@ namespace CinderCourt.View
             }
         }
 
+        void RefreshMotionLabel()
+        {
+            if (_motionLabel == null) return;
+            _motionLabel.text = ViewPrefs.ReducedMotion ? "모션: 약함" : "모션: 보통";
+            _motionLabel.color = ViewPrefs.ReducedMotion ? Gold : Cyan;
+        }
+
+
+        /// <summary>cycle2 B3: toggle the first-run pulse; restores the
+        /// border token color when the guide stops.</summary>
+        void SetPrologueGuide(bool on)
+        {
+            if (_prologueGuide == on) return;
+            _prologueGuide = on;
+            if (on || _prologueBorder == null) return;
+            for (var i = 0; i < _prologueBorder.Length; i++)
+                _prologueBorder[i].color = BorderColor;
+        }
+
         public void Show() { if (_root != null) _root.SetActive(true); }
         public void Hide() { if (_root != null) _root.SetActive(false); }
 
@@ -212,6 +241,19 @@ namespace CinderCourt.View
             // Resolution dirty-check only (two int compares, no alloc).
             if (_root == null || !_root.activeSelf) return;
             ApplyLobbyTier(false);
+
+            // cycle2 B3: first-run guide — prologue border pulses ember.
+            // PingPong 0→1 over 1.2s round trip, SmoothStep ease, alpha
+            // 0.35→0.9. Color writes only — no layout, no allocation.
+            if (_prologueGuide && _prologueBorder != null)
+            {
+                var phase = Mathf.SmoothStep(0f, 1f,
+                    Mathf.PingPong(Time.unscaledTime * (2f / 1.2f), 1f));
+                var pulse = new Color(Ember.r, Ember.g, Ember.b,
+                    Mathf.Lerp(0.35f, 0.9f, phase));
+                for (var i = 0; i < _prologueBorder.Length; i++)
+                    _prologueBorder[i].color = pulse;
+            }
         }
 
         /// <summary>Spec #8: SORTIE(392, right) + SANCTUM(400, left) need
@@ -329,6 +371,14 @@ namespace CinderCourt.View
 
             // Prologue card (sole entry until cleared; retrainable after).
             var prologue = Card(panel.transform, -60, 100);
+            // cycle2 B3: capture the card's 4 border lines NOW (before other
+            // children exist) so the first-run guide can pulse them ember.
+            var prologueLines = prologue.GetComponentsInChildren<Image>();
+            _prologueBorder = new Image[prologueLines.Length - 1];
+            var borderCount = 0;
+            for (var b = 0; b < prologueLines.Length; b++)
+                if (prologueLines[b].gameObject != prologue)
+                    _prologueBorder[borderCount++] = prologueLines[b];
             Eyebrow(prologue.transform, 12, -10, "PROLOGUE", "등불 점화 훈련");
             var prologueSub = Label(prologue.transform, 12, -62, 220, 18,
                 "2D 디펜스 • 웨이브 3 • 스킬 없음", 12, TextAnchor.MiddleLeft);
@@ -346,13 +396,31 @@ namespace CinderCourt.View
             {
                 var card = Card(panel.transform, -174 - i * 122, 112);
                 Eyebrow(card.transform, 12, -10, StageKickers[i], StageTitles[i]);
-                var sub = Label(card.transform, 12, -62, 240, 18,
+                // cycle2 B1: hazard glyph left of the boss line (24px, skill
+                // icon reuse — vent/pillar/echo). Non-interactive.
+                var glyphSprite = Resources.Load<Sprite>("Icons/" + StageHazardIcons[i]);
+                if (glyphSprite != null)
+                {
+                    var glyphObject = new GameObject("HazardGlyph");
+                    glyphObject.transform.SetParent(card.transform, false);
+                    var glyph = glyphObject.AddComponent<Image>();
+                    glyph.sprite = glyphSprite;
+                    glyph.preserveAspect = true;
+                    glyph.raycastTarget = false;
+                    var glyphRect = glyphObject.GetComponent<RectTransform>();
+                    glyphRect.anchorMin = new Vector2(0, 1);
+                    glyphRect.anchorMax = new Vector2(0, 1);
+                    glyphRect.pivot = new Vector2(0, 1);
+                    glyphRect.anchoredPosition = new Vector2(12f, -59f);
+                    glyphRect.sizeDelta = new Vector2(24f, 24f);
+                }
+                var sub = Label(card.transform, 40, -62, 240, 18,
                     $"보스 {StageBosses[i]} • 웨이브 {StageWaves[i]}", 12, TextAnchor.MiddleLeft);
                 sub.color = InkDim;
                 var reward = Label(card.transform, 12, -80, 240, 16,
                     i == 0 ? "보상: 잿불 사도 동행" : i == 1 ? "보상: 그림자 메아리 동행" : "보상: 홀린 자 메아리 동행",
                     11, TextAnchor.MiddleLeft);
-                reward.color = InkDim;
+                reward.color = Gold;   // cycle2 B1: reward line emphasis
                 _stageStatus[i] = Label(card.transform, -12, -10, 120, 20, "잠김", 13, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
@@ -436,6 +504,16 @@ namespace CinderCourt.View
             var hint = Label(content.transform, 16, -258, 360, 36,
                 "공격 +3%/pt • 체력 +8HP/pt • 이속 +2%/pt (캡 10)\n던전 강하에만 적용된다.", 11, TextAnchor.UpperLeft);
             hint.color = InkDim;
+
+            var motionButton = TextButton(content.transform, new Vector2(0, 1),
+                new Vector2(16, -344), new Vector2(368, 92), "모션: 보통", 15,
+                () =>
+                {
+                    ViewPrefs.ReducedMotion = !ViewPrefs.ReducedMotion;
+                    RefreshMotionLabel();
+                });
+            _motionLabel = motionButton.GetComponentInChildren<Text>();
+            RefreshMotionLabel();
             return content;
         }
 
@@ -560,6 +638,7 @@ namespace CinderCourt.View
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.raycastTarget = false;
             var rect = text.rectTransform;
             rect.anchorMin = new Vector2(0, 1);
             rect.anchorMax = new Vector2(0, 1);
@@ -575,6 +654,7 @@ namespace CinderCourt.View
                               bool plated = true)
         {
             var buttonObject = Panel(parent, anchor, anchor, anchored, size, ButtonBack);
+            buttonObject.GetComponent<Image>().raycastTarget = true;
             // 9-slice ember plate for stateless action buttons. Stateful groups
             // (tabs, roster) keep the flat fill because Refresh/SelectTab drive
             // Image.color as the state signal - a sprite would multiply-tint.

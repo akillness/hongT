@@ -1,6 +1,3 @@
-// WebGL build entry. Unity -batchmode -executeMethod CinderCourt.EditorTools.BuildScript.BuildWebGL
-// Output: build-webgl/ (gitignored). GitHub Pages friendly: gzip + decompression
-// fallback (no server config needed), relative template paths.
 using System;
 using System.IO;
 using UnityEditor;
@@ -12,6 +9,9 @@ namespace CinderCourt.EditorTools
 {
     public static class BuildScript
     {
+        const string SocialPreviewFile = "cinder-court-link-preview.png";
+        const string SocialPreviewSource = "docs/branding/" + SocialPreviewFile;
+
         public static void BuildWebGL()
         {
             var output = "build-webgl";
@@ -59,8 +59,9 @@ namespace CinderCourt.EditorTools
         ///  - title prefix drop, 192px touch icon (deployed from web/);
         ///  - STATIC viewport meta with viewport-fit=cover (safe-area lives in
         ///    CSS; the stock UA-gated JS meta only existed for mobile UAs and
-        ///    is superseded by the static one — its injected copy also gets
+        ///    is superseded by the static one — its inserted copy also gets
         ///    viewport-fit=cover for belt-and-braces);
+        ///  - social preview relative OG/Twitter metadata + image copy;
         ///  - devicePixelRatio cap 2 (3x phones would render 1170x2532);
         ///  - responsive canvas: UA-independent CSS replaces the fixed
         ///    1280x853 sizing — letterbox preserving 1280:853 (~3:2) down to
@@ -78,6 +79,13 @@ namespace CinderCourt.EditorTools
             if (!html.Contains("apple-touch-icon"))
                 html = html.Replace(faviconTag,
                     faviconTag + "\n    <link rel=\"apple-touch-icon\" href=\"app-icon-192.png\">");
+
+            if (!html.Contains("name=\"twitter:card\""))
+            {
+                var headMarker = "<meta charset=\"UTF-8\">";
+                if (html.Contains(headMarker))
+                    html = html.Replace(headMarker, $"{headMarker}\n    {SocialHeadBlock}");
+            }
 
             // Static viewport meta + responsive canvas CSS — injected AFTER
             // the TemplateData stylesheet so the brand background (#050812)
@@ -111,6 +119,29 @@ namespace CinderCourt.EditorTools
             html = html.Replace("canvas.style.height = \"853px\";", "");
 
             File.WriteAllText(indexPath, html);
+            CopySocialPreview(outputDir);
+        }
+
+        static void CopySocialPreview(string outputDir)
+        {
+            var source = Path.GetFullPath(SocialPreviewSource);
+            if (!File.Exists(source))
+            {
+                Debug.LogWarning($"[BuildWebGL] social preview source missing: {source}");
+                return;
+            }
+
+            var destination = Path.Combine(outputDir, SocialPreviewFile);
+            if (!File.Exists(destination))
+                File.Copy(source, destination);
+            else if (!FileEquals(source, destination))
+                File.Copy(source, destination, true);
+        }
+
+        static bool FileEquals(string a, string b)
+        {
+            if (!File.Exists(a) || !File.Exists(b)) return false;
+            return new FileInfo(a).Length == new FileInfo(b).Length;
         }
 
         /// <summary>Head block: static viewport meta + responsive canvas CSS.
@@ -150,5 +181,15 @@ namespace CinderCourt.EditorTools
         box-sizing: border-box; background: #050812;
       }
     </style>";
+        const string SocialHeadBlock =
+@"<meta property=""og:type"" content=""website"">
+    <meta property=""og:title"" content=""Abyssal Lantern — Cinder Court"">
+    <meta property=""og:description"" content=""A dark fantasy dungeon crawl as the Lantern Reaver through Cinder Court."">
+    <meta property=""og:image"" content=""./cinder-court-link-preview.png"">
+    <meta name=""twitter:card"" content=""summary_large_image"">
+    <meta name=""twitter:title"" content=""Abyssal Lantern — Cinder Court"">
+    <meta name=""twitter:description"" content=""A dark fantasy dungeon crawl as the Lantern Reaver through Cinder Court."">
+    <meta name=""twitter:image"" content=""./cinder-court-link-preview.png"">";
     }
 }
+

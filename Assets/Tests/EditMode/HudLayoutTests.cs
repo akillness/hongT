@@ -16,6 +16,7 @@
 using System.Collections.Generic;
 using System.Text;
 using CinderCourt.View;
+using CinderCourt.Sim;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -38,6 +39,8 @@ namespace CinderCourt.Tests
         private GameObject _hudObject;
         private HudView _hud;
         private bool _hadRotateHintPref;
+        private bool _hadReducedMotionPref;
+        private int _reducedMotionPrefValue;
 
         [SetUp]
         public void SetUp()
@@ -45,6 +48,8 @@ namespace CinderCourt.Tests
             // EnableDungeonUi -> ShowRotateHintIfPortrait writes this pref;
             // snapshot so the suite never pollutes the developer's editor.
             _hadRotateHintPref = PlayerPrefs.HasKey("al:rotate-hint");
+            _hadReducedMotionPref = PlayerPrefs.HasKey("al:reduced-motion");
+            _reducedMotionPrefValue = PlayerPrefs.GetInt("al:reduced-motion");
 
             _hudObject = new GameObject("HudLayoutTests");
             _hud = _hudObject.AddComponent<HudView>();
@@ -58,6 +63,12 @@ namespace CinderCourt.Tests
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();
             if (eventSystem != null) Object.DestroyImmediate(eventSystem.gameObject);
             if (!_hadRotateHintPref) PlayerPrefs.DeleteKey("al:rotate-hint");
+            ViewPrefs.ReducedMotion = _reducedMotionPrefValue == 1;
+            if (_hadReducedMotionPref)
+                PlayerPrefs.SetInt("al:reduced-motion", _reducedMotionPrefValue);
+            else
+                PlayerPrefs.DeleteKey("al:reduced-motion");
+            PlayerPrefs.Save();
         }
 
         // ------------------------------------------------------- helpers --
@@ -175,6 +186,19 @@ namespace CinderCourt.Tests
                 "touch targets under the 44 CSS px floor:\n" + string.Join("\n", violations));
         }
 
+        private Image HealthFill()
+        {
+            foreach (var text in _hudObject.GetComponentsInChildren<Text>(true))
+            {
+                if (!text.text.StartsWith("체력 ")) continue;
+                var fill = text.transform.parent.Find("Fill")?.GetComponent<Image>();
+                Assert.That(fill, Is.Not.Null, "the rendered health label must retain its visible fill");
+                return fill;
+            }
+            Assert.Fail("HUD did not render a health value");
+            return null;
+        }
+
         // --------------------------------------------------------- tests --
 
         [Test]
@@ -230,6 +254,59 @@ namespace CinderCourt.Tests
             Assert.That(violations, Is.Empty,
                 "non-interactive Graphics with raycastTarget on (they eat taps):\n"
                 + string.Join("\n", violations));
+        }
+
+        [Test]
+        public void ReducedMotion_UpdatesPresentationPolicyAndPersists()
+        {
+            ViewPrefs.ReducedMotion = false;
+            Assert.That(ViewPrefs.ReducedMotion, Is.False);
+            Assert.That(ViewPrefs.MotionScale, Is.EqualTo(1f));
+            Assert.That(ViewPrefs.TimeEffectsAllowed, Is.True);
+            Assert.That(PlayerPrefs.GetInt("al:reduced-motion"), Is.EqualTo(0));
+
+            ViewPrefs.ReducedMotion = true;
+            Assert.That(ViewPrefs.ReducedMotion, Is.True);
+            Assert.That(ViewPrefs.MotionScale, Is.EqualTo(0.4f));
+            Assert.That(ViewPrefs.TimeEffectsAllowed, Is.False);
+            Assert.That(PlayerPrefs.GetInt("al:reduced-motion"), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RetryModalVisible_TracksActivePanel_NotPendingClearCeremony()
+        {
+            _hud.EnableCampaignUi("차가운 회랑", 3);
+            Assert.That(_hud.RetryModalVisible, Is.False,
+                "no retry panel is active before a terminal result");
+
+            _hud.ShowStageClear(new CinderSim().Digest);
+            Assert.That(_hud.RetryModalVisible, Is.False,
+                "the stage-clear ceremony must not enable retry before its panel is visible");
+
+            _hud.OnEvents(SimEvents.GameOver, new CinderSim());
+            Assert.That(_hud.RetryModalVisible, Is.True,
+                "an active game-over retry panel must enable the retry shortcut");
+
+            _hud.ResetRunUi();
+            Assert.That(_hud.RetryModalVisible, Is.False,
+                "resetting the visible terminal panel must disable the retry shortcut");
+        }
+
+        [Test]
+        public void ResetRunUi_ReseedsHealthBarForNewRun()
+        {
+            var boostedConfig = CampaignStages.ForIndex(0, weaponRank: 0, lanternRank: 0, cloakRank: 5);
+            var boostedRun = new CinderSim(in boostedConfig);
+            _hud.Sync(boostedRun);
+            Assert.That(HealthFill().fillAmount, Is.EqualTo(1f).Within(0.001f),
+                "the initial high-health run must fill its visible health bar");
+
+            _hud.ResetRunUi();
+            var newRun = new CinderSim();
+            _hud.Sync(newRun);
+
+            Assert.That(HealthFill().fillAmount, Is.EqualTo(1f).Within(0.001f),
+                "a fresh 100-health run must not inherit the prior run's health denominator");
         }
 
         [Test]

@@ -34,6 +34,12 @@ namespace CinderCourt.View
         // L1013-1016), so direction is the only channel that matters.
         public float TouchMoveX, TouchMoveY;
 
+        /// <summary>
+        /// Returns true only when a dungeon modal consumed R as a stage retry.
+        /// Normal dungeon play still maps R to Nova.
+        /// </summary>
+        public System.Func<bool> OnDungeonRetryShortcut;
+
         bool _attackLatch;
         bool _novaLatch;
         bool _wardLatch;
@@ -64,7 +70,9 @@ namespace CinderCourt.View
                 case Profile.Dungeon:
                     if (keyboard.qKey.wasPressedThisFrame) _boltLatch = true;
                     if (keyboard.eKey.wasPressedThisFrame) _pulseLatch = true;
-                    if (keyboard.rKey.wasPressedThisFrame) _novaLatch = true;
+                    if (keyboard.rKey.wasPressedThisFrame &&
+                        (OnDungeonRetryShortcut == null || !OnDungeonRetryShortcut()))
+                        _novaLatch = true;
                     if (keyboard.fKey.wasPressedThisFrame) _wardLatch = true;
                     if (keyboard.leftShiftKey.wasPressedThisFrame ||
                         keyboard.rightShiftKey.wasPressedThisFrame) _dashLatch = true;
