@@ -16,6 +16,8 @@ captured on every route; **all routes: 0 errors, 0 warnings**.
 | 5 | 캠페인 1단계 Cinder Span | 1440×900 | prologueDone 시드 → 강하 → 콤보/대시/Q/E/R/F | "Cinder Span — 웨이브 1/5" 배너, 방패 40 (Void Aegis), 기름 68 소모, 적 3→2, 분출구 텔레그래프 2, 장비/Lv HUD | `…-campaign-stage1.png`, `…-campaign-stage1-combat.png` |
 | 6 | localStorage 영속 | — | v2 스키마 시드 후 재로드 | 로비가 프롤로그 "재훈련 가능" + Cinder Span 해금으로 반영 | route 5 첫 스크린샷 |
 | 7 | 동료 명령 콘솔 (콘솔+VFX 빌드 `18b0fc1a992f9312`) | 1440×900 | 강하 → Enter 콘솔 → `nova` 제출 | 명령 힌트·0.2x 슬로모, "잿불 노바 시전" 피드백, 기름 100→55, 적 4→3, 점수 100, 노바 번 데칼 | `…-console-nova.png` |
+| 8 | 모바일 프롤로그 회귀 (콘솔+VFX 빌드) | 390×844 DPR 2 | 출정 탭, 전투 진입 | 체력 100, 웨이브 1, 적 3, 모바일 HUD 정상 | `…-console-mobile-lobby.png`, `…-console-mobile-combat.png` |
+| 9 | 모바일 캠페인 1단계 (콘솔+VFX 빌드) | 390×844 DPR 2 | 시드 → 강하 | "Cinder Span — 웨이브 1/5", "가로 화면을 권장합니다" 토스트, Q/E/R/F+SHIFT 스킬바, 적 4 | `…-console-mobile-dungeon.png` |
 
 Second deploy cycle (gh-pages `6ddd724`): source `7256cb5` (companion command
 console + AOE/skill VFX pass), EditMode 146/146
