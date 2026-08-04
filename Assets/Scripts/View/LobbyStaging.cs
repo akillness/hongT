@@ -55,7 +55,12 @@ namespace CinderCourt.View
                 if (_boss != null) Destroy(_boss);
                 var prefab = Resources.Load<GameObject>($"Characters/{bossVisual}");
                 _boss = Compose(prefab, BossSpot, 232f, 1.45f);
-                SetAction(_boss, ActorAction.Show);   // menacing loop at distance
+                // §L1 ladder step 2: Show's source motion (Mutant Roaring.fbx)
+                // is a foreign rig vs idle (Unarmed Idle.fbx) — the retarget
+                // crumples the boss in the lobby (the run path never plays
+                // Show). Idle keeps the silhouette clean; menace returns via
+                // rank tint/rim (§P2) once that lands.
+                SetAction(_boss, ActorAction.Idle);
             }
 
             var wantCompanion = companionId ?? "";

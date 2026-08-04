@@ -35,6 +35,8 @@ namespace CinderCourt.View
         bool _eliteTint;                      // gold pulse marker (spec #14)
         Color _flashColor = PlayerFlashColor;
         TrailRenderer _swingTrail;            // player-only (spec #8)
+        // 16-direction display yaw (§M1): previous sim position, NaN = unseeded.
+        float _prevSimX = float.NaN, _prevSimY = float.NaN;
 
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
@@ -176,7 +178,31 @@ namespace CinderCourt.View
             transform.position = ViewWorld.ToWorld(simX, simY);
 
             // Original flips the sprite; in 3D we rotate the model yaw.
-            _targetYaw = facing >= 0 ? 90f : 270f;
+            // §M1: display yaw follows the movement delta snapped to 16
+            // directions (22.5°) so joystick diagonals read correctly. Attack
+            // frames snap to the sim's authoritative ±1 facing — the forward
+            // arc (dx*facing >= -18) stays visually honest. The sim's Facing
+            // contract is untouched; this is presentation only.
+            if (action == ActorAction.Attack || action == ActorAction.Critical
+                || float.IsNaN(_prevSimX))
+            {
+                _targetYaw = facing >= 0 ? 90f : 270f;
+            }
+            else
+            {
+                var deltaX = simX - _prevSimX;
+                var deltaY = simY - _prevSimY;
+                // 0.25 sq-units gate: real 60 Hz move steps are ~3.6 u, float
+                // noise and tick-less frames stay below it (idle keeps yaw).
+                if (deltaX * deltaX + deltaY * deltaY > 0.25f)
+                {
+                    // Sim +x → world +x (yaw 90°); sim +y is screen-down → world -z (yaw 180°).
+                    var yaw = Mathf.Atan2(deltaX, -deltaY) * Mathf.Rad2Deg;
+                    _targetYaw = Mathf.Round(yaw / 22.5f) * 22.5f;
+                }
+            }
+            _prevSimX = simX;
+            _prevSimY = simY;
             _currentYaw = Mathf.MoveTowardsAngle(_currentYaw, _targetYaw, 720f * Time.deltaTime);
             _model.localRotation = Quaternion.Euler(0f, _currentYaw, 0f);
 
@@ -269,6 +295,8 @@ namespace CinderCourt.View
             _healthFraction = 1f;
             _lastHealth = float.MaxValue;
             _deathPop = 0f;
+            _prevSimX = float.NaN;
+            _prevSimY = float.NaN;
             _eliteTint = false;
             _flashColor = PlayerFlashColor;
             if (_block != null && _renderers != null)
