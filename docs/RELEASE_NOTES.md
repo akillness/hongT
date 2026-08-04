@@ -1,5 +1,31 @@
 # Release Notes
 
+## GitHub Pages 배포 — 동료 명령 콘솔 + VFX 임팩트 패스 · 2026-08-04
+
+### 변경 (소스 `7256cb5`, 교차 세션 레인)
+- **동료 명령 콘솔** (던전, Enter): 한국어 우선 키워드 파서 → 닫힌 의도 집합
+  (집중공격/방어·복귀/스킬 시전), 선택적 Gemini 자유문장 폴백 (키는 런타임
+  전용, 빌드에 미포함). 입력 중 0.2x 슬로모. 분류 테스트 20종 포함.
+- **AOE/스킬 VFX 임팩트 패스**: 노바 번 데칼 1.2 s, 펄스 필드 필 3 s,
+  Aegis/Ward 시전 링 (전부 풀링, ClearTransient 커버).
+
+### 게이트·배포
+- EditMode **146/146 통과**
+  (`_workspace/current/engineering/unity-logs/test-results-082947.xml`).
+- Unity 6000.5.6f1 WebGL 빌드 성공
+  (`_workspace/current/engineering/unity-logs/build-083019.log`), data
+  26,558,801 B, wasm 9,140,333 B.
+- gh-pages `6ddd724`, 캐시 버전 `18b0fc1a992f9312`. 라이브 index.html·4개
+  리소스 모두 새 버전 확인.
+
+### 배포 후 스모크 (라이브, 1440×900, 오류 0)
+- 캠페인 1단계 강하 → Enter 콘솔 오픈 (명령 힌트·슬로모) → `nova` 제출 →
+  **"잿불 노바 시전"** 피드백, 기름 100→55, 적 4→3, 점수 100, 노바 번 데칼
+  렌더 (`_workspace/current/engineering/deployed-console-nova.png`).
+- 로컬 빌드 사전 검증에서 동일 경로 + 콘솔 열림/닫힘/ESC 탈출 확인.
+- 참고: headless CDP `keyboard.type()`은 한글 IME 조합이 없어 ASCII 별칭
+  (`nova`)으로 실행 경로를 증명 — 한글 키워드는 파서 단위테스트 20종이 커버.
+
 ## GitHub Pages 배포 — WebGL 텍스처 상한 빌드 · 2026-08-04
 
 ### 배포
