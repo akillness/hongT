@@ -26,6 +26,10 @@ namespace CinderCourt.Sim
         public bool NovaQueued;
         public bool WardQueued;
         public bool RestartQueued;
+        // --- hack & slash amendment (docs/SIM_SPEC_HACKSLASH.md §12) ---
+        public bool DashQueued;
+        public bool BoltQueued;
+        public bool PulseQueued;
     }
 
     public struct PlayerState
@@ -87,6 +91,15 @@ namespace CinderCourt.Sim
         HazardPulse = 1 << 11,
         AltarBlessing = 1 << 12,
         EquipDropped = 1 << 13,
+        // --- hack & slash amendment (docs/SIM_SPEC_HACKSLASH.md §12) ---
+        DashUsed = 1 << 14,
+        BoltCast = 1 << 15,
+        PulseCast = 1 << 16,
+        LevelUp = 1 << 17,
+        EliteDown = 1 << 18,
+        ExtractionComplete = 1 << 19,
+        BossPhase2 = 1 << 20,
+        ComboFinisher = 1 << 21,
     }
 
     public struct RunDigest

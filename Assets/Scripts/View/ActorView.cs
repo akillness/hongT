@@ -94,6 +94,18 @@ namespace CinderCourt.View
                   state.Scale, state.Dead, state.FadeTime, false);
         }
 
+        float _companionLastX;
+
+        /// <summary>Companion follower (spec §4): position + attack pose, no bars.</summary>
+        public void SyncCompanion(float simX, float simY, bool attacking)
+        {
+            var facing = simX >= _companionLastX ? 1 : -1;
+            _companionLastX = simX;
+            Apply(simX, simY, facing,
+                  attacking ? ActorAction.Attack : ActorAction.Move,
+                  1f, 0.92f, false, 0f, false);
+        }
+
         void Apply(float simX, float simY, int facing, ActorAction action,
                    float healthFraction, float scale, bool dead, float fadeTime,
                    bool hitFlash)

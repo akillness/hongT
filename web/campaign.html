@@ -1,136 +1,33 @@
 <!doctype html>
+<!-- v0.2.0: the campaign hub moved into the game itself (single-scene lobby).
+     This shell only preserves old links — instant redirect to index.html. -->
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#050812" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <meta name="description" content="마지막 등불을 들고 심연의 세 구역을 내려가는 액션 캠페인" />
-    <title>Abyssal Lantern — Main Campaign</title>
+    <meta http-equiv="refresh" content="0;url=index.html" />
+    <title>Abyssal Lantern — 이동 중…</title>
+    <script>location.replace("index.html");</script>
     <style>
-      :root {
-        --bg: #050812;
-        --panel: rgba(16, 13, 30, 0.86);
-        --panel-line: rgba(120, 110, 200, 0.28);
-        --ink: #e8eaf6;
-        --ink-dim: #9aa0c0;
-        --ember: #ff9a52;
-        --cyan: #8fe9ff;
-        --lock: #565b78;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { min-height: 100%; }
       body {
-        background:
-          radial-gradient(1200px 500px at 50% -10%, rgba(120, 60, 30, 0.25), transparent 60%),
-          radial-gradient(900px 600px at 80% 110%, rgba(40, 80, 130, 0.18), transparent 60%),
-          var(--bg);
-        color: var(--ink);
+        background: #050812;
+        color: #9aa0c0;
         font-family: "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
         display: flex;
-        flex-direction: column;
+        min-height: 100vh;
         align-items: center;
-        padding: 48px 20px 64px;
-        gap: 28px;
+        justify-content: center;
+        text-align: center;
+        margin: 0;
       }
-      .kicker { letter-spacing: 0.42em; font-size: 12px; color: var(--ember); }
-      h1 { font-size: clamp(26px, 4.5vw, 40px); font-weight: 800; }
-      .sub { color: var(--ink-dim); font-size: 14px; text-align: center; max-width: 560px; line-height: 1.7; }
-      .equip[hidden] { display: none; }
-      .equip {
-        display: flex; gap: 18px; padding: 12px 22px;
-        background: var(--panel); border: 1px solid var(--panel-line); border-radius: 12px;
-        font-size: 13px; color: var(--ink-dim);
-      }
-      .equip b { color: var(--cyan); font-weight: 700; }
-      .stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 280px)); gap: 20px; justify-content: center; width: 100%; max-width: 960px; }
-      .stage {
-        position: relative; display: flex; flex-direction: column; gap: 10px;
-        background: var(--panel); border: 1px solid var(--panel-line);
-        border-radius: 16px; padding: 22px; text-decoration: none; color: inherit;
-        transition: transform .15s ease, border-color .15s ease;
-      }
-      .stage:hover { transform: translateY(-3px); border-color: var(--ember); }
-      .stage .seq { font-size: 12px; letter-spacing: .3em; color: var(--ink-dim); }
-      .stage .name { font-size: 21px; font-weight: 800; }
-      .stage .boss { font-size: 13px; color: var(--ink-dim); }
-      .stage .boss b { color: var(--ember); }
-      .stage .state { margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--cyan); }
-      .stage.locked { pointer-events: none; opacity: .45; filter: saturate(.4); }
-      .stage.locked .state { color: var(--lock); }
-      .stage.cleared { border-color: rgba(143, 233, 255, .45); }
-      .foot { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
-      .btn {
-        padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 700;
-        color: var(--ink); background: rgba(255, 154, 82, 0.14); border: 1px solid rgba(255, 154, 82, 0.5);
-      }
-      .btn:hover { background: rgba(255, 154, 82, 0.26); }
-      .note { font-size: 12px; color: var(--ink-dim); }
+      a { color: #8fe9ff; }
     </style>
   </head>
   <body>
-    <p class="kicker">ABYSSAL LANTERN</p>
-    <h1>메인 캠페인 — 심연 강하</h1>
-    <p class="sub">
-      마지막 등불을 들고 심연의 세 구역을 내려간다. 구역마다 웨이브를 버텨내고
-      경계 보스를 꺾어야 다음 문이 열린다. 보스는 장비 파편을 확정으로 남긴다 —
-      무기·랜턴·망토 파편은 다음 강하에 힘이 된다.
+    <p>
+      로비가 게임 안으로 통합되었습니다.<br />
+      자동으로 이동하지 않으면 <a href="index.html">여기를 눌러 주세요</a>.
     </p>
-
-    <div class="equip" id="equip-strip" hidden>
-      <span>장비 —</span>
-      <span>무기 <b id="eq-weapon">0</b></span>
-      <span>랜턴 <b id="eq-lantern">0</b></span>
-      <span>망토 <b id="eq-cloak">0</b></span>
-    </div>
-
-    <nav class="stages" id="stages" aria-label="스테이지 선택"></nav>
-
-    <div class="foot">
-      <a class="btn" href="index.html">아레나 방어전 (무한 웨이브)</a>
-    </div>
-    <p class="note">진행도는 이 브라우저의 localStorage에 저장됩니다. 서버 전송 없음.</p>
-
-    <script>
-      const STAGES = [
-        { id: "cinder-span", seq: "STAGE 1", name: "Cinder Span", boss: "Cinder Warden", waves: 5 },
-        { id: "abyss-chancel", seq: "STAGE 2", name: "Abyss Chancel", boss: "Veil Tactician", waves: 6 },
-        { id: "echo-throne", seq: "STAGE 3", name: "Echo Throne", boss: "Gate Sovereign", waves: 7 },
-      ];
-      const KEY = "abyssal-lantern:unity:campaign";
-      let progress = { cleared: [], equipment: { weapon: 0, lantern: 0, cloak: 0 } };
-      try {
-        const raw = window.localStorage.getItem(KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.cleared)) progress.cleared = parsed.cleared;
-          if (parsed && parsed.equipment) Object.assign(progress.equipment, parsed.equipment);
-        }
-      } catch (e) { /* private mode: default progress */ }
-
-      const equipStrip = document.getElementById("equip-strip");
-      const ranks = progress.equipment;
-      if (ranks.weapon || ranks.lantern || ranks.cloak) {
-        equipStrip.hidden = false;
-        document.getElementById("eq-weapon").textContent = ranks.weapon;
-        document.getElementById("eq-lantern").textContent = ranks.lantern;
-        document.getElementById("eq-cloak").textContent = ranks.cloak;
-      }
-
-      const host = document.getElementById("stages");
-      STAGES.forEach((stage, index) => {
-        const cleared = progress.cleared.includes(stage.id);
-        const unlocked = index === 0 || progress.cleared.includes(STAGES[index - 1].id);
-        const card = document.createElement("a");
-        card.className = "stage" + (cleared ? " cleared" : "") + (unlocked ? "" : " locked");
-        if (unlocked) card.href = `index.html?mode=campaign&stage=${stage.id}`;
-        card.innerHTML = `
-          <span class="seq">${stage.seq}</span>
-          <span class="name">${stage.name}</span>
-          <span class="boss">웨이브 ${stage.waves} + 경계 보스 <b>${stage.boss}</b></span>
-          <span class="state">${cleared ? "정화 완료 — 재강하 가능" : unlocked ? "강하 가능" : "이전 구역 보스를 처치하면 열립니다"}</span>`;
-        host.appendChild(card);
-      });
-    </script>
   </body>
 </html>

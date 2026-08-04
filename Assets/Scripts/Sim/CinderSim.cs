@@ -11,9 +11,12 @@ namespace CinderCourt.Sim
     /// original fixedUpdate order: player -> enemies -> skills -> pickups -> wave.
     /// The default constructor is the frozen arena run (docs/SIM_SPEC.md); the
     /// <see cref="CampaignConfig"/> constructor layers the campaign amendment
-    /// (docs/SIM_SPEC_CAMPAIGN.md) on top without touching any arena number.
+    /// (docs/SIM_SPEC_CAMPAIGN.md) on top without touching any arena number; the
+    /// <see cref="HackConfig"/> constructor adds the v0.2.0 hack &amp; slash rules
+    /// (docs/SIM_SPEC_HACKSLASH.md) — prologue, combo, dash, skills, elites,
+    /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
-    public sealed class CinderSim : ICinderSim, ICampaignSnapshot
+    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -57,6 +60,10 @@ namespace CinderCourt.Sim
             public float AttackCooldown;
             public bool DidDamage;
             public int LastHitAttack;
+            // --- hack & slash amendment (inert outside GameMode.Dungeon) ---
+            public bool IsElite;
+            public float KnockX, KnockY;   // knockback velocity in px/s
+            public float KnockTime;        // seconds of knockback left
         }
 
         /// <summary>Mutable per-hazard bookkeeping (config stays immutable/shared).</summary>
@@ -117,12 +124,71 @@ namespace CinderCourt.Sim
         private float _playerDamage;
         private float _playerMaxHealth;
         private float _lanternRegen;
+        private float _playerSpeed;
+        private float _baseDamage;
+        private float _baseMaxHealth;
+        private float _baseRegen;
+        private float _baseSpeed;
+
+        /// <summary>Elite corpse marker: the extraction target of §3.</summary>
+        private struct Corpse
+        {
+            public float X, Y;
+            public float Life;
+            public EnemyVisual Visual;
+        }
+
+        // --- hack &amp; slash amendment state (inert outside GameMode.Dungeon) ---
+        private readonly bool _hack;
+        private readonly HackConfig _hackConfig;
+        private readonly GameMode _gameMode;
+        private readonly bool _prologue;
+        private readonly bool _dungeon;
+        private readonly bool _companionActive;
+        private readonly float[] _skillCooldowns = new float[HackSpec.SkillCount];
+        private int _level;
+        private int _xp;
+        private int _comboIndex;      // hit the next Space press starts (0..2)
+        private int _comboSwing;      // hit currently swinging, -1 when idle
+        private float _comboLink;     // seconds left of the 0.9 s chain window
+        private bool _comboLanded;    // current swing already damaged something
+        private float _dashCooldown;
+        private float _dashTime;
+        private float _dashDirX, _dashDirY;
+        private float _castInvuln;
+        private float _shield;
+        private float _shieldTime;
+        private float _pulseTime;
+        private float _pulseTick;
+        private float _pulseX, _pulseY;
+        private int _elitesAlive;
+        private int _spawnOrdinal;
+        private bool _eliteThisWave;
+        private bool _extractedThisWave;
+        private float _extractionProgress;
+        private float _extractionTarget;
+        private float _extractionBonus;
+        private int _rosterMask;
+        private Corpse[] _corpses = new Corpse[8];
+        private int _corpseCount;
+        private float _companionX, _companionY;
+        private float _companionTimer;
+        private float _companionShow;
+        private float _bossHp, _bossMaxHp;
+        private int _bossPhase;
+        private bool _bossPhase2Done;
 
         /// <summary>Arena run — the frozen SIM_SPEC path. Behaviour must never change.</summary>
         public CinderSim()
         {
             _campaign = false;
             _config = default;
+            _hack = false;
+            _hackConfig = default;
+            _gameMode = GameMode.Arena;
+            _prologue = false;
+            _dungeon = false;
+            _companionActive = false;
             _hazards = NoHazards;
             _hazardRuntime = NoHazardRuntime;
             _hazardView = new List<HazardState>(0);
@@ -135,10 +201,41 @@ namespace CinderCourt.Sim
         {
             _campaign = true;
             _config = config;
+            _hack = false;
+            _hackConfig = default;
+            // v0.1 compatibility path: campaign rules without the v0.2 combat kit.
+            _gameMode = GameMode.Arena;
+            _prologue = false;
+            _dungeon = false;
+            _companionActive = false;
             _hazards = config.Hazards ?? NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
             _stageId = config.StageId ?? string.Empty;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                _hazardView.Add(default);
+            }
+            Restart();
+        }
+
+        /// <summary>Hack &amp; slash run — docs/SIM_SPEC_HACKSLASH.md §0-§7.</summary>
+        public CinderSim(in HackConfig config)
+        {
+            _hack = true;
+            _hackConfig = config;
+            _gameMode = config.Mode;
+            _prologue = config.Mode == GameMode.Prologue;
+            _dungeon = config.Mode == GameMode.Dungeon;
+            _campaign = _dungeon;
+            _config = _dungeon ? config.ToCampaignConfig() : default;
+            _companionActive = _dungeon && !string.IsNullOrEmpty(config.CompanionId);
+            _hazards = _dungeon ? (_config.Hazards ?? NoHazards) : NoHazards;
+            _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
+            _hazardView = new List<HazardState>(_hazards.Length);
+            _stageId = _prologue
+                ? HackSpec.PrologueStageId
+                : (_dungeon ? (_config.StageId ?? string.Empty) : string.Empty);
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 _hazardView.Add(default);
@@ -153,8 +250,10 @@ namespace CinderCourt.Sim
         public int Kills => _kills;
         public int Relics => _relics;
         public float Charge => _charge;
-        public float NovaCooldown => _novaCooldown;
-        public float WardCooldown => _wardCooldown;
+        // In the dungeon R is ash-nova and F is void-aegis, so the arena HUD slots
+        // report the corresponding §2.3 cooldowns (8 s / 12 s instead of 6.5 s / 9 s).
+        public float NovaCooldown => _dungeon ? _skillCooldowns[HackSpec.SkillNova] : _novaCooldown;
+        public float WardCooldown => _dungeon ? _skillCooldowns[HackSpec.SkillAegis] : _wardCooldown;
         public float NovaFlash => _novaFlash;
         public int PendingSpawns => _pendingSpawns;
         public int LivingEnemies => _livingEnemies;
@@ -183,6 +282,26 @@ namespace CinderCourt.Sim
         public int WeaponRank => _weaponRank;
         public int LanternRank => _lanternRank;
         public int CloakRank => _cloakRank;
+
+        // --- IHackSnapshot ---------------------------------------------------
+        public GameMode HackMode => _gameMode;
+        public int Level => _level;
+        public int Xp => _xp;
+        public int XpNext => HackSpec.XpToNextLevel(_level);
+        public int ComboIndex => _comboIndex;
+        public float DashCooldown => _dashCooldown;
+        public IReadOnlyList<float> SkillCooldowns => _skillCooldowns;
+        public float Shield => _shield;
+        public int ElitesAlive => _elitesAlive;
+        public float ExtractionProgress => _extractionProgress;
+        public float ExtractionTarget => _extractionTarget;
+        public float CompanionX => _companionX;
+        public float CompanionY => _companionY;
+        public bool CompanionAttacking => _companionShow > 0f;
+        public float BossHp => _bossHp;
+        public float BossMaxHp => _bossMaxHp;
+        public int BossPhase => _bossPhase;
+        public int RosterMask => _rosterMask;
 
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
@@ -230,6 +349,7 @@ namespace CinderCourt.Sim
 
         public void Restart()
         {
+            ResetHackRun();
             ResetCampaignRun();
 
             _enemyCount = 0;
@@ -260,6 +380,7 @@ namespace CinderCourt.Sim
             _novaY = _player.Y;
 
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+            ResetCompanion();
 
             StartWave(1);
             _events = SimEvents.None;
@@ -290,7 +411,15 @@ namespace CinderCourt.Sim
             CastSkills(in input);
 
             UpdatePlayer(dt, in input);
+            if (_companionActive && _mode != SimMode.GameOver)
+            {
+                UpdateCompanion(dt);
+            }
             UpdateEnemies(dt);
+            if (_dungeon && _mode != SimMode.GameOver)
+            {
+                UpdateBossPhase();
+            }
             if (_campaign && _mode != SimMode.GameOver)
             {
                 UpdateHazards(dt);
@@ -299,6 +428,10 @@ namespace CinderCourt.Sim
             {
                 UpdateSkills(dt);
                 UpdatePickups(dt);
+                if (_dungeon)
+                {
+                    UpdateExtraction(dt);
+                }
                 UpdateWave(dt);
             }
 
@@ -309,6 +442,20 @@ namespace CinderCourt.Sim
 
         private void CastSkills(in SimInput input)
         {
+            // §1: the prologue is movement + basic attack only — every skill key,
+            // the dash included, is ignored.
+            if (_prologue)
+            {
+                return;
+            }
+
+            // §2.2/§2.3: the dungeon replaces the arena kit with dash + four skills.
+            if (_dungeon)
+            {
+                CastDungeonSkills(in input);
+                return;
+            }
+
             if (input.NovaQueued && _novaCooldown <= 0f && _charge >= SimConfig.NovaCost)
             {
                 CastNova();
@@ -352,8 +499,492 @@ namespace CinderCourt.Sim
             _events |= SimEvents.WardCast;
         }
 
+        // --- Hack & slash kit (docs/SIM_SPEC_HACKSLASH.md §2.2-§2.4) ----------
+
+        /// <summary>
+        /// Dungeon casting order: dash first (it cancels the swing), then Q/E/R/F.
+        /// The sim only trusts the booleans — the key remap is the view's business.
+        /// </summary>
+        private void CastDungeonSkills(in SimInput input)
+        {
+            if (input.DashQueued && _dashCooldown <= 0f && _dashTime <= 0f && _charge >= HackSpec.DashCost)
+            {
+                CastDash(in input);
+            }
+            if (input.BoltQueued && _skillCooldowns[HackSpec.SkillBolt] <= 0f && _charge >= HackSpec.BoltCost)
+            {
+                CastRiftBolt();
+            }
+            if (input.PulseQueued && _skillCooldowns[HackSpec.SkillPulse] <= 0f && _charge >= HackSpec.PulseCost)
+            {
+                CastGravePulse();
+            }
+            if (input.NovaQueued && _skillCooldowns[HackSpec.SkillNova] <= 0f && _charge >= HackSpec.AshNovaCost)
+            {
+                CastAshNova();
+            }
+            if (input.WardQueued && _skillCooldowns[HackSpec.SkillAegis] <= 0f && _charge >= HackSpec.AegisCost)
+            {
+                CastVoidAegis();
+            }
+        }
+
+        /// <summary>§2.2: 190 px in 0.22 s, invulnerable throughout, cancels the combo.</summary>
+        private void CastDash(in SimInput input)
+        {
+            float directionX = input.MoveX;
+            float directionY = input.MoveY;
+            float length = Hypot(directionX, directionY);
+            if (length > 0f)
+            {
+                directionX /= length;
+                directionY /= length;
+            }
+            else
+            {
+                directionX = _player.Facing;
+                directionY = 0f;
+            }
+
+            _charge -= HackSpec.DashCost;
+            _dashCooldown = HackSpec.DashCooldownSeconds;
+            _dashTime = HackSpec.DashTime;
+            _dashDirX = directionX;
+            _dashDirY = directionY;
+            if (directionX != 0f)
+            {
+                _player.Facing = directionX > 0f ? 1 : -1;
+            }
+            _comboSwing = -1;
+            _comboLink = HackSpec.ComboLinkWindow;
+            SetPlayerAction(ActorAction.Avoid, true);
+            _events |= SimEvents.DashUsed;
+        }
+
+        /// <summary>§2.3 Q: 145 to the nearest target inside 420 px, 60% splash at 115.</summary>
+        private void CastRiftBolt()
+        {
+            _charge -= HackSpec.BoltCost;
+            _skillCooldowns[HackSpec.SkillBolt] = HackSpec.BoltCooldown;
+            _events |= SimEvents.BoltCast;
+
+            int target = NearestEnemyIndex(_player.X, _player.Y, HackSpec.BoltRange);
+            if (target < 0)
+            {
+                return;
+            }
+
+            float originX = _enemies[target].State.X;
+            float originY = _enemies[target].State.Y;
+
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                if (index == target)
+                {
+                    continue;
+                }
+                ref Enemy splashed = ref _enemies[index];
+                if (splashed.State.Dead
+                    || !IsoWithin(originX, originY, splashed.State.X, splashed.State.Y, HackSpec.BoltSplashRadius))
+                {
+                    continue;
+                }
+                DamageEnemy(ref splashed, ElementalDamage(
+                    HackSpec.BoltDamage * HackSpec.BoltSplashScale, HackSpec.BoltElement, splashed.State.Visual));
+            }
+
+            ref Enemy primary = ref _enemies[target];
+            DamageEnemy(ref primary, ElementalDamage(
+                HackSpec.BoltDamage, HackSpec.BoltElement, primary.State.Visual));
+        }
+
+        /// <summary>§2.3 E: a 190 px field at the cast point, 26 every 0.5 s for 3 s.</summary>
+        private void CastGravePulse()
+        {
+            _charge -= HackSpec.PulseCost;
+            _skillCooldowns[HackSpec.SkillPulse] = HackSpec.PulseCooldown;
+            _pulseTime = HackSpec.PulseDuration;
+            _pulseTick = HackSpec.PulseTickInterval;
+            _pulseX = _player.X;
+            _pulseY = _player.Y;
+            _events |= SimEvents.PulseCast;
+        }
+
+        /// <summary>§2.3 R: 230 px burst for 110 with a 120 px knockback.</summary>
+        private void CastAshNova()
+        {
+            _charge -= HackSpec.AshNovaCost;
+            _skillCooldowns[HackSpec.SkillNova] = HackSpec.AshNovaCooldown;
+            _novaFlash = NovaFlashDuration;
+            _novaX = _player.X;
+            _novaY = _player.Y;
+            _events |= SimEvents.NovaCast;
+
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead
+                    || !IsoWithin(_player.X, _player.Y, enemy.State.X, enemy.State.Y, HackSpec.AshNovaRadius))
+                {
+                    continue;
+                }
+                Knockback(ref enemy, HackSpec.AshNovaKnockback, HackSpec.ComboKnockbackTime);
+                DamageEnemy(ref enemy, ElementalDamage(
+                    HackSpec.AshNovaDamage, HackSpec.AshNovaElement, enemy.State.Visual));
+            }
+        }
+
+        /// <summary>§2.3 F: a 40 point absorb for 8 s plus a 0.2 s cast i-frame.</summary>
+        private void CastVoidAegis()
+        {
+            _charge -= HackSpec.AegisCost;
+            _skillCooldowns[HackSpec.SkillAegis] = HackSpec.AegisCooldown;
+            _shield = HackSpec.AegisShield;
+            _shieldTime = HackSpec.AegisDuration;
+            _castInvuln = HackSpec.AegisCastInvuln;
+            _events |= SimEvents.WardCast;
+        }
+
+        /// <summary>The grave-pulse field lives in the sim; the view only sees the cast.</summary>
+        private void UpdatePulseField(float deltaTime)
+        {
+            if (_pulseTime <= 0f)
+            {
+                return;
+            }
+
+            _pulseTime -= deltaTime;
+            _pulseTick -= deltaTime;
+            if (_pulseTick <= 0f)
+            {
+                _pulseTick += HackSpec.PulseTickInterval;
+                for (int index = 0; index < _enemyCount; index += 1)
+                {
+                    ref Enemy enemy = ref _enemies[index];
+                    if (enemy.State.Dead
+                        || !IsoWithin(_pulseX, _pulseY, enemy.State.X, enemy.State.Y, HackSpec.PulseRadius))
+                    {
+                        continue;
+                    }
+                    DamageEnemy(ref enemy, ElementalDamage(
+                        HackSpec.PulseTickDamage, HackSpec.PulseElement, enemy.State.Visual));
+                }
+            }
+
+            if (_pulseTime <= 0f)
+            {
+                _pulseTime = 0f;
+                _pulseTick = 0f;
+            }
+        }
+
+        /// <summary>§2.4: only skills roll the element cycle; the combo stays neutral.</summary>
+        private static float ElementalDamage(float amount, Element skill, EnemyVisual visual)
+        {
+            return amount * HackSpec.Matchup(skill, HackSpec.ElementOf(visual));
+        }
+
+        /// <summary>Lowest-index living enemy inside the iso radius, or -1.</summary>
+        private int NearestEnemyIndex(float x, float y, float radius)
+        {
+            int best = -1;
+            float bestSquared = 0f;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - x;
+                float deltaY = (enemy.State.Y - y) * SimConfig.IsoY;
+                float squared = deltaX * deltaX + deltaY * deltaY;
+                if (squared > radius * radius)
+                {
+                    continue;
+                }
+                if (best < 0 || squared < bestSquared)
+                {
+                    best = index;
+                    bestSquared = squared;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>Push an enemy straight away from the player over <paramref name="time"/>.</summary>
+        private void Knockback(ref Enemy enemy, float distance, float time)
+        {
+            float deltaX = enemy.State.X - _player.X;
+            float deltaY = enemy.State.Y - _player.Y;
+            float length = Hypot(deltaX, deltaY);
+            if (length <= MoveEpsilon)
+            {
+                deltaX = _player.Facing;
+                deltaY = 0f;
+                length = 1f;
+            }
+            float speed = distance / time;
+            enemy.KnockX = deltaX / length * speed;
+            enemy.KnockY = deltaY / length * speed;
+            enemy.KnockTime = time;
+        }
+
+        /// <summary>§2.5: kill XP, level-ups and the stat bump they carry.</summary>
+        private void GainXp(int amount)
+        {
+            if (_level >= HackSpec.LevelCap)
+            {
+                return;
+            }
+
+            _xp += amount;
+            bool levelled = false;
+            while (_level < HackSpec.LevelCap)
+            {
+                int required = HackSpec.XpToNextLevel(_level);
+                if (required <= 0 || _xp < required)
+                {
+                    break;
+                }
+                _xp -= required;
+                _level += 1;
+                levelled = true;
+            }
+
+            if (!levelled)
+            {
+                return;
+            }
+
+            if (_level >= HackSpec.LevelCap)
+            {
+                _xp = 0;
+            }
+
+            float previousMax = _playerMaxHealth;
+            ApplyLevelStats();
+            _player.Health = MathF.Min(_playerMaxHealth, _player.Health + (_playerMaxHealth - previousMax));
+            _events |= SimEvents.LevelUp;
+        }
+
+        /// <summary>§3: an elite leaves an extractable corpse marker for 10 s.</summary>
+        private void DropCorpse(EnemyVisual visual, float x, float y)
+        {
+            if (_corpseCount == _corpses.Length)
+            {
+                Array.Resize(ref _corpses, _corpses.Length * 2);
+            }
+
+            ref Corpse corpse = ref _corpses[_corpseCount];
+            corpse.X = x;
+            corpse.Y = y;
+            corpse.Life = HackSpec.CorpseLifetime;
+            corpse.Visual = visual;
+            _corpseCount += 1;
+        }
+
+        /// <summary>
+        /// §3: corpse markers age out after 10 s, and a stationary player inside 90 px
+        /// of one banks 2.0 s of channel. Any hit that lands resets the channel, and a
+        /// wave only yields one extraction.
+        /// </summary>
+        private void UpdateExtraction(float deltaTime)
+        {
+            for (int index = _corpseCount - 1; index >= 0; index -= 1)
+            {
+                _corpses[index].Life -= deltaTime;
+                if (_corpses[index].Life > 0f)
+                {
+                    continue;
+                }
+                RemoveCorpseAt(index);
+            }
+
+            _extractionTarget = 0f;
+
+            if (_extractedThisWave || _corpseCount == 0)
+            {
+                _extractionProgress = 0f;
+                return;
+            }
+
+            int target = -1;
+            float bestSquared = 0f;
+            for (int index = 0; index < _corpseCount; index += 1)
+            {
+                float deltaX = _corpses[index].X - _player.X;
+                float deltaY = (_corpses[index].Y - _player.Y) * SimConfig.IsoY;
+                float squared = deltaX * deltaX + deltaY * deltaY;
+                if (squared > HackSpec.ExtractionRadius * HackSpec.ExtractionRadius)
+                {
+                    continue;
+                }
+                if (target < 0 || squared < bestSquared)
+                {
+                    target = index;
+                    bestSquared = squared;
+                }
+            }
+
+            if (target < 0)
+            {
+                _extractionProgress = 0f;
+                return;
+            }
+
+            _extractionTarget = HackSpec.ExtractionSeconds;
+
+            if (_player.Moving || (_events & SimEvents.PlayerDamaged) != 0)
+            {
+                _extractionProgress = 0f;
+                return;
+            }
+
+            _extractionProgress += deltaTime;
+            if (_extractionProgress < HackSpec.ExtractionSeconds)
+            {
+                return;
+            }
+
+            CompleteExtraction(_corpses[target].Visual);
+            RemoveCorpseAt(target);
+            _extractionProgress = 0f;
+            _extractionTarget = 0f;
+            _extractedThisWave = true;
+        }
+
+        /// <summary>
+        /// §3 reward branch: a visual the roster has never seen joins it and buffs this
+        /// run's damage by 8%; a duplicate pays 30 relics instead.
+        /// </summary>
+        private void CompleteExtraction(EnemyVisual visual)
+        {
+            int bit = 1 << (int)visual;
+            if ((_rosterMask & bit) == 0)
+            {
+                _rosterMask |= bit;
+                _extractionBonus += HackSpec.ExtractionDamageBonus;
+                ApplyLevelStats();
+            }
+            else
+            {
+                _relics += HackSpec.ExtractionDuplicateRelics;
+            }
+            _events |= SimEvents.ExtractionComplete;
+        }
+
+        private void RemoveCorpseAt(int index)
+        {
+            int tail = _corpseCount - index - 1;
+            if (tail > 0)
+            {
+                Array.Copy(_corpses, index + 1, _corpses, index, tail);
+            }
+            _corpseCount -= 1;
+            _corpses[_corpseCount] = default;
+        }
+
+        /// <summary>
+        /// §4: the companion trails the player by 80 px and, every 1.1 s, hits the
+        /// nearest enemy inside 200 px for 60% of the player's damage. It cannot be
+        /// targeted, so it has no health and never appears in the enemy contact loop.
+        /// </summary>
+        private void UpdateCompanion(float deltaTime)
+        {
+            float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+            float targetY = _player.Y;
+            float deltaX = targetX - _companionX;
+            float deltaY = targetY - _companionY;
+            float distance = Hypot(deltaX, deltaY);
+            if (distance > MoveEpsilon)
+            {
+                float stepX = deltaX / distance * _playerSpeed * deltaTime;
+                float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
+                _companionX += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
+                _companionY += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+            }
+
+            _companionShow = MathF.Max(0f, _companionShow - deltaTime);
+            _companionTimer = MathF.Max(0f, _companionTimer - deltaTime);
+            if (_companionTimer > 0f)
+            {
+                return;
+            }
+
+            int target = NearestEnemyIndex(_companionX, _companionY, HackSpec.CompanionAttackRange);
+            if (target < 0)
+            {
+                return;
+            }
+
+            _companionTimer = HackSpec.CompanionAttackInterval;
+            _companionShow = HackSpec.CompanionAttackDisplay;
+            DamageEnemy(ref _enemies[target], _playerDamage * HackSpec.CompanionDamageScale);
+        }
+
+        /// <summary>
+        /// §7: the stage boss flips to phase 2 once, at half health — faster, harder
+        /// contact, and the monarch calls in three escorts on the way through.
+        /// </summary>
+        private void UpdateBossPhase()
+        {
+            int boss = -1;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                if (_enemies[index].State.IsBoss && !_enemies[index].State.Dead)
+                {
+                    boss = index;
+                    break;
+                }
+            }
+
+            if (boss < 0)
+            {
+                _bossHp = 0f;
+                _bossMaxHp = 0f;
+                _bossPhase = 0;
+                return;
+            }
+
+            _bossHp = _enemies[boss].State.Health;
+            _bossMaxHp = _enemies[boss].State.MaxHealth;
+
+            if (!_bossPhase2Done && _bossHp <= _bossMaxHp * HackSpec.BossPhase2HealthFraction)
+            {
+                _bossPhase2Done = true;
+                _events |= SimEvents.BossPhase2;
+                if (_enemies[boss].State.Visual == EnemyVisual.BossMonarch)
+                {
+                    // The escorts join the live spawn queue as ordinary enemies.
+                    _pendingSpawns += HackSpec.MonarchPhase2Escorts;
+                }
+            }
+
+            _bossPhase = _bossPhase2Done ? 2 : 1;
+        }
+
         private void UpdateSkills(float deltaTime)
         {
+            if (_dungeon)
+            {
+                for (int index = 0; index < _skillCooldowns.Length; index += 1)
+                {
+                    _skillCooldowns[index] = MathF.Max(0f, _skillCooldowns[index] - deltaTime);
+                }
+                _dashCooldown = MathF.Max(0f, _dashCooldown - deltaTime);
+                _castInvuln = MathF.Max(0f, _castInvuln - deltaTime);
+                if (_shieldTime > 0f)
+                {
+                    _shieldTime = MathF.Max(0f, _shieldTime - deltaTime);
+                    if (_shieldTime == 0f)
+                    {
+                        _shield = 0f;
+                    }
+                }
+                UpdatePulseField(deltaTime);
+            }
+
             _novaCooldown = MathF.Max(0f, _novaCooldown - deltaTime);
             _wardCooldown = MathF.Max(0f, _wardCooldown - deltaTime);
             _novaFlash = MathF.Max(0f, _novaFlash - deltaTime);
@@ -368,6 +999,13 @@ namespace CinderCourt.Sim
             _player.AttackCooldown = MathF.Max(0f, _player.AttackCooldown - deltaTime);
             _player.DamageCooldown = MathF.Max(0f, _player.DamageCooldown - deltaTime);
 
+            // §2.2: the dash owns the whole step — no steering, no swing, no contact.
+            if (_dashTime > 0f)
+            {
+                UpdateDash(deltaTime);
+                return;
+            }
+
             float movementX = input.MoveX;
             float movementY = input.MoveY;
             float movementLength = Hypot(movementX, movementY);
@@ -377,8 +1015,8 @@ namespace CinderCourt.Sim
                 movementX /= movementLength;
                 movementY /= movementLength;
                 float attackScale = _player.Action == ActorAction.Attack ? SimConfig.AttackMoveScale : 1f;
-                _player.X += movementX * SimConfig.PlayerSpeed * attackScale * deltaTime;
-                _player.Y += movementY * SimConfig.PlayerSpeed * SimConfig.YMoveScale * attackScale * deltaTime;
+                _player.X += movementX * _playerSpeed * attackScale * deltaTime;
+                _player.Y += movementY * _playerSpeed * SimConfig.YMoveScale * attackScale * deltaTime;
                 _player.Moving = true;
                 if (movementX != 0f)
                 {
@@ -392,6 +1030,12 @@ namespace CinderCourt.Sim
             }
 
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+
+            if (_dungeon)
+            {
+                UpdateCombo(deltaTime, in input);
+                return;
+            }
 
             if (input.AttackQueued && _player.AttackCooldown <= 0f && _player.Action != ActorAction.Attack)
             {
@@ -442,6 +1086,132 @@ namespace CinderCourt.Sim
             }
         }
 
+        /// <summary>
+        /// §2.2: 190 px over 0.22 s. The final step is clipped to the remaining dash
+        /// time so the travelled distance is exactly 190 px, not a fixed-step multiple.
+        /// </summary>
+        private void UpdateDash(float deltaTime)
+        {
+            float step = MathF.Min(deltaTime, _dashTime);
+            float speed = HackSpec.DashDistance / HackSpec.DashTime;
+            _player.X += _dashDirX * speed * step;
+            _player.Y += _dashDirY * speed * SimConfig.YMoveScale * step;
+            ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
+            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+            _player.Moving = true;
+            _player.ActionTime += deltaTime;
+
+            _dashTime -= deltaTime;
+            if (_dashTime <= 0f)
+            {
+                _dashTime = 0f;
+                SetPlayerAction(ActorAction.Idle, true);
+            }
+        }
+
+        /// <summary>
+        /// §2.1: a three-hit chain. Each hit owns a swing length and an active window;
+        /// re-pressing inside the 0.9 s link window advances the chain, otherwise the
+        /// next press restarts at hit 1.
+        /// </summary>
+        private void UpdateCombo(float deltaTime, in SimInput input)
+        {
+            if (input.AttackQueued && _comboSwing < 0)
+            {
+                int hit = _comboLink > 0f ? _comboIndex : 0;
+                if (hit < 0 || hit >= HackSpec.ComboLength)
+                {
+                    hit = 0;
+                }
+                _comboSwing = hit;
+                _comboLanded = false;
+                _comboLink = 0f;
+                _player.AttackId += 1;
+                _player.AttackCooldown = HackSpec.ComboSwing[hit];
+                SetPlayerAction(ActorAction.Attack, true);
+                _events |= SimEvents.PlayerStruck;
+            }
+
+            if (_comboSwing < 0)
+            {
+                if (_comboLink > 0f)
+                {
+                    _comboLink = MathF.Max(0f, _comboLink - deltaTime);
+                    if (_comboLink == 0f)
+                    {
+                        _comboIndex = 0;
+                    }
+                }
+                SetPlayerAction(_player.Moving ? ActorAction.Move : ActorAction.Idle, false);
+                _player.ActionTime += deltaTime;
+                return;
+            }
+
+            _player.ActionTime += deltaTime;
+
+            int index = _comboSwing;
+            float elapsed = _player.ActionTime;
+            if (elapsed >= HackSpec.ComboActiveFrom[index] && elapsed < HackSpec.ComboActiveTo[index])
+            {
+                SwingCombo(index);
+            }
+
+            if (elapsed < HackSpec.ComboSwing[index])
+            {
+                return;
+            }
+
+            _comboSwing = -1;
+            _comboIndex = (index + 1) % HackSpec.ComboLength;
+            _comboLink = HackSpec.ComboLinkWindow;
+            SetPlayerAction(ActorAction.Idle, true);
+        }
+
+        /// <summary>
+        /// One combo hit: arena range/arc/one-hit-per-attackId rules, hit damage scaled
+        /// off the 58 base, and the finisher's 120 px knockback.
+        /// </summary>
+        private void SwingCombo(int index)
+        {
+            bool finisher = index == HackSpec.ComboLength - 1;
+            float damage = _playerDamage * HackSpec.ComboDamageScale[index];
+            bool landed = false;
+
+            for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
+            {
+                ref Enemy enemy = ref _enemies[enemyIndex];
+                if (enemy.State.Dead || enemy.LastHitAttack == _player.AttackId)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - _player.X;
+                float deltaY = (enemy.State.Y - _player.Y) * SimConfig.IsoY;
+                bool inFacingArc = deltaX * _player.Facing >= SimConfig.FacingArcTolerance;
+                if (!inFacingArc
+                    || deltaX * deltaX + deltaY * deltaY > SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
+                {
+                    continue;
+                }
+
+                enemy.LastHitAttack = _player.AttackId;
+                landed = true;
+                if (finisher)
+                {
+                    Knockback(ref enemy, HackSpec.ComboKnockbackDistance, HackSpec.ComboKnockbackTime);
+                }
+                DamageEnemy(ref enemy, damage);
+            }
+
+            if (landed && finisher && !_comboLanded)
+            {
+                _events |= SimEvents.ComboFinisher;
+            }
+            if (landed)
+            {
+                _comboLanded = true;
+            }
+        }
+
         private void SetPlayerAction(ActorAction action, bool force)
         {
             if (!force && _player.Action == action)
@@ -465,12 +1235,37 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // §2.2/§2.3: dash i-frames and the void-aegis cast window refuse everything,
+            // hazards included, and do not even burn the contact grace.
+            if (_dashTime > 0f || _castInvuln > 0f)
+            {
+                return;
+            }
+
             // Ward refuses the damage outright but still burns the contact grace so a
             // warded player is not chain-hit by the same swing.
             if (!bypassWard && _player.WardTime > 0f)
             {
                 _player.DamageCooldown = SimConfig.PlayerHitGrace;
                 return;
+            }
+
+            // §2.3 F: the shield eats damage first; a fully absorbed hit is not a hit.
+            if (_shield > 0f)
+            {
+                float absorbed = MathF.Min(_shield, amount);
+                _shield -= absorbed;
+                amount -= absorbed;
+                if (_shield <= 0f)
+                {
+                    _shield = 0f;
+                    _shieldTime = 0f;
+                }
+                if (amount <= 0f)
+                {
+                    _player.DamageCooldown = SimConfig.PlayerHitGrace;
+                    return;
+                }
             }
 
             _player.DamageCooldown = SimConfig.PlayerHitGrace;
@@ -517,6 +1312,22 @@ namespace CinderCourt.Sim
         {
             ref Enemy enemy = ref _enemies[index];
             enemy.AttackCooldown = MathF.Max(0f, enemy.AttackCooldown - deltaTime);
+
+            // §2.1/§2.3: knockback rides on top of the chase — the enemy still acts.
+            if (enemy.KnockTime > 0f)
+            {
+                float step = MathF.Min(deltaTime, enemy.KnockTime);
+                enemy.State.X += enemy.KnockX * step;
+                enemy.State.Y += enemy.KnockY * SimConfig.YMoveScale * step;
+                ClampToArena(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp);
+                enemy.KnockTime -= deltaTime;
+                if (enemy.KnockTime <= 0f)
+                {
+                    enemy.KnockTime = 0f;
+                    enemy.KnockX = 0f;
+                    enemy.KnockY = 0f;
+                }
+            }
 
             float deltaX = _player.X - enemy.State.X;
             float deltaY = _player.Y - enemy.State.Y;
@@ -626,6 +1437,16 @@ namespace CinderCourt.Sim
                 {
                     damage *= SimConfig.BossDamageMul;
                 }
+                if (enemy.IsElite)
+                {
+                    // §3: elites hit 1.5x harder than the wave baseline.
+                    damage *= HackSpec.EliteDamageMul;
+                }
+                if (_bossPhase >= 2 && enemy.State.IsBoss)
+                {
+                    // §7: phase 2 raises the boss contact damage by a quarter.
+                    damage *= HackSpec.BossPhase2DamageMul;
+                }
                 DamagePlayer(damage);
             }
         }
@@ -645,7 +1466,14 @@ namespace CinderCourt.Sim
             float speed = MathF.Min(
                 EnemySpeedCap,
                 EnemySpeedBase + _wave * EnemySpeedPerWave + enemyId % 3 * EnemySpeedIdStep);
-            return isBoss ? speed * SimConfig.BossSpeedMul : speed;
+            if (isBoss)
+            {
+                // §7: phase 2 is a quarter faster on top of the frozen boss modifier.
+                return _bossPhase2Done
+                    ? speed * SimConfig.BossSpeedMul * HackSpec.BossPhase2SpeedMul
+                    : speed * SimConfig.BossSpeedMul;
+            }
+            return speed;
         }
 
         private void DamageEnemy(ref Enemy enemy, float amount)
@@ -671,6 +1499,19 @@ namespace CinderCourt.Sim
             if (boss)
             {
                 _livingBosses -= 1;
+            }
+            if (enemy.IsElite)
+            {
+                _elitesAlive -= 1;
+                DropCorpse(enemy.State.Visual, enemy.State.X, enemy.State.Y);
+                _events |= SimEvents.EliteDown;
+            }
+            if (_dungeon)
+            {
+                // §2.5: 10 per kill, 25 per elite, 150 per boss.
+                GainXp(boss
+                    ? HackSpec.XpPerBoss
+                    : (enemy.IsElite ? HackSpec.XpPerElite : HackSpec.XpPerKill));
             }
             _score += (boss ? BossKillScorePerWave : KillScorePerWave) * _wave;
             _kills += 1;
@@ -788,10 +1629,20 @@ namespace CinderCourt.Sim
         {
             _wave = waveNumber;
             _waveSeed = waveNumber * 3 % SimConfig.SpawnPoints.Length;
-            _pendingSpawns = _campaign
-                ? SpawnCountForStageWave(in _config, waveNumber)
-                : SpawnCountForWave(waveNumber);
-            _pendingBoss = _campaign ? waveNumber > _config.Waves : IsBossWave(waveNumber);
+            if (_prologue)
+            {
+                _pendingSpawns = HackSpec.PrologueSpawnCount(waveNumber);
+                _pendingBoss = false;
+            }
+            else
+            {
+                _pendingSpawns = _campaign
+                    ? SpawnCountForStageWave(in _config, waveNumber)
+                    : SpawnCountForWave(waveNumber);
+                _pendingBoss = _campaign ? waveNumber > _config.Waves : IsBossWave(waveNumber);
+            }
+            _eliteThisWave = false;
+            _extractedThisWave = false;
             _spawnIndexInWave = 0;
             _spawnTimer = SimConfig.FirstSpawnDelay;
             _intermission = 0f;
@@ -831,6 +1682,12 @@ namespace CinderCourt.Sim
 
             if (_pendingSpawns == 0 && _livingEnemies == 0)
             {
+                // §1: the prologue is three waves long and then it is over.
+                if (_prologue && _wave >= HackSpec.PrologueWaves)
+                {
+                    ClearRun(HackSpec.PrologueClearReason);
+                    return;
+                }
                 _intermission = SimConfig.WaveIntermission;
                 _mode = SimMode.WaveClear;
             }
@@ -845,11 +1702,28 @@ namespace CinderCourt.Sim
 
             int id = _nextEnemyId;
             float[] spawnPoint = SimConfig.SpawnPoints[SpawnPointIndexFor(_wave, id)];
-            float health = SimConfig.EnemyBaseHealth
-                + MathF.Min(EnemyHealthWaveCap, (_wave - 1) * EnemyHealthPerWave);
+            // §2.1: dungeon mobs carry the combo-DPS health curve; arena/prologue keep
+            // the frozen SIM_SPEC curve.
+            float health = _dungeon
+                ? HackSpec.DungeonEnemyBaseHealth
+                    + MathF.Min(HackSpec.DungeonEnemyHealthCap, (_wave - 1) * HackSpec.DungeonEnemyHealthPerWave)
+                : SimConfig.EnemyBaseHealth
+                    + MathF.Min(EnemyHealthWaveCap, (_wave - 1) * EnemyHealthPerWave);
+            // §3: every seventh dungeon spawn is an elite, at most one per wave.
+            bool elite = false;
+            if (_dungeon && !boss)
+            {
+                _spawnOrdinal += 1;
+                elite = !_eliteThisWave && _spawnOrdinal % HackSpec.EliteSpawnModulus == 0;
+            }
+
             if (boss)
             {
                 health *= SimConfig.BossHealthMul;
+            }
+            else if (elite)
+            {
+                health *= HackSpec.EliteHealthMul;
             }
 
             ref Enemy enemy = ref _enemies[_enemyCount];
@@ -869,10 +1743,14 @@ namespace CinderCourt.Sim
             enemy.State.Action = ActorAction.Idle;
             enemy.State.ActionTime = 0f;
             enemy.State.IsBoss = boss;
-            enemy.State.Scale = boss ? SimConfig.BossScale : 1f;
+            enemy.State.Scale = boss ? SimConfig.BossScale : (elite ? HackSpec.EliteScale : 1f);
             enemy.AttackCooldown = id % 3 * FirstAttackDelayStep;
             enemy.DidDamage = false;
             enemy.LastHitAttack = -1;
+            enemy.IsElite = elite;
+            enemy.KnockX = 0f;
+            enemy.KnockY = 0f;
+            enemy.KnockTime = 0f;
 
             _enemyCount += 1;
             _nextEnemyId += 1;
@@ -883,6 +1761,11 @@ namespace CinderCourt.Sim
             {
                 _livingBosses += 1;
                 _events |= SimEvents.BossSpawned;
+            }
+            else if (elite)
+            {
+                _elitesAlive += 1;
+                _eliteThisWave = true;
             }
         }
 
@@ -903,14 +1786,44 @@ namespace CinderCourt.Sim
                 _hazardRuntime[index] = default;
             }
 
+            if (_hack)
+            {
+                // §5/§6: meta stats and equipment tiers apply to dungeon runs only —
+                // the prologue and the arena keep the frozen SIM_SPEC numbers.
+                if (_dungeon)
+                {
+                    _weaponRank = CampaignSpec.ClampRank(_hackConfig.EquipTiers.Weapon);
+                    _lanternRank = CampaignSpec.ClampRank(_hackConfig.EquipTiers.Lantern);
+                    _cloakRank = CampaignSpec.ClampRank(_hackConfig.EquipTiers.Cloak);
+                    _baseDamage = _hackConfig.PlayerDamage;
+                    _baseMaxHealth = _hackConfig.PlayerMaxHealth;
+                    _baseRegen = _hackConfig.LanternRegenPerSecond;
+                    _baseSpeed = _hackConfig.PlayerSpeed;
+                }
+                else
+                {
+                    _weaponRank = 0;
+                    _lanternRank = 0;
+                    _cloakRank = 0;
+                    _baseDamage = SimConfig.PlayerDamage;
+                    _baseMaxHealth = SimConfig.PlayerMaxHealth;
+                    _baseRegen = SimConfig.LanternRegenPerSecond;
+                    _baseSpeed = SimConfig.PlayerSpeed;
+                }
+                ApplyLevelStats();
+                return;
+            }
+
             if (!_campaign)
             {
                 _weaponRank = 0;
                 _lanternRank = 0;
                 _cloakRank = 0;
-                _playerDamage = SimConfig.PlayerDamage;
-                _playerMaxHealth = SimConfig.PlayerMaxHealth;
-                _lanternRegen = SimConfig.LanternRegenPerSecond;
+                _baseDamage = SimConfig.PlayerDamage;
+                _baseMaxHealth = SimConfig.PlayerMaxHealth;
+                _baseRegen = SimConfig.LanternRegenPerSecond;
+                _baseSpeed = SimConfig.PlayerSpeed;
+                ApplyLevelStats();
                 return;
             }
 
@@ -920,9 +1833,76 @@ namespace CinderCourt.Sim
             _weaponRank = CampaignSpec.ClampRank(_config.WeaponRank);
             _lanternRank = CampaignSpec.ClampRank(_config.LanternRank);
             _cloakRank = CampaignSpec.ClampRank(_config.CloakRank);
-            _playerDamage = _config.PlayerDamage;
-            _playerMaxHealth = _config.PlayerMaxHealth;
-            _lanternRegen = _config.LanternRegenPerSecond;
+            _baseDamage = _config.PlayerDamage;
+            _baseMaxHealth = _config.PlayerMaxHealth;
+            _baseRegen = _config.LanternRegenPerSecond;
+            _baseSpeed = SimConfig.PlayerSpeed;
+            ApplyLevelStats();
+        }
+
+        /// <summary>
+        /// Fold the in-run level (§2.5) and the extraction buff (§3) into the effective
+        /// stats. At level 1 with no buff every multiplier is exactly 1, so the arena
+        /// and campaign paths keep their frozen values bit for bit.
+        /// </summary>
+        private void ApplyLevelStats()
+        {
+            int levels = _level - 1;
+            _playerDamage = _baseDamage
+                * (1f + HackSpec.LevelDamageBonus * levels)
+                * (1f + _extractionBonus);
+            _playerMaxHealth = _baseMaxHealth + HackSpec.LevelHealthBonus * levels;
+            _lanternRegen = _baseRegen + HackSpec.LevelRegenBonus * levels;
+            _playerSpeed = _baseSpeed;
+        }
+
+        /// <summary>Run-start reset of every hack &amp; slash field (§2-§7).</summary>
+        private void ResetHackRun()
+        {
+            _level = 1;
+            _xp = 0;
+            _comboIndex = 0;
+            _comboSwing = -1;
+            _comboLink = 0f;
+            _comboLanded = false;
+            _dashCooldown = 0f;
+            _dashTime = 0f;
+            _dashDirX = 0f;
+            _dashDirY = 0f;
+            _castInvuln = 0f;
+            _shield = 0f;
+            _shieldTime = 0f;
+            _pulseTime = 0f;
+            _pulseTick = 0f;
+            _pulseX = 0f;
+            _pulseY = 0f;
+            _elitesAlive = 0;
+            _spawnOrdinal = 0;
+            _eliteThisWave = false;
+            _extractedThisWave = false;
+            _extractionProgress = 0f;
+            _extractionTarget = 0f;
+            _extractionBonus = 0f;
+            _rosterMask = _hack ? _hackConfig.RosterMask : 0;
+            _corpseCount = 0;
+            _companionTimer = HackSpec.CompanionAttackInterval;
+            _companionShow = 0f;
+            _bossHp = 0f;
+            _bossMaxHp = 0f;
+            _bossPhase = 0;
+            _bossPhase2Done = false;
+
+            for (int index = 0; index < _skillCooldowns.Length; index += 1)
+            {
+                _skillCooldowns[index] = 0f;
+            }
+        }
+
+        /// <summary>Park the companion at its follow offset (§4). No-op when disabled.</summary>
+        private void ResetCompanion()
+        {
+            _companionX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+            _companionY = _player.Y;
         }
 
         private void RaiseRank(int slot)
@@ -944,10 +1924,13 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>Stage boss down: the run ends as a clear, not as an overrun.</summary>
-        private void ClearStage()
+        private void ClearStage() => ClearRun(CampaignSpec.StageClearReason);
+
+        /// <summary>The objective is met: the run ends as a clear, not as an overrun.</summary>
+        private void ClearRun(string reason)
         {
             _stageCleared = true;
-            _reason = CampaignSpec.StageClearReason;
+            _reason = reason;
             _mode = SimMode.GameOver;
             _events |= SimEvents.StageCleared;
             _pendingSpawns = 0;

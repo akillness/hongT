@@ -1,6 +1,11 @@
 // Polls the New Input System and merges keyboard + on-screen touch controls
-// into one SimInput per fixed step. Latched one-shot flags are consumed by
-// GameView after each batch of ticks.
+// into one SimInput per fixed step. Key->boolean mapping is MODE-AWARE and
+// owned here (docs/SIM_SPEC_HACKSLASH.md §2.3): the sim only trusts booleans.
+//
+//   Arena    : Q=Nova  E=Ward                     R=Restart  Space=Attack
+//   Prologue : movement + Space only              R=Restart
+//   Dungeon  : Q=Bolt  E=Pulse  R=Nova  F=Ward    Shift=Dash Space=Combo
+//              (restart is panel-button only — R is a skill)
 using CinderCourt.Sim;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,12 +14,20 @@ namespace CinderCourt.View
 {
     public sealed class InputAdapter : MonoBehaviour
     {
+        /// <summary>View-owned input profile (mirrors sim GameMode).</summary>
+        public enum Profile { Arena, Prologue, Dungeon }
+
+        public Profile Mode = Profile.Arena;
+
         // Touch D-pad state (set by HudView's TouchButton components).
         public bool TouchLeft, TouchRight, TouchUp, TouchDown;
 
         bool _attackLatch;
         bool _novaLatch;
         bool _wardLatch;
+        bool _boltLatch;
+        bool _pulseLatch;
+        bool _dashLatch;
         bool _restartLatch;
 
         void Update()
@@ -22,18 +35,38 @@ namespace CinderCourt.View
             var keyboard = Keyboard.current;
             if (keyboard == null)
                 return;
-            // Attack: hold-to-repeat (original listens to browser key auto-repeat;
-            // the sim's 0.48 s cooldown owns the cadence).
+            // Attack: hold-to-repeat (sim cooldown owns cadence in arena;
+            // combo link window owns it in dungeon).
             if (keyboard.spaceKey.isPressed) _attackLatch = true;
-            if (keyboard.qKey.wasPressedThisFrame) _novaLatch = true;
-            if (keyboard.eKey.wasPressedThisFrame) _wardLatch = true;
-            if (keyboard.rKey.wasPressedThisFrame) _restartLatch = true;
+
+            switch (Mode)
+            {
+                case Profile.Arena:
+                    if (keyboard.qKey.wasPressedThisFrame) _novaLatch = true;
+                    if (keyboard.eKey.wasPressedThisFrame) _wardLatch = true;
+                    if (keyboard.rKey.wasPressedThisFrame) _restartLatch = true;
+                    break;
+                case Profile.Prologue:
+                    if (keyboard.rKey.wasPressedThisFrame) _restartLatch = true;
+                    break;
+                case Profile.Dungeon:
+                    if (keyboard.qKey.wasPressedThisFrame) _boltLatch = true;
+                    if (keyboard.eKey.wasPressedThisFrame) _pulseLatch = true;
+                    if (keyboard.rKey.wasPressedThisFrame) _novaLatch = true;
+                    if (keyboard.fKey.wasPressedThisFrame) _wardLatch = true;
+                    if (keyboard.leftShiftKey.wasPressedThisFrame ||
+                        keyboard.rightShiftKey.wasPressedThisFrame) _dashLatch = true;
+                    break;
+            }
         }
 
         /// <summary>Queue calls from HUD buttons (touch/click).</summary>
         public void QueueAttack() => _attackLatch = true;
         public void QueueNova() => _novaLatch = true;
         public void QueueWard() => _wardLatch = true;
+        public void QueueBolt() => _boltLatch = true;
+        public void QueuePulse() => _pulseLatch = true;
+        public void QueueDash() => _dashLatch = true;
         public void QueueRestart() => _restartLatch = true;
 
         public SimInput Sample()
@@ -61,6 +94,9 @@ namespace CinderCourt.View
                 AttackQueued = _attackLatch,
                 NovaQueued = _novaLatch,
                 WardQueued = _wardLatch,
+                BoltQueued = _boltLatch,
+                PulseQueued = _pulseLatch,
+                DashQueued = _dashLatch,
                 RestartQueued = _restartLatch,
             };
         }
@@ -71,6 +107,9 @@ namespace CinderCourt.View
             _attackLatch = false;
             _novaLatch = false;
             _wardLatch = false;
+            _boltLatch = false;
+            _pulseLatch = false;
+            _dashLatch = false;
             _restartLatch = false;
         }
     }

@@ -17,7 +17,6 @@ namespace CinderCourt.View
     public static class WebGLStorage
     {
         const string DigestKey = "abyssal-lantern:cinder-court:last-run";
-        const string CampaignKey = "abyssal-lantern:unity:campaign";
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern void CinderStorageSet(string key, string json);
@@ -60,58 +59,16 @@ namespace CinderCourt.View
 #endif
         }
 
-        // --- campaign progress ------------------------------------------------
-        // Shape (shared with web/campaign.html):
-        // {"cleared":["cinder-span"],"equipment":{"weapon":1,"lantern":0,"cloak":2}}
+        // Campaign persistence moved to CampaignStore (v2, spec §11) — the
+        // single writer of the campaign key. This class keeps only raw access.
 
-        public struct CampaignProgress
-        {
-            public bool CinderSpanCleared, AbyssChancelCleared, EchoThroneCleared;
-            public int Weapon, Lantern, Cloak;
-        }
+        // --- raw string access (v2 stores, e.g. CampaignStore) -----------------
 
-        public static CampaignProgress ReadCampaign()
-        {
-            var raw = Get(CampaignKey);
-            var progress = default(CampaignProgress);
-            if (string.IsNullOrEmpty(raw)) return progress;
-            // Tolerant micro-parse (fixed shape, no external JSON dependency).
-            progress.CinderSpanCleared = raw.Contains("\"cinder-span\"");
-            progress.AbyssChancelCleared = raw.Contains("\"abyss-chancel\"");
-            progress.EchoThroneCleared = raw.Contains("\"echo-throne\"");
-            progress.Weapon = ExtractInt(raw, "\"weapon\":");
-            progress.Lantern = ExtractInt(raw, "\"lantern\":");
-            progress.Cloak = ExtractInt(raw, "\"cloak\":");
-            return progress;
-        }
+        /// <summary>Raw localStorage read; "" when absent.</summary>
+        public static string GetString(string key) => Get(key);
 
-        public static void WriteCampaign(in CampaignProgress progress)
-        {
-            Builder.Length = 0;
-            Builder.Append("{\"cleared\":[");
-            var first = true;
-            if (progress.CinderSpanCleared) { Builder.Append("\"cinder-span\""); first = false; }
-            if (progress.AbyssChancelCleared) { if (!first) Builder.Append(','); Builder.Append("\"abyss-chancel\""); first = false; }
-            if (progress.EchoThroneCleared) { if (!first) Builder.Append(','); Builder.Append("\"echo-throne\""); }
-            Builder.Append("],\"equipment\":{\"weapon\":").Append(progress.Weapon)
-                .Append(",\"lantern\":").Append(progress.Lantern)
-                .Append(",\"cloak\":").Append(progress.Cloak).Append("}}");
-            Set(CampaignKey, Builder.ToString());
-        }
-
-        static int ExtractInt(string raw, string marker)
-        {
-            var index = raw.IndexOf(marker, System.StringComparison.Ordinal);
-            if (index < 0) return 0;
-            index += marker.Length;
-            var value = 0;
-            while (index < raw.Length && char.IsDigit(raw[index]))
-            {
-                value = value * 10 + (raw[index] - '0');
-                index++;
-            }
-            return value;
-        }
+        /// <summary>Raw localStorage write (PlayerPrefs outside WebGL).</summary>
+        public static void SetString(string key, string json) => Set(key, json);
 
         static void Set(string key, string json)
         {

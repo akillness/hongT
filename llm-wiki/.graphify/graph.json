@@ -1,0 +1,24 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "Log",
+      "source_file": "log.md",
+      "id": "log",
+      "community": 1,
+      "norm_label": "log"
+    },
+    {
+      "label": "Index",
+      "source_file": "index.md",
+      "id": "index",
+      "community": 0,
+      "norm_label": "index"
+    }
+  ],
+  "links": [],
+  "hyperedges": [],
+  "built_at_commit": "8b9c188eb7852bfe76598cfc472b5f041fa0f4dc"
+}

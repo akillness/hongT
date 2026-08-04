@@ -1,5 +1,7 @@
 // Owns the CinderSim and the fixed-step accumulator (spec §World — NOT Unity
-// FixedUpdate). Distributes snapshots to actor views, HUD, audio, VFX.
+// FixedUpdate). Run lifecycle is driven by GameDirector via Begin/EndRun.
+// Persistence: GameDirector/CampaignStore own the campaign key — this class
+// only writes the run digest (localStorage parity with the original page).
 using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
@@ -15,6 +17,10 @@ namespace CinderCourt.View
         public CameraRig Rig;
         public GameBootstrap Bootstrap;
 
+        /// <summary>Raised after presentation dispatch each tick with events set.
+        /// GameDirector persists progress and drives story from here.</summary>
+        public System.Action<SimEvents, ICinderSim> OnRunEvents;
+
         public ICinderSim Sim => _sim;
 
         CinderSim _sim;
@@ -23,38 +29,91 @@ namespace CinderCourt.View
         readonly List<int> _toRecycle = new List<int>(SimConfig.EnemyCap);
 
         ActorView _playerView;
+        ActorView _companionView;
         float _accumulator;
         bool _digestWritten;
-        bool _isCampaign;
-        bool _campaignPersisted;
-        CampaignConfig _campaignConfig;
+        bool _isDungeon;
+        bool _campaignUiOn;
+        bool _dungeonUiOn;
 
         void Start()
         {
-            if (Bootstrap != null && Bootstrap.HasCampaign)
-            {
-                _isCampaign = true;
-                _campaignConfig = Bootstrap.Campaign;
-                _sim = new CinderSim(in _campaignConfig);
-                if (Hud != null)
-                    Hud.EnableCampaignUi(Bootstrap.CampaignStageName, _campaignConfig.Waves);
-            }
-            else
-            {
-                _sim = new CinderSim();
-            }
-
             for (var i = 0; i < _pools.Length; i++)
                 _pools[i] = new Stack<ActorView>(8);
             _playerView = ActorView.Create(
                 Bootstrap != null ? Bootstrap.PlayerPrefab : null,
                 new Color(0.55f, 0.75f, 1f), 1f);
             _playerView.name = "Player";
+            _playerView.gameObject.SetActive(false);   // lobby boots first
         }
+
+        /// <summary>Start a run. Idempotent across restarts of the same mode.</summary>
+        public void Begin(in HackConfig config, string stageDisplayName, string companionId)
+        {
+            EndRun();
+            _sim = new CinderSim(in config);
+            _isDungeon = config.Mode == GameMode.Dungeon;
+            _accumulator = 0f;
+            _digestWritten = false;
+            if (_playerView == null) Start();
+            _playerView.gameObject.SetActive(true);
+            _playerView.ResetForPool();
+
+            if (_isDungeon)
+            {
+                if (!_campaignUiOn && Hud != null)
+                {
+                    _campaignUiOn = true;
+                    Hud.EnableCampaignUi(stageDisplayName, config.ToCampaignConfig().Waves);
+                }
+                if (!_dungeonUiOn && Hud != null)
+                {
+                    _dungeonUiOn = true;
+                    Hud.EnableDungeonUi(BossNameFor(config.StageId));
+                }
+                if (Hud != null) Hud.SetCampaignSurfacesVisible(true);
+
+                if (!string.IsNullOrEmpty(companionId) && Bootstrap != null)
+                {
+                    var (prefab, tint) = Bootstrap.CompanionVisual(companionId);
+                    _companionView = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
+                    _companionView.name = "Companion";
+                    if (tint.HasValue)
+                        LobbyStaging.TintRenderers(_companionView.gameObject, tint.Value);
+                }
+            }
+            else if (Hud != null)
+            {
+                Hud.SetCampaignSurfacesVisible(false);
+            }
+        }
+
+        /// <summary>Stop the run and release run-scoped views. Safe when idle.</summary>
+        public void EndRun()
+        {
+            _sim = null;
+            foreach (var pair in _enemyViews)
+                Return(pair.Value);
+            _enemyViews.Clear();
+            if (_companionView != null)
+            {
+                Destroy(_companionView.gameObject);
+                _companionView = null;
+            }
+            if (_playerView != null) _playerView.gameObject.SetActive(false);
+            if (Vfx != null) Vfx.ClearTransient();
+        }
+
+        static string BossNameFor(string stageId) => stageId switch
+        {
+            "abyss-chancel" => "Veil Tactician",
+            "echo-throne" => "Gate Sovereign",
+            _ => "Cinder Warden",
+        };
 
         void Update()
         {
-            if (_sim == null) return;   // Start() not run yet
+            if (_sim == null) return;   // lobby / not started
             var delta = Mathf.Min(Time.deltaTime, SimConfig.MaxFrameDelta);
             _accumulator += delta;
             var steps = 0;
@@ -63,10 +122,14 @@ namespace CinderCourt.View
             {
                 _sim.Tick(in input);
                 DispatchEvents();
+                if (_sim == null) return;   // director ended the run mid-batch
                 // One-shot flags must fire exactly once per sample batch.
                 input.AttackQueued = false;
                 input.NovaQueued = false;
                 input.WardQueued = false;
+                input.BoltQueued = false;
+                input.PulseQueued = false;
+                input.DashQueued = false;
                 input.RestartQueued = false;
                 _accumulator -= SimConfig.FixedStep;
                 steps++;
@@ -89,51 +152,22 @@ namespace CinderCourt.View
             if (Rig != null) Rig.OnEvents(events);
             if (Hud != null) Hud.OnEvents(events, _sim);
 
-            if ((events & SimEvents.GameOver) != 0 && !_digestWritten)
+            if ((events & (SimEvents.GameOver | SimEvents.StageCleared)) != 0 && !_digestWritten)
             {
                 _digestWritten = true;
                 WebGLStorage.WriteRunDigest(_sim.Digest);
             }
-            if ((events & SimEvents.StageCleared) != 0)
-            {
-                if (!_digestWritten)
-                {
-                    _digestWritten = true;
-                    WebGLStorage.WriteRunDigest(_sim.Digest);
-                }
-                if (!_campaignPersisted && _isCampaign)
-                {
-                    _campaignPersisted = true;
-                    PersistCampaign();
-                }
-                if (Hud != null) Hud.ShowStageClear(_sim.Digest);
-            }
+            if ((events & SimEvents.StageCleared) != 0 && Hud != null)
+                Hud.ShowStageClear(_sim.Digest);
             if ((events & SimEvents.WaveStarted) != 0)
-            {
                 _digestWritten = false;
-                _campaignPersisted = false;
-            }
-        }
 
-        void PersistCampaign()
-        {
-            var progress = WebGLStorage.ReadCampaign();
-            switch (_campaignConfig.StageId)
-            {
-                case CampaignStages.CinderSpan: progress.CinderSpanCleared = true; break;
-                case CampaignStages.AbyssChancel: progress.AbyssChancelCleared = true; break;
-                case CampaignStages.EchoThrone: progress.EchoThroneCleared = true; break;
-            }
-            // Cleared-run ranks are the new meta baseline (spec: equipment is
-            // the reward for closing a stage; defeat keeps the old baseline).
-            progress.Weapon = _sim.WeaponRank;
-            progress.Lantern = _sim.LanternRank;
-            progress.Cloak = _sim.CloakRank;
-            WebGLStorage.WriteCampaign(in progress);
+            OnRunEvents?.Invoke(events, _sim);
         }
 
         void SyncViews()
         {
+            if (_sim == null) return;
             _playerView.SyncPlayer(_sim.Player);
 
             var enemies = _sim.Enemies;
@@ -145,6 +179,10 @@ namespace CinderCourt.View
                 {
                     view = Rent(state.Visual);
                     _enemyViews[state.Id] = view;
+                    // Elite marker (spec §3): non-boss with the 1.35 scale-up
+                    // gets the gold ally-of-the-abyss tint pulse.
+                    if (!state.IsBoss && state.Scale > 1.2f)
+                        LobbyStaging.TintRenderers(view.gameObject, new Color(1f, 0.78f, 0.25f));
                 }
                 view.SyncEnemy(in state);
             }
@@ -168,11 +206,26 @@ namespace CinderCourt.View
 
             if (Vfx != null) Vfx.SyncPickups(_sim.Pickups);
             if (Vfx != null) Vfx.SyncWard(_sim.Player);
-            if (Vfx != null && _isCampaign) Vfx.SyncHazards(_sim.Hazards);
             if (Hud != null) Hud.Sync(_sim);
-            if (Hud != null && _isCampaign)
-                Hud.SyncCampaign(_sim.Wave, _sim.BossAlive,
-                    _sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
+
+            if (_isDungeon)
+            {
+                if (Vfx != null) Vfx.SyncHazards(_sim.Hazards);
+                if (Hud != null)
+                    Hud.SyncCampaign(_sim.Wave, _sim.BossAlive,
+                        _sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
+                var hack = (IHackSnapshot)_sim;
+                if (Hud != null)
+                    Hud.SyncDungeon(hack.Level, hack.Xp, hack.XpNext, hack.ComboIndex,
+                        hack.DashCooldown, hack.SkillCooldowns, hack.Shield,
+                        hack.ExtractionProgress, hack.ExtractionTarget,
+                        hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
+                if (_companionView != null)
+                {
+                    _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,
+                        hack.CompanionAttacking);
+                }
+            }
         }
 
         ActorView Rent(EnemyVisual visual)
@@ -190,7 +243,6 @@ namespace CinderCourt.View
                 : (null, Color.red, 1f);
             var view = ActorView.Create(prefab, color, scale);
             view.name = visual.ToString();
-            view.GetComponent<ActorView>().enabled = true;
             var marker = view.gameObject.AddComponent<VisualMarker>();
             marker.Visual = visual;
             return view;
@@ -198,6 +250,7 @@ namespace CinderCourt.View
 
         void Return(ActorView view)
         {
+            if (view == null) return;
             var marker = view.GetComponent<VisualMarker>();
             var visual = marker != null ? marker.Visual : EnemyVisual.EmberCohort;
             view.gameObject.SetActive(false);

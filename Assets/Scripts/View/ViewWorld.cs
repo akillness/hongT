@@ -23,12 +23,29 @@ namespace CinderCourt.View
             }
         }
 
+        static Material _transparentSeed;
+
         public static Material MakeUnlit(Color color, bool transparent)
         {
+            if (transparent)
+            {
+                // Clone the serialized seed so the _SURFACE_TYPE_TRANSPARENT
+                // variant survives URP build-time stripping. Runtime-created
+                // materials cannot summon stripped variants - without the seed
+                // every transparent surface renders opaque in WebGL builds.
+                if (_transparentSeed == null)
+                    _transparentSeed = Resources.Load<Material>("Materials/unlit-transparent-seed");
+                if (_transparentSeed != null)
+                {
+                    var clone = new Material(_transparentSeed) { color = color };
+                    return clone;
+                }
+            }
             var material = new Material(UnlitShader) { color = color };
             if (transparent)
             {
-                // URP Unlit transparent surface setup.
+                // Editor / seed-missing fallback: same setup, works in-editor
+                // where no variant stripping occurs.
                 material.SetFloat("_Surface", 1f);
                 material.SetFloat("_Blend", 0f);
                 material.SetOverrideTag("RenderType", "Transparent");

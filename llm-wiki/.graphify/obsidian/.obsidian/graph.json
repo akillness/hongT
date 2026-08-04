@@ -1,0 +1,18 @@
+{
+  "colorGroups": [
+    {
+      "query": "tag:#community/Community_0",
+      "color": {
+        "a": 1,
+        "rgb": 5142951
+      }
+    },
+    {
+      "query": "tag:#community/Community_1",
+      "color": {
+        "a": 1,
+        "rgb": 15896107
+      }
+    }
+  ]
+}

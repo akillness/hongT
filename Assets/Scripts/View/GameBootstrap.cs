@@ -1,6 +1,7 @@
 // The single scene component. Assembles the whole runtime object graph in
-// Awake: input, audio, VFX, camera rig, game view, HUD. Loads prefabs and
-// audio from Resources with graceful fallbacks so the game always boots.
+// Awake and hands control to GameDirector (v0.2 single-scene state machine).
+// Boot routing, persistence, and mode rules live in GameDirector —
+// this class only loads assets and wires components.
 using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
@@ -14,46 +15,9 @@ namespace CinderCourt.View
         readonly Dictionary<EnemyVisual, GameObject> _enemyPrefabs =
             new Dictionary<EnemyVisual, GameObject>(6);
 
-        public bool HasCampaign { get; private set; }
-        public CampaignConfig Campaign { get; private set; }
-        public string CampaignStageName { get; private set; } = "";
-
         void Awake()
         {
             Application.targetFrameRate = -1;   // browser vsync owns pacing
-
-            // ?mode=campaign&stage=<id> — set by web/campaign.html stage cards.
-            // Outside WebGL QueryParam returns "" and we boot the arena.
-            if (WebGLStorage.QueryParam("mode") == "campaign")
-            {
-                var stageId = WebGLStorage.QueryParam("stage");
-                var progress = WebGLStorage.ReadCampaign();
-                var stageIndex = CampaignStages.IndexOf(stageId);
-                var unlocked = stageIndex == 0 ||
-                    (stageIndex == 1 && progress.CinderSpanCleared) ||
-                    (stageIndex == 2 && progress.AbyssChancelCleared);
-                if (stageIndex >= 0 && !unlocked)
-                {
-                    // Deep link past the lock (hub enforces it too) — arena fallback.
-                    Debug.LogWarning($"[Bootstrap] stage '{stageId}' is locked — arena fallback");
-                }
-                else if (CampaignStages.TryGet(stageId, progress.Weapon, progress.Lantern,
-                             progress.Cloak, out var config))
-                {
-                    HasCampaign = true;
-                    Campaign = config;
-                    CampaignStageName = config.StageId switch
-                    {
-                        CampaignStages.CinderSpan => "Cinder Span",
-                        CampaignStages.AbyssChancel => "Abyss Chancel",
-                        _ => "Echo Throne",
-                    };
-                }
-                else
-                {
-                    Debug.LogWarning($"[Bootstrap] unknown campaign stage '{stageId}' — arena fallback");
-                }
-            }
 
             PlayerPrefab = Resources.Load<GameObject>("Characters/guard");
             LoadEnemy(EnemyVisual.EmberCohort, "Characters/ember-cohort");
@@ -80,6 +44,22 @@ namespace CinderCourt.View
             game.Vfx = vfx;
             game.Rig = rig;
             game.Bootstrap = this;
+
+            var lobbyObject = new GameObject("Lobby");
+            lobbyObject.transform.SetParent(transform, false);
+            var lobby = lobbyObject.AddComponent<LobbyView>();
+
+            var stagingObject = new GameObject("LobbyStaging");
+            stagingObject.transform.SetParent(transform, false);
+            var staging = stagingObject.AddComponent<LobbyStaging>();
+
+            var speechObject = new GameObject("SpeechBubble");
+            speechObject.transform.SetParent(transform, false);
+            var speech = speechObject.AddComponent<SpeechBubbleView>();
+
+            var director = gameObject.AddComponent<GameDirector>();
+            director.Attach(this, lobby, staging, rig, input, hud, audio, vfx,
+                game, speech);
         }
 
         void LoadEnemy(EnemyVisual visual, string path)
@@ -88,6 +68,26 @@ namespace CinderCourt.View
             if (prefab == null)
                 Debug.LogWarning($"[Bootstrap] prefab missing: {path} — capsule fallback");
             _enemyPrefabs[visual] = prefab;
+        }
+
+        /// <summary>
+        /// Companion id -> (prefab, tint). Companions ALWAYS get a tint so they
+        /// read as allies among identical enemy meshes (payload contract:
+        /// material variants only, no new meshes). "-echo" extraction variants
+        /// are cyan; boss-reward companions warm gold. Null prefab for unknown ids.
+        /// </summary>
+        public (GameObject prefab, Color? tint) CompanionVisual(string companionId)
+        {
+            if (string.IsNullOrEmpty(companionId)) return (null, null);
+            var isEcho = companionId.EndsWith("-echo");
+            var baseId = isEcho
+                ? companionId.Substring(0, companionId.Length - "-echo".Length)
+                : companionId;
+            var prefab = Resources.Load<GameObject>($"Characters/{baseId}");
+            Color? tint = isEcho
+                ? new Color(0.62f, 0.95f, 0.88f)    // extraction echo: cyan
+                : new Color(1f, 0.86f, 0.55f);      // boss-reward ally: warm gold
+            return (prefab, tint);
         }
 
         public (GameObject prefab, Color fallback, float scale) EnemyVisualFor(EnemyVisual visual)

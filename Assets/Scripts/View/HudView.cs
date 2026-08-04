@@ -1,6 +1,7 @@
 // Runtime-generated Screen Space Overlay HUD (uGUI). Korean labels preserved
 // from the original page. Text updates only on value change (no per-frame
 // string allocation).
+using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -60,6 +61,7 @@ namespace CinderCourt.View
             canvasObject.transform.SetParent(transform, false);
             var canvas = canvasObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _canvas = canvas;   // single authoritative HUD canvas reference
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
@@ -101,10 +103,10 @@ namespace CinderCourt.View
             // --- bottom-center: skill cards ------------------------------------
             var novaCard = SkillCard(root, -95, "Q", "잿불 노바",
                 () => { if (Input != null) Input.QueueNova(); },
-                out _novaCooldownOverlay, out _novaGroup);
+                out _novaCooldownOverlay, out _novaGroup, "skill-nova");
             var wardCard = SkillCard(root, 95, "E", "랜턴 결계",
                 () => { if (Input != null) Input.QueueWard(); },
-                out _wardCooldownOverlay, out _wardGroup);
+                out _wardCooldownOverlay, out _wardGroup, "skill-ward");
 
             // --- lore line above skill cards ------------------------------------
             _loreText = Label(root, 0, 0, 900, 30, "", 17, TextAnchor.MiddleCenter);
@@ -141,6 +143,18 @@ namespace CinderCourt.View
         }
 
         /// <summary>
+        /// Single-scene v0.2: panels return to the lobby STATE via this callback
+        /// (set by GameDirector). Page navigation is the legacy fallback.
+        /// </summary>
+        public System.Action OnReturnHome;
+
+        void ReturnHome()
+        {
+            if (OnReturnHome != null) OnReturnHome();
+            else WebGLStorage.Navigate("index.html");
+        }
+
+        /// <summary>
         /// Called by GameView once when the run is a campaign stage. Adds the
         /// stage banner, equipment strip, and stage-clear panel; retitles the
         /// game-over panel with a "캠페인으로" back link.
@@ -149,7 +163,7 @@ namespace CinderCourt.View
         {
             _campaignStageName = stageName;
             _campaignTotalWaves = totalWaves;
-            var root = transform.GetComponentInChildren<Canvas>().transform;
+            var root = _canvas.transform;
 
             _stageBanner = Panel(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0, -14), new Vector2(360, 40), new Color(0.05f, 0.04f, 0.09f, 0.62f));
@@ -180,8 +194,7 @@ namespace CinderCourt.View
             clearTitle.color = new Color(0.56f, 0.91f, 1f);
             _stageClearText = Label(_stageClearPanel.transform, 0, -74, 480, 60, "", 18, TextAnchor.MiddleCenter);
             TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(-105, 24),
-                new Vector2(190, 44), "캠페인으로", 18,
-                () => WebGLStorage.Navigate("campaign.html"));
+                new Vector2(190, 44), "캠페인으로", 18, ReturnHome);
             TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(105, 24),
                 new Vector2(190, 44), "재강하 (R)", 18,
                 () => { if (Input != null) Input.QueueRestart(); });
@@ -189,8 +202,7 @@ namespace CinderCourt.View
 
             // Campaign game-over also offers the way back to the hub.
             TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 76),
-                new Vector2(200, 40), "캠페인으로", 16,
-                () => WebGLStorage.Navigate("campaign.html"));
+                new Vector2(200, 40), "캠페인으로", 16, ReturnHome);
         }
 
         /// <summary>Campaign per-frame extras (equipment ranks, banner wave).</summary>
@@ -218,6 +230,306 @@ namespace CinderCourt.View
             if (_stageClearPanel == null) return;
             _stageClearText.text = $"점수 {digest.Score:N0} • 처치 {digest.Kills} • 유물 {digest.Relics}";
             _stageClearPanel.SetActive(true);
+        }
+
+        // ------------------------------------------------- v0.2 visibility --
+        Canvas _canvas;
+        GameObject _prologueToast;
+        Text _prologueToastText;
+        static readonly string[] PrologueSteps =
+        {
+            "이동 — W A S D 또는 방향키",
+            "타격 — Space",
+            "기름 게이지를 보라. 초당 +7, 처치당 +6.",
+            "웨이브를 비우면 다음 군단이 온다.",
+        };
+
+        /// <summary>Whole combat HUD on/off (lobby hides it).</summary>
+        public void SetHudVisible(bool visible)
+        {
+            if (_canvas == null) _canvas = GetComponentInChildren<Canvas>(true);
+            if (_canvas != null && _canvas.gameObject.activeSelf != visible)
+                _canvas.gameObject.SetActive(visible);
+            if (!visible)
+            {
+                if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
+                if (_stageClearPanel != null) _stageClearPanel.SetActive(false);
+                HidePrologueToast();
+            }
+        }
+
+        /// <summary>Campaign/dungeon-only surfaces toggle for arena runs.</summary>
+        public void SetCampaignSurfacesVisible(bool visible)
+        {
+            if (_stageBanner != null) _stageBanner.SetActive(visible);
+            if (_equipPanel != null) _equipPanel.SetActive(visible);
+            if (_dungeonRoot != null) _dungeonRoot.SetActive(visible);
+            // Arena's own 2-card row is the inverse (prologue hides both rows).
+            SetArenaCardsVisible(!visible && !_prologueMode);
+        }
+
+        bool _prologueMode;
+
+        /// <summary>Prologue has NO skills (spec §1): hide both skill rows.</summary>
+        public void SetPrologueMode(bool on)
+        {
+            _prologueMode = on;
+            if (on)
+            {
+                SetArenaCardsVisible(false);
+                if (_dungeonRoot != null) _dungeonRoot.SetActive(false);
+            }
+        }
+
+        void SetArenaCardsVisible(bool visible)
+        {
+            if (_novaGroup != null) _novaGroup.gameObject.SetActive(visible);
+            if (_wardGroup != null) _wardGroup.gameObject.SetActive(visible);
+        }
+
+        /// <summary>Prologue tutorial toast (spec §1). step -1 hides.</summary>
+        public void ShowPrologueToast(int step)
+        {
+            if (step < 0 || step >= PrologueSteps.Length) { HidePrologueToast(); return; }
+            if (_prologueToast == null)
+            {
+                var root = _canvas.transform;
+                _prologueToast = Panel(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                    new Vector2(0, -70), new Vector2(520, 44), new Color(0.02f, 0.05f, 0.06f, 0.85f));
+                _prologueToast.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 1f);
+                _prologueToastText = Label(_prologueToast.transform, 0, 0, 520, 44, "", 17, TextAnchor.MiddleCenter);
+                var toastRect = _prologueToastText.rectTransform;
+                toastRect.anchorMin = Vector2.zero;
+                toastRect.anchorMax = Vector2.one;
+                toastRect.sizeDelta = Vector2.zero;
+                toastRect.anchoredPosition = Vector2.zero;
+                _prologueToastText.color = new Color(0.62f, 0.95f, 0.88f);
+            }
+            _prologueToast.SetActive(true);
+            _prologueToastText.text = PrologueSteps[step];
+        }
+
+        public void HidePrologueToast()
+        {
+            if (_prologueToast != null) _prologueToast.SetActive(false);
+        }
+
+        // =================================================== dungeon HUD (v0.2) --
+        GameObject _dungeonRoot;
+        Image _xpFill;
+        Text _levelText;
+        Image[] _comboPips;
+        Image[] _skillOverlays;         // bolt, pulse, nova(R), ward(F)
+        CanvasGroup[] _skillGroups;
+        Image _dashOverlay;
+        GameObject _bossBar;
+        Image _bossFill;
+        Text _bossName;
+        Text _bossPhasePip;
+        Image _extractRing;
+        GameObject _extractRoot;
+        Text _shieldText;
+        int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
+        float _lastXpFraction = -1f, _lastBossFraction = -1f;
+        int _lastShield = -1;
+        static readonly float[] SkillMaxCooldowns = { 6.5f, 4f, 8f, 12f };
+        static readonly float[] SkillCosts = { 25f, 30f, 45f, 30f };
+
+        /// <summary>Dungeon combat HUD (spec §2, §7): XP, combo, 4 skills, dash,
+        /// boss bar, extraction channel. Replaces the 2-card arena skill row.</summary>
+        public void EnableDungeonUi(string bossDisplayName)
+        {
+            var root = _canvas.transform;
+            _dungeonRoot = new GameObject("DungeonHud");
+            _dungeonRoot.transform.SetParent(root, false);
+            var stretch = _dungeonRoot.AddComponent<RectTransform>();
+            stretch.anchorMin = Vector2.zero;
+            stretch.anchorMax = Vector2.one;
+            stretch.offsetMin = Vector2.zero;
+            stretch.offsetMax = Vector2.zero;
+            var dungeonRoot = _dungeonRoot.transform;
+
+            // Hide the arena 2-card row (Q/E) — dungeon uses its own 4+dash row.
+            if (_novaGroup != null) _novaGroup.gameObject.SetActive(false);
+            if (_wardGroup != null) _wardGroup.gameObject.SetActive(false);
+
+            // --- XP bar (bottom edge) + level ---------------------------------
+            var xpBack = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f));
+            xpBack.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+            var xpFillObject = new GameObject("XpFill");
+            xpFillObject.transform.SetParent(xpBack.transform, false);
+            _xpFill = xpFillObject.AddComponent<Image>();
+            _xpFill.color = new Color(0.56f, 0.91f, 1f);
+            _xpFill.type = Image.Type.Filled;
+            _xpFill.fillMethod = Image.FillMethod.Horizontal;
+            var xpRect = xpFillObject.GetComponent<RectTransform>();
+            xpRect.anchorMin = Vector2.zero;
+            xpRect.anchorMax = Vector2.one;
+            xpRect.offsetMin = new Vector2(1, 1);
+            xpRect.offsetMax = new Vector2(-1, -1);
+            _levelText = Label(dungeonRoot, 0, 0, 120, 24, "Lv 1", 15, TextAnchor.MiddleCenter);
+            var levelRect = _levelText.rectTransform;
+            levelRect.anchorMin = levelRect.anchorMax = new Vector2(0.5f, 0f);
+            levelRect.pivot = new Vector2(0.5f, 0f);
+            levelRect.anchoredPosition = new Vector2(-360, 4);
+            _levelText.color = new Color(0.56f, 0.91f, 1f);
+
+            // --- combo pips (left of skill row) --------------------------------
+            _comboPips = new Image[3];
+            for (var i = 0; i < 3; i++)
+            {
+                var pip = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(-286 + i * 26, 52), new Vector2(20, 20),
+                    new Color(1f, 1f, 1f, 0.14f));
+                pip.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+                _comboPips[i] = pip.GetComponent<Image>();
+            }
+
+            // --- skill row: dash + Q/E/R/F --------------------------------------
+            _skillOverlays = new Image[4];
+            _skillGroups = new CanvasGroup[4];
+            var dashCard = SkillCard(dungeonRoot, -232, "SHIFT", "질주",
+                () => { if (Input != null) Input.QueueDash(); },
+                out _dashOverlay, out _, "skill-dash");
+            dashCard.GetComponent<RectTransform>().sizeDelta = new Vector2(110, 88);
+            var labels = new[] { ("Q", "균열 화살"), ("E", "묘지 파동"), ("R", "잿불 노바"), ("F", "공허 방패") };
+            var icons = new[] { "skill-bolt", "skill-pulse", "skill-nova", "skill-aegis" };
+            var actions = new UnityEngine.Events.UnityAction[]
+            {
+                () => { if (Input != null) Input.QueueBolt(); },
+                () => { if (Input != null) Input.QueuePulse(); },
+                () => { if (Input != null) Input.QueueNova(); },
+                () => { if (Input != null) Input.QueueWard(); },
+            };
+            for (var i = 0; i < 4; i++)
+            {
+                var card = SkillCard(dungeonRoot, -116 + i * 116, labels[i].Item1, labels[i].Item2,
+                    actions[i], out _skillOverlays[i], out _skillGroups[i], icons[i]);
+                card.GetComponent<RectTransform>().sizeDelta = new Vector2(108, 88);
+            }
+
+            // --- shield readout ---------------------------------------------------
+            _shieldText = Label(dungeonRoot, 0, 0, 200, 24, "", 15, TextAnchor.MiddleLeft);
+            var shieldRect = _shieldText.rectTransform;
+            shieldRect.anchorMin = shieldRect.anchorMax = new Vector2(0f, 1f);
+            shieldRect.pivot = new Vector2(0f, 1f);
+            shieldRect.anchoredPosition = new Vector2(16, -98);
+            _shieldText.color = new Color(0.56f, 0.85f, 1f);
+
+            // --- boss bar (top center, hidden until boss) --------------------------
+            _bossBar = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -58), new Vector2(520, 46), new Color(0.05f, 0.02f, 0.05f, 0.8f));
+            _bossBar.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 1f);
+            _bossName = Label(_bossBar.transform, 10, -2, 400, 20, bossDisplayName, 14, TextAnchor.MiddleLeft);
+            _bossName.color = new Color(1f, 0.55f, 0.4f);
+            _bossPhasePip = Label(_bossBar.transform, 0, -2, 500, 20, "", 13, TextAnchor.MiddleRight);
+            _bossPhasePip.color = new Color(1f, 0.83f, 0.45f);
+            var bossBack = Panel(_bossBar.transform, new Vector2(0, 0), new Vector2(0, 0),
+                new Vector2(8, 6), new Vector2(504, 14), new Color(0f, 0f, 0f, 0.65f));
+            bossBack.GetComponent<RectTransform>().pivot = Vector2.zero;
+            var bossFillObject = new GameObject("BossFill");
+            bossFillObject.transform.SetParent(bossBack.transform, false);
+            _bossFill = bossFillObject.AddComponent<Image>();
+            _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
+            _bossFill.type = Image.Type.Filled;
+            _bossFill.fillMethod = Image.FillMethod.Horizontal;
+            var bossFillRect = bossFillObject.GetComponent<RectTransform>();
+            bossFillRect.anchorMin = Vector2.zero;
+            bossFillRect.anchorMax = Vector2.one;
+            bossFillRect.offsetMin = new Vector2(1, 1);
+            bossFillRect.offsetMax = new Vector2(-1, -1);
+            _bossBar.SetActive(false);
+
+            // --- extraction channel ring (center-low) -------------------------------
+            _extractRoot = Panel(dungeonRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                new Vector2(0, -120), new Vector2(120, 26), new Color(0.02f, 0.05f, 0.06f, 0.8f));
+            Label(_extractRoot.transform, 0, 0, 120, 12, "추출", 11, TextAnchor.MiddleCenter);
+            var extractBack = Panel(_extractRoot.transform, new Vector2(0, 0), new Vector2(0, 0),
+                new Vector2(6, 4), new Vector2(108, 8), new Color(0f, 0f, 0f, 0.6f));
+            extractBack.GetComponent<RectTransform>().pivot = Vector2.zero;
+            var extractFillObject = new GameObject("ExtractFill");
+            extractFillObject.transform.SetParent(extractBack.transform, false);
+            _extractRing = extractFillObject.AddComponent<Image>();
+            _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
+            _extractRing.type = Image.Type.Filled;
+            _extractRing.fillMethod = Image.FillMethod.Horizontal;
+            var extractRect = extractFillObject.GetComponent<RectTransform>();
+            extractRect.anchorMin = Vector2.zero;
+            extractRect.anchorMax = Vector2.one;
+            extractRect.offsetMin = new Vector2(1, 1);
+            extractRect.offsetMax = new Vector2(-1, -1);
+            _extractRoot.SetActive(false);
+        }
+
+        /// <summary>Per-frame dungeon sync (IHackSnapshot surface, primitives only).</summary>
+        public void SyncDungeon(
+            int level, int xp, int xpNext, int comboIndex,
+            float dashCooldown, IReadOnlyList<float> skillCooldowns, float shield,
+            float extractionProgress, float extractionTarget,
+            float bossHp, float bossMaxHp, int bossPhase, float charge)
+        {
+            if (_dungeonRoot == null) return;
+
+            if (level != _lastLevel)
+            {
+                _lastLevel = level;
+                _levelText.text = $"Lv {level}";
+            }
+            var xpFraction = xpNext > 0 ? Mathf.Clamp01((float)xp / xpNext) : 1f;
+            if (!Mathf.Approximately(xpFraction, _lastXpFraction))
+            {
+                _lastXpFraction = xpFraction;
+                _xpFill.fillAmount = xpFraction;
+            }
+
+            if (comboIndex != _lastCombo)
+            {
+                _lastCombo = comboIndex;
+                for (var i = 0; i < 3; i++)
+                    _comboPips[i].color = i < comboIndex
+                        ? new Color(1f, 0.83f, 0.45f, 0.95f)
+                        : new Color(1f, 1f, 1f, 0.14f);
+            }
+
+            _dashOverlay.fillAmount = Mathf.Clamp01(dashCooldown / 1.6f);
+            if (skillCooldowns != null && skillCooldowns.Count >= 4)
+            {
+                for (var i = 0; i < 4; i++)
+                {
+                    _skillOverlays[i].fillAmount = Mathf.Clamp01(skillCooldowns[i] / SkillMaxCooldowns[i]);
+                    _skillGroups[i].alpha = charge >= SkillCosts[i] ? 1f : 0.45f;
+                }
+            }
+
+            var shieldShown = shield > 0f ? Mathf.CeilToInt(shield) : 0;
+            if (shieldShown != _lastShield)
+            {
+                _lastShield = shieldShown;
+                _shieldText.text = shieldShown > 0 ? $"방패 {shieldShown}" : "";
+            }
+
+            var bossVisible = bossMaxHp > 0f && bossHp > 0f;
+            if (_bossBar.activeSelf != bossVisible) _bossBar.SetActive(bossVisible);
+            if (bossVisible)
+            {
+                var bossFraction = Mathf.Clamp01(bossHp / bossMaxHp);
+                if (!Mathf.Approximately(bossFraction, _lastBossFraction))
+                {
+                    _lastBossFraction = bossFraction;
+                    _bossFill.fillAmount = bossFraction;
+                }
+                if (bossPhase != _lastBossPhase)
+                {
+                    _lastBossPhase = bossPhase;
+                    _bossPhasePip.text = bossPhase >= 2 ? "PHASE II" : "PHASE I";
+                }
+            }
+
+            var channeling = extractionTarget > 0f;
+            if (_extractRoot.activeSelf != channeling) _extractRoot.SetActive(channeling);
+            if (channeling)
+                _extractRing.fillAmount = Mathf.Clamp01(extractionProgress / extractionTarget);
         }
 
         void RefreshMuteLabel()
@@ -291,6 +603,16 @@ namespace CinderCourt.View
         {
             var buttonObject = Panel(parent, anchor, anchor, anchored, size,
                 new Color(0.16f, 0.13f, 0.24f, 0.9f));
+            // 9-slice ember plate (release skin). Falls back to the flat fill
+            // when the sprite is absent so the HUD never regresses to quads.
+            var plate = Resources.Load<Sprite>("Icons/ui-button");
+            if (plate != null)
+            {
+                var image = buttonObject.GetComponent<Image>();
+                image.sprite = plate;
+                image.type = Image.Type.Sliced;
+                image.color = Color.white;
+            }
             var button = buttonObject.AddComponent<Button>();
             button.onClick.AddListener(onClick);
             var text = Label(buttonObject.transform, 0, 0, size.x, size.y, label, fontSize, TextAnchor.MiddleCenter);
@@ -305,7 +627,8 @@ namespace CinderCourt.View
 
         GameObject SkillCard(Transform parent, float offsetX, string key, string label,
                              UnityEngine.Events.UnityAction onClick,
-                             out Image cooldownOverlay, out CanvasGroup group)
+                             out Image cooldownOverlay, out CanvasGroup group,
+                             string iconId = null)
         {
             var card = Panel(parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f));
@@ -314,6 +637,27 @@ namespace CinderCourt.View
             group = card.AddComponent<CanvasGroup>();
             var button = card.AddComponent<Button>();
             button.onClick.AddListener(onClick);
+            // Icon backdrop sits between the panel fill and the text rows so the
+            // cooldown overlay (created last, full-stretch) still darkens it.
+            if (iconId != null)
+            {
+                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                if (sprite != null)   // missing sprite would render a white quad
+                {
+                    var iconObject = new GameObject("Icon");
+                    iconObject.transform.SetParent(card.transform, false);
+                    var icon = iconObject.AddComponent<Image>();
+                    icon.sprite = sprite;
+                    icon.preserveAspect = true;
+                    icon.raycastTarget = false;
+                    icon.color = new Color(1f, 1f, 1f, 0.34f);  // art, not signal
+                    var iconRect = iconObject.GetComponent<RectTransform>();
+                    iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+                    iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+                    iconRect.anchoredPosition = new Vector2(0f, -2f);
+                    iconRect.sizeDelta = new Vector2(56f, 56f);
+                }
+            }
             var keyText = Label(card.transform, 0, -6, 150, 26, key, 20, TextAnchor.MiddleCenter);
             keyText.color = new Color(1f, 0.83f, 0.45f);
             Label(card.transform, 0, -34, 150, 24, label, 16, TextAnchor.MiddleCenter);

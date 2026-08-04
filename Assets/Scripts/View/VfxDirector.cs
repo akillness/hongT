@@ -21,6 +21,7 @@ namespace CinderCourt.View
         readonly Dictionary<int, Transform> _pickupViews = new Dictionary<int, Transform>(16);
         readonly List<int> _stale = new List<int>(16);
         Material[] _pickupMaterials;
+        Camera _camera;
         Transform _playerTransform;
 
         // --- campaign hazards (built once on first SyncHazards call) ---------
@@ -71,6 +72,106 @@ namespace CinderCourt.View
                 _novaY = sim.NovaY;
                 _novaRing.enabled = true;
             }
+            // --- dungeon kit one-shots (v0.2) --------------------------------
+            if ((events & SimEvents.DashUsed) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.56f, 0.91f, 1f, 0.8f), 0.32f, 0.24f);
+            if ((events & SimEvents.ComboFinisher) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(1f, 0.83f, 0.45f, 0.9f), 0.45f, 0.3f);
+            if ((events & SimEvents.LevelUp) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.62f, 0.95f, 0.88f, 0.95f), 0.8f, 0.6f);
+            if ((events & SimEvents.ExtractionComplete) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.62f, 0.95f, 0.88f, 1f), 1.1f, 0.7f);
+            if ((events & SimEvents.BossPhase2) != 0)
+            {
+                // NovaX/Y is the LAST NOVA origin — find the living boss instead.
+                var enemies = sim.Enemies;
+                for (var i = 0; i < enemies.Count; i++)
+                {
+                    if (!enemies[i].IsBoss || enemies[i].Dead) continue;
+                    SpawnBurst(enemies[i].X, enemies[i].Y, new Color(1f, 0.35f, 0.3f, 0.9f), 1.4f, 0.5f);
+                    break;
+                }
+            }
+            if ((events & SimEvents.BoltCast) != 0)
+                SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.75f, 0.55f, 1f, 0.7f), 0.3f, 0.2f);
+        }
+
+        // --- simple expanding ring pool for kit one-shots ------------------------
+        struct Burst
+        {
+            public LineRenderer Ring;
+            public Material Material;
+            public float Life, MaxLife, MaxRadius;
+            public Vector3 Center;
+            public Color Color;
+        }
+        readonly Burst[] _bursts = new Burst[8];
+        int _burstCursor;
+
+        void SpawnBurst(float simX, float simY, Color color, float maxRadiusWorld, float life)
+        {
+            ref var slot = ref _bursts[_burstCursor];
+            _burstCursor = (_burstCursor + 1) % _bursts.Length;
+            if (slot.Ring == null)
+            {
+                var ringObject = new GameObject("KitBurst");
+                ringObject.transform.SetParent(transform, false);
+                slot.Ring = ringObject.AddComponent<LineRenderer>();
+                slot.Ring.loop = true;
+                slot.Ring.positionCount = 28;
+                slot.Ring.widthMultiplier = 0.05f;
+                slot.Ring.useWorldSpace = true;
+                slot.Material = ViewWorld.MakeUnlit(color, true);
+                slot.Ring.sharedMaterial = slot.Material;
+            }
+            slot.Center = ViewWorld.ToWorld(simX, simY, 0.06f);
+            slot.Color = color;
+            slot.MaxRadius = maxRadiusWorld;
+            slot.MaxLife = slot.Life = life;
+            slot.Ring.enabled = true;
+        }
+
+        void UpdateBursts(float deltaTime)
+        {
+            for (var i = 0; i < _bursts.Length; i++)
+            {
+                ref var burst = ref _bursts[i];
+                if (burst.Ring == null || !burst.Ring.enabled) continue;
+                burst.Life -= deltaTime;
+                if (burst.Life <= 0f) { burst.Ring.enabled = false; continue; }
+                var progress = 1f - burst.Life / burst.MaxLife;
+                var radius = burst.MaxRadius * progress;
+                for (var s = 0; s < 28; s++)
+                {
+                    var angle = (Mathf.PI * 2f * s) / 28f;
+                    burst.Ring.SetPosition(s, burst.Center + new Vector3(
+                        Mathf.Cos(angle) * radius, 0f,
+                        Mathf.Sin(angle) * radius * (1f / SimConfig.IsoY)));
+                }
+                var faded = burst.Color;
+                faded.a = burst.Color.a * (1f - progress);
+                burst.Material.color = faded;
+            }
+        }
+
+        /// <summary>End-of-run cleanup: hazard visuals, pickups, live bursts.</summary>
+        public void ClearTransient()
+        {
+            if (_hazardViews != null)
+            {
+                for (var i = 0; i < _hazardViews.Length; i++)
+                    if (_hazardViews[i].Root != null)
+                        Destroy(_hazardViews[i].Root.gameObject);
+                _hazardViews = null;
+            }
+            foreach (var pair in _pickupViews)
+                if (pair.Value != null) Destroy(pair.Value.gameObject);
+            _pickupViews.Clear();
+            for (var i = 0; i < _bursts.Length; i++)
+                if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
+            if (_novaRing != null) _novaRing.enabled = false;
+            _novaTime = 0f;
+            if (_wardShell != null) _wardShell.SetActive(false);
         }
 
         /// <summary>Campaign only. Builds static visuals once, animates per frame.</summary>
@@ -205,6 +306,11 @@ namespace CinderCourt.View
             }
         }
 
+        // Icon ids by PickupKind (EmberShard, OilFlask, RelicMote, EquipShard).
+        static readonly string[] PickupIcons =
+            { "pickup-ember", "pickup-flask", "pickup-relic", "equip-weapon" };
+        readonly Material[] _pickupIconMaterials = new Material[4];
+
         public void SyncPickups(IReadOnlyList<PickupState> pickups)
         {
             for (var i = 0; i < pickups.Count; i++)
@@ -212,18 +318,21 @@ namespace CinderCourt.View
                 var pickup = pickups[i];
                 if (!_pickupViews.TryGetValue(pickup.Id, out var view))
                 {
-                    var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    Destroy(gem.GetComponent<Collider>());
-                    gem.name = "Pickup";
-                    gem.transform.localScale = Vector3.one * 0.18f;
-                    gem.GetComponent<Renderer>().sharedMaterial =
-                        _pickupMaterials[Mathf.Min((int)pickup.Kind, _pickupMaterials.Length - 1)];
-                    view = gem.transform;
+                    view = SpawnPickupIcon(pickup) ?? SpawnGem(pickup);
                     _pickupViews[pickup.Id] = view;
                 }
                 var bobHeight = 0.25f + Mathf.Sin(pickup.Bob * 3.4f) * 0.07f;
                 view.position = ViewWorld.ToWorld(pickup.X, pickup.Y, bobHeight);
-                view.rotation = Quaternion.Euler(45f, pickup.Bob * 90f, 45f);
+                // Material table is non-null exactly when the icon path won -
+                // avoids per-frame Object.name string marshalling.
+                var kind = (int)pickup.Kind;
+                var isIcon = kind >= 0 && kind < _pickupIconMaterials.Length
+                    && _pickupIconMaterials[kind] != null;
+                if (_camera != null && isIcon)
+                    view.rotation = Quaternion.LookRotation(
+                        view.position - _camera.transform.position);   // billboard
+                else
+                    view.rotation = Quaternion.Euler(45f, pickup.Bob * 90f, 45f);
             }
 
             if (_pickupViews.Count != pickups.Count)
@@ -242,6 +351,47 @@ namespace CinderCourt.View
                     _pickupViews.Remove(_stale[i]);
                 }
             }
+        }
+
+        Transform SpawnGem(PickupState pickup)
+        {
+            var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(gem.GetComponent<Collider>());
+            gem.name = "Pickup";
+            gem.transform.localScale = Vector3.one * 0.18f;
+            gem.GetComponent<Renderer>().sharedMaterial =
+                _pickupMaterials[Mathf.Min((int)pickup.Kind, _pickupMaterials.Length - 1)];
+            return gem.transform;
+        }
+
+        /// <summary>
+        /// Camera-facing quad with the per-kind pickup icon (ember shard, oil
+        /// flask, relic mote, equip shard). Falls back to null when the sprite
+        /// is missing so the caller keeps the legacy gem cube - an untextured
+        /// white quad would be worse than the old art.
+        /// </summary>
+        Transform SpawnPickupIcon(PickupState pickup)
+        {
+            var kind = (int)pickup.Kind;
+            if (kind < 0 || kind >= PickupIcons.Length) return null;
+            if (_camera == null) _camera = Camera.main;
+            if (_pickupIconMaterials[kind] == null)
+            {
+                var icon = Resources.Load<Sprite>("Icons/" + PickupIcons[kind]);
+                if (icon == null) return null;
+                // No tint: the icons carry their own palette (ember orange /
+                // amber / cyan / gold) - a multiply tint would shift them.
+                var material = ViewWorld.MakeUnlit(Color.white, true);
+                material.SetTexture("_BaseMap", icon.texture);
+                _pickupIconMaterials[kind] = material;
+            }
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Destroy(quad.GetComponent<Collider>());
+            quad.name = "PickupIcon";
+            quad.transform.localScale = Vector3.one *
+                (pickup.Kind == PickupKind.EquipShard ? 0.42f : 0.3f);
+            quad.GetComponent<Renderer>().sharedMaterial = _pickupIconMaterials[kind];
+            return quad.transform;
         }
 
         void Update()
@@ -264,6 +414,7 @@ namespace CinderCourt.View
                 _novaMaterial.color = color;
                 if (_novaTime <= 0f) _novaRing.enabled = false;
             }
+            UpdateBursts(Time.deltaTime);
         }
     }
 }
