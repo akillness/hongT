@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 380" width="880" height="380" font-family="Apple SD Gothic Neo, Noto Sans KR, sans-serif">
+  <rect x="0" y="0" width="880" height="380" fill="#ffffff"/>
+  <text x="12" y="24" font-size="15" font-weight="700" fill="#1a1a1a">사거리 비대칭 — 이 게임의 실력 축</text>
+  <text x="12" y="44" font-size="11.5" fill="#666">워든 160 vs 코호트 76. 그 사이 구간이 &quot;한 대도 맞지 않고 때리는&quot; 스탠드오프 밴드다.</text>
+
+  <!-- warden reach -->
+  <circle cx="300" cy="215" r="150" fill="#f8ede0" stroke="#c98a3c" stroke-width="1.6" stroke-dasharray="7 5"/>
+  <text x="300" y="80" font-size="12" font-weight="700" text-anchor="middle" fill="#7a4a1e">워든 사거리 160</text>
+
+  <!-- enemy reach -->
+  <circle cx="300" cy="215" r="71" fill="#fbe4e2" stroke="#c05a52" stroke-width="1.6"/>
+  <text x="300" y="152" font-size="12" font-weight="700" text-anchor="middle" fill="#94322b">코호트 사거리 76</text>
+
+  <!-- band highlight -->
+  <path d="M 300 215 m -150 0 a 150 150 0 0 1 300 0 z" fill="none"/>
+  <circle cx="300" cy="215" r="110" fill="none" stroke="#2f7d3f" stroke-width="2.4"/>
+  <text x="300" y="332" font-size="12" font-weight="700" text-anchor="middle" fill="#1e5c2c">스탠드오프 밴드 102–146</text>
+
+  <!-- warden -->
+  <circle cx="300" cy="215" r="12" fill="#1b3a4a"/>
+  <text x="300" y="219" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">W</text>
+
+  <!-- enemy at band -->
+  <circle cx="410" cy="215" r="10" fill="#94322b"/>
+  <text x="410" y="196" font-size="10.5" text-anchor="middle" fill="#94322b">적</text>
+
+  <!-- measure lines -->
+  <line x1="300" y1="215" x2="450" y2="215" stroke="#c98a3c" stroke-width="1.2"/>
+  <line x1="300" y1="243" x2="371" y2="243" stroke="#c05a52" stroke-width="1.2"/>
+  <text x="378" y="211" font-size="10.5" fill="#7a4a1e">160</text>
+  <text x="330" y="258" font-size="10.5" fill="#94322b">76</text>
+
+  <!-- right panel -->
+  <rect x="510" y="80" width="358" height="120" rx="9" fill="#f3f8f4" stroke="#2f7d3f" stroke-width="1.3"/>
+  <text x="528" y="106" font-size="12.5" font-weight="700" fill="#1e5c2c">밴드를 지키면</text>
+  <text x="528" y="130" font-size="11.5" fill="#2c5c38">· 워든의 타격은 닿고, 코호트의 타격은 닿지 않는다</text>
+  <text x="528" y="151" font-size="11.5" fill="#2c5c38">· 실측: 무사망으로 웨이브 6 도달, 스코어 13,550</text>
+  <text x="528" y="172" font-size="11.5" fill="#2c5c38">· 간격을 읽는 플레이어가 압도적으로 더 깊이 간다</text>
+
+  <rect x="510" y="214" width="358" height="120" rx="9" fill="#fdeceb" stroke="#c05a52" stroke-width="1.3"/>
+  <text x="528" y="240" font-size="12.5" font-weight="700" fill="#94322b">밴드를 무시하면</text>
+  <text x="528" y="264" font-size="11.5" fill="#8a3d36">· 파고들면 포위되어 다중 피격 · 기름이 방어에 소진</text>
+  <text x="528" y="285" font-size="11.5" fill="#8a3d36">· 실측: 동일 빌드에서 웨이브 1 사망</text>
+  <text x="528" y="306" font-size="11.5" fill="#8a3d36">· 초보도 클리어는 되지만 깊이는 나오지 않는다</text>
+
+  <!-- footnote -->
+  <text x="12" y="366" font-size="11" fill="#555">
+    모든 판정은 아이소메트릭 보정 거리 hypot(dx, dy × 1.42) 위에서 계산되고, 타격은 facing arc (dx × facing ≥ −18)를 통과해야 성립한다.
+  </text>
+</svg>
