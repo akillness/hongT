@@ -11,7 +11,7 @@
     <style>
       /* mobile-layout spec #10-#13: brand letterbox + responsive canvas */
       html, body { background: #050812; }
-      #unity-canvas { background: #050812; }
+      #unity-canvas { background: #050812; touch-action: none; }
       /* Desktop / wide: letterbox preserving 1280:853 (~3:2), never overflow
          the viewport (spec #12 — fixes sub-1280 windows + iPadOS desktop UA). */
       #unity-canvas.unity-responsive {
