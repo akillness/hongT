@@ -1,6 +1,6 @@
 # Achilles Visual Overhaul Spec — 파츠 연출·전투 임팩트·입력·UI 개편
 
-2026-08-04 · 오케스트레이터 작성 · 아킬레우스 레퍼런스 분석(.omc/specs/deep-interview-cinder-court-dungeon-revival.md §Original Reference Direction)의 워크스페이스 반영 + 신규 요구 8건 통합(파츠 파손 / 등급 외형 / 전투 연출 / 8·16방향+조이스틱 / UI 전면 개편 / 소환수 행동·인벤토리 / 로비 보스 자세 / 6스테이지 조합 캠페인 §T).
+2026-08-04 · 오케스트레이터 작성 · 아킬레우스 레퍼런스 분석(_workspace/current/design/deep-interview-cinder-court-dungeon-revival.md §Original Reference Direction)의 워크스페이스 반영 + 신규 요구 8건 통합(파츠 파손 / 등급 외형 / 전투 연출 / 8·16방향+조이스틱 / UI 전면 개편 / 소환수 행동·인벤토리 / 로비 보스 자세 / 6스테이지 조합 캠페인 §T).
 
 **레인 경계 선언 (CLAUDE.md §1, AGENTS.md)**
 - `Assets/Scripts/Sim/` 3파일은 전부 `// FROZEN CONTRACT`(SimTypes.cs L1, CampaignTypes.cs L1, HackTypes.cs L1). 본 문서의 View 항목은 심 무변경. **심 변경이 필요한 항목은 §S에 격리**했고, 각각 `FROZEN CONTRACT AMENDMENT #3` + `docs/SIM_SPEC_HACKSLASH.md` 개정 + 결정론 EditMode 테스트를 선행 게이트로 명시한다.
