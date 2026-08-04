@@ -12,7 +12,7 @@
 | # | 제출물 | 제출 형태 | 이 저장소의 산출물 | 상태 |
 |---|---|---|---|---|
 | 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 111/111 통과 |
-| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (48.1 s) | 캡처 완료 · **업로드 필요** |
+| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (55.0 s, 1440×900) | 배포 빌드 재캡처 완료 (로비→프롤로그→웨이브 2→재강하) · **업로드 필요** |
 | 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (111/111 반영) |
 | 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 포함) | 마크다운·PDF 재생성 완료 (111/111 반영) |
 | 5 | 팀원 롤 기술서 | PDF | [`03-team-roles.md`](03-team-roles.md) → [`pdf/03-team-roles.pdf`](pdf/03-team-roles.pdf) | 마크다운·PDF 재생성 완료 |
@@ -42,7 +42,12 @@ D2Coding (`brew install --cask font-d2coding`). SVG 다이어그램은 빌드 �
 
 ## 플레이 영상 재캡처
 
-배포 빌드를 실제 브라우저 키 입력으로 플레이하며 CDP 스크린캐스트로
-캡처했다 (프레임 합성·보간·재생성 없음). 재캡처는 오케스트레이션 세션의
-브라우저 하니스로 수행한다 — 근거: 이 저장소 커밋 히스토리와
-`docs/provenance/`.
+배포된 GitHub Pages 빌드를 실제 브라우저에서 실제 키·마우스 입력으로
+플레이하며 녹화한다 (프레임 합성·보간·재생성 없음).
+
+```bash
+node tools/video/capture-unity-play.mjs --seconds 55
+```
+
+Playwright 녹화 + CDP 입력. 로딩 스플래시 head-trim과 H.264 30 fps 트랜스코드만
+후처리한다. 근거: 이 저장소 커밋 히스토리와 `docs/provenance/`.
