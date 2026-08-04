@@ -234,6 +234,62 @@ namespace CinderCourt.Tests
             AssertTouchFloor(rects);
         }
 
+        /// <summary>§U1 blind-spot closure: InteractiveRects() only collects
+        /// pointer handlers, so the skill row could bury non-interactive
+        /// readouts (xp bar, level, combo pips, shield) while every existing
+        /// test stayed green — the user-reported "skill overlay". Grade the
+        /// card×readout pair set explicitly, at BOTH tiers.</summary>
+        [Test]
+        public void PhoneDungeon_SkillRow_DoesNotCoverReadouts()
+        {
+            ArrangePhone(dungeon: true);
+            AssertSkillRowClearOfReadouts();
+        }
+
+        [Test]
+        public void DesktopDungeon_SkillRow_DoesNotCoverReadouts()
+        {
+            // Desktop landscape reference (1280x720): the measured pre-fix
+            // failure — combo pips at y=52 sat inside the dash card (18..106).
+            _hud.EnableCampaignUi("차가운 회랑", 3);
+            _hud.EnableDungeonUi("재의 감시자");
+            _hud.SetCampaignSurfacesVisible(true);
+            _hud.HidePrologueToast();
+            _hud.ApplyLayout(1280, 720, new Rect(0, 0, 1280, 720));
+            Assert.That(_hud.CurrentTier, Is.EqualTo(HudView.LayoutTier.Full),
+                "1280x720 landscape must classify as Full tier");
+            AssertSkillRowClearOfReadouts();
+        }
+
+        private void AssertSkillRowClearOfReadouts()
+        {
+            var cards = new List<RectTransform>();
+            var readouts = new List<RectTransform>();
+            _hud.CollectSkillRowRectsForTest(cards);
+            _hud.CollectDungeonReadoutRectsForTest(readouts);
+            Assert.That(cards.Count, Is.GreaterThanOrEqualTo(5),
+                "skill row rects missing — assertion would be vacuous");
+            Assert.That(readouts.Count, Is.GreaterThanOrEqualTo(5),
+                "readout rects missing — assertion would be vacuous");
+            Canvas.ForceUpdateCanvases();
+            var violations = new List<string>();
+            foreach (var card in cards)
+            {
+                var a = WorldRect(card);
+                foreach (var readout in readouts)
+                {
+                    var b = WorldRect(readout);
+                    var overlapX = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+                    var overlapY = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+                    if (overlapX > OverlapEpsilon && overlapY > OverlapEpsilon)
+                        violations.Add(
+                            $"{Path(card.transform)} {a} covers {Path(readout.transform)} {b}");
+                }
+            }
+            Assert.That(violations, Is.Empty,
+                "skill row buries readouts:\n" + string.Join("\n", violations));
+        }
+
         [Test]
         public void NonInteractiveGraphics_DoNotEatTaps()
         {

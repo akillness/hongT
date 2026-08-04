@@ -82,6 +82,7 @@ namespace CinderCourt.View
         RectTransform _skillRowRect, _dashCardRect;
         readonly RectTransform[] _skillCardRects = new RectTransform[4];
         readonly RectTransform[] _comboPipRects = new RectTransform[3];
+        RectTransform _xpBackRect;            // §U1 readout-overlap test seam
         RectTransform _strikeRect, _dashTouchRect;
 
         // --- HUD juice overlays (presentation spec #9/#10/#15/#19/#20) -------
@@ -136,7 +137,7 @@ namespace CinderCourt.View
             _scaler = scaler;
             canvasObject.AddComponent<GraphicRaycaster>();
 
-            if (FindFirstObjectByType<EventSystem>() == null)
+            if (FindAnyObjectByType<EventSystem>() == null)
             {
                 var eventSystem = new GameObject("EventSystem");
                 eventSystem.AddComponent<EventSystem>();
@@ -403,7 +404,7 @@ namespace CinderCourt.View
             // above the 44 CSS px floor (88 u = 42.9 px at 0.488 px/u).
             var arenaLift = _touchActive ? 120f : 0f;
             var arenaShift = tier == LayoutTier.Phone && _touchActive ? 63f : 0f;
-            var arenaCardSize = new Vector2(150, tier == LayoutTier.Phone ? 92f : 88f);
+            var arenaCardSize = new Vector2(120, tier == LayoutTier.Phone ? 92f : 76f);
             if (_novaRect != null)
             {
                 _novaRect.sizeDelta = arenaCardSize;
@@ -454,13 +455,18 @@ namespace CinderCourt.View
             {
                 for (var i = 0; i < 4; i++)
                 {
-                    _skillCardRects[i].sizeDelta = new Vector2(108, 88);
-                    _skillCardRects[i].anchoredPosition = new Vector2(-116 + i * 116, 18 + lift);
+                    // §U1 compact slots: label row dropped from SkillCard, so
+                    // 96x76 keeps icon+keycap legible while shrinking the row
+                    // span 574->500 u (user-reported "skill overlay" bulk).
+                    _skillCardRects[i].sizeDelta = new Vector2(96, 76);
+                    _skillCardRects[i].anchoredPosition = new Vector2(-104 + i * 104, 18 + lift);
                 }
-                _dashCardRect.sizeDelta = new Vector2(110, 88);
-                _dashCardRect.anchoredPosition = new Vector2(-232, 18 + lift);
+                _dashCardRect.sizeDelta = new Vector2(96, 76);
+                _dashCardRect.anchoredPosition = new Vector2(-208, 18 + lift);
+                // §U1 fix (measured): pips at y=52 sat INSIDE the dash card
+                // rect (18..106) — 3 verified collisions. Above the row now.
                 for (var i = 0; i < 3; i++)
-                    _comboPipRects[i].anchoredPosition = new Vector2(-286 + i * 26, 52 + lift);
+                    _comboPipRects[i].anchoredPosition = new Vector2(-26 + i * 26, 102 + lift);
             }
             // Left-column stack (below meters -16..-90): phone puts stats at
             // -98..-206, so dungeon shield text drops to -252 (equip strip
@@ -804,7 +810,8 @@ namespace CinderCourt.View
             // --- XP bar (bottom edge) + level ---------------------------------
             var xpBack = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f));
-            xpBack.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+            _xpBackRect = xpBack.GetComponent<RectTransform>();
+            _xpBackRect.pivot = new Vector2(0.5f, 0f);
             var xpFillObject = new GameObject("XpFill");
             xpFillObject.transform.SetParent(xpBack.transform, false);
             _xpFill = xpFillObject.AddComponent<Image>();
@@ -829,7 +836,7 @@ namespace CinderCourt.View
             for (var i = 0; i < 3; i++)
             {
                 var pip = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                    new Vector2(-286 + i * 26, 52), new Vector2(20, 20),
+                    new Vector2(-26 + i * 26, 102), new Vector2(20, 20),
                     new Color(1f, 1f, 1f, 0.14f));
                 pip.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
                 _comboPips[i] = pip.GetComponent<Image>();
@@ -1201,17 +1208,18 @@ namespace CinderCourt.View
                     icon.sprite = sprite;
                     icon.preserveAspect = true;
                     icon.raycastTarget = false;
-                    icon.color = new Color(1f, 1f, 1f, 0.34f);  // art, not signal
+                    icon.color = new Color(1f, 1f, 1f, 0.55f);  // primary read now (label dropped)
                     var iconRect = iconObject.GetComponent<RectTransform>();
                     iconRect.anchorMin = new Vector2(0.5f, 0.5f);
                     iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-                    iconRect.anchoredPosition = new Vector2(0f, -2f);
-                    iconRect.sizeDelta = new Vector2(56f, 56f);
+                    iconRect.anchoredPosition = new Vector2(0f, -8f);
+                    iconRect.sizeDelta = new Vector2(48f, 48f);
                 }
             }
-            var keyText = Label(card.transform, 0, -6, 150, 26, key, 20, TextAnchor.MiddleCenter);
+            // §U1 compact slot: keycap top-left + icon as the primary read;
+            // the label row is gone (names live in prologue hints/tooltips).
+            var keyText = Label(card.transform, 0, -4, 150, 22, key, 17, TextAnchor.MiddleCenter);
             keyText.color = new Color(1f, 0.83f, 0.45f);
-            Label(card.transform, 0, -34, 150, 24, label, 16, TextAnchor.MiddleCenter);
 
             var overlayObject = new GameObject("Cooldown");
             overlayObject.transform.SetParent(card.transform, false);
@@ -1235,6 +1243,27 @@ namespace CinderCourt.View
         {
             if (!_touchActive) BuildTouchControls(_safeRoot);
             SyncTouchModeSurfaces();
+        }
+
+        /// <summary>Test seam (§U1): the non-interactive dungeon readouts the
+        /// skill row must never cover — InteractiveRects() only sees pointer
+        /// handlers, so card×readout overlap needs its own assertion set.</summary>
+        internal void CollectDungeonReadoutRectsForTest(System.Collections.Generic.List<RectTransform> into)
+        {
+            if (_xpBackRect != null) into.Add(_xpBackRect);
+            if (_levelText != null) into.Add(_levelText.rectTransform);
+            for (var i = 0; i < _comboPipRects.Length; i++)
+                if (_comboPipRects[i] != null) into.Add(_comboPipRects[i]);
+            if (_shieldRect != null) into.Add(_shieldRect);
+        }
+
+        /// <summary>Test seam (§U1): the interactive skill-row rects (4 skills
+        /// + dash) for card×readout overlap grading at any tier.</summary>
+        internal void CollectSkillRowRectsForTest(System.Collections.Generic.List<RectTransform> into)
+        {
+            for (var i = 0; i < _skillCardRects.Length; i++)
+                if (_skillCardRects[i] != null) into.Add(_skillCardRects[i]);
+            if (_dashCardRect != null) into.Add(_dashCardRect);
         }
 
         void BuildTouchControls(Transform root)
