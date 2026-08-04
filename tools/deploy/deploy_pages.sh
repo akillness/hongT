@@ -27,7 +27,7 @@ trap cleanup EXIT
 
 git fetch origin
 if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-  git worktree add "$WORKTREE" gh-pages
+  git worktree add --detach "$WORKTREE" origin/gh-pages
   WORKTREE_CREATED=1
 else
   git worktree add --detach "$WORKTREE"
@@ -66,6 +66,6 @@ if git -C "$WORKTREE" diff --cached --quiet; then
   echo "No changes to deploy."
 else
   git -C "$WORKTREE" commit -m "$MESSAGE"
-  git -C "$WORKTREE" push origin gh-pages
+  git -C "$WORKTREE" push origin HEAD:gh-pages
 fi
 echo "Deployed. Verify: https://akillness.github.io/hongT/"
