@@ -3,6 +3,7 @@
 // Persistence: GameDirector/CampaignStore own the campaign key — this class
 // only writes the run digest (localStorage parity with the original page).
 using System.Collections.Generic;
+using System.Reflection;
 using CinderCourt.Sim;
 using UnityEngine;
 
@@ -47,8 +48,16 @@ namespace CinderCourt.View
         float _slowMoTimer;       // seconds left at _slowMoScale (boss beat)
         float _slowMoScale = 1f;
         DamageNumberPool _damageNumbers;
+        TextMesh[] _damageNumberTexts;
+        float[] _damageNumberLives;
+        Color[] _damageNumberColors;
+        float _lastPlayerHealth;
+        float _deathNumberPunchTimer;
         bool _finisherTick;       // gold damage numbers on ComboFinisher ticks
         const float HitStopScale = 0.05f;
+        const float DeathNumberPunchDuration = 0.24f;
+        static readonly Color EnemyDamageColor = new Color(1f, 0.5f, 0.3f);
+        static readonly Color FinisherDamageColor = new Color(0.87f, 0.78f, 0.41f);
 
         void Start()
         {
@@ -63,6 +72,7 @@ namespace CinderCourt.View
             var poolHost = new GameObject("DamageNumbers");
             poolHost.transform.SetParent(transform, false);
             _damageNumbers = poolHost.AddComponent<DamageNumberPool>();
+            CacheDamageNumberSlots();
         }
 
         /// <summary>Start a run. Idempotent across restarts of the same mode.</summary>
@@ -73,6 +83,9 @@ namespace CinderCourt.View
             _isDungeon = config.Mode == GameMode.Dungeon;
             _accumulator = 0f;
             _digestWritten = false;
+            _lastPlayerHealth = _sim.Player.Health;
+            _deathNumberPunchTimer = 0f;
+            if (_damageNumbers != null) _damageNumbers.transform.localScale = Vector3.one;
             if (Hud != null) Hud.ResetRunUi();
             if (_playerView == null) Start();
             _playerView.gameObject.SetActive(true);
@@ -121,12 +134,14 @@ namespace CinderCourt.View
             }
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
-            if (_damageNumbers != null) _damageNumbers.Clear();
+            ClearDamageNumbers();
             // Presentation timers must not leak into the lobby (spec #1).
             _hitStopTimer = 0f;
             _slowMoTimer = 0f;
             _slowMoScale = 1f;
             _finisherTick = false;
+            _lastPlayerHealth = 0f;
+            _deathNumberPunchTimer = 0f;
             Time.timeScale = 1f;
         }
 
@@ -134,10 +149,12 @@ namespace CinderCourt.View
         {
             // Scene teardown / component disable mid-pulse: timeScale is a
             // global — ALWAYS hand it back at 1 (spec #1 hard requirement).
+            _deathNumberPunchTimer = 0f;
+            if (_damageNumbers != null) _damageNumbers.transform.localScale = Vector3.one;
             Time.timeScale = 1f;
         }
 
-        static string BossNameFor(string stageId) => stageId switch
+        internal static string BossNameFor(string stageId) => stageId switch
         {
             "abyss-chancel" => "Veil Tactician",
             "echo-throne" => "Gate Sovereign",
@@ -242,6 +259,13 @@ namespace CinderCourt.View
                 _hitStopTimer = 0f;
                 _slowMoTimer = 0f;
                 Time.timeScale = 1f;
+                _deathNumberPunchTimer = 0f;
+                if (_damageNumbers != null)
+                {
+                    _damageNumbers.transform.localScale = Vector3.one;
+                    if (ViewPrefs.TimeEffectsAllowed)
+                        _deathNumberPunchTimer = DeathNumberPunchDuration;
+                }
             }
             // Shake tiers (#2) via the append-only CameraRig.Punch API.
             // Priority mirrors the rig chain: BossSpawned > Finisher > Kill —
@@ -272,7 +296,13 @@ namespace CinderCourt.View
         void SyncViews()
         {
             if (_sim == null) return;
+            ResetInactiveDamageNumberSlots();
+            var playerHealth = _sim.Player.Health;
+            var playerDamage = _lastPlayerHealth - playerHealth;
+            _lastPlayerHealth = playerHealth;
             _playerView.SyncPlayer(_sim.Player);
+            if (playerDamage > 0.01f && _damageNumbers != null)
+                ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
 
             var enemies = _sim.Enemies;
             // Mark-and-sweep: sync live ids, recycle views whose id vanished.
@@ -292,8 +322,23 @@ namespace CinderCourt.View
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
                 var damage = view.SyncEnemy(in state);
-                if (damage > 0f && _damageNumbers != null)
-                    _damageNumbers.Show(state.X, state.Y, damage, _finisherTick);
+                if (damage > 0f)
+                {
+                    // §C3: contact spark at the struck enemy (dedicated pool,
+                    // 6/frame budget — a 20-enemy nova stays bounded).
+                    if (Vfx != null) Vfx.SpawnHitSpark(state.X, state.Y, _finisherTick);
+                    if (_damageNumbers != null)
+                    {
+                        var damageColor = EnemyDamageColor;
+                        if (Bootstrap != null)
+                        {
+                            var visual = Bootstrap.EnemyVisualFor(state.Visual);
+                            damageColor = visual.fallback;
+                        }
+                        ShowDamageNumber(state.X, state.Y, damage,
+                            _finisherTick ? FinisherDamageColor : damageColor);
+                    }
+                }
             }
             _finisherTick = false;   // consumed by this frame's batch
             if (_enemyViews.Count != enemies.Count)
@@ -340,10 +385,121 @@ namespace CinderCourt.View
                 if (_companionView != null)
                 {
                     var preparation = _sim as IRunPreparationSnapshot;
+                    // G1: nearest living enemy inside the companion's attack
+                    // range owns the gaze between strikes (iso-weighted metric,
+                    // same as the sim's targeting). Near the player with no
+                    // target -> rest Idle instead of treadmilling Move.
+                    var gazeYaw = float.NaN;
+                    var bestSq = HackSpec.CompanionAttackRange * HackSpec.CompanionAttackRange;
+                    for (var i = 0; i < enemies.Count; i++)
+                    {
+                        var enemy = enemies[i];
+                        if (enemy.Dead) continue;
+                        var deltaX = enemy.X - hack.CompanionX;
+                        var deltaY = (enemy.Y - hack.CompanionY) * SimConfig.IsoY;
+                        var distSq = deltaX * deltaX + deltaY * deltaY;
+                        if (distSq >= bestSq) continue;
+                        bestSq = distSq;
+                        gazeYaw = Mathf.Round(
+                            Mathf.Atan2(deltaX, -(enemy.Y - hack.CompanionY))
+                            * Mathf.Rad2Deg / 22.5f) * 22.5f;
+                    }
+                    var playerDeltaX = _sim.Player.X - hack.CompanionX;
+                    var playerDeltaY = _sim.Player.Y - hack.CompanionY;
+                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttacking
+                        && playerDeltaX * playerDeltaX + playerDeltaY * playerDeltaY
+                           < HackSpec.CompanionFollowOffset * HackSpec.CompanionFollowOffset * 2.25f;
                     _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,
                         preparation != null ? preparation.CompanionFacing : 0,
-                        hack.CompanionAttacking);
+                        hack.CompanionAttacking, gazeYaw, restIdle);
                 }
+            }
+            SyncDeathNumberPunch();
+        }
+
+        void CacheDamageNumberSlots()
+        {
+            if (_damageNumbers == null) return;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var type = typeof(DamageNumberPool);
+            _damageNumberTexts = type.GetField("_texts", flags)?.GetValue(_damageNumbers) as TextMesh[];
+            _damageNumberLives = type.GetField("_lives", flags)?.GetValue(_damageNumbers) as float[];
+            _damageNumberColors = type.GetField("_colors", flags)?.GetValue(_damageNumbers) as Color[];
+        }
+
+        void ShowDamageNumber(float simX, float simY, float amount, Color color)
+        {
+            if (_damageNumberTexts == null || _damageNumberLives == null ||
+                _damageNumberColors == null)
+            {
+                _damageNumbers.Show(simX, simY, amount, color == FinisherDamageColor);
+                return;
+            }
+
+            var slot = 0;
+            var oldestLife = float.MaxValue;
+            for (var i = 0; i < _damageNumberLives.Length; i++)
+            {
+                if (_damageNumberLives[i] <= 0f) { slot = i; break; }
+                if (_damageNumberLives[i] < oldestLife)
+                {
+                    oldestLife = _damageNumberLives[i];
+                    slot = i;
+                }
+            }
+
+            ResetDamageNumberSlot(slot);
+            _damageNumbers.Show(simX, simY, amount, color == FinisherDamageColor);
+            _damageNumberColors[slot] = color;
+            _damageNumberTexts[slot].color = color;
+        }
+
+        void ResetInactiveDamageNumberSlots()
+        {
+            if (_damageNumberLives == null) return;
+            for (var i = 0; i < _damageNumberLives.Length; i++)
+                if (_damageNumberLives[i] <= 0f)
+                    ResetDamageNumberSlot(i);
+        }
+
+        void ResetDamageNumberSlot(int slot)
+        {
+            var text = _damageNumberTexts[slot];
+            _damageNumberLives[slot] = 0f;
+            _damageNumberColors[slot] = EnemyDamageColor;
+            text.text = string.Empty;
+            text.color = EnemyDamageColor;
+            text.transform.localPosition = Vector3.zero;
+            text.transform.localRotation = Quaternion.identity;
+            text.transform.localScale = Vector3.one;
+            if (text.gameObject.activeSelf) text.gameObject.SetActive(false);
+        }
+
+        void ClearDamageNumbers()
+        {
+            if (_damageNumbers == null) return;
+            _damageNumbers.Clear();
+            _damageNumbers.transform.localScale = Vector3.one;
+            if (_damageNumberLives == null) return;
+            for (var i = 0; i < _damageNumberLives.Length; i++)
+                ResetDamageNumberSlot(i);
+        }
+
+        void SyncDeathNumberPunch()
+        {
+            if (_damageNumbers == null || _deathNumberPunchTimer <= 0f) return;
+            _deathNumberPunchTimer -= Time.unscaledDeltaTime;
+            var elapsed = DeathNumberPunchDuration - _deathNumberPunchTimer;
+            const float riseDuration = 0.08f;
+            var scale = elapsed < riseDuration
+                ? Mathf.Lerp(1f, 1.18f, Mathf.SmoothStep(0f, 1f, elapsed / riseDuration))
+                : Mathf.Lerp(1.18f, 1f, Mathf.SmoothStep(0f, 1f,
+                    (elapsed - riseDuration) / (DeathNumberPunchDuration - riseDuration)));
+            _damageNumbers.transform.localScale = Vector3.one * scale;
+            if (_deathNumberPunchTimer <= 0f)
+            {
+                _deathNumberPunchTimer = 0f;
+                _damageNumbers.transform.localScale = Vector3.one;
             }
         }
 

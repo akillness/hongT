@@ -201,6 +201,7 @@ namespace CinderCourt.View
         {
             _lobby.Hide();
             _staging.Hide();
+            _hud.ResetRunUi();             // clears interrupted ceremony timers on every entry/retry
             _hud.SetPrologueMode(false);   // every run resets; prologue re-enables
             _hud.SetHudVisible(true);
         }
@@ -401,17 +402,26 @@ namespace CinderCourt.View
         // ------------------------------------------------------------- story --
         void DispatchStory(SimEvents events, ICinderSim sim)
         {
-            if ((events & SimEvents.BossSpawned) != 0 &&
-                StoryCatalog.TryGet(_runStageId, StoryCatalog.BossEntry, out var entrySpeaker, out var entryText))
+            if ((events & SimEvents.BossSpawned) != 0)
             {
                 var bossAnchor = BossAnchor(sim);
-                _speech.Show(entrySpeaker, entryText, bossAnchor);
-                _hud.ShowBossIntro(entrySpeaker);
-                _rig.FocusPulse(bossAnchor, 0.8f);
+                if (StoryCatalog.TryGet(_runStageId, StoryCatalog.BossEntry,
+                        out var entrySpeaker, out var entryText))
+                {
+                    _speech.Show(entrySpeaker, entryText, bossAnchor);
+                    // §캡처5: speaker-prefixed screen subtitle doubles the boss
+                    // beat (bubble stays the in-world grammar).
+                    _hud.ShowSpeakerLine(entrySpeaker, entryText);
+                }
+                _hud.ShowBossIntro(GameView.BossNameFor(_runStageId));
+                _rig.FocusPulse(bossAnchor, 0.45f);
             }
             if ((events & SimEvents.BossPhase2) != 0 &&
                 StoryCatalog.TryGet(_runStageId, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
+            {
                 _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
+                _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
+            }
             if ((events & SimEvents.StageCleared) != 0 &&
                 StoryCatalog.TryGet(_runStageId, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
                 _speech.Show(doneSpeaker, doneText,

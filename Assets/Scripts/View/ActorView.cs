@@ -40,6 +40,7 @@ namespace CinderCourt.View
         float _equipGlow;                     // §P2 rank glow (player only)
         int _comboTier = -1;                  // §C1 trail tier cache
         float _flashDuration = 0.13f;         // flash fade denominator
+        float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
 
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
@@ -129,18 +130,29 @@ namespace CinderCourt.View
 
         float _companionLastX;
 
-        /// <summary>Companion follower (spec §4): position + attack pose, no bars.
-        /// The simulation provides attack-facing; zero preserves the legacy
-        /// movement-derived fallback for snapshots that do not expose it.</summary>
-        public void SyncCompanion(float simX, float simY, int attackFacing, bool attacking)
+        /// <summary>Companion follower (§4 + G1 combat gaze): position from the
+        /// sim; pose/facing prioritized combat-first. attackFacing wins while
+        /// the strike shows; combatFacing (nearest enemy in range) holds the
+        /// gaze between strikes; movement dir is the peace-time fallback; near
+        /// the player with no target the companion rests in Idle.</summary>
+        public void SyncCompanion(float simX, float simY, int attackFacing, bool attacking,
+                                  float gazeYaw = float.NaN, bool restIdle = false)
         {
-            var facing = attackFacing == 0
-                ? (simX >= _companionLastX ? 1 : -1)
-                : attackFacing;
+            var moveFacing = simX >= _companionLastX ? 1 : -1;
+            var facing = attackFacing != 0 ? attackFacing : moveFacing;
+            // G1(c): an in-range enemy owns the yaw even while the body keeps
+            // following the player — without this, M1's movement-delta yaw
+            // wins during Move and the companion stares at its travel path.
+            // Full 16-direction angle (M1's 22.5° grammar), not ±1 snap;
+            // the attack frame keeps the sim's authoritative ±1 facing.
+            _gazeYaw = attackFacing != 0
+                ? (attackFacing > 0 ? 90f : 270f)
+                : gazeYaw;
             _companionLastX = simX;
-            Apply(simX, simY, facing,
-                  attacking ? ActorAction.Attack : ActorAction.Move,
-                  1f, 0.92f, false, 0f, false);
+            var action = attacking ? ActorAction.Attack
+                : restIdle ? ActorAction.Idle
+                : ActorAction.Move;
+            Apply(simX, simY, facing, action, 1f, 0.92f, false, 0f, false);
         }
 
         /// <summary>Elite marker (spec #14): pulsing gold tint through the
@@ -214,7 +226,11 @@ namespace CinderCourt.View
             // frames snap to the sim's authoritative ±1 facing — the forward
             // arc (dx*facing >= -18) stays visually honest. The sim's Facing
             // contract is untouched; this is presentation only.
-            if (action == ActorAction.Attack || action == ActorAction.Critical
+            if (!float.IsNaN(_gazeYaw))
+            {
+                _targetYaw = _gazeYaw;   // G1 combat gaze (16-dir, M1 grammar)
+            }
+            else if (action == ActorAction.Attack || action == ActorAction.Critical
                 || float.IsNaN(_prevSimX))
             {
                 _targetYaw = facing >= 0 ? 90f : 270f;
@@ -348,6 +364,7 @@ namespace CinderCourt.View
             _flashDuration = 0.13f;
             _equipGlow = 0f;
             _comboTier = -1;
+            _gazeYaw = float.NaN;
             if (_block != null && _renderers != null)
             {
                 _block.Clear();

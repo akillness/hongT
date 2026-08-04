@@ -207,6 +207,10 @@ namespace CinderCourt.View
         }
         readonly Burst[] _bursts = new Burst[8];
         int _burstCursor;
+        // §C3 hit sparks: dedicated pool — sharing _bursts would let a nova
+        // volley (up to 6 sparks/frame) evict live skill rings mid-play.
+        readonly Burst[] _sparks = new Burst[12];
+        int _sparkCursor, _sparkBudget;
 
         void SpawnBurst(float simX, float simY, Color color, float maxRadiusWorld, float life)
         {
@@ -231,11 +235,47 @@ namespace CinderCourt.View
             slot.Ring.enabled = true;
         }
 
+        /// <summary>§C3: small contact ring at the struck enemy. Budgeted at
+        /// 6/frame (nova hits 20 enemies in one tick); finisher hits gold 2x.</summary>
+        public void SpawnHitSpark(float simX, float simY, bool finisher)
+        {
+            if (_sparkBudget >= 6) return;
+            _sparkBudget += 1;
+            ref var slot = ref _sparks[_sparkCursor];
+            _sparkCursor = (_sparkCursor + 1) % _sparks.Length;
+            if (slot.Ring == null)
+            {
+                var ringObject = new GameObject("HitSpark");
+                ringObject.transform.SetParent(transform, false);
+                slot.Ring = ringObject.AddComponent<LineRenderer>();
+                slot.Ring.loop = true;
+                slot.Ring.positionCount = 28;
+                slot.Ring.widthMultiplier = 0.035f;
+                slot.Ring.useWorldSpace = true;
+                slot.Material = ViewWorld.MakeUnlit(Color.white, true);
+                slot.Ring.sharedMaterial = slot.Material;
+            }
+            slot.Center = ViewWorld.ToWorld(simX, simY, 0.1f);
+            slot.Color = finisher
+                ? new Color(1f, 0.83f, 0.45f, 0.9f)
+                : new Color(0.953f, 0.349f, 0.173f, 0.75f);
+            slot.MaxRadius = finisher ? 0.6f : 0.3f;
+            slot.MaxLife = slot.Life = 0.18f;
+            slot.Ring.enabled = true;
+        }
+
         void UpdateBursts(float deltaTime)
         {
-            for (var i = 0; i < _bursts.Length; i++)
+            _sparkBudget = 0;   // §C3 per-frame spawn budget resets here
+            StepRingPool(_bursts, deltaTime);
+            StepRingPool(_sparks, deltaTime);
+        }
+
+        static void StepRingPool(Burst[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
             {
-                ref var burst = ref _bursts[i];
+                ref var burst = ref pool[i];
                 if (burst.Ring == null || !burst.Ring.enabled) continue;
                 burst.Life -= deltaTime;
                 if (burst.Life <= 0f) { burst.Ring.enabled = false; continue; }
@@ -269,6 +309,8 @@ namespace CinderCourt.View
             _pickupViews.Clear();
             for (var i = 0; i < _bursts.Length; i++)
                 if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
+            for (var i = 0; i < _sparks.Length; i++)
+                if (_sparks[i].Ring != null) _sparks[i].Ring.enabled = false;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
             if (_pulseRing != null) _pulseRing.enabled = false;

@@ -104,10 +104,15 @@ namespace CinderCourt.View
         int _stageClearFinalScore, _stageClearFinalRelics;
         int _stageClearShownScore = -1, _stageClearShownRelics = -1;
         bool _stageClearPending;
+        const float StageClearDuration = 0.5f;
+        static readonly Color StageClearColor = new Color(0.17f, 0.68f, 0.84f);
         Image _letterboxTop, _letterboxBottom;
         Text _bossIntroPlate;
         float _bossIntroTimer;
-        const float BossIntroDuration = 2.9f; // 0.45 in + 2.0 hold + 0.45 out
+        Text _speakerLine;                     // §캡처5 speaker subtitle
+        float _speakerLineTimer;
+        bool _bossIntroActive;
+        const float BossIntroDuration = 0.45f;
         float _maxHealthSeen = SimConfig.PlayerMaxHealth;
         float _recentHazardTime = -999f;
         bool _bossAliveAtDeath;
@@ -153,6 +158,11 @@ namespace CinderCourt.View
             _vignette = Overlay(canvasObject.transform, radial, "Vignette");
             _castFlash = Overlay(canvasObject.transform, radial, "CastFlash");
             _stageClearFlash = Overlay(canvasObject.transform, radial, "StageClearFlash");
+            _stageClearFlash.type = Image.Type.Filled;
+            _stageClearFlash.fillMethod = Image.FillMethod.Radial360;
+            _stageClearFlash.fillOrigin = (int)Image.Origin360.Top;
+            _stageClearFlash.fillClockwise = true;
+            _stageClearFlash.fillAmount = 0f;
 
             var safeObject = new GameObject("SafeArea");
             safeObject.transform.SetParent(canvasObject.transform, false);
@@ -167,18 +177,28 @@ namespace CinderCourt.View
             _letterboxBottom = Letterbox(canvasObject.transform, false);
             _bossIntroPlate = Label(canvasObject.transform, 0, -90, 600, 36, "", 22, TextAnchor.MiddleCenter);
             var bossIntroRect = _bossIntroPlate.rectTransform;
-            bossIntroRect.anchorMin = bossIntroRect.anchorMax = new Vector2(0.5f, 1f);
-            bossIntroRect.pivot = new Vector2(0.5f, 1f);
-            bossIntroRect.anchoredPosition = new Vector2(0f, -90f);
+            bossIntroRect.anchorMin = bossIntroRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bossIntroRect.pivot = new Vector2(0.5f, 0.5f);
+            bossIntroRect.anchoredPosition = Vector2.zero;
             _bossIntroPlate.color = new Color(1f, 0.83f, 0.45f, 0f);
             _bossIntroPlate.fontStyle = FontStyle.Bold;
+
+            // §캡처5: speaker-prefixed bottom-center subtitle for boss beats.
+            // The world-space speech bubble stays the combat grammar; this
+            // line only doubles the boss intro/phase text at the screen edge.
+            _speakerLine = Label(root, 0, 0, 900, 30, "", 18, TextAnchor.MiddleCenter);
+            var speakerRect = _speakerLine.rectTransform;
+            speakerRect.anchorMin = speakerRect.anchorMax = new Vector2(0.5f, 0f);
+            speakerRect.pivot = new Vector2(0.5f, 0f);
+            speakerRect.anchoredPosition = new Vector2(0f, 128f);
+            _speakerLine.color = new Color(0.92f, 0.88f, 0.8f, 0f);
 
             _stageClearBanner = Label(root, 0, 0, 560, 84, "", 28, TextAnchor.MiddleCenter);
             var clearBannerRect = _stageClearBanner.rectTransform;
             clearBannerRect.anchorMin = clearBannerRect.anchorMax = new Vector2(0.5f, 0.5f);
             clearBannerRect.pivot = new Vector2(0.5f, 0.5f);
-            clearBannerRect.anchoredPosition = new Vector2(0f, 84f);
-            _stageClearBanner.color = new Color(1f, 0.83f, 0.45f, 0f);
+            clearBannerRect.anchoredPosition = Vector2.zero;
+            _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g, StageClearColor.b, 0f);
             _stageClearBanner.fontStyle = FontStyle.Bold;
 
             // --- top-left: health + oil -------------------------------------
@@ -450,6 +470,10 @@ namespace CinderCourt.View
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition =
                         new Vector2(-26 + i * 26 + rowShift, 200 + lift);
+                // §캡처5: phone stack tops out at pips (200+lift+20) — the
+                // speaker line sits above the whole control stack.
+                if (_speakerLine != null)
+                    _speakerLine.rectTransform.anchoredPosition = new Vector2(0f, 232f + lift);
             }
             else
             {
@@ -467,6 +491,8 @@ namespace CinderCourt.View
                 // rect (18..106) — 3 verified collisions. Above the row now.
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition = new Vector2(-26 + i * 26, 102 + lift);
+                if (_speakerLine != null)
+                    _speakerLine.rectTransform.anchoredPosition = new Vector2(0f, 132f + lift);
             }
             // Left-column stack (below meters -16..-90): phone puts stats at
             // -98..-206, so dungeon shield text drops to -252 (equip strip
@@ -618,14 +644,24 @@ namespace CinderCourt.View
             _stageClearFinalScore = digest.Score;
             _stageClearFinalRelics = digest.Relics;
             _stageClearShownScore = _stageClearShownRelics = -1;
-            _stageClearTimer = 0.9f;
+            _stageClearTimer = StageClearDuration;
             _stageClearPending = true;
-            _stageClearBanner.text = "스테이지 클리어\n점수 0 • 유물 0";
-            _stageClearBanner.color = new Color(1f, 0.83f, 0.45f, 0f);
+            _stageClearBanner.text = "구역 정화";
+            _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g, StageClearColor.b, 0f);
             _stageClearBanner.rectTransform.localScale = Vector3.one;
-            _stageClearFlash.color = new Color(1f, 0.83f, 0.45f,
-                0.38f * ViewPrefs.MotionScale);
+            _stageClearFlash.fillAmount = 0f;
+            _stageClearFlash.color = new Color(StageClearColor.r, StageClearColor.g,
+                StageClearColor.b, 0.38f * ViewPrefs.MotionScale);
             _stageClearFlash.enabled = true;
+        }
+
+        /// <summary>§캡처5: bottom-center speaker subtitle ("포보스: …" grammar,
+        /// original text). Boss intro/phase beats only; fades after 3.5 s.</summary>
+        public void ShowSpeakerLine(string speaker, string text)
+        {
+            if (_speakerLine == null) return;
+            _speakerLine.text = speaker + ": " + text;
+            _speakerLineTimer = 3.5f;
         }
 
         public void ShowBossIntro(string bossName)
@@ -633,6 +669,7 @@ namespace CinderCourt.View
             if (_bossIntroPlate == null) return;
             _bossIntroPlate.text = "— " + bossName + " —";
             _bossIntroTimer = BossIntroDuration;
+            _bossIntroActive = true;
             _letterboxTop.enabled = true;
             _letterboxBottom.enabled = true;
             SetBossIntroState(ViewPrefs.ReducedMotion ? 1f : 0f, 0f);
@@ -644,20 +681,7 @@ namespace CinderCourt.View
             _lastHealth = -1;
             _recentHazardTime = -999f;
             _bossAliveAtDeath = false;
-            _stageClearPending = false;
-            _stageClearTimer = 0f;
-            if (_stageClearPanel != null) _stageClearPanel.SetActive(false);
-            if (_stageClearFlash != null) _stageClearFlash.enabled = false;
-            if (_stageClearBanner != null)
-            {
-                _stageClearBanner.text = string.Empty;
-                _stageClearBanner.color = new Color(1f, 0.83f, 0.45f, 0f);
-                _stageClearBanner.rectTransform.localScale = Vector3.one;
-            }
-            _bossIntroTimer = 0f;
-            if (_letterboxTop != null) _letterboxTop.enabled = false;
-            if (_letterboxBottom != null) _letterboxBottom.enabled = false;
-            if (_bossIntroPlate != null) _bossIntroPlate.color = new Color(1f, 0.83f, 0.45f, 0f);
+            ResetTransientCeremonies();
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             if (_bossBar != null) _bossBar.SetActive(false);
             _lastBossFraction = -1f;
@@ -665,6 +689,36 @@ namespace CinderCourt.View
             _lastCombo = -1;
             for (var i = 0; i < _comboPipRects.Length; i++)
                 if (_comboPipRects[i] != null) _comboPipRects[i].localScale = Vector3.one;
+        }
+
+        void ResetTransientCeremonies()
+        {
+            _stageClearPending = false;
+            _stageClearTimer = 0f;
+            if (_stageClearPanel != null) _stageClearPanel.SetActive(false);
+            if (_stageClearFlash != null)
+            {
+                _stageClearFlash.enabled = false;
+                _stageClearFlash.fillAmount = 0f;
+                _stageClearFlash.color = new Color(StageClearColor.r, StageClearColor.g,
+                    StageClearColor.b, 0f);
+            }
+            if (_stageClearBanner != null)
+            {
+                _stageClearBanner.text = string.Empty;
+                _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g,
+                    StageClearColor.b, 0f);
+                _stageClearBanner.rectTransform.localScale = Vector3.one;
+            }
+            _bossIntroTimer = 0f;
+            _bossIntroActive = false;
+            if (_letterboxTop != null) _letterboxTop.enabled = false;
+            if (_letterboxBottom != null) _letterboxBottom.enabled = false;
+            if (_bossIntroPlate != null)
+            {
+                _bossIntroPlate.text = string.Empty;
+                _bossIntroPlate.color = new Color(1f, 0.83f, 0.45f, 0f);
+            }
         }
 
         void RetryRun()
@@ -1255,6 +1309,7 @@ namespace CinderCourt.View
             for (var i = 0; i < _comboPipRects.Length; i++)
                 if (_comboPipRects[i] != null) into.Add(_comboPipRects[i]);
             if (_shieldRect != null) into.Add(_shieldRect);
+            if (_speakerLine != null) into.Add(_speakerLine.rectTransform);
         }
 
         /// <summary>Test seam (§U1): the interactive skill-row rects (4 skills
@@ -1444,6 +1499,7 @@ namespace CinderCourt.View
                 _finalText.text =
                     $"점수 {digest.Score:N0} • 유물 {digest.Relics} • 처치 {digest.Kills}\n" +
                     $"{deathContext} • 웨이브 {digest.Wave} 도달";
+                ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
             }
             if ((events & SimEvents.WaveStarted) != 0 && _gameOverPanel.activeSelf)
@@ -1642,6 +1698,7 @@ namespace CinderCourt.View
                     new Color(0.87f, 0.78f, 0.41f), Mathf.Clamp01(_xpFlashTimer / 0.4f));
             }
             SyncBossIntro();
+            SyncSpeakerLine();
             SyncStageClearCeremony();
             SyncComboPips();
             SyncBossBarMotion();
@@ -1654,26 +1711,42 @@ namespace CinderCourt.View
             _bossIntroPlate.color = new Color(1f, 0.83f, 0.45f, alpha);
         }
 
+        void SyncSpeakerLine()
+        {
+            if (_speakerLine == null || _speakerLineTimer <= 0f) return;
+            _speakerLineTimer -= Time.deltaTime;
+            var alpha = _speakerLineTimer > 3f
+                ? Mathf.Clamp01((3.5f - _speakerLineTimer) / 0.5f)   // fade in
+                : Mathf.Clamp01(_speakerLineTimer / 0.6f);           // hold/out
+            var color = _speakerLine.color;
+            color.a = alpha;
+            _speakerLine.color = color;
+        }
+
         void SyncBossIntro()
         {
-            if (_bossIntroTimer <= 0f) return;
+            if (!_bossIntroActive) return;
             _bossIntroTimer -= Time.deltaTime;
             var elapsed = BossIntroDuration - _bossIntroTimer;
+            const float transition = 0.15f;
             var slide = ViewPrefs.ReducedMotion
                 ? 1f
-                : elapsed < 0.45f
-                    ? Mathf.SmoothStep(0f, 1f, elapsed / 0.45f)
-                    : _bossIntroTimer < 0.45f
-                        ? Mathf.SmoothStep(0f, 1f, _bossIntroTimer / 0.45f)
+                : elapsed < transition
+                    ? Mathf.SmoothStep(0f, 1f, elapsed / transition)
+                    : _bossIntroTimer < transition
+                        ? Mathf.SmoothStep(0f, 1f, _bossIntroTimer / transition)
                         : 1f;
-            var alpha = _bossIntroTimer < 0.2f
-                ? Mathf.Clamp01(_bossIntroTimer / 0.2f)
-                : Mathf.Clamp01(elapsed / 0.2f);
+            var alpha = _bossIntroTimer < transition
+                ? Mathf.Clamp01(_bossIntroTimer / transition)
+                : Mathf.Clamp01(elapsed / transition);
             SetBossIntroState(slide, alpha);
             if (_bossIntroTimer <= 0f)
             {
+                _bossIntroTimer = 0f;
+                _bossIntroActive = false;
                 _letterboxTop.enabled = false;
                 _letterboxBottom.enabled = false;
+                _bossIntroPlate.text = string.Empty;
                 _bossIntroPlate.color = new Color(1f, 0.83f, 0.45f, 0f);
             }
         }
@@ -1682,36 +1755,35 @@ namespace CinderCourt.View
         {
             if (!_stageClearPending) return;
             _stageClearTimer -= Time.deltaTime;
-            var elapsed = 0.9f - _stageClearTimer;
-            var progress = Mathf.Clamp01(elapsed / 0.8f);
-            var score = Mathf.RoundToInt(Mathf.Lerp(0f, _stageClearFinalScore, progress));
-            var relics = Mathf.RoundToInt(Mathf.Lerp(0f, _stageClearFinalRelics, progress));
-            if (score != _stageClearShownScore || relics != _stageClearShownRelics)
-            {
-                _stageClearShownScore = score;
-                _stageClearShownRelics = relics;
-                _stageClearBanner.text = $"스테이지 클리어\n점수 {score:N0} • 유물 {relics}";
-            }
-            var alpha = _stageClearTimer <= 0.2f
-                ? Mathf.Clamp01(_stageClearTimer / 0.2f)
-                : Mathf.Clamp01(elapsed / 0.2f);
-            _stageClearBanner.color = new Color(1f, 0.83f, 0.45f, alpha);
-            var punch = Mathf.Clamp01(elapsed / 0.2f);
+            var elapsed = StageClearDuration - _stageClearTimer;
+            const float transition = 0.12f;
+            var alpha = _stageClearTimer <= transition
+                ? Mathf.Clamp01(_stageClearTimer / transition)
+                : Mathf.Clamp01(elapsed / transition);
+            _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g,
+                StageClearColor.b, alpha);
+            var punch = Mathf.Clamp01(elapsed / transition);
             _stageClearBanner.rectTransform.localScale = ViewPrefs.TimeEffectsAllowed
-                ? Vector3.one * Mathf.Lerp(1.4f, 1f, Mathf.SmoothStep(0f, 1f, punch))
+                ? Vector3.one * Mathf.Lerp(1.18f, 1f, Mathf.SmoothStep(0f, 1f, punch))
                 : Vector3.one;
-            var flashAlpha = Mathf.Clamp01(1f - elapsed / 0.5f) * 0.38f * ViewPrefs.MotionScale;
+            var pulse = Mathf.Clamp01(elapsed / StageClearDuration);
+            _stageClearFlash.fillAmount = pulse;
+            var flashAlpha = Mathf.Sin(pulse * Mathf.PI) * 0.38f * ViewPrefs.MotionScale;
             if (flashAlpha > 0.001f)
             {
                 _stageClearFlash.enabled = true;
-                _stageClearFlash.color = new Color(1f, 0.83f, 0.45f, flashAlpha);
+                _stageClearFlash.color = new Color(StageClearColor.r, StageClearColor.g,
+                    StageClearColor.b, flashAlpha);
             }
             else _stageClearFlash.enabled = false;
             if (_stageClearTimer > 0f) return;
 
             _stageClearPending = false;
+            _stageClearTimer = 0f;
+            _stageClearFlash.fillAmount = 0f;
             _stageClearBanner.text = string.Empty;
-            _stageClearBanner.color = new Color(1f, 0.83f, 0.45f, 0f);
+            _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g,
+                StageClearColor.b, 0f);
             _stageClearBanner.rectTransform.localScale = Vector3.one;
             _stageClearText.text =
                 $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
