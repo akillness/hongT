@@ -159,6 +159,19 @@
         canvas.width = Math.max(1, Math.round(rect.width * scale));
         canvas.height = Math.max(1, Math.round(rect.height * scale));
       }
+      var backingStoreResizeRequest = 0;
+      function queueUnityBackingStoreSize() {
+        if (backingStoreResizeRequest)
+          window.cancelAnimationFrame(backingStoreResizeRequest);
+        backingStoreResizeRequest = window.requestAnimationFrame(function() {
+          backingStoreResizeRequest = 0;
+          setUnityBackingStoreSize();
+        });
+      }
+      window.addEventListener("resize", queueUnityBackingStoreSize);
+      window.addEventListener("orientationchange", queueUnityBackingStoreSize);
+      if (window.visualViewport)
+        window.visualViewport.addEventListener("resize", queueUnityBackingStoreSize);
       setUnityBackingStoreSize();
 
       document.querySelector("#unity-loading-bar").style.display = "block";
