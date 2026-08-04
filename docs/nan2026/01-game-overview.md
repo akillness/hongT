@@ -9,24 +9,24 @@ lang: ko
 
 **Abyssal Lantern — Hold the Cinder Court**
 
-> 마지막 등불을 든 Dusk Warden이 되어, 등불의 기름을 태워 Ember Cohort의
-> 밀려오는 파도로부터 심연의 재의 법정을 지켜내는 2.5D 아이소메트릭 아레나
-> 디펜스 — 이제 **Unity 6 / WebGL 3D 캐릭터 빌드**로.
+> 마지막 등불을 든 Dusk Warden이 되어 심연의 재의 법정을 지켜내는 전투 게임 —
+> **Unity 6000.5.6f1 / URP / WebGL** 기반의 3D 캐릭터 빌드입니다.
 
-브라우저 링크 하나로 즉시 실행되는 웹 게임입니다. 설치, 로그인, 계정,
-네트워크 연결이 모두 필요 없습니다. 이번 빌드는 원작 Canvas 2.5D 프로토타입의
-**수치 계약을 그대로 보존**한 채, Unity + URP + Humanoid 3D 캐릭터로
-재구현했습니다.
+브라우저 링크 하나로 실행되며 설치·로그인·계정이 필요 없습니다. 이번 빌드는
+원작 Canvas 2.5D 프로토타입의 수치 계약을 보존하는 아레나와, 6단계 3D 던전
+캠페인을 하나의 Unity 씬 상태머신으로 제공합니다.
 
 ## 페이지 구성
 
 | 페이지 | 내용 |
 |---|---|
-| `/` (index) | 아레나 방어전 — 무한 웨이브 (원작 Cinder Court 규칙) |
-| `/campaign.html` | **메인 캠페인 허브** — 심연 3구역 스테이지 선택·진행도·장비 |
+| `/` (index) | 기본 진입점 — 로비에서 프롤로그와 6단계 캠페인을 선택 |
+| `/?mode=arena` | 원작 Cinder Court 규칙의 무한 웨이브 아레나 |
+| `/campaign.html` | 이전 링크 호환용 — `/` 로 즉시 리다이렉트 |
 
-캠페인은 구역마다 웨이브 + 경계 보스전으로 구성되며, 보스를 꺾어야 다음
-구역이 열립니다. 진행도·장비는 localStorage에 저장됩니다 (서버 전송 없음).
+캠페인은 프롤로그를 마친 뒤 순서대로 해금되는 6개 논리 스테이지입니다. 진행도·
+장비·메타 성장 데이터만 localStorage에 저장되며, Ember Rest 선택은 저장되지
+않는 다음 방 전용 준비 효과입니다.
 
 ---
 
@@ -35,8 +35,8 @@ lang: ko
 ## 2.1 목표
 
 **아레나**: 끝없이 증원되는 Ember Cohort를 격파하며 웨이브를 최대한 깊게
-밀어내는 것. **캠페인**: 각 구역의 웨이브를 정리하고 경계 보스를 처치해
-심연 3구역(Cinder Span → Abyss Chancel → Echo Throne)을 모두 정화하는 것.
+밀어내는 것. **캠페인**: 프롤로그 뒤 Cinder Span → Ember Gallery → Abyss
+Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화하는 것.
 
 핵심 긴장은 **등불 기름(Lantern oil)의 배분**에 있습니다. 기름은 초당 7씩
 자동 회복되고 처치당 6이 추가로 들어오지만, 두 개의 권능이 그 기름을
@@ -49,14 +49,13 @@ lang: ko
 | 입력 | 동작 |
 |---|---|
 | `W` `A` `S` `D` 또는 방향키 | Dusk Warden 이동 |
-| `Space` | 근접 공격 (Strike) |
-| `Q` | **Ember Nova** — 반경 안의 모든 적에게 광역 피해 |
-| `E` | **Lantern Ward** — 3초간 모든 피해 무효화 |
-| `R` | 즉시 재시작 (Rekindle) |
-| 화면 방향 패드 / 타격 버튼 | 터치 조작 (모바일 동등 입력) |
-| 스킬 카드 클릭·탭 | Ember Nova / Lantern Ward 발동 |
+| `Space` | 아레나·프롤로그 기본 공격 / 던전 3타 콤보 |
+| `Shift` | 던전 대시 (아레나·프롤로그에서는 비활성) |
+| 던전 `Q` `E` `R` `F` | Rift Bolt / Grave Pulse / Ash Nova / Void Aegis |
+| 아레나 `Q` `E` `R` | Ember Nova / Lantern Ward / Rekindle |
+| 결과 패널 버튼 | 던전 재도전 또는 로비 복귀 |
 
-## 2.3 전투 규칙 (실제 구현 수치 — 원작 계약 보존)
+## 2.3 아레나 전투 규칙 (동결 수치 계약)
 
 | 항목 | 값 |
 |---|---|
@@ -82,30 +81,40 @@ lang: ko
 거리(`hypot(dx, dy × 1.42)`)를 씁니다. 타격은 워든이 바라보는 방향
 (`dx × facing ≥ -18`)에서만 성립합니다.
 
-## 2.4 캠페인 — 스테이지·기믹·장비
+## 2.4 캠페인 — 6단계·Ember Rest·장비
 
-| 구역 | 웨이브 | 경계 보스 | 던전 기믹 |
+| 순서 | 스테이지 | 보스 | 던전 기믹 |
 |---|---|---|---|
-| Cinder Span | 5 + 보스전 | Cinder Warden | 잿불 분출구 ×2 (주기 폭발, 예고 후 8 피해) |
-| Abyss Chancel | 6 + 보스전 | Veil Tactician | 흑요석 기둥 ×3 (이동 차단) + 분출구 ×1 |
-| Echo Throne | 7 + 보스전 | Gate Sovereign | 유물 제단 (1.2 s 체류 → 기름 +18) + 분출구 ×2 |
+| 1 | Cinder Span | Cinder Warden | 잿불 분출구 ×2 |
+| 2 | Ember Gallery | Cinder Warden | 잿불 분출구 ×3 + 흑요석 기둥 ×1 |
+| 3 | Abyss Chancel | Veil Tactician | 흑요석 기둥 ×3 + 잿불 분출구 ×1 |
+| 4 | Witness Well | Veil Tactician | 유물 제단 ×1 + 흑요석 기둥 ×2 + 잿불 분출구 ×1 |
+| 5 | Echo Throne | Gate Sovereign | 유물 제단 ×1 + 잿불 분출구 ×2 |
+| 6 | Ash Verdict | Gate Sovereign | 유물 제단 ×1 + 잿불 분출구 ×3 |
 
-- 보스: 체력 ×6, 접촉 피해 ×2, 이동 ×0.7, 크기 ×1.6. 호위대 동반 등장.
-- **장비 파편 3슬롯** — 무기(공격 +6 %/랭크), 랜턴(기름 재생 +8 %/랭크),
-  망토(체력 +8/랭크). 랭크 0–5.
-  - 보스 처치: 파편 확정 드롭 (슬롯은 구역 순환).
-  - 일반 처치: 결정적 규칙(7체 중 1)으로 파편 낙하, 회수 시 랭크 상승.
-- 스테이지 클리어 시 진행도·장비가 저장되어 다음 강하에 이어집니다.
-- 분출구는 예고(0.8 s 점멸) 후 폭발하며, Lantern Ward로 무효화할 수 있습니다.
+- 보스 웨이브는 각 스테이지의 고정 수치 계약을 계승하며, 보스는 체력 ×6,
+  접촉 피해 ×2, 이동 ×0.7, 크기 ×1.6과 호위대를 사용합니다.
+- **Ember Rest**: 1–5단계 정화 뒤 결과 패널 없이 즉시 제시되는 결정론적 준비
+  제안 3개 중 하나를 선택하거나 건너뛸 수 있습니다. 선택한 효과는 바로 다음
+  던전 한 방에만 적용되고, 저장·재도전·이후 스테이지로 이월되지 않습니다.
+- 6번째이자 마지막 스테이지인 Ash Verdict 정화 뒤에는 Ember Rest를 열지 않고
+  최종 결과 오버레이를 표시합니다. 이 패널에서 재도전 또는 명시적 로비 복귀를
+  선택합니다.
+- **장비 3슬롯** — 무기(공격 +6 %/티어), 랜턴(기름 재생 +8 %/티어),
+  망토(체력 +8/티어). T0–T5이며, 보스 처치와 인런 파편 드롭·로비 유물 구매로
+  성장합니다.
+- 활성 Lantern Ward는 분출구 펄스 피해를 무효화하며, 기존 피해 유예는 유지됩니다.
 
 ## 2.5 종료 조건
 
-체력이 0이 되면 런이 종료됩니다. 게임 오버 패널이 최종 점수·웨이브·유물·처치
-수를 제시하고, `R` 또는 재점화 버튼으로 즉시 다시 시작합니다. 캠페인에서는
-보스 처치 시 "구역 정화" 패널이 뜨고 허브로 돌아가 다음 구역을 엽니다.
+체력이 0이 되면 런이 종료됩니다. 결과 오버레이는 점수·처치·획득 요약과
+재도전·로비 복귀를 제공합니다. 1–5단계 보스 처치는 결과 요약을 표시하지 않고
+즉시 Ember Rest로 이어집니다. Ash Verdict 정화만 최종 결과 오버레이를 표시하며,
+로비 전환은 플레이어가 그 패널에서 선택할 때만 발생합니다.
 
-런 결과는 `localStorage`의 `abyssal-lantern:cinder-court:last-run` 키에
-다이제스트로 남습니다 (원작과 동일 키). 서버 전송은 없습니다.
+캠페인 진행·장비·메타 데이터는 localStorage의
+`abyssal-lantern:unity:campaign`에 저장됩니다. Ember Rest 선택은 저장하지
+않으며, 서버 전송은 없습니다.
 
 ---
 
@@ -113,8 +122,8 @@ lang: ko
 
 ## 3.1 플레이 링크 (권장)
 
-<https://akillness.github.io/hongT/> — 아레나 방어전
-<https://akillness.github.io/hongT/campaign.html> — 메인 캠페인
+<https://akillness.github.io/hongT/> — 로비 / 프롤로그 / 6단계 캠페인
+<https://akillness.github.io/hongT/?mode=arena> — 무한 웨이브 아레나
 
 최신 Chrome / Edge / Safari / Firefox에서 동작하며, 모바일 브라우저에서는
 화면 방향 패드와 타격 버튼으로 조작합니다.
@@ -135,8 +144,9 @@ python3 -m http.server 4173 --directory build-webgl
 ## 3.3 검증 실행
 
 ```bash
-bash tools/unity_batch.sh tests   # EditMode 30 테스트 (아레나 20 + 캠페인 10)
+bash tools/unity_batch.sh tests   # EditMode 테스트 102/102 통과, 실패 0
 ```
+Unity 6000.5.6f1 WebGL 빌드도 통과했습니다.
 
 결정론 심(순수 C#)은 Unity 밖에서도 `dotnet test`로 동일하게 검증됩니다.
 
@@ -164,10 +174,9 @@ bash tools/unity_batch.sh tests   # EditMode 30 테스트 (아레나 20 + 캠페
 | 경로 | 역할 |
 |---|---|
 | `Assets/Scripts/Sim/CinderSim.cs` | 결정론 시뮬레이션 (60 Hz, 순수 C#) |
-| `Assets/Scripts/Sim/CampaignTypes.cs` | 캠페인 스테이지·기믹·장비 계약 |
-| `Assets/Scripts/View/` | 프레젠테이션 (HUD·VFX·오디오·카메라) |
-| `Assets/Editor/` | 캐릭터 임포트·씬 생성·WebGL 빌드 자동화 |
+| `Assets/Scripts/View/StageCatalog.cs` | 6단계 캠페인 카탈로그와 해금 순서 |
+| `Assets/Scripts/View/` | 로비·HUD·Ember Rest·프레젠테이션 |
+| `Assets/Editor/` | 휴머노이드 캐릭터 임포트·씬 생성·WebGL 빌드 자동화 |
+| `Assets/Tests/EditMode/CharacterRosterAnimationTests.cs` | 유효 Humanoid Avatar·공유 컨트롤러·공격 오른손 모션 게이트 |
 | `tools/blender/reskin_character.py` | 3D 캐릭터 재스키닝 파이프라인 |
-| `tools/audio/gen_sfx.py` | ElevenLabs SFX/BGM 생성 |
-| `web/campaign.html` | 캠페인 허브 (정적 페이지) |
-| `docs/SIM_SPEC.md` · `docs/SIM_SPEC_CAMPAIGN.md` | 동결 수치 계약 |
+| `docs/SIM_SPEC.md` · `docs/SIM_SPEC_CAMPAIGN.md` · `docs/SIM_SPEC_HACKSLASH.md` | 동결 수치·캠페인·핵앤슬래시 계약 |

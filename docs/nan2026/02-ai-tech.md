@@ -8,24 +8,27 @@ lang: ko
 # 0-bis. Unity 포트 증보 (2026-08-04)
 
 이 문서의 1–7장은 원작 Canvas 2.5D 빌드의 AI 활용 기록이며 그대로 보존한다.
-본 증보는 **Unity 6 / WebGL 재구현**에서 추가된 AI 파이프라인만 기록한다.
+본 증보는 **Unity 6000.5.6f1 / URP / WebGL** 재구현에서 추가된 AI 파이프라인만
+기록한다.
 
 | 축 | 도구 | 산출물 |
 |---|---|---|
-| 3D 캐릭터 재스키닝 | Blender 5.1 headless + 에이전트 워크플로 | 7종 휴머노이드 FBX (본히트 자동 웨이트) |
+| 3D 캐릭터 재스키닝 | Blender 5.1 headless + 에이전트 워크플로 | 8종 휴머노이드 FBX (본히트 자동 웨이트) |
 | 모션 | Mixamo 벤치 FBX → Unity Humanoid 리타겟 | 11액션 공유 라이브러리 |
 | 사운드 | **ElevenLabs sound-generation API** | SFX 8종 + 로어 앰비언트 + BGM 루프 (`docs/provenance/audio.json`) |
-| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·아레나 테스트 20(gjc), 캠페인 심(gjc, 테스트는 오케스트레이터 완결), View 9파일(위임 실패 후 직접 작성), EditMode 61 통과 |
+| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 102/102 통과, 실패 0 |
 | 플레이 영상 | CDP 스크린캐스트 하니스 | 배포 빌드 실플레이 48 s |
 | UI 아이콘 세트 | god-tibo-imagen (gpt-5.4) + 마젠타 키 매팅 | 스킬 7·장비 3·스탯 3·픽업 3·앱 1·버튼 9-slice 플레이트 (256px 스프라이트, `Assets/Resources/Icons/`) |
-| 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX 변환 → URP Unlit 리맵 | 3스테이지 바닥 + cinder-span 소품·피처 프리팹 (`Assets/Resources/Terrain/`) |
+| 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX 변환 → URP Unlit 리맵 | 3개 지형 앵커를 공유하는 6단계 캠페인 바닥·소품·피처 프리팹 (`Assets/Resources/Terrain/`) |
 | 브랜드 범퍼 | Remotion 4 프로그래매틱 렌더 | `hongt-brand-bumper.mp4` (1280×720, 9.4 s) |
 
-**모션 애니메이션 재가공.** 원작 3D 파이프라인의 절차적 영역분할 스키닝은
-애니메이션 중 메시가 찢어지는 결함이 있었다. Unity 포트에서는 이를 폐기하고
-(1) 메시를 원본 저작 메시로 교체, (2) Blender 본히트 자동 웨이트로 재스키닝
-(고아 정점 표면전이 충전, 히트 실패율 게이트), (3) Unity Mecanim Humanoid로
-Mixamo 클립을 리타겟하는 표준 경로로 재구축했다. 근거 리포트:
+**모션 애니메이션 재가공과 런타임 안전 계약.** 원작 3D 파이프라인의 절차적
+영역분할 스키닝은 애니메이션 중 메시가 찢어지는 결함이 있었다. Unity 포트에서는
+이를 폐기하고 (1) 메시를 원본 저작 메시로 교체, (2) Blender 본히트 자동
+웨이트로 재스키닝, (3) Unity Mecanim Humanoid로 Mixamo 클립을 리타겟하는
+표준 경로로 재구축했다. 현재 런타임 게이트는 전 캐릭터 프리팹의 유효 Humanoid
+Avatar·공유 액션 컨트롤러·활성 Animator·SkinnedMeshRenderer와 공격 시
+오른손 모션을 검증한다. 근거 리포트:
 `_workspace/current/engineering/reskin/*.json`.
 
 **런타임 무 AI 원칙은 유지된다** — 배포 빌드는 외부 추론 호출·API 키·네트워크
