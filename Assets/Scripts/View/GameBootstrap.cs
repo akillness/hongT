@@ -14,9 +14,46 @@ namespace CinderCourt.View
         readonly Dictionary<EnemyVisual, GameObject> _enemyPrefabs =
             new Dictionary<EnemyVisual, GameObject>(6);
 
+        public bool HasCampaign { get; private set; }
+        public CampaignConfig Campaign { get; private set; }
+        public string CampaignStageName { get; private set; } = "";
+
         void Awake()
         {
             Application.targetFrameRate = -1;   // browser vsync owns pacing
+
+            // ?mode=campaign&stage=<id> — set by web/campaign.html stage cards.
+            // Outside WebGL QueryParam returns "" and we boot the arena.
+            if (WebGLStorage.QueryParam("mode") == "campaign")
+            {
+                var stageId = WebGLStorage.QueryParam("stage");
+                var progress = WebGLStorage.ReadCampaign();
+                var stageIndex = CampaignStages.IndexOf(stageId);
+                var unlocked = stageIndex == 0 ||
+                    (stageIndex == 1 && progress.CinderSpanCleared) ||
+                    (stageIndex == 2 && progress.AbyssChancelCleared);
+                if (stageIndex >= 0 && !unlocked)
+                {
+                    // Deep link past the lock (hub enforces it too) — arena fallback.
+                    Debug.LogWarning($"[Bootstrap] stage '{stageId}' is locked — arena fallback");
+                }
+                else if (CampaignStages.TryGet(stageId, progress.Weapon, progress.Lantern,
+                             progress.Cloak, out var config))
+                {
+                    HasCampaign = true;
+                    Campaign = config;
+                    CampaignStageName = config.StageId switch
+                    {
+                        CampaignStages.CinderSpan => "Cinder Span",
+                        CampaignStages.AbyssChancel => "Abyss Chancel",
+                        _ => "Echo Throne",
+                    };
+                }
+                else
+                {
+                    Debug.LogWarning($"[Bootstrap] unknown campaign stage '{stageId}' — arena fallback");
+                }
+            }
 
             PlayerPrefab = Resources.Load<GameObject>("Characters/guard");
             LoadEnemy(EnemyVisual.EmberCohort, "Characters/ember-cohort");

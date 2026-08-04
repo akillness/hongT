@@ -82,6 +82,15 @@ namespace CinderCourt.View
                 Play(_lore, 0.5f);   // ambient texture under the lore line
             }
             if ((events & SimEvents.GameOver) != 0) Play(_gameover);
+            // Campaign events reuse existing cues (no extra generation needed):
+            if ((events & SimEvents.HazardPulse) != 0) Play(_hit, 0.6f);
+            if ((events & SimEvents.AltarBlessing) != 0) Play(_ward, 0.7f);
+            if ((events & SimEvents.EquipDropped) != 0) Play(_pickup, 0.8f);
+            if ((events & SimEvents.StageCleared) != 0)
+            {
+                Play(_wave);          // triumphant horn
+                Play(_pickup, 0.9f);  // sparkle on top
+            }
         }
     }
 }

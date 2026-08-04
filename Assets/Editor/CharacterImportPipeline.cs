@@ -183,6 +183,24 @@ namespace CinderCourt.EditorTools
                     albedoTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(guess);
                 }
                 if (albedoTexture != null) replacement.SetTexture("_BaseMap", albedoTexture);
+                var normalPath = textures.FirstOrDefault(t =>
+                    t.ToLowerInvariant().Contains("normal"));
+                if (normalPath != null)
+                {
+                    // Mark as normal map first, or URP samples it as color.
+                    if (AssetImporter.GetAtPath(normalPath) is TextureImporter normalImporter &&
+                        normalImporter.textureType != TextureImporterType.NormalMap)
+                    {
+                        normalImporter.textureType = TextureImporterType.NormalMap;
+                        normalImporter.SaveAndReimport();
+                    }
+                    var normalTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+                    if (normalTexture != null)
+                    {
+                        replacement.SetTexture("_BumpMap", normalTexture);
+                        replacement.EnableKeyword("_NORMALMAP");
+                    }
+                }
                 replacement.SetFloat("_Smoothness", 0.15f);
                 var materialDir = $"{dir}/Materials";
                 Directory.CreateDirectory(materialDir);

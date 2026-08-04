@@ -33,6 +33,17 @@ namespace CinderCourt.View
         GameObject _gameOverPanel;
         Text _muteLabel;
 
+        // --- campaign extensions (primitive-typed; driven by GameView) -------
+        GameObject _stageBanner;
+        Text _stageBannerText;
+        GameObject _equipPanel;
+        Text _equipText;
+        GameObject _stageClearPanel;
+        Text _stageClearText;
+        string _campaignStageName;
+        int _campaignTotalWaves;
+        int _lastEquipHash = -1;
+
         int _lastHealth = -1, _lastCharge = -1, _lastWave = -1, _lastScore = -1,
             _lastRelics = -1, _lastEnemies = -1;
         float _loreTimer;
@@ -127,6 +138,86 @@ namespace CinderCourt.View
             // wave 2), so seed the opening lore line here.
             _loreText.text = LoreBeats[0];
             _loreTimer = 6f;
+        }
+
+        /// <summary>
+        /// Called by GameView once when the run is a campaign stage. Adds the
+        /// stage banner, equipment strip, and stage-clear panel; retitles the
+        /// game-over panel with a "캠페인으로" back link.
+        /// </summary>
+        public void EnableCampaignUi(string stageName, int totalWaves)
+        {
+            _campaignStageName = stageName;
+            _campaignTotalWaves = totalWaves;
+            var root = transform.GetComponentInChildren<Canvas>().transform;
+
+            _stageBanner = Panel(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -14), new Vector2(360, 40), new Color(0.05f, 0.04f, 0.09f, 0.62f));
+            var bannerRect = _stageBanner.GetComponent<RectTransform>();
+            bannerRect.pivot = new Vector2(0.5f, 1f);
+            _stageBannerText = Label(_stageBanner.transform, 0, 0, 360, 40, stageName, 17, TextAnchor.MiddleCenter);
+            var bannerTextRect = _stageBannerText.rectTransform;
+            bannerTextRect.anchorMin = Vector2.zero;
+            bannerTextRect.anchorMax = Vector2.one;
+            bannerTextRect.sizeDelta = Vector2.zero;
+            bannerTextRect.anchoredPosition = Vector2.zero;
+            _stageBannerText.color = new Color(1f, 0.83f, 0.45f);
+
+            _equipPanel = Panel(root, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                new Vector2(16, 16), new Vector2(240, 34), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+            var equipRect = _equipPanel.GetComponent<RectTransform>();
+            equipRect.pivot = new Vector2(0f, 0f);
+            _equipText = Label(_equipPanel.transform, 8, 0, 226, 34, "", 14, TextAnchor.MiddleLeft);
+            var equipTextRect = _equipText.rectTransform;
+            equipTextRect.anchorMin = Vector2.zero;
+            equipTextRect.anchorMax = Vector2.one;
+            equipTextRect.sizeDelta = Vector2.zero;
+            equipTextRect.anchoredPosition = new Vector2(8, 0);
+
+            _stageClearPanel = Panel(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(480, 240), new Color(0.02f, 0.05f, 0.06f, 0.94f));
+            var clearTitle = Label(_stageClearPanel.transform, 0, -18, 480, 36, "구역 정화", 28, TextAnchor.MiddleCenter);
+            clearTitle.color = new Color(0.56f, 0.91f, 1f);
+            _stageClearText = Label(_stageClearPanel.transform, 0, -74, 480, 60, "", 18, TextAnchor.MiddleCenter);
+            TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(-105, 24),
+                new Vector2(190, 44), "캠페인으로", 18,
+                () => WebGLStorage.Navigate("campaign.html"));
+            TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(105, 24),
+                new Vector2(190, 44), "재강하 (R)", 18,
+                () => { if (Input != null) Input.QueueRestart(); });
+            _stageClearPanel.SetActive(false);
+
+            // Campaign game-over also offers the way back to the hub.
+            TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 76),
+                new Vector2(200, 40), "캠페인으로", 16,
+                () => WebGLStorage.Navigate("campaign.html"));
+        }
+
+        /// <summary>Campaign per-frame extras (equipment ranks, banner wave).</summary>
+        int _lastBannerHash = -1;
+        public void SyncCampaign(int wave, bool bossAlive, int weapon, int lantern, int cloak)
+        {
+            var bannerHash = wave * 4 + (bossAlive ? 1 : 0);
+            if (_stageBannerText != null && bannerHash != _lastBannerHash)
+            {
+                _lastBannerHash = bannerHash;
+                _stageBannerText.text = bossAlive
+                    ? $"{_campaignStageName} — 경계 보스"
+                    : $"{_campaignStageName} — 웨이브 {Mathf.Min(wave, _campaignTotalWaves)}/{_campaignTotalWaves}";
+            }
+            var equipHash = weapon * 100 + lantern * 10 + cloak;
+            if (_equipText != null && equipHash != _lastEquipHash)
+            {
+                _lastEquipHash = equipHash;
+                _equipText.text = $"무기 {weapon} • 랜턴 {lantern} • 망토 {cloak}";
+            }
+        }
+
+        public void ShowStageClear(RunDigest digest)
+        {
+            if (_stageClearPanel == null) return;
+            _stageClearText.text = $"점수 {digest.Score:N0} • 처치 {digest.Kills} • 유물 {digest.Relics}";
+            _stageClearPanel.SetActive(true);
         }
 
         void RefreshMuteLabel()

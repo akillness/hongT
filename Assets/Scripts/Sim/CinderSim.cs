@@ -9,8 +9,11 @@ namespace CinderCourt.Sim
     /// <summary>
     /// Pure C# simulation. One <see cref="Tick"/> advances exactly 1/60 s and runs the
     /// original fixedUpdate order: player -> enemies -> skills -> pickups -> wave.
+    /// The default constructor is the frozen arena run (docs/SIM_SPEC.md); the
+    /// <see cref="CampaignConfig"/> constructor layers the campaign amendment
+    /// (docs/SIM_SPEC_CAMPAIGN.md) on top without touching any arena number.
     /// </summary>
-    public sealed class CinderSim : ICinderSim
+    public sealed class CinderSim : ICinderSim, ICampaignSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -56,6 +59,17 @@ namespace CinderCourt.Sim
             public int LastHitAttack;
         }
 
+        /// <summary>Mutable per-hazard bookkeeping (config stays immutable/shared).</summary>
+        private struct HazardRuntime
+        {
+            public int Cycle;      // last completed ember-vent cycle index
+            public float Hold;     // relic-altar dwell seconds
+            public float Cooldown; // relic-altar cooldown seconds
+        }
+
+        private static readonly HazardConfig[] NoHazards = new HazardConfig[0];
+        private static readonly HazardRuntime[] NoHazardRuntime = new HazardRuntime[0];
+
         private Enemy[] _enemies = new Enemy[SimConfig.EnemyCap];
         private int _enemyCount;
         private PickupState[] _pickups = new PickupState[SimConfig.EnemyCap];
@@ -89,8 +103,46 @@ namespace CinderCourt.Sim
         private int _nextPickupId;
         private string _reason;
 
+        // --- campaign amendment state (inert on the arena path) ---
+        private readonly bool _campaign;
+        private readonly CampaignConfig _config;
+        private readonly HazardConfig[] _hazards;
+        private readonly HazardRuntime[] _hazardRuntime;
+        private readonly List<HazardState> _hazardView;
+        private readonly string _stageId;
+        private float _stageTime;
+        private bool _stageCleared;
+        private int _livingBosses;
+        private int _weaponRank, _lanternRank, _cloakRank;
+        private float _playerDamage;
+        private float _playerMaxHealth;
+        private float _lanternRegen;
+
+        /// <summary>Arena run — the frozen SIM_SPEC path. Behaviour must never change.</summary>
         public CinderSim()
         {
+            _campaign = false;
+            _config = default;
+            _hazards = NoHazards;
+            _hazardRuntime = NoHazardRuntime;
+            _hazardView = new List<HazardState>(0);
+            _stageId = string.Empty;
+            Restart();
+        }
+
+        /// <summary>Campaign run — arena rules plus docs/SIM_SPEC_CAMPAIGN.md.</summary>
+        public CinderSim(in CampaignConfig config)
+        {
+            _campaign = true;
+            _config = config;
+            _hazards = config.Hazards ?? NoHazards;
+            _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
+            _hazardView = new List<HazardState>(_hazards.Length);
+            _stageId = config.StageId ?? string.Empty;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                _hazardView.Add(default);
+            }
             Restart();
         }
 
@@ -123,6 +175,15 @@ namespace CinderCourt.Sim
             Reason = _reason,
         };
 
+        // --- ICampaignSnapshot -----------------------------------------------
+        public string StageId => _stageId;
+        public bool BossAlive => _livingBosses > 0;
+        public bool StageCleared => _stageCleared;
+        public IReadOnlyList<HazardState> Hazards => _hazardView;
+        public int WeaponRank => _weaponRank;
+        public int LanternRank => _lanternRank;
+        public int CloakRank => _cloakRank;
+
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
         /// <summary>Spawn queue length for a wave, boss slot included, enemy cap applied.</summary>
@@ -146,10 +207,31 @@ namespace CinderCourt.Sim
             return (waveSeed + enemyId * 3) % SimConfig.SpawnPoints.Length;
         }
 
+        /// <summary>Boss-wave escorts for a stage: min(8, 3 + stageIndex*2).</summary>
+        public static int EscortCountForStage(int stageIndex)
+        {
+            return Math.Min(CampaignSpec.EscortCap, CampaignSpec.EscortBase + stageIndex * CampaignSpec.EscortPerStage);
+        }
+
+        /// <summary>
+        /// Campaign spawn queue length. Waves 1..W keep the arena formula without the
+        /// arena's every-fifth-wave boss slot; wave W+1 is boss + escorts.
+        /// </summary>
+        public static int SpawnCountForStageWave(in CampaignConfig config, int wave)
+        {
+            if (wave > config.Waves)
+            {
+                return Math.Min(SimConfig.EnemyCap, 1 + EscortCountForStage(config.StageIndex));
+            }
+            return Math.Min(SimConfig.EnemyCap, WaveSpawnBase + (int)MathF.Floor(wave * WaveSpawnPerWave));
+        }
+
         // --- ICinderSim ------------------------------------------------------
 
         public void Restart()
         {
+            ResetCampaignRun();
+
             _enemyCount = 0;
             _pickupCount = 0;
             _livingEnemies = 0;
@@ -169,13 +251,15 @@ namespace CinderCourt.Sim
             _player.X = SimConfig.ArenaX;
             _player.Y = SimConfig.ArenaY + SimConfig.PlayerStartYOffset;
             _player.Facing = 1;
-            _player.Health = SimConfig.PlayerMaxHealth;
+            _player.Health = _playerMaxHealth;
             _player.Action = ActorAction.Idle;
             _player.ActionTime = 0f;
             _player.AttackId = 0;
 
             _novaX = _player.X;
             _novaY = _player.Y;
+
+            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             StartWave(1);
             _events = SimEvents.None;
@@ -207,6 +291,10 @@ namespace CinderCourt.Sim
 
             UpdatePlayer(dt, in input);
             UpdateEnemies(dt);
+            if (_campaign && _mode != SimMode.GameOver)
+            {
+                UpdateHazards(dt);
+            }
             if (_mode != SimMode.GameOver)
             {
                 UpdateSkills(dt);
@@ -270,7 +358,7 @@ namespace CinderCourt.Sim
             _wardCooldown = MathF.Max(0f, _wardCooldown - deltaTime);
             _novaFlash = MathF.Max(0f, _novaFlash - deltaTime);
             _player.WardTime = MathF.Max(0f, _player.WardTime - deltaTime);
-            _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.LanternRegenPerSecond * deltaTime);
+            _charge = MathF.Min(SimConfig.LanternMax, _charge + _lanternRegen * deltaTime);
         }
 
         // --- Player ----------------------------------------------------------
@@ -302,6 +390,8 @@ namespace CinderCourt.Sim
             {
                 _player.Moving = false;
             }
+
+            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             if (input.AttackQueued && _player.AttackCooldown <= 0f && _player.Action != ActorAction.Attack)
             {
@@ -347,7 +437,7 @@ namespace CinderCourt.Sim
                 if (inFacingArc && deltaX * deltaX + deltaY * deltaY <= SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
                 {
                     enemy.LastHitAttack = _player.AttackId;
-                    DamageEnemy(ref enemy, SimConfig.PlayerDamage);
+                    DamageEnemy(ref enemy, _playerDamage);
                 }
             }
         }
@@ -362,7 +452,13 @@ namespace CinderCourt.Sim
             _player.ActionTime = 0f;
         }
 
-        private void DamagePlayer(float amount)
+        private void DamagePlayer(float amount) => DamagePlayer(amount, false);
+
+        /// <summary>
+        /// <paramref name="bypassWard"/> is the campaign hazard rule: an ember-vent
+        /// pulse ignores Ward but still obeys the 0.38 s grace window.
+        /// </summary>
+        private void DamagePlayer(float amount, bool bypassWard)
         {
             if (_mode == SimMode.GameOver || _player.DamageCooldown > 0f)
             {
@@ -371,7 +467,7 @@ namespace CinderCourt.Sim
 
             // Ward refuses the damage outright but still burns the contact grace so a
             // warded player is not chain-hit by the same swing.
-            if (_player.WardTime > 0f)
+            if (!bypassWard && _player.WardTime > 0f)
             {
                 _player.DamageCooldown = SimConfig.PlayerHitGrace;
                 return;
@@ -494,6 +590,8 @@ namespace CinderCourt.Sim
                 }
             }
 
+            ApplyPillars(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
+
             if (MathF.Abs(deltaX) > EnemyFacingDeadzone)
             {
                 enemy.State.Facing = deltaX > 0f ? 1 : -1;
@@ -569,11 +667,23 @@ namespace CinderCourt.Sim
             enemy.State.FadeTime = SimConfig.EnemyFade;
             SetEnemyAction(ref enemy, ActorAction.Die, true);
             _livingEnemies -= 1;
-            _score += (enemy.State.IsBoss ? BossKillScorePerWave : KillScorePerWave) * _wave;
+            bool boss = enemy.State.IsBoss;
+            if (boss)
+            {
+                _livingBosses -= 1;
+            }
+            _score += (boss ? BossKillScorePerWave : KillScorePerWave) * _wave;
             _kills += 1;
             _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.LanternChargePerKill);
-            SpawnPickup(enemy.State.Id, enemy.State.IsBoss, enemy.State.X, enemy.State.Y);
+            SpawnPickup(enemy.State.Id, boss, enemy.State.X, enemy.State.Y);
             _events |= SimEvents.EnemyKilled;
+
+            if (_campaign && boss)
+            {
+                // Guaranteed stage reward, then the stage ends: remaining mobs fade.
+                RaiseRank(_config.StageIndex % CampaignSpec.EquipSlotCount);
+                ClearStage();
+            }
         }
 
         private void RemoveEnemyAt(int index)
@@ -599,7 +709,12 @@ namespace CinderCourt.Sim
             ref PickupState pickup = ref _pickups[_pickupCount];
             pickup.Id = _nextPickupId;
             // Bosses always drop the relic mote; ordinary drops rotate on enemy id.
-            pickup.Kind = isBoss ? PickupKind.RelicMote : (PickupKind)(enemyId % 3);
+            // Campaign only: an id that hits the shard modulus drops equipment instead.
+            pickup.Kind = isBoss
+                ? PickupKind.RelicMote
+                : (_campaign && enemyId % CampaignSpec.ShardDropModulus == CampaignSpec.ShardDropRemainder
+                    ? PickupKind.EquipShard
+                    : (PickupKind)(enemyId % 3));
             pickup.X = x;
             pickup.Y = y;
             pickup.Life = SimConfig.PickupLifetime;
@@ -637,11 +752,16 @@ namespace CinderCourt.Sim
         {
             if (kind == PickupKind.EmberShard)
             {
-                _player.Health = MathF.Min(SimConfig.PlayerMaxHealth, _player.Health + SimConfig.EmberShardHeal);
+                _player.Health = MathF.Min(_playerMaxHealth, _player.Health + SimConfig.EmberShardHeal);
             }
             else if (kind == PickupKind.OilFlask)
             {
                 _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.OilFlaskCharge);
+            }
+            else if (kind == PickupKind.EquipShard)
+            {
+                // Rank lands on the kill-count slot; it applies to the *next* run start.
+                RaiseRank(_kills % CampaignSpec.EquipSlotCount);
             }
             else
             {
@@ -668,8 +788,10 @@ namespace CinderCourt.Sim
         {
             _wave = waveNumber;
             _waveSeed = waveNumber * 3 % SimConfig.SpawnPoints.Length;
-            _pendingSpawns = SpawnCountForWave(waveNumber);
-            _pendingBoss = IsBossWave(waveNumber);
+            _pendingSpawns = _campaign
+                ? SpawnCountForStageWave(in _config, waveNumber)
+                : SpawnCountForWave(waveNumber);
+            _pendingBoss = _campaign ? waveNumber > _config.Waves : IsBossWave(waveNumber);
             _spawnIndexInWave = 0;
             _spawnTimer = SimConfig.FirstSpawnDelay;
             _intermission = 0f;
@@ -733,7 +855,9 @@ namespace CinderCourt.Sim
             ref Enemy enemy = ref _enemies[_enemyCount];
             enemy.State.Id = id;
             enemy.State.Visual = boss
-                ? (_wave % BossVisualPeriod == 0 ? EnemyVisual.BossMonarch : EnemyVisual.BossCommander)
+                ? (_campaign
+                    ? _config.BossVisual
+                    : (_wave % BossVisualPeriod == 0 ? EnemyVisual.BossMonarch : EnemyVisual.BossCommander))
                 : (EnemyVisual)((_wave + _spawnIndexInWave) % VisualRotation);
             enemy.State.X = spawnPoint[0];
             enemy.State.Y = spawnPoint[1];
@@ -757,8 +881,206 @@ namespace CinderCourt.Sim
 
             if (boss)
             {
+                _livingBosses += 1;
                 _events |= SimEvents.BossSpawned;
             }
+        }
+
+        // --- Campaign amendment (docs/SIM_SPEC_CAMPAIGN.md) -------------------
+
+        /// <summary>
+        /// Run-start reset of every campaign-only field. On the arena path this only
+        /// restates the frozen SIM_SPEC constants, so behaviour is unchanged.
+        /// </summary>
+        private void ResetCampaignRun()
+        {
+            _stageTime = 0f;
+            _stageCleared = false;
+            _livingBosses = 0;
+
+            for (int index = 0; index < _hazardRuntime.Length; index += 1)
+            {
+                _hazardRuntime[index] = default;
+            }
+
+            if (!_campaign)
+            {
+                _weaponRank = 0;
+                _lanternRank = 0;
+                _cloakRank = 0;
+                _playerDamage = SimConfig.PlayerDamage;
+                _playerMaxHealth = SimConfig.PlayerMaxHealth;
+                _lanternRegen = SimConfig.LanternRegenPerSecond;
+                return;
+            }
+
+            // Equipment is applied once, at run start, from the carried config ranks.
+            // Ranks earned during the run land in the snapshot for persistence and
+            // take effect on the next run.
+            _weaponRank = CampaignSpec.ClampRank(_config.WeaponRank);
+            _lanternRank = CampaignSpec.ClampRank(_config.LanternRank);
+            _cloakRank = CampaignSpec.ClampRank(_config.CloakRank);
+            _playerDamage = _config.PlayerDamage;
+            _playerMaxHealth = _config.PlayerMaxHealth;
+            _lanternRegen = _config.LanternRegenPerSecond;
+        }
+
+        private void RaiseRank(int slot)
+        {
+            if (slot == (int)EquipSlot.Weapon)
+            {
+                _weaponRank = Math.Min(CampaignSpec.MaxEquipRank, _weaponRank + 1);
+            }
+            else if (slot == (int)EquipSlot.Lantern)
+            {
+                _lanternRank = Math.Min(CampaignSpec.MaxEquipRank, _lanternRank + 1);
+            }
+            else
+            {
+                _cloakRank = Math.Min(CampaignSpec.MaxEquipRank, _cloakRank + 1);
+            }
+            // One flag for "an equipment rank was granted this tick" (boss drop or shard).
+            _events |= SimEvents.EquipDropped;
+        }
+
+        /// <summary>Stage boss down: the run ends as a clear, not as an overrun.</summary>
+        private void ClearStage()
+        {
+            _stageCleared = true;
+            _reason = CampaignSpec.StageClearReason;
+            _mode = SimMode.GameOver;
+            _events |= SimEvents.StageCleared;
+            _pendingSpawns = 0;
+            _pendingBoss = false;
+            FadeRemainingEnemies();
+        }
+
+        /// <summary>Combat is over: survivors fade without scoring or dropping.</summary>
+        private void FadeRemainingEnemies()
+        {
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                enemy.State.Dead = true;
+                enemy.State.Health = 0f;
+                enemy.State.FadeTime = SimConfig.EnemyFade;
+                SetEnemyAction(ref enemy, ActorAction.Die, true);
+                _livingEnemies -= 1;
+                if (enemy.State.IsBoss)
+                {
+                    _livingBosses -= 1;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Ember vents pulse on the cycle boundary and relic altars count dwell time.
+        /// Both run on stage time, so they keep ticking through the wave intermission.
+        /// </summary>
+        private void UpdateHazards(float deltaTime)
+        {
+            _stageTime += deltaTime;
+
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                ref HazardRuntime runtime = ref _hazardRuntime[index];
+
+                if (hazard.Kind == HazardKind.EmberVent)
+                {
+                    int cycle = (int)MathF.Floor((_stageTime + hazard.Phase) / CampaignSpec.VentPeriod);
+                    if (cycle <= runtime.Cycle)
+                    {
+                        continue;
+                    }
+                    runtime.Cycle = cycle;
+                    _events |= SimEvents.HazardPulse;
+                    if (IsoWithin(hazard.X, hazard.Y, _player.X, _player.Y, hazard.Radius))
+                    {
+                        // Gimmicks are player risk only, and Ward does not stop them.
+                        DamagePlayer(CampaignSpec.VentDamage, true);
+                    }
+                    continue;
+                }
+
+                if (hazard.Kind != HazardKind.RelicAltar)
+                {
+                    continue;
+                }
+
+                if (runtime.Cooldown > 0f)
+                {
+                    runtime.Cooldown = MathF.Max(0f, runtime.Cooldown - deltaTime);
+                    runtime.Hold = 0f;
+                    continue;
+                }
+
+                if (!IsoWithin(hazard.X, hazard.Y, _player.X, _player.Y, hazard.Radius))
+                {
+                    runtime.Hold = 0f;
+                    continue;
+                }
+
+                runtime.Hold += deltaTime;
+                if (runtime.Hold < CampaignSpec.AltarHoldSeconds)
+                {
+                    continue;
+                }
+
+                runtime.Hold = 0f;
+                runtime.Cooldown = CampaignSpec.AltarCooldown;
+                _charge = MathF.Min(SimConfig.LanternMax, _charge + CampaignSpec.AltarOilBurst);
+                _events |= SimEvents.AltarBlessing;
+            }
+        }
+
+        /// <summary>
+        /// Obsidian pillars are hard blockers: an actor that ends its move inside
+        /// <c>pillarRadius + actorRadius</c> is pushed back out along the iso normal.
+        /// No-op on the arena path (no hazards).
+        /// </summary>
+        private void ApplyPillars(ref float x, ref float y, float actorRadius)
+        {
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.ObsidianPillar)
+                {
+                    continue;
+                }
+
+                float target = hazard.Radius + actorRadius;
+                float deltaX = x - hazard.X;
+                float deltaY = (y - hazard.Y) * SimConfig.IsoY;
+                float distance = Hypot(deltaX, deltaY);
+                if (distance >= target)
+                {
+                    continue;
+                }
+
+                if (distance <= MoveEpsilon)
+                {
+                    // Dead centre has no normal: eject along +x deterministically.
+                    x = hazard.X + target;
+                    y = hazard.Y;
+                    continue;
+                }
+
+                x = hazard.X + deltaX / distance * target;
+                y = hazard.Y + deltaY / distance * target / SimConfig.IsoY;
+            }
+        }
+
+        /// <summary>Iso-weighted containment test (docs/SIM_SPEC.md distance rule).</summary>
+        private static bool IsoWithin(float centerX, float centerY, float x, float y, float radius)
+        {
+            float deltaX = x - centerX;
+            float deltaY = (y - centerY) * SimConfig.IsoY;
+            return deltaX * deltaX + deltaY * deltaY <= radius * radius;
         }
 
         // --- Shared math -----------------------------------------------------
@@ -794,6 +1116,27 @@ namespace CinderCourt.Sim
             for (int index = 0; index < _pickupCount; index += 1)
             {
                 _pickupView.Add(_pickups[index]);
+            }
+
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                var state = default(HazardState);
+                state.Kind = hazard.Kind;
+                state.X = hazard.X;
+                state.Y = hazard.Y;
+                state.Radius = hazard.Radius;
+                if (hazard.Kind == HazardKind.EmberVent)
+                {
+                    float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.VentPeriod;
+                    state.CycleT = cycleT;
+                    state.Telegraphing = cycleT >= CampaignSpec.VentPeriod - CampaignSpec.VentTelegraph;
+                }
+                else if (hazard.Kind == HazardKind.RelicAltar)
+                {
+                    state.CooldownT = _hazardRuntime[index].Cooldown;
+                }
+                _hazardView[index] = state;
             }
         }
     }

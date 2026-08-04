@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Deploy build-webgl/ to the gh-pages branch of origin (akillness/HongT).
-# Pages then serves https://akillness.github.io/HongT/ (user-facing casing
-# "hongT" resolves to the same path case-insensitively on github.io hosts).
+# Deploy build-webgl/ to the gh-pages branch of origin (akillness/hongT).
+# Pages serves https://akillness.github.io/hongT/ — path casing is
+# case-SENSITIVE on github.io, so the repo name must stay "hongT".
 # Usage: bash tools/deploy/deploy_pages.sh [commit-message]
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -21,10 +21,13 @@ else
   git -C "$WORKTREE" rm -rf . >/dev/null 2>&1 || true
 fi
 
-# Sync build output (delete removed files, keep .git).
+# Sync build output (delete removed files, keep .git), then overlay static
+# pages from web/ (campaign hub etc.) — NO --delete on the overlay so Unity
+# output and static pages coexist.
 rsync -a --delete --exclude ".git" \
   --exclude "*_BurstDebugInformation_DoNotShip" \
   "$BUILD_DIR/" "$WORKTREE/"
+[ -d web ] && rsync -a web/ "$WORKTREE/"
 touch "$WORKTREE/.nojekyll"   # Pages: serve Build/ files verbatim, no Jekyll
 
 git -C "$WORKTREE" add -A
@@ -35,4 +38,4 @@ else
   git -C "$WORKTREE" push origin gh-pages
 fi
 git worktree remove --force "$WORKTREE"
-echo "Deployed. Verify: https://akillness.github.io/HongT/"
+echo "Deployed. Verify: https://akillness.github.io/hongT/"

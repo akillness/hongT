@@ -17,7 +17,7 @@ namespace CinderCourt.View
 
         public ICinderSim Sim => _sim;
 
-        readonly CinderSim _sim = new CinderSim();
+        CinderSim _sim;
         readonly Dictionary<int, ActorView> _enemyViews = new Dictionary<int, ActorView>(SimConfig.EnemyCap * 2);
         readonly Stack<ActorView>[] _pools = new Stack<ActorView>[6];
         readonly List<int> _toRecycle = new List<int>(SimConfig.EnemyCap);
@@ -25,9 +25,25 @@ namespace CinderCourt.View
         ActorView _playerView;
         float _accumulator;
         bool _digestWritten;
+        bool _isCampaign;
+        bool _campaignPersisted;
+        CampaignConfig _campaignConfig;
 
         void Start()
         {
+            if (Bootstrap != null && Bootstrap.HasCampaign)
+            {
+                _isCampaign = true;
+                _campaignConfig = Bootstrap.Campaign;
+                _sim = new CinderSim(in _campaignConfig);
+                if (Hud != null)
+                    Hud.EnableCampaignUi(Bootstrap.CampaignStageName, _campaignConfig.Waves);
+            }
+            else
+            {
+                _sim = new CinderSim();
+            }
+
             for (var i = 0; i < _pools.Length; i++)
                 _pools[i] = new Stack<ActorView>(8);
             _playerView = ActorView.Create(
@@ -38,6 +54,7 @@ namespace CinderCourt.View
 
         void Update()
         {
+            if (_sim == null) return;   // Start() not run yet
             var delta = Mathf.Min(Time.deltaTime, SimConfig.MaxFrameDelta);
             _accumulator += delta;
             var steps = 0;
@@ -77,8 +94,42 @@ namespace CinderCourt.View
                 _digestWritten = true;
                 WebGLStorage.WriteRunDigest(_sim.Digest);
             }
+            if ((events & SimEvents.StageCleared) != 0)
+            {
+                if (!_digestWritten)
+                {
+                    _digestWritten = true;
+                    WebGLStorage.WriteRunDigest(_sim.Digest);
+                }
+                if (!_campaignPersisted && _isCampaign)
+                {
+                    _campaignPersisted = true;
+                    PersistCampaign();
+                }
+                if (Hud != null) Hud.ShowStageClear(_sim.Digest);
+            }
             if ((events & SimEvents.WaveStarted) != 0)
+            {
                 _digestWritten = false;
+                _campaignPersisted = false;
+            }
+        }
+
+        void PersistCampaign()
+        {
+            var progress = WebGLStorage.ReadCampaign();
+            switch (_campaignConfig.StageId)
+            {
+                case CampaignStages.CinderSpan: progress.CinderSpanCleared = true; break;
+                case CampaignStages.AbyssChancel: progress.AbyssChancelCleared = true; break;
+                case CampaignStages.EchoThrone: progress.EchoThroneCleared = true; break;
+            }
+            // Cleared-run ranks are the new meta baseline (spec: equipment is
+            // the reward for closing a stage; defeat keeps the old baseline).
+            progress.Weapon = _sim.WeaponRank;
+            progress.Lantern = _sim.LanternRank;
+            progress.Cloak = _sim.CloakRank;
+            WebGLStorage.WriteCampaign(in progress);
         }
 
         void SyncViews()
@@ -117,7 +168,11 @@ namespace CinderCourt.View
 
             if (Vfx != null) Vfx.SyncPickups(_sim.Pickups);
             if (Vfx != null) Vfx.SyncWard(_sim.Player);
+            if (Vfx != null && _isCampaign) Vfx.SyncHazards(_sim.Hazards);
             if (Hud != null) Hud.Sync(_sim);
+            if (Hud != null && _isCampaign)
+                Hud.SyncCampaign(_sim.Wave, _sim.BossAlive,
+                    _sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
         }
 
         ActorView Rent(EnemyVisual visual)

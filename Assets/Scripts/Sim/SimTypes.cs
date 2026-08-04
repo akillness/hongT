@@ -14,7 +14,8 @@ namespace CinderCourt.Sim
     /// <summary>Visual archetype only — combat numbers are identical per SIM_SPEC.</summary>
     public enum EnemyVisual { EmberCohort = 0, Scout = 1, Shade = 2, Possessed = 3, BossCommander = 4, BossMonarch = 5 }
 
-    public enum PickupKind { EmberShard = 0, OilFlask = 1, RelicMote = 2 }
+    /// <summary>EquipShard is the campaign amendment kind (docs/SIM_SPEC_CAMPAIGN.md).</summary>
+    public enum PickupKind { EmberShard = 0, OilFlask = 1, RelicMote = 2, EquipShard = 3 }
 
     /// <summary>Per-tick input sample fed by the adapter. All fields are polled state.</summary>
     public struct SimInput
@@ -81,6 +82,11 @@ namespace CinderCourt.Sim
         GameOver = 1 << 7,
         PlayerDamaged = 1 << 8,
         BossSpawned = 1 << 9,
+        // --- campaign amendment (docs/SIM_SPEC_CAMPAIGN.md) ---
+        StageCleared = 1 << 10,
+        HazardPulse = 1 << 11,
+        AltarBlessing = 1 << 12,
+        EquipDropped = 1 << 13,
     }
 
     public struct RunDigest
