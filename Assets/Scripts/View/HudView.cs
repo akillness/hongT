@@ -39,7 +39,11 @@ namespace CinderCourt.View
 
         public void Build()
         {
-            _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // Subset OTF (NanumBarunGothic, OFL) — LegacyRuntime.ttf has no
+            // Hangul glyphs and WebGL has no OS font fallback.
+            _font = Resources.Load<Font>("Fonts/HudKorean");
+            if (_font == null)
+                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var canvasObject = new GameObject("HUD");
             canvasObject.transform.SetParent(transform, false);
@@ -110,8 +114,13 @@ namespace CinderCourt.View
                 () => { if (Input != null) Input.QueueRestart(); });
             _gameOverPanel.SetActive(false);
 
-            // --- touch controls (only when a touchscreen exists) -----------------
-            if (UnityEngine.InputSystem.Touchscreen.current != null)
+            // --- touch controls: mobile platforms, plus touch-only devices
+            // whose UA hides mobility (iPadOS desktop-mode Safari reports no
+            // iPad UA -> isMobilePlatform false). Headless desktop Chrome is
+            // excluded because it still reports a Mouse device. ---
+            var touchscreen = UnityEngine.InputSystem.Touchscreen.current != null;
+            var mouse = UnityEngine.InputSystem.Mouse.current != null;
+            if (Application.isMobilePlatform || (touchscreen && !mouse))
                 BuildTouchControls(root);
 
             // Wave 1 fires no WaveStarted event (original rings the cue from
@@ -283,7 +292,7 @@ namespace CinderCourt.View
             if ((events & SimEvents.GameOver) != 0)
             {
                 var digest = sim.Digest;
-                _finalText.text = $"점수 {digest.Score:N0} · 웨이브 {digest.Wave} · 유물 {digest.Relics} · 처치 {digest.Kills}";
+                _finalText.text = $"점수 {digest.Score:N0} • 웨이브 {digest.Wave} • 유물 {digest.Relics} • 처치 {digest.Kills}";
                 _gameOverPanel.SetActive(true);
             }
             if ((events & SimEvents.WaveStarted) != 0 && _gameOverPanel.activeSelf)

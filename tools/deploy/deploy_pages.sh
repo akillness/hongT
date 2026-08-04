@@ -22,7 +22,9 @@ else
 fi
 
 # Sync build output (delete removed files, keep .git).
-rsync -a --delete --exclude ".git" "$BUILD_DIR/" "$WORKTREE/"
+rsync -a --delete --exclude ".git" \
+  --exclude "*_BurstDebugInformation_DoNotShip" \
+  "$BUILD_DIR/" "$WORKTREE/"
 touch "$WORKTREE/.nojekyll"   # Pages: serve Build/ files verbatim, no Jekyll
 
 git -C "$WORKTREE" add -A

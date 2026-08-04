@@ -93,7 +93,11 @@ namespace CinderCourt.EditorTools
                 importer.importAnimation = false;
                 importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
                 importer.materialLocation = ModelImporterMaterialLocation.InPrefab;
-                importer.ExtractTextures(Path.GetDirectoryName(path));
+                var textureDir = $"{Path.GetDirectoryName(path)!.Replace('\\', '/')}/" +
+                                 $"{Path.GetFileNameWithoutExtension(path)}-textures";
+                Directory.CreateDirectory(textureDir);
+                importer.ExtractTextures(textureDir);
+                RepairTextureExtensions(textureDir);
                 importer.SaveAndReimport();
                 var avatar = AssetDatabase.LoadAllAssetsAtPath(path)
                     .OfType<Avatar>().FirstOrDefault();
@@ -106,36 +110,87 @@ namespace CinderCourt.EditorTools
             }
         }
 
+        /// <summary>
+        /// GLB-embedded textures extract WITHOUT extensions ("texture_diffuse"),
+        /// so Unity assigns DefaultImporter and LoadAssetAtPath&lt;Texture2D&gt;
+        /// returns null. Sniff magic bytes, rename, refresh.
+        /// </summary>
+        static void RepairTextureExtensions(string textureDir)
+        {
+            if (!Directory.Exists(textureDir)) return;
+            var renamed = false;
+            foreach (var file in Directory.GetFiles(textureDir))
+            {
+                if (file.EndsWith(".meta") || Path.HasExtension(file)) continue;
+                var head = new byte[4];
+                using (var stream = File.OpenRead(file)) stream.Read(head, 0, 4);
+                string extension = null;
+                if (head[0] == 0x89 && head[1] == 0x50) extension = ".png";
+                else if (head[0] == 0xFF && head[1] == 0xD8) extension = ".jpg";
+                if (extension == null) continue;
+                File.Delete(file + ".meta");
+                if (File.Exists(file + extension)) File.Delete(file + extension);
+                File.Move(file, file + extension);
+                renamed = true;
+            }
+            if (renamed) AssetDatabase.Refresh();
+        }
+
 
         static void RemapToUrpLit(ModelImporter importer, string path)
         {
             var urpLit = Shader.Find("Universal Render Pipeline/Lit");
             if (urpLit == null) { Debug.LogWarning("URP/Lit shader missing"); return; }
             var dir = Path.GetDirectoryName(path)!.Replace('\\', '/');
-            var textures = Directory.GetFiles(dir, "*.png", SearchOption.AllDirectories)
-                .Concat(Directory.GetFiles(dir, "*.jpg", SearchOption.AllDirectories))
-                .Select(p => p.Replace('\\', '/')).ToList();
+            var id = Path.GetFileNameWithoutExtension(path);
+            // Textures were extracted into the per-character folder (see
+            // ReimportCharacters). Restrict the albedo search to THAT folder —
+            // a shared folder collides because every GLB names its texture
+            // "texture_diffuse".
+            var textureDir = $"{dir}/{id}-textures";
+            var textures = Directory.Exists(textureDir)
+                ? Directory.GetFiles(textureDir, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(p => !p.EndsWith(".meta"))
+                    .Select(p => p.Replace('\\', '/')).ToList()
+                : new List<string>();
+
+            // Stale remaps from a prior run keep materials external (and possibly
+            // pointing at deleted GUIDs) — with a live remap the material is NOT
+            // embedded as a sub-asset, so the foreach below would find nothing.
+            var staleRemaps = importer.GetExternalObjectMap()
+                .Where(entry => entry.Key.type == typeof(Material))
+                .Select(entry => entry.Key).ToList();
+            if (staleRemaps.Count > 0)
+            {
+                foreach (var identifier in staleRemaps)
+                    importer.RemoveRemap(identifier);
+                importer.SaveAndReimport();
+            }
             var assets = AssetDatabase.LoadAllAssetsAtPath(path);
             var changed = false;
             foreach (var asset in assets)
             {
                 if (asset is not Material material) continue;
-                var replacement = new Material(urpLit) { name = material.name };
+                var replacement = new Material(urpLit) { name = $"{id}-{material.name}" };
                 var albedoTexture = material.mainTexture;
                 if (albedoTexture == null && textures.Count > 0)
                 {
                     var guess = textures.FirstOrDefault(t =>
+                        t.ToLowerInvariant().Contains("diffuse") ||
                         t.ToLowerInvariant().Contains("basecolor") ||
-                        t.ToLowerInvariant().Contains("albedo") ||
-                        t.ToLowerInvariant().Contains(material.name.ToLowerInvariant()));
-                    if (guess != null)
-                        albedoTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(guess);
+                        t.ToLowerInvariant().Contains("albedo"))
+                        ?? textures[0];
+                    albedoTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(guess);
                 }
                 if (albedoTexture != null) replacement.SetTexture("_BaseMap", albedoTexture);
                 replacement.SetFloat("_Smoothness", 0.15f);
                 var materialDir = $"{dir}/Materials";
                 Directory.CreateDirectory(materialDir);
-                var materialPath = $"{materialDir}/{Sanitize(material.name)}.mat";
+                // Per-character path — a shared "model.mat" would be recreated
+                // (new GUID) by every later character, orphaning earlier remaps
+                // into magenta missing-material references.
+                var materialPath = $"{materialDir}/{Sanitize(id)}-{Sanitize(material.name)}.mat";
+                AssetDatabase.DeleteAsset(materialPath);
                 AssetDatabase.CreateAsset(replacement, materialPath);
                 importer.AddRemap(
                     new AssetImporter.SourceAssetIdentifier(typeof(Material), material.name),
