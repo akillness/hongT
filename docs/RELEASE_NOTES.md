@@ -19,6 +19,16 @@
   런타임 오류 0
   (`_workspace/current/engineering/deployed-texcap-mobile-lobby.png`,
   `_workspace/current/engineering/deployed-texcap-mobile-combat.png`).
+- 아레나 `?mode=arena` 1440×900: 웨이브 전투 부팅, D 이동·Space 근접 교전
+  (체력 44 정상 피격), Q/E 스킬바·적 체력바 렌더, 런타임 오류 0
+  (`_workspace/current/engineering/deployed-texcap-arena-combat.png`).
+- 캠페인 1단계 Cinder Span 1440×900: prologueDone 시드 후 강하 →
+  "웨이브 1/5" 배너, 3타 콤보·대시·Q/E/R/F 스킬, Void Aegis 방패 40,
+  기름 68 소모, 적 3→2, 분출구 텔레그래프, 런타임 오류 0
+  (`_workspace/current/engineering/deployed-texcap-campaign-stage1*.png`).
+  localStorage v2 스키마 시드가 로비 카드 게이팅(프롤로그 재훈련·1단계
+  해금)에 정상 반영 — 영속 경로 확인.
+- 종합: `_workspace/current/qa/deployed-release-verification.md`.
 
 ## 로컬 검증 — WebGL 텍스처 상한 보정 · 2026-08-04
 
