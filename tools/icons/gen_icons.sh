@@ -34,6 +34,8 @@ app-lantern|abyssal lantern emblem, brass cage around a blazing ember flame, rad
 pickup-ember|glowing ember shard crystal, ember-orange, faceted
 pickup-flask|small oil flask with warm amber liquid and cork stopper
 pickup-relic|pale cyan relic mote, faceted floating gem with inner glow
+ui-joystick|virtual joystick set, two elements side by side: LEFT a large ring joystick base, dark navy translucent inner disc with a thin ember-orange rim and subtle radial guide lines; RIGHT a smaller solid thumb nub disc, brushed dark metal with a soft cyan center glow
+ui-button|rectangular game UI button plate, wide rounded rectangle exactly centered, dark navy-purple interior with a very subtle vertical gradient, crisp 4px ember-orange border with a faint outer glow, corners rounded 16px, uniform border thickness on all four sides, no decoration inside
 EOF
 )
 
@@ -67,5 +69,5 @@ wait
 
 ls -la "$RAW" | tail -n +2
 COUNT=$(ls "$RAW"/*.png 2>/dev/null | wc -l | tr -d ' ')
-echo "=== ICONS RAW DONE: $COUNT/17 ==="
-[ "$COUNT" -ge 17 ] || exit 1
+echo "=== ICONS RAW DONE: $COUNT/19 ==="
+[ "$COUNT" -ge 19 ] || exit 1

@@ -36,6 +36,20 @@ namespace CinderCourt.View
         bool _campaignUiOn;
         bool _dungeonUiOn;
 
+        // --- presentation state (presentation-impact-spec #1/#3/#6) ----------
+        // Hit-stop / slow-mo drive Time.timeScale ONLY. Determinism-safe: the
+        // fixed-step accumulator consumes scaled deltaTime exactly like a slow
+        // frame — tick size and per-tick input rules never change (spec
+        // §determinism). Recovery decays on unscaledDeltaTime so the pulse can
+        // never wedge itself. timeScale is force-restored on EndRun, GameOver,
+        // and OnDisable — every exit path.
+        float _hitStopTimer;      // seconds left at HitStopScale (0.05)
+        float _slowMoTimer;       // seconds left at _slowMoScale (boss beat)
+        float _slowMoScale = 1f;
+        DamageNumberPool _damageNumbers;
+        bool _finisherTick;       // gold damage numbers on ComboFinisher ticks
+        const float HitStopScale = 0.05f;
+
         void Start()
         {
             for (var i = 0; i < _pools.Length; i++)
@@ -44,7 +58,11 @@ namespace CinderCourt.View
                 Bootstrap != null ? Bootstrap.PlayerPrefab : null,
                 new Color(0.55f, 0.75f, 1f), 1f);
             _playerView.name = "Player";
+            _playerView.EnableSwingTrail();   // spec #8, player only
             _playerView.gameObject.SetActive(false);   // lobby boots first
+            var poolHost = new GameObject("DamageNumbers");
+            poolHost.transform.SetParent(transform, false);
+            _damageNumbers = poolHost.AddComponent<DamageNumberPool>();
         }
 
         /// <summary>Start a run. Idempotent across restarts of the same mode.</summary>
@@ -102,6 +120,20 @@ namespace CinderCourt.View
             }
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
+            if (_damageNumbers != null) _damageNumbers.Clear();
+            // Presentation timers must not leak into the lobby (spec #1).
+            _hitStopTimer = 0f;
+            _slowMoTimer = 0f;
+            _slowMoScale = 1f;
+            _finisherTick = false;
+            Time.timeScale = 1f;
+        }
+
+        void OnDisable()
+        {
+            // Scene teardown / component disable mid-pulse: timeScale is a
+            // global — ALWAYS hand it back at 1 (spec #1 hard requirement).
+            Time.timeScale = 1f;
         }
 
         static string BossNameFor(string stageId) => stageId switch
@@ -141,6 +173,31 @@ namespace CinderCourt.View
             if (steps > 0 && Input != null) Input.ClearLatches();
 
             SyncViews();
+            ApplyTimeScale();
+        }
+
+        /// <summary>
+        /// Hit-stop (#1) + boss slow-mo (#3) resolution. Both timers decay on
+        /// unscaled time; the strongest (lowest) scale wins while active and
+        /// the scale eases back to 1 exponentially fast when both expire.
+        /// </summary>
+        void ApplyTimeScale()
+        {
+            var dt = Time.unscaledDeltaTime;
+            var target = 1f;
+            if (_slowMoTimer > 0f)
+            {
+                _slowMoTimer -= dt;
+                target = _slowMoScale;
+            }
+            if (_hitStopTimer > 0f)
+            {
+                _hitStopTimer -= dt;
+                target = Mathf.Min(target, HitStopScale);
+            }
+            Time.timeScale = target < 1f
+                ? target
+                : Mathf.MoveTowards(Time.timeScale, 1f, 4f * dt);
         }
 
         void DispatchEvents()
@@ -151,6 +208,41 @@ namespace CinderCourt.View
             if (Vfx != null) Vfx.OnEvents(events, _sim);
             if (Rig != null) Rig.OnEvents(events);
             if (Hud != null) Hud.OnEvents(events, _sim);
+
+            // --- presentation pulses (spec #1/#2/#3) --------------------------
+            // Hit-stop: kill 40 ms, finisher 70 ms at timeScale 0.05 (spec cap
+            // is 80 ms; Max() merges overlapping pulses instead of stacking).
+            if ((events & SimEvents.ComboFinisher) != 0)
+            {
+                _hitStopTimer = Mathf.Max(_hitStopTimer, 0.07f);
+                _finisherTick = true;   // gold damage numbers this batch (#6)
+            }
+            else if ((events & SimEvents.EnemyKilled) != 0)
+            {
+                _hitStopTimer = Mathf.Max(_hitStopTimer, 0.04f);
+            }
+            // Boss phase-2 slow-mo beat, synced with the taunt bubble (#3).
+            if ((events & SimEvents.BossPhase2) != 0)
+            {
+                _slowMoTimer = 0.5f;
+                _slowMoScale = 0.35f;
+            }
+            if ((events & SimEvents.GameOver) != 0)
+            {
+                // Never let a pulse slow the game-over panel (#1 risk note).
+                _hitStopTimer = 0f;
+                _slowMoTimer = 0f;
+                Time.timeScale = 1f;
+            }
+            // Shake tiers (#2) via the append-only CameraRig.Punch API.
+            // Priority mirrors the rig chain: BossSpawned > Finisher > Kill —
+            // Punch itself refuses to weaken a stronger live shake.
+            if (Rig != null)
+            {
+                if ((events & SimEvents.BossSpawned) != 0) Rig.Punch(0.07f, 0.35f);
+                else if ((events & SimEvents.ComboFinisher) != 0) Rig.Punch(0.05f, 0.14f);
+                else if ((events & SimEvents.EnemyKilled) != 0) Rig.Punch(0.02f, 0.08f);
+            }
 
             if ((events & (SimEvents.GameOver | SimEvents.StageCleared)) != 0 && !_digestWritten)
             {
@@ -179,13 +271,19 @@ namespace CinderCourt.View
                 {
                     view = Rent(state.Visual);
                     _enemyViews[state.Id] = view;
-                    // Elite marker (spec §3): non-boss with the 1.35 scale-up
-                    // gets the gold ally-of-the-abyss tint pulse.
+                    // Elite marker (spec §3 + presentation #14): non-boss with
+                    // the 1.35 scale-up gets the pulsing gold tint.
                     if (!state.IsBoss && state.Scale > 1.2f)
-                        LobbyStaging.TintRenderers(view.gameObject, new Color(1f, 0.78f, 0.25f));
+                        view.SetEliteTint(true);
                 }
-                view.SyncEnemy(in state);
+                // SyncEnemy reports the health delta since last frame — the
+                // view-side hit signal (presentation #5) that also feeds the
+                // floating damage numbers (#6).
+                var damage = view.SyncEnemy(in state);
+                if (damage > 0f && _damageNumbers != null)
+                    _damageNumbers.Show(state.X, state.Y, damage, _finisherTick);
             }
+            _finisherTick = false;   // consumed by this frame's batch
             if (_enemyViews.Count != enemies.Count)
             {
                 _toRecycle.Clear();
@@ -220,6 +318,8 @@ namespace CinderCourt.View
                         hack.DashCooldown, hack.SkillCooldowns, hack.Shield,
                         hack.ExtractionProgress, hack.ExtractionTarget,
                         hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
+                if (Vfx != null)
+                    Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
                 if (_companionView != null)
                 {
                     _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,

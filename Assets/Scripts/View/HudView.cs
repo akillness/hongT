@@ -49,6 +49,53 @@ namespace CinderCourt.View
             _lastRelics = -1, _lastEnemies = -1;
         float _loreTimer;
 
+        // --- mobile layout (mobile-layout spec #1-#7, #10, #14) ---------------
+        // Tier grades the EFFECTIVE canvas width (Screen.width / scaleFactor).
+        // Portrait always classifies as Phone: with the portrait match 0.35
+        // (spec #1) the effective width lands ~800 u, yet every measured
+        // collision (skill row vs joystick, equip-strip burial) still occurs
+        // there — the width thresholds only grade landscape windows.
+        internal enum LayoutTier { Full, Compact, Phone }
+
+        const float PhoneMaxWidth = 700f;
+        const float CompactMaxWidth = 980f;
+
+        /// <summary>Test seam: tier chosen by the last ApplyLayout pass.</summary>
+        internal LayoutTier CurrentTier => _tier;
+        /// <summary>Test seam: effective canvas width (Screen.width divided by
+        /// the scaler factor) computed by the last ApplyLayout pass.</summary>
+        internal float LastEffectiveWidth { get; private set; }
+
+        LayoutTier _tier = LayoutTier.Full;
+        CanvasScaler _scaler;
+        RectTransform _safeRoot;
+        int _lastScreenWidth = -1, _lastScreenHeight = -1;
+        Rect _lastSafeArea;
+        bool _touchActive;
+        float _rotateHintTimer;
+
+        RectTransform _metersRect, _statsRect, _muteRect;
+        RectTransform _healthBackRect, _chargeBackRect;
+        RectTransform _novaRect, _wardRect;
+        RectTransform _equipRect, _shieldRect;
+        RectTransform _skillRowRect, _dashCardRect;
+        readonly RectTransform[] _skillCardRects = new RectTransform[4];
+        readonly RectTransform[] _comboPipRects = new RectTransform[3];
+        RectTransform _strikeRect, _dashTouchRect;
+
+        // --- HUD juice overlays (presentation spec #9/#10/#15/#19/#20) -------
+        Image _vignette;            // low-HP pulse + damage punch
+        Image _castFlash;           // skill cast tint flash
+        float _castFlashTimer;
+        float _castFlashPeak;
+        Text _waveBanner;
+        float _waveBannerTimer;
+        float _levelPunchTimer;
+        float _xpFlashTimer;
+        Text _levelToast;
+        float _levelToastTimer;
+        static readonly Color XpBaseColor = new Color(0.56f, 0.91f, 1f);
+
         public void Build()
         {
             // Subset OTF (NanumBarunGothic, OFL) — LegacyRuntime.ttf has no
@@ -65,7 +112,8 @@ namespace CinderCourt.View
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 0.5f;   // orientation-driven, see SyncLayout
+            _scaler = scaler;
             canvasObject.AddComponent<GraphicRaycaster>();
 
             if (FindFirstObjectByType<EventSystem>() == null)
@@ -75,19 +123,39 @@ namespace CinderCourt.View
                 eventSystem.AddComponent<InputSystemUIInputModule>();
             }
 
-            var root = canvasObject.transform;
+            // Spec #10: every HUD surface hangs off a safe-area anchored child
+            // so notch insets shift the whole overlay (template ships
+            // viewport-fit=cover; no-op while safeArea == full screen).
+            // --- full-screen juice overlays (BEHIND the safe-area UI) --------
+            // Radial gradient generated once; center transparent -> edge alpha.
+            var radial = MakeRadialTexture();
+            _vignette = Overlay(canvasObject.transform, radial, "Vignette");
+            _castFlash = Overlay(canvasObject.transform, radial, "CastFlash");
+
+            var safeObject = new GameObject("SafeArea");
+            safeObject.transform.SetParent(canvasObject.transform, false);
+            _safeRoot = safeObject.AddComponent<RectTransform>();
+            _safeRoot.anchorMin = Vector2.zero;
+            _safeRoot.anchorMax = Vector2.one;
+            _safeRoot.offsetMin = Vector2.zero;
+            _safeRoot.offsetMax = Vector2.zero;
+            var root = safeObject.transform;
 
             // --- top-left: health + oil -------------------------------------
             var meters = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(16, -16), new Vector2(300, 74), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+            _metersRect = meters.GetComponent<RectTransform>();
             _healthFill = Bar(meters.transform, 8, -8, 284, 22,
                 new Color(0.95f, 0.42f, 0.3f), out _healthText, "체력");
             _chargeFill = Bar(meters.transform, 8, -40, 284, 22,
                 new Color(1f, 0.83f, 0.45f), out _chargeText, "기름");
+            _healthBackRect = (RectTransform)_healthFill.transform.parent;
+            _chargeBackRect = (RectTransform)_chargeFill.transform.parent;
 
             // --- top-right: wave / score / relics / enemies -------------------
             var stats = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
                 new Vector2(-16, -16), new Vector2(240, 108), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+            _statsRect = stats.GetComponent<RectTransform>();
             _waveText = Label(stats.transform, 10, -6, 220, 24, "웨이브 1", 18, TextAnchor.MiddleLeft);
             _scoreText = Label(stats.transform, 10, -30, 220, 24, "점수 0", 18, TextAnchor.MiddleLeft);
             _relicText = Label(stats.transform, 10, -54, 220, 24, "유물 0", 18, TextAnchor.MiddleLeft);
@@ -98,6 +166,7 @@ namespace CinderCourt.View
                 new Vector2(240, 34), "소리: 켜짐", 16,
                 () => { if (Audio != null) { Audio.ToggleMute(); RefreshMuteLabel(); } });
             _muteLabel = muteButton.GetComponentInChildren<Text>();
+            _muteRect = muteButton.GetComponent<RectTransform>();
             RefreshMuteLabel();
 
             // --- bottom-center: skill cards ------------------------------------
@@ -107,6 +176,8 @@ namespace CinderCourt.View
             var wardCard = SkillCard(root, 95, "E", "랜턴 결계",
                 () => { if (Input != null) Input.QueueWard(); },
                 out _wardCooldownOverlay, out _wardGroup, "skill-ward");
+            _novaRect = novaCard.GetComponent<RectTransform>();
+            _wardRect = wardCard.GetComponent<RectTransform>();
 
             // --- lore line above skill cards ------------------------------------
             _loreText = Label(root, 0, 0, 900, 30, "", 17, TextAnchor.MiddleCenter);
@@ -119,6 +190,9 @@ namespace CinderCourt.View
             // --- game over panel -------------------------------------------------
             _gameOverPanel = Panel(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(460, 220), new Color(0.03f, 0.02f, 0.06f, 0.92f));
+            // Modal backdrop keeps raycast ON PURPOSE: while the panel is up,
+            // taps must not leak through to the combat HUD beneath it.
+            _gameOverPanel.GetComponent<Image>().raycastTarget = true;
             var overTitle = Label(_gameOverPanel.transform, 0, -18, 460, 34, "잿불 법정 함락", 26, TextAnchor.MiddleCenter);
             overTitle.color = new Color(1f, 0.55f, 0.4f);
             _finalText = Label(_gameOverPanel.transform, 0, -70, 460, 60, "", 18, TextAnchor.MiddleCenter);
@@ -126,6 +200,22 @@ namespace CinderCourt.View
                 new Vector2(200, 44), "재점화 (R)", 20,
                 () => { if (Input != null) Input.QueueRestart(); });
             _gameOverPanel.SetActive(false);
+
+            // --- wave banner (#20) + level toast (#19), raycast-off ----------
+            _waveBanner = Label(root, 0, -140, 600, 60, "", 34, TextAnchor.MiddleCenter);
+            var bannerRect = _waveBanner.rectTransform;
+            bannerRect.anchorMin = bannerRect.anchorMax = new Vector2(0.5f, 1f);
+            bannerRect.pivot = new Vector2(0.5f, 1f);
+            bannerRect.anchoredPosition = new Vector2(0, -140);
+            _waveBanner.color = new Color(0.95f, 0.35f, 0.17f, 0f);
+            _waveBanner.fontStyle = FontStyle.Bold;
+
+            _levelToast = Label(root, 0, 170, 480, 34, "", 17, TextAnchor.MiddleCenter);
+            var toastRect = _levelToast.rectTransform;
+            toastRect.anchorMin = toastRect.anchorMax = new Vector2(0.5f, 0f);
+            toastRect.pivot = new Vector2(0.5f, 0f);
+            toastRect.anchoredPosition = new Vector2(0, 170);
+            _levelToast.color = new Color(0.56f, 0.91f, 1f, 0f);
 
             // --- touch controls: mobile platforms, plus touch-only devices
             // whose UA hides mobility (iPadOS desktop-mode Safari reports no
@@ -136,10 +226,251 @@ namespace CinderCourt.View
             if (Application.isMobilePlatform || (touchscreen && !mouse))
                 BuildTouchControls(root);
 
+            // Orientation match + layout tier + safe-area (spec #1/#2/#10).
+            SyncLayout(true);
+
             // Wave 1 fires no WaveStarted event (original rings the cue from
             // wave 2), so seed the opening lore line here.
             _loreText.text = LoreBeats[0];
             _loreTimer = 6f;
+        }
+
+        // =============================================== mobile layout core --
+        void Update()
+        {
+            if (_scaler == null) return;   // Build() not called yet
+            // Cheap dirty-check (two int compares + rect compare); RectTransform
+            // writes happen only on actual resolution / safe-area changes.
+            SyncLayout(false);
+
+            if (_rotateHintTimer > 0f)
+            {
+                _rotateHintTimer -= Time.deltaTime;
+                if (_rotateHintTimer <= 0f) HidePrologueToast();
+            }
+        }
+
+        void SyncLayout(bool force)
+        {
+            var width = Screen.width;
+            var height = Screen.height;
+            var safeArea = Screen.safeArea;
+            if (!force && width == _lastScreenWidth && height == _lastScreenHeight
+                && safeArea == _lastSafeArea)
+                return;
+            ApplyLayout(width, height, safeArea);
+        }
+
+        /// <summary>Layout core with the screen geometry injected. This is the
+        /// seam EditMode tests drive directly: Screen.* is read-only and
+        /// reports degenerate sizes in batchmode, so SyncLayout stays the
+        /// thin Screen-reading caller.</summary>
+        internal void ApplyLayout(int width, int height, Rect safeArea)
+        {
+            _lastScreenWidth = width;
+            _lastScreenHeight = height;
+            _lastSafeArea = safeArea;
+
+            // Spec #1: portrait relaxes toward width-match so the effective
+            // canvas width grows 653 -> ~739 u at 390x844. Full width-match
+            // (0) is banned — touch targets would collapse to ~17 CSS px.
+            _scaler.matchWidthOrHeight = width < height ? 0.35f : 0.5f;
+
+            // Spec #10: Screen.safeArea insets (WebGL exposes them once the
+            // template ships viewport-fit=cover; equal to the full screen
+            // elsewhere, making this a no-op). Anchors are in normalized
+            // screen space, so the same math serves every scale factor.
+            if (width > 0 && height > 0)
+            {
+                _safeRoot.anchorMin = new Vector2(
+                    safeArea.xMin / width, safeArea.yMin / height);
+                _safeRoot.anchorMax = new Vector2(
+                    safeArea.xMax / width, safeArea.yMax / height);
+            }
+
+            ApplyLayoutTier();
+        }
+
+        /// <summary>Spec #2/#3/#4: re-anchor HUD panels for the effective
+        /// canvas width. Pure RectTransform/fontSize writes — no allocation,
+        /// runs only on resolution change.</summary>
+        void ApplyLayoutTier()
+        {
+            // scaleFactor is stale within the frame the resolution changed;
+            // derive the effective width from the same formula the scaler
+            // uses (log-lerp between width and height match). Geometry comes
+            // from the last ApplyLayout pass, never Screen.* directly.
+            var width = _lastScreenWidth;
+            var height = _lastScreenHeight;
+            var match = _scaler.matchWidthOrHeight;
+            var logWidth = Mathf.Log(width / 1280f, 2f);
+            var logHeight = Mathf.Log(height / 720f, 2f);
+            var scale = Mathf.Pow(2f, Mathf.Lerp(logWidth, logHeight, match));
+            var effectiveWidth = width / Mathf.Max(0.0001f, scale);
+            LastEffectiveWidth = effectiveWidth;
+
+            // Portrait forces Phone: match 0.35 inflates the effective width
+            // to ~800 u at 390x844, but every measured collision still occurs
+            // there — width thresholds only grade landscape windows.
+            var tier = width < height ? LayoutTier.Phone
+                : effectiveWidth < PhoneMaxWidth ? LayoutTier.Phone
+                : effectiveWidth < CompactMaxWidth ? LayoutTier.Compact
+                : LayoutTier.Full;
+            _tier = tier;
+
+            // --- top bars (spec #2) -------------------------------------------
+            var compactTop = tier != LayoutTier.Full;
+            var metersWidth = compactTop ? 240f : 300f;
+            _metersRect.sizeDelta = new Vector2(metersWidth, 74);
+            var barWidth = metersWidth - 16f;
+            _healthBackRect.sizeDelta = new Vector2(barWidth, 22);
+            _chargeBackRect.sizeDelta = new Vector2(barWidth, 22);
+
+            var statsWidth = compactTop ? 200f : 240f;
+            var statFont = compactTop ? 15 : 18;
+            _waveText.fontSize = statFont;
+            _scoreText.fontSize = statFont;
+            _relicText.fontSize = statFont;
+            _enemyText.fontSize = statFont;
+            if (tier == LayoutTier.Phone)
+            {
+                // Stats drop below the meters (left column), freeing the top
+                // right for the compact mute icon. Relic/enemy rows stay live
+                // (labels remain 4 — merged strings would allocate per wave).
+                _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(0f, 1f);
+                _statsRect.pivot = new Vector2(0f, 1f);
+                _statsRect.anchoredPosition = new Vector2(16, -98);
+                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
+                _muteRect.anchoredPosition = new Vector2(-16, -16);
+                // Spec #6: 44 CSS px floor at the worst phone scale
+                // (0.488 px/u) needs >=90 u — the old 34 u was a 17 px target.
+                _muteRect.sizeDelta = new Vector2(120, 92);
+                if (_muteLabel != null) _muteLabel.fontSize = 13;
+            }
+            else
+            {
+                _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(1f, 1f);
+                _statsRect.pivot = new Vector2(1f, 1f);
+                _statsRect.anchoredPosition = new Vector2(-16, -16);
+                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
+                _muteRect.anchoredPosition = new Vector2(-16, -132);
+                _muteRect.sizeDelta = new Vector2(statsWidth, 34);
+                if (_muteLabel != null) _muteLabel.fontSize = 16;
+            }
+
+            // --- arena 2-card row (spec #4: 58 u overlap with the joystick) ----
+            // Phone + touch shifts the row +63 u right: centered, the nova
+            // card's left edge (~228 u on the 799 u worst-case canvas) digs
+            // into the 260 u joystick catch box. Height 92 u keeps the cards
+            // above the 44 CSS px floor (88 u = 42.9 px at 0.488 px/u).
+            var arenaLift = _touchActive ? 120f : 0f;
+            var arenaShift = tier == LayoutTier.Phone && _touchActive ? 63f : 0f;
+            var arenaCardSize = new Vector2(150, tier == LayoutTier.Phone ? 92f : 88f);
+            if (_novaRect != null)
+            {
+                _novaRect.sizeDelta = arenaCardSize;
+                _novaRect.anchoredPosition = new Vector2(-95 + arenaShift, 18 + arenaLift);
+            }
+            if (_wardRect != null)
+            {
+                _wardRect.sizeDelta = arenaCardSize;
+                _wardRect.anchoredPosition = new Vector2(95 + arenaShift, 18 + arenaLift);
+            }
+            if (_loreText != null)
+                _loreText.rectTransform.anchoredPosition = new Vector2(0, 118 + arenaLift);
+
+            ApplyDungeonTier(tier);
+            ApplyEquipPlacement();
+        }
+
+        /// <summary>Spec #3: dungeon skill row per tier. Phone: 4 cards of
+        /// 92 u in one raised row + dash card centered beneath (row shifted
+        /// right of the joystick catch box when touch is live); the touch
+        /// dash/strike buttons own the right edge.</summary>
+        void ApplyDungeonTier(LayoutTier tier)
+        {
+            if (_dungeonRoot == null || _dashCardRect == null) return;
+            var lift = _touchActive ? 120f : 0f;
+            if (tier == LayoutTier.Phone)
+            {
+                // Spec #3 phone: dash card bottom band, 4-card row stacked
+                // above it. 92 u squares clear the 44 CSS px floor (spec #6:
+                // 86x72 was 42/35 px at 0.488 px/u); the +63 u right shift
+                // keeps the row's left edge out of the 260 u joystick catch
+                // box when touch is live (centered, it dug 32 u into it).
+                // Touch lift (+120) clears the strike/dash column vertically.
+                var rowShift = _touchActive ? 63f : 0f;
+                for (var i = 0; i < 4; i++)
+                {
+                    _skillCardRects[i].sizeDelta = new Vector2(92, 92);
+                    _skillCardRects[i].anchoredPosition =
+                        new Vector2(-138 + i * 92 + rowShift, 100 + lift);
+                }
+                _dashCardRect.sizeDelta = new Vector2(96, 92);
+                _dashCardRect.anchoredPosition = new Vector2(rowShift, 4 + lift);
+                for (var i = 0; i < 3; i++)
+                    _comboPipRects[i].anchoredPosition =
+                        new Vector2(-26 + i * 26 + rowShift, 200 + lift);
+            }
+            else
+            {
+                for (var i = 0; i < 4; i++)
+                {
+                    _skillCardRects[i].sizeDelta = new Vector2(108, 88);
+                    _skillCardRects[i].anchoredPosition = new Vector2(-116 + i * 116, 18 + lift);
+                }
+                _dashCardRect.sizeDelta = new Vector2(110, 88);
+                _dashCardRect.anchoredPosition = new Vector2(-232, 18 + lift);
+                for (var i = 0; i < 3; i++)
+                    _comboPipRects[i].anchoredPosition = new Vector2(-286 + i * 26, 52 + lift);
+            }
+            // Left-column stack (below meters -16..-90): phone puts stats at
+            // -98..-206, so dungeon shield text drops to -252 (equip strip
+            // occupies -214..-248); with touch on wider tiers the equip strip
+            // holds -98..-132, shield takes -136.
+            if (_shieldRect != null)
+                _shieldRect.anchoredPosition = tier == LayoutTier.Phone
+                    ? new Vector2(16, -252)
+                    : _touchActive ? new Vector2(16, -136) : new Vector2(16, -98);
+        }
+
+        /// <summary>Spec #4: the campaign equip strip is entombed inside the
+        /// joystick box at bottom-left when touch is live — move it under the
+        /// meters (phone: under the relocated stats).</summary>
+        void ApplyEquipPlacement()
+        {
+            if (_equipRect == null) return;
+            if (_touchActive || _tier == LayoutTier.Phone)
+            {
+                _equipRect.anchorMin = _equipRect.anchorMax = new Vector2(0f, 1f);
+                _equipRect.pivot = new Vector2(0f, 1f);
+                _equipRect.anchoredPosition = _tier == LayoutTier.Phone
+                    ? new Vector2(16, -214) : new Vector2(16, -98);
+            }
+            else
+            {
+                _equipRect.anchorMin = _equipRect.anchorMax = new Vector2(0f, 0f);
+                _equipRect.pivot = new Vector2(0f, 0f);
+                _equipRect.anchoredPosition = new Vector2(16, 16);
+            }
+        }
+
+        /// <summary>Spec #14: one-shot "landscape recommended" toast on
+        /// portrait dungeon/arena entry. Reuses the prologue toast panel.</summary>
+        void ShowRotateHintIfPortrait()
+        {
+            if (Screen.width >= Screen.height) return;
+            if (PlayerPrefs.HasKey("al:rotate-hint")) return;
+            PlayerPrefs.SetInt("al:rotate-hint", 1);
+            ShowRotateToast();
+        }
+
+        void ShowRotateToast()
+        {
+            // Piggyback on the prologue toast panel; auto-hides via Update.
+            ShowPrologueToast(0);
+            _prologueToastText.text = "가로 화면을 권장합니다";
+            _rotateHintTimer = 2.5f;
         }
 
         /// <summary>
@@ -163,7 +494,7 @@ namespace CinderCourt.View
         {
             _campaignStageName = stageName;
             _campaignTotalWaves = totalWaves;
-            var root = _canvas.transform;
+            var root = (Transform)_safeRoot;
 
             _stageBanner = Panel(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0, -14), new Vector2(360, 40), new Color(0.05f, 0.04f, 0.09f, 0.62f));
@@ -177,19 +508,24 @@ namespace CinderCourt.View
             bannerTextRect.anchoredPosition = Vector2.zero;
             _stageBannerText.color = new Color(1f, 0.83f, 0.45f);
 
+            // Default (desktop/full) placement: bottom-left. Touch/phone tiers
+            // relocate it under the meters (spec #4 — D-pad burial fix).
             _equipPanel = Panel(root, new Vector2(0f, 0f), new Vector2(0f, 0f),
                 new Vector2(16, 16), new Vector2(240, 34), new Color(0.05f, 0.04f, 0.09f, 0.55f));
-            var equipRect = _equipPanel.GetComponent<RectTransform>();
-            equipRect.pivot = new Vector2(0f, 0f);
+            _equipRect = _equipPanel.GetComponent<RectTransform>();
+            _equipRect.pivot = new Vector2(0f, 0f);
             _equipText = Label(_equipPanel.transform, 8, 0, 226, 34, "", 14, TextAnchor.MiddleLeft);
             var equipTextRect = _equipText.rectTransform;
             equipTextRect.anchorMin = Vector2.zero;
             equipTextRect.anchorMax = Vector2.one;
             equipTextRect.sizeDelta = Vector2.zero;
             equipTextRect.anchoredPosition = new Vector2(8, 0);
+            ApplyEquipPlacement();
 
             _stageClearPanel = Panel(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                 Vector2.zero, new Vector2(480, 240), new Color(0.02f, 0.05f, 0.06f, 0.94f));
+            // Modal backdrop: deliberate raycast blocker (see game-over panel).
+            _stageClearPanel.GetComponent<Image>().raycastTarget = true;
             var clearTitle = Label(_stageClearPanel.transform, 0, -18, 480, 36, "구역 정화", 28, TextAnchor.MiddleCenter);
             clearTitle.color = new Color(0.56f, 0.91f, 1f);
             _stageClearText = Label(_stageClearPanel.transform, 0, -74, 480, 60, "", 18, TextAnchor.MiddleCenter);
@@ -203,6 +539,7 @@ namespace CinderCourt.View
             // Campaign game-over also offers the way back to the hub.
             TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 76),
                 new Vector2(200, 40), "캠페인으로", 16, ReturnHome);
+            ApplyLayoutTier();   // re-grade with the new campaign surfaces
         }
 
         /// <summary>Campaign per-frame extras (equipment ranks, banner wave).</summary>
@@ -266,6 +603,7 @@ namespace CinderCourt.View
             if (_dungeonRoot != null) _dungeonRoot.SetActive(visible);
             // Arena's own 2-card row is the inverse (prologue hides both rows).
             SetArenaCardsVisible(!visible && !_prologueMode);
+            SyncTouchModeSurfaces();
         }
 
         bool _prologueMode;
@@ -279,6 +617,18 @@ namespace CinderCourt.View
                 SetArenaCardsVisible(false);
                 if (_dungeonRoot != null) _dungeonRoot.SetActive(false);
             }
+            SyncTouchModeSurfaces();
+        }
+
+        /// <summary>Dash touch button + strike height track the dungeon row
+        /// (mobile spec #4/#5): dash-by-thumb exists only where dash exists.</summary>
+        void SyncTouchModeSurfaces()
+        {
+            var dungeonOn = _dungeonRoot != null && _dungeonRoot.activeSelf;
+            if (_dashTouchRect != null && _dashTouchRect.gameObject.activeSelf != dungeonOn)
+                _dashTouchRect.gameObject.SetActive(dungeonOn);
+            if (_strikeRect != null)
+                _strikeRect.anchoredPosition = new Vector2(-24, dungeonOn ? 150 : 36);
         }
 
         void SetArenaCardsVisible(bool visible)
@@ -293,7 +643,7 @@ namespace CinderCourt.View
             if (step < 0 || step >= PrologueSteps.Length) { HidePrologueToast(); return; }
             if (_prologueToast == null)
             {
-                var root = _canvas.transform;
+                var root = (Transform)_safeRoot;
                 _prologueToast = Panel(root, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                     new Vector2(0, -70), new Vector2(520, 44), new Color(0.02f, 0.05f, 0.06f, 0.85f));
                 _prologueToast.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 1f);
@@ -339,7 +689,7 @@ namespace CinderCourt.View
         /// boss bar, extraction channel. Replaces the 2-card arena skill row.</summary>
         public void EnableDungeonUi(string bossDisplayName)
         {
-            var root = _canvas.transform;
+            var root = (Transform)_safeRoot;
             _dungeonRoot = new GameObject("DungeonHud");
             _dungeonRoot.transform.SetParent(root, false);
             var stretch = _dungeonRoot.AddComponent<RectTransform>();
@@ -363,6 +713,7 @@ namespace CinderCourt.View
             _xpFill.color = new Color(0.56f, 0.91f, 1f);
             _xpFill.type = Image.Type.Filled;
             _xpFill.fillMethod = Image.FillMethod.Horizontal;
+            _xpFill.raycastTarget = false;   // decorative fill must not eat taps
             var xpRect = xpFillObject.GetComponent<RectTransform>();
             xpRect.anchorMin = Vector2.zero;
             xpRect.anchorMax = Vector2.one;
@@ -384,6 +735,7 @@ namespace CinderCourt.View
                     new Color(1f, 1f, 1f, 0.14f));
                 pip.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
                 _comboPips[i] = pip.GetComponent<Image>();
+                _comboPipRects[i] = pip.GetComponent<RectTransform>();
             }
 
             // --- skill row: dash + Q/E/R/F --------------------------------------
@@ -392,7 +744,8 @@ namespace CinderCourt.View
             var dashCard = SkillCard(dungeonRoot, -232, "SHIFT", "질주",
                 () => { if (Input != null) Input.QueueDash(); },
                 out _dashOverlay, out _, "skill-dash");
-            dashCard.GetComponent<RectTransform>().sizeDelta = new Vector2(110, 88);
+            _dashCardRect = dashCard.GetComponent<RectTransform>();
+            _dashCardRect.sizeDelta = new Vector2(110, 88);
             var labels = new[] { ("Q", "균열 화살"), ("E", "묘지 파동"), ("R", "잿불 노바"), ("F", "공허 방패") };
             var icons = new[] { "skill-bolt", "skill-pulse", "skill-nova", "skill-aegis" };
             var actions = new UnityEngine.Events.UnityAction[]
@@ -406,7 +759,8 @@ namespace CinderCourt.View
             {
                 var card = SkillCard(dungeonRoot, -116 + i * 116, labels[i].Item1, labels[i].Item2,
                     actions[i], out _skillOverlays[i], out _skillGroups[i], icons[i]);
-                card.GetComponent<RectTransform>().sizeDelta = new Vector2(108, 88);
+                _skillCardRects[i] = card.GetComponent<RectTransform>();
+                _skillCardRects[i].sizeDelta = new Vector2(108, 88);
             }
 
             // --- shield readout ---------------------------------------------------
@@ -434,6 +788,7 @@ namespace CinderCourt.View
             _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
             _bossFill.type = Image.Type.Filled;
             _bossFill.fillMethod = Image.FillMethod.Horizontal;
+            _bossFill.raycastTarget = false;
             var bossFillRect = bossFillObject.GetComponent<RectTransform>();
             bossFillRect.anchorMin = Vector2.zero;
             bossFillRect.anchorMax = Vector2.one;
@@ -454,12 +809,18 @@ namespace CinderCourt.View
             _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
             _extractRing.type = Image.Type.Filled;
             _extractRing.fillMethod = Image.FillMethod.Horizontal;
+            _extractRing.raycastTarget = false;
             var extractRect = extractFillObject.GetComponent<RectTransform>();
             extractRect.anchorMin = Vector2.zero;
             extractRect.anchorMax = Vector2.one;
             extractRect.offsetMin = new Vector2(1, 1);
             extractRect.offsetMax = new Vector2(-1, -1);
             _extractRoot.SetActive(false);
+
+            _shieldRect = _shieldText.rectTransform;
+            ApplyLayoutTier();          // grade the fresh dungeon surfaces
+            SyncTouchModeSurfaces();    // dash touch button goes live
+            ShowRotateHintIfPortrait(); // spec #14: one-time landscape nudge
         }
 
         /// <summary>Per-frame dungeon sync (IHackSnapshot surface, primitives only).</summary>
@@ -473,6 +834,14 @@ namespace CinderCourt.View
 
             if (level != _lastLevel)
             {
+                // Level-up ceremony (#19): skip the first sync (0 -> N seed).
+                if (_lastLevel >= 1 && level > _lastLevel)
+                {
+                    _levelPunchTimer = 0.35f;
+                    _xpFlashTimer = 0.4f;
+                    _levelToast.text = "레벨 업! 피해 +4% · 최대 체력 +6";
+                    _levelToastTimer = 1.4f;
+                }
                 _lastLevel = level;
                 _levelText.text = $"Lv {level}";
             }
@@ -538,6 +907,51 @@ namespace CinderCourt.View
                 _muteLabel.text = Audio.Muted ? "소리: 꺼짐" : "소리: 켜짐";
         }
 
+        /// <summary>Full-stretch raycast-off overlay image, initially invisible.</summary>
+        static Image Overlay(Transform parent, Texture2D texture, string name)
+        {
+            var overlayObject = new GameObject(name);
+            overlayObject.transform.SetParent(parent, false);
+            var image = overlayObject.AddComponent<Image>();
+            image.sprite = Sprite.Create(texture,
+                new Rect(0, 0, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
+            image.raycastTarget = false;
+            image.color = new Color(1f, 1f, 1f, 0f);
+            image.enabled = false;   // fully off when alpha 0 - no overdraw
+            var rect = overlayObject.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            return image;
+        }
+
+        /// <summary>128px radial gradient: transparent center, alpha ~0.85 edges.</summary>
+        static Texture2D MakeRadialTexture()
+        {
+            const int size = 128;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color32[size * size];
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    var dx = (x - size * 0.5f) / (size * 0.5f);
+                    var dy = (y - size * 0.5f) / (size * 0.5f);
+                    var edge = Mathf.Clamp01(Mathf.Sqrt(dx * dx + dy * dy));
+                    // Transparent until 45% radius, then ramp — a curve from
+                    // r=0 tints the WHOLE frame (flood, not vignette).
+                    var ramp = Mathf.InverseLerp(0.45f, 1f, edge);
+                    var alpha = Mathf.SmoothStep(0f, 1f, ramp) * 0.85f;
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)(alpha * 255f));
+                }
+            }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            return texture;
+        }
+
         // ------------------------------------------------------------- factory --
         GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
                          Vector2 anchored, Vector2 size, Color color)
@@ -546,6 +960,11 @@ namespace CinderCourt.View
             panel.transform.SetParent(parent, false);
             var image = panel.AddComponent<Image>();
             image.color = color;
+            // Raycast OFF by default (mobile spec: invisible or decorative
+            // rects must never eat taps — the joystick corner is dense with
+            // labels/fills). Interactive surfaces (TextButton, SkillCard,
+            // touch controls) and modal backdrops re-enable it explicitly.
+            image.raycastTarget = false;
             var rect = panel.GetComponent<RectTransform>();
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
@@ -564,6 +983,7 @@ namespace CinderCourt.View
             fillObject.transform.SetParent(back.transform, false);
             var fill = fillObject.AddComponent<Image>();
             fill.color = fillColor;
+            fill.raycastTarget = false;
             var rect = fillObject.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0, 0);
             rect.anchorMax = new Vector2(1, 1);
@@ -588,6 +1008,7 @@ namespace CinderCourt.View
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.raycastTarget = false;   // labels never intercept pointer events
             var rect = text.rectTransform;
             rect.anchorMin = new Vector2(0, 1);
             rect.anchorMax = new Vector2(0, 1);
@@ -603,6 +1024,7 @@ namespace CinderCourt.View
         {
             var buttonObject = Panel(parent, anchor, anchor, anchored, size,
                 new Color(0.16f, 0.13f, 0.24f, 0.9f));
+            buttonObject.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             // 9-slice ember plate (release skin). Falls back to the flat fill
             // when the sprite is absent so the HUD never regresses to quads.
             var plate = Resources.Load<Sprite>("Icons/ui-button");
@@ -632,6 +1054,7 @@ namespace CinderCourt.View
         {
             var card = Panel(parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f));
+            card.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             var rect = card.GetComponent<RectTransform>();
             rect.pivot = new Vector2(0.5f, 0f);
             group = card.AddComponent<CanvasGroup>();
@@ -678,34 +1101,160 @@ namespace CinderCourt.View
             return card;
         }
 
+        /// <summary>Test seam: batchmode has no Touchscreen device, so tests
+        /// force-build the touch surfaces Build() gates on hardware.</summary>
+        internal void ForceTouchControlsForTest()
+        {
+            if (!_touchActive) BuildTouchControls(_safeRoot);
+            SyncTouchModeSurfaces();
+        }
+
         void BuildTouchControls(Transform root)
         {
-            // Left: D-pad.
-            var pad = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
-                new Vector2(24, 24), new Vector2(190, 190), new Color(0f, 0f, 0f, 0.25f));
-            TouchButton(pad.transform, new Vector2(65, 128), "▲", state => Input.TouchUp = state);
-            TouchButton(pad.transform, new Vector2(65, 8), "▼", state => Input.TouchDown = state);
-            TouchButton(pad.transform, new Vector2(6, 68), "◀", state => Input.TouchLeft = state);
-            TouchButton(pad.transform, new Vector2(124, 68), "▶", state => Input.TouchRight = state);
+            // Left: floating virtual joystick (mobile spec #7 — replaces the
+            // D-pad; arbitrary-angle movement matters because standoff kiting
+            // at range 160 vs 76 is the core skill). Catch panel spans the
+            // lower-left corner; the base re-centers on press, the nub tracks
+            // the drag. Pushed to the BACK of the sibling order so every HUD
+            // button (later sibling = topmost raycast) wins over the catch
+            // surface.
+            //
+            // Touch-target floor (spec #6): CSS px per canvas unit equals the
+            // CanvasScaler factor divided by devicePixelRatio, and with
+            // ScaleWithScreenSize that quotient is DPR-invariant — it is the
+            // scale factor of the CSS viewport itself. Worst measured case
+            // (390 CSS width portrait, match 0.35) gives 0.488 CSS px/u, so
+            // 44 CSS pt needs >=90 u: base 180 u (88 px), strike 110 u
+            // (54 px), dash 96 u (47 px) all clear the floor.
+            var catchPanel = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
+                new Vector2(0, 0), new Vector2(260, 260), new Color(0f, 0f, 0f, 0f));
+            catchPanel.GetComponent<Image>().raycastTarget = true;   // joystick catch surface
+            var joystick = catchPanel.AddComponent<VirtualJoystick>();
+            joystick.Input = Input;
+            joystick.BaseRect = JoystickSprite(catchPanel.transform, "ui-joystick-base",
+                new Vector2(130, 130), 180f, 0.4f);
+            joystick.NubRect = JoystickSprite(joystick.BaseRect, "ui-joystick-nub",
+                Vector2.zero, 84f, 0.75f);
+            // Nub rides the base's center, not its bottom-left corner.
+            joystick.NubRect.anchorMin = joystick.NubRect.anchorMax = new Vector2(0.5f, 0.5f);
+            joystick.RestCenter = new Vector2(130, 130);
+            catchPanel.transform.SetAsFirstSibling();
 
-            // Right: strike.
+            // Right: strike (raised to y=150 while the dungeon row exists —
+            // fixes the 44 u overlap with the F card, spec #4).
             var strike = Panel(root, new Vector2(1, 0), new Vector2(1, 0),
                 new Vector2(-24, 36), new Vector2(110, 110), new Color(0.8f, 0.4f, 0.25f, 0.5f));
-            var strikeRect = strike.GetComponent<RectTransform>();
-            strikeRect.pivot = new Vector2(1, 0);
+            strike.GetComponent<Image>().raycastTarget = true;   // TouchHold hit surface
+            _strikeRect = strike.GetComponent<RectTransform>();
+            _strikeRect.pivot = new Vector2(1, 0);
             var touch = strike.AddComponent<TouchHold>();
             touch.OnStateChanged = state => { if (state) Input.QueueAttack(); };
             Label(strike.transform, 0, 0, 110, 110, "타격", 20, TextAnchor.MiddleCenter);
+
+            // Dash button above strike (spec #5): dungeon-only, thumb-reach
+            // dash — the SHIFT card sits outside the right-thumb arc. 24 u+
+            // gap to strike guards against mis-taps.
+            var dash = Panel(root, new Vector2(1, 0), new Vector2(1, 0),
+                new Vector2(-24, 272), new Vector2(96, 96),
+                new Color(0.17f, 0.68f, 0.84f, 0.4f));
+            dash.GetComponent<Image>().raycastTarget = true;   // TouchHold hit surface
+            _dashTouchRect = dash.GetComponent<RectTransform>();
+            _dashTouchRect.pivot = new Vector2(1, 0);
+            var dashTouch = dash.AddComponent<TouchHold>();
+            dashTouch.OnStateChanged = state => { if (state) Input.QueueDash(); };
+            Label(dash.transform, 0, 0, 96, 96, "질주", 18, TextAnchor.MiddleCenter);
+            dash.SetActive(false);   // SyncTouchModeSurfaces enables in dungeon
+
+            _touchActive = true;
         }
 
-        void TouchButton(Transform parent, Vector2 position, string glyph,
-                         System.Action<bool> setter)
+        /// <summary>Joystick art layer; falls back to a translucent disc panel
+        /// when the sprite is missing so the control never disappears.</summary>
+        RectTransform JoystickSprite(Transform parent, string iconId,
+                                     Vector2 center, float size, float alpha)
         {
-            var buttonObject = Panel(parent, Vector2.zero, Vector2.zero, position,
-                new Vector2(58, 58), new Color(1f, 1f, 1f, 0.14f));
-            var touch = buttonObject.AddComponent<TouchHold>();
-            touch.OnStateChanged = setter;
-            Label(buttonObject.transform, 0, 0, 58, 58, glyph, 22, TextAnchor.MiddleCenter);
+            var spriteObject = new GameObject(iconId);
+            spriteObject.transform.SetParent(parent, false);
+            var image = spriteObject.AddComponent<Image>();
+            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            if (sprite != null)
+            {
+                image.sprite = sprite;
+                image.color = new Color(1f, 1f, 1f, alpha);
+            }
+            else
+            {
+                image.color = new Color(1f, 1f, 1f, 0.12f);
+            }
+            image.raycastTarget = false;   // catch panel owns the pointer
+            var rect = spriteObject.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = center;
+            rect.sizeDelta = new Vector2(size, size);
+            return rect;
+        }
+
+        /// <summary>Floating stick. Writes InputAdapter.TouchMoveX/TouchMoveY.
+        /// SIGN: SimInput.MoveY is screen-down positive (SimTypes.cs L24), so
+        /// dragging the nub UP (uGUI +y) must yield NEGATIVE TouchMoveY —
+        /// mirror of the D-pad's "▲ => moveY -= 1". Deadzone 0.15 of the
+        /// 60 u throw; above it the direction is re-normalized to length 1
+        /// (magnitude is on/off — the sim normalizes the vector anyway).</summary>
+        sealed class VirtualJoystick : MonoBehaviour,
+            IPointerDownHandler, IDragHandler, IPointerUpHandler
+        {
+            const float Throw = 60f;
+            const float Deadzone = 0.15f;
+
+            public InputAdapter Input;
+            public RectTransform BaseRect;   // child of the catch panel
+            public RectTransform NubRect;    // child of BaseRect, pivot-centered
+            public Vector2 RestCenter;
+
+            RectTransform _catchRect;
+
+            void Awake() => _catchRect = (RectTransform)transform;
+
+            public void OnPointerDown(PointerEventData eventData)
+            {
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        _catchRect, eventData.position, eventData.pressEventCamera,
+                        out var local))
+                    BaseRect.anchoredPosition = local;   // float to the press
+                Steer(eventData);
+            }
+
+            public void OnDrag(PointerEventData eventData) => Steer(eventData);
+
+            public void OnPointerUp(PointerEventData eventData)
+            {
+                BaseRect.anchoredPosition = RestCenter;
+                NubRect.anchoredPosition = Vector2.zero;
+                if (Input != null) { Input.TouchMoveX = 0f; Input.TouchMoveY = 0f; }
+            }
+
+            void Steer(PointerEventData eventData)
+            {
+                if (Input == null) return;
+                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        _catchRect, eventData.position, eventData.pressEventCamera,
+                        out var local))
+                    return;
+                var delta = local - BaseRect.anchoredPosition;
+                var magnitude = delta.magnitude;
+                NubRect.anchoredPosition = magnitude > Throw
+                    ? delta * (Throw / magnitude) : delta;
+                if (magnitude < Throw * Deadzone)
+                {
+                    Input.TouchMoveX = 0f;
+                    Input.TouchMoveY = 0f;
+                    return;
+                }
+                var direction = delta / magnitude;      // re-normalized
+                Input.TouchMoveX = direction.x;
+                Input.TouchMoveY = -direction.y;        // screen-down positive
+            }
         }
 
         sealed class TouchHold : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
@@ -732,6 +1281,45 @@ namespace CinderCourt.View
             }
             if ((events & SimEvents.WaveStarted) != 0 && _gameOverPanel.activeSelf)
                 _gameOverPanel.SetActive(false);
+
+            // --- juice: wave banner (#20) -------------------------------------
+            if ((events & SimEvents.WaveStarted) != 0)
+            {
+                _waveBanner.text = $"웨이브 {sim.Wave}";
+                _waveBanner.color = new Color(0.95f, 0.35f, 0.17f, 0f);
+                _waveBannerTimer = 1.45f;   // 0.25 punch-in + 1.2 hold/fade
+            }
+            if ((events & SimEvents.BossSpawned) != 0)
+            {
+                _waveBanner.text = "보스 웨이브";
+                _waveBanner.color = new Color(1f, 0.25f, 0.2f, 0f);
+                _waveBannerTimer = 1.8f;
+            }
+
+            // --- juice: cast screen flash (#10) --------------------------------
+            if ((events & SimEvents.NovaCast) != 0)
+                StartCastFlash(new Color(0.95f, 0.35f, 0.17f, 0.28f));
+            else if ((events & SimEvents.WardCast) != 0)
+                StartCastFlash(new Color(0.17f, 0.68f, 0.84f, 0.24f));
+            else if ((events & SimEvents.BoltCast) != 0)
+                StartCastFlash(new Color(0.62f, 0.42f, 0.95f, 0.20f));
+            else if ((events & SimEvents.AltarBlessing) != 0)
+                StartCastFlash(new Color(0.87f, 0.78f, 0.41f, 0.26f));
+
+            // --- juice: damage vignette punch (#9) ------------------------------
+            if ((events & SimEvents.PlayerDamaged) != 0)
+            {
+                _vignette.enabled = true;
+                _vignette.color = new Color(0.95f, 0.22f, 0.13f, 0.6f);
+            }
+        }
+
+        void StartCastFlash(Color color)
+        {
+            _castFlash.color = color;
+            _castFlashPeak = color.a;
+            _castFlash.enabled = true;
+            _castFlashTimer = 0.09f;
         }
 
         public void Sync(ISimSnapshot sim)
@@ -782,12 +1370,99 @@ namespace CinderCourt.View
                 if (_loreTimer <= 0f) _loreText.text = string.Empty;
             }
 
+            SyncJuice(sim);
+
             if (_gameOverPanel.activeSelf && sim.Mode != SimMode.GameOver)
             {
                 _gameOverPanel.SetActive(false);
                 // Restart landed on wave 1 again — reseed the opening lore.
                 _loreText.text = LoreBeats[(sim.Wave - 1) % LoreBeats.Length];
                 _loreTimer = 6f;
+            }
+        }
+
+        // Per-frame juice decay: vignette pulse (#9), lantern flicker (#15),
+        // cast flash (#10), wave banner (#20), level toast/punch (#19).
+        void SyncJuice(ISimSnapshot sim)
+        {
+            // Low-HP vignette: heartbeat pulse under 35 HP, damage punch decays.
+            var lowHp = sim.Mode != SimMode.GameOver && sim.Player.Health < 35f;
+            var targetAlpha = lowHp ? 0.25f + 0.2f * Mathf.Sin(Time.time * 7f) : 0f;
+            var current = _vignette.color;
+            var alpha = Mathf.MoveTowards(current.a, targetAlpha, Time.deltaTime * 1.6f);
+            if (alpha > 0.001f)
+            {
+                _vignette.enabled = true;
+                _vignette.color = new Color(0.95f, 0.22f, 0.13f, alpha);
+            }
+            else if (_vignette.enabled)
+            {
+                _vignette.enabled = false;   // zero overdraw when idle
+            }
+
+            // Cast flash: 90 ms linear fade from the cast-time peak (multiplying
+            // the live alpha would compound quadratically and frame-rate-vary).
+            if (_castFlashTimer > 0f)
+            {
+                _castFlashTimer -= Time.deltaTime;
+                var flash = _castFlash.color;
+                flash.a = _castFlashPeak * Mathf.Clamp01(_castFlashTimer / 0.09f);
+                _castFlash.color = flash;
+                if (_castFlashTimer <= 0f) _castFlash.enabled = false;
+            }
+
+            // Lantern flicker: oil below Nova cost gutters; below 20 warns red.
+            if (sim.Charge < SimConfig.NovaCost)
+            {
+                var flicker = Mathf.PerlinNoise(Time.time * 6f, 0f);
+                var baseColor = sim.Charge < 20f
+                    ? new Color(0.95f, 0.42f, 0.3f)
+                    : new Color(1f, 0.83f, 0.45f);
+                _chargeFill.color = Color.Lerp(baseColor * 0.55f, baseColor, 0.55f + 0.45f * flicker);
+            }
+            else if (_chargeFill.color != new Color(1f, 0.83f, 0.45f))
+            {
+                _chargeFill.color = new Color(1f, 0.83f, 0.45f);
+            }
+
+            // Wave banner: 0.25 s punch-in, hold, last 0.4 s fade.
+            if (_waveBannerTimer > 0f)
+            {
+                _waveBannerTimer -= Time.deltaTime;
+                var t = _waveBannerTimer;
+                var color = _waveBanner.color;
+                float bannerAlpha;
+                var punch = Mathf.Clamp01((1.45f - t) / 0.25f);   // 0->1 entry
+                _waveBanner.rectTransform.localScale =
+                    Vector3.one * Mathf.Lerp(1.4f, 1f, Mathf.SmoothStep(0f, 1f, punch));
+                if (t <= 0.4f) bannerAlpha = Mathf.Clamp01(t / 0.4f);
+                else bannerAlpha = punch;
+                _waveBanner.color = new Color(color.r, color.g, color.b, bannerAlpha);
+                if (t <= 0f) _waveBanner.text = string.Empty;
+            }
+
+            // Level toast + Lv punch + XP gold flash.
+            if (_levelToastTimer > 0f)
+            {
+                _levelToastTimer -= Time.deltaTime;
+                var color = _levelToast.color;
+                var toastAlpha = _levelToastTimer > 1.0f
+                    ? Mathf.Clamp01((1.4f - _levelToastTimer) / 0.25f)
+                    : Mathf.Clamp01(_levelToastTimer / 0.5f);
+                _levelToast.color = new Color(color.r, color.g, color.b, toastAlpha);
+                if (_levelToastTimer <= 0f) _levelToast.text = string.Empty;
+            }
+            if (_levelPunchTimer > 0f && _levelText != null)
+            {
+                _levelPunchTimer -= Time.deltaTime;
+                var scale = Mathf.Lerp(1f, 1.6f, Mathf.Clamp01(_levelPunchTimer / 0.35f));
+                _levelText.rectTransform.localScale = Vector3.one * scale;
+            }
+            if (_xpFlashTimer > 0f && _xpFill != null)
+            {
+                _xpFlashTimer -= Time.deltaTime;
+                _xpFill.color = Color.Lerp(XpBaseColor,
+                    new Color(0.87f, 0.78f, 0.41f), Mathf.Clamp01(_xpFlashTimer / 0.4f));
             }
         }
 

@@ -67,6 +67,12 @@ namespace CinderCourt.View
         Font _font;
         GameObject _root;
 
+        // --- mobile layout (mobile-layout spec #1/#8) --------------------------
+        CanvasScaler _scaler;
+        RectTransform _sortieRect, _sanctumRect;
+        int _lastScreenWidth = -1, _lastScreenHeight = -1;
+        bool _stacked;
+
         // Top bar.
         Text _relicText, _pointText;
 
@@ -112,7 +118,8 @@ namespace CinderCourt.View
             var scaler = canvasObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.matchWidthOrHeight = 0.5f;   // orientation-driven, see ApplyLobbyTier
+            _scaler = scaler;
             canvasObject.AddComponent<GraphicRaycaster>();
             _root = canvasObject;
 
@@ -128,6 +135,7 @@ namespace CinderCourt.View
             BuildSortiePanel(root);
             BuildSanctumPanel(root);
             SelectTab(0);
+            ApplyLobbyTier(true);
             Refresh(data);
         }
 
@@ -198,6 +206,74 @@ namespace CinderCourt.View
         public void Show() { if (_root != null) _root.SetActive(true); }
         public void Hide() { if (_root != null) _root.SetActive(false); }
 
+        // =============================================== mobile layout core --
+        void Update()
+        {
+            // Resolution dirty-check only (two int compares, no alloc).
+            if (_root == null || !_root.activeSelf) return;
+            ApplyLobbyTier(false);
+        }
+
+        /// <summary>Spec #8: SORTIE(392, right) + SANCTUM(400, left) need
+        /// 840 u; below that effective width the panels stack into a single
+        /// full-width column (SORTIE on top). Also flips the orientation
+        /// match (spec #1: portrait 0.35 / landscape 0.5).</summary>
+        void ApplyLobbyTier(bool force)
+        {
+            var width = Screen.width;
+            var height = Screen.height;
+            if (!force && width == _lastScreenWidth && height == _lastScreenHeight)
+                return;
+            _lastScreenWidth = width;
+            _lastScreenHeight = height;
+
+            var match = width < height ? 0.35f : 0.5f;
+            _scaler.matchWidthOrHeight = match;
+
+            // Same effective-width formula the scaler applies (its cached
+            // scaleFactor is one frame stale on the resize frame).
+            var logWidth = Mathf.Log(width / 1280f, 2f);
+            var logHeight = Mathf.Log(height / 720f, 2f);
+            var scale = Mathf.Pow(2f, Mathf.Lerp(logWidth, logHeight, match));
+            var effectiveWidth = width / Mathf.Max(0.0001f, scale);
+
+            var stack = effectiveWidth < 850f;   // 840 u content + margin
+            if (!force && stack == _stacked) return;
+            _stacked = stack;
+
+            if (stack)
+            {
+                // Single column: both panels stretch to full width. Cards and
+                // rows inside anchor to their panel's top/edges, so only the
+                // parents move (spec #8 risk note).
+                _sortieRect.anchorMin = new Vector2(0f, 1f);
+                _sortieRect.anchorMax = new Vector2(1f, 1f);
+                _sortieRect.pivot = new Vector2(0.5f, 1f);
+                _sortieRect.anchoredPosition = new Vector2(0, -72);
+                _sortieRect.sizeDelta = new Vector2(-32, 560);
+
+                _sanctumRect.anchorMin = new Vector2(0f, 1f);
+                _sanctumRect.anchorMax = new Vector2(1f, 1f);
+                _sanctumRect.pivot = new Vector2(0.5f, 1f);
+                _sanctumRect.anchoredPosition = new Vector2(0, -648);
+                _sanctumRect.sizeDelta = new Vector2(-32, 560);
+            }
+            else
+            {
+                _sortieRect.anchorMin = new Vector2(1f, 1f);
+                _sortieRect.anchorMax = new Vector2(1f, 1f);
+                _sortieRect.pivot = new Vector2(1f, 1f);
+                _sortieRect.anchoredPosition = new Vector2(-16, -72);
+                _sortieRect.sizeDelta = new Vector2(392, 560);
+
+                _sanctumRect.anchorMin = new Vector2(0f, 1f);
+                _sanctumRect.anchorMax = new Vector2(0f, 1f);
+                _sanctumRect.pivot = new Vector2(0f, 1f);
+                _sanctumRect.anchoredPosition = new Vector2(16, -72);
+                _sanctumRect.sizeDelta = new Vector2(400, 560);
+            }
+        }
+
         static bool RosterContains(string[] roster, string id)
         {
             if (roster == null) return false;
@@ -245,7 +321,8 @@ namespace CinderCourt.View
         {
             var panel = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
                 new Vector2(-16, -72), new Vector2(392, 560), PanelColor);
-            panel.GetComponent<RectTransform>().pivot = new Vector2(1f, 1f);
+            _sortieRect = panel.GetComponent<RectTransform>();
+            _sortieRect.pivot = new Vector2(1f, 1f);
             Border(panel.transform, true);
 
             Eyebrow(panel.transform, 16, -12, "SORTIE", "출정");
@@ -294,6 +371,7 @@ namespace CinderCourt.View
         {
             var panel = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(16, -72), new Vector2(400, 560), PanelColor);
+            _sanctumRect = panel.GetComponent<RectTransform>();
             Border(panel.transform, true);
 
             Eyebrow(panel.transform, 16, -12, "SANCTUM", "성소 정비");

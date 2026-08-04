@@ -24,12 +24,41 @@ namespace CinderCourt.View
         Camera _camera;
         Transform _playerTransform;
 
+        // --- presentation additions (presentation-impact-spec) ---------------
+        // Grave Pulse (E) persistent field ring (#7). Duration mirrors
+        // HackSpec.PulseDuration but is a View constant on purpose — the sim
+        // value is read-only reference, not a live dependency.
+        const float PulseRingSeconds = 3f;
+        LineRenderer _pulseRing;
+        Material _pulseMaterial;
+        float _pulseTime;
+        float _pulseX, _pulseY;
+        // Pickup collect absorption (#13): collected icons fly to the player.
+        struct FlyingPickup
+        {
+            public Transform View;
+            public Vector3 Start;
+            public Vector3 StartScale;
+            public float T;
+        }
+        readonly List<FlyingPickup> _flying = new List<FlyingPickup>(8);
+        Vector3 _playerWorld;         // cached each SyncWard call (every frame)
+        bool _pickupCollectedFlag;    // set by OnEvents, consumed by SyncPickups
+        // Extraction ceremony (#16): elite corpse marker ring + channel beam.
+        LineRenderer _corpseRing;
+        Material _corpseMaterial;
+        float _corpseTime;            // marker countdown (sim corpse TTL 10 s)
+        float _corpseX, _corpseY;     // view-cached corpse position
+        LineRenderer _channelBeam;
+        Material _channelMaterial;
+
         // --- campaign hazards (built once on first SyncHazards call) ---------
         struct HazardView
         {
             public Transform Root;
             public Renderer Ring;       // vent telegraph / altar glow
             public Material RingMaterial;
+            public float PrevCycleT;    // eruption wrap detection (#17)
         }
         HazardView[] _hazardViews;
 
@@ -45,6 +74,40 @@ namespace CinderCourt.View
             _novaMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.62f, 0.25f, 1f), true);
             _novaRing.sharedMaterial = _novaMaterial;
             _novaRing.enabled = false;
+
+            // Grave Pulse field ring (#7) — one persistent LineRenderer.
+            var pulseObject = new GameObject("PulseRing");
+            pulseObject.transform.SetParent(transform, false);
+            _pulseRing = pulseObject.AddComponent<LineRenderer>();
+            _pulseRing.loop = true;
+            _pulseRing.positionCount = RingSegments;
+            _pulseRing.widthMultiplier = 0.06f;
+            _pulseRing.useWorldSpace = true;
+            _pulseMaterial = ViewWorld.MakeUnlit(new Color(0.953f, 0.349f, 0.173f, 0.6f), true);
+            _pulseRing.sharedMaterial = _pulseMaterial;
+            _pulseRing.enabled = false;
+
+            // Extraction ceremony visuals (#16) — corpse marker + channel beam.
+            var corpseObject = new GameObject("CorpseRing");
+            corpseObject.transform.SetParent(transform, false);
+            _corpseRing = corpseObject.AddComponent<LineRenderer>();
+            _corpseRing.loop = true;
+            _corpseRing.positionCount = 28;
+            _corpseRing.widthMultiplier = 0.05f;
+            _corpseRing.useWorldSpace = true;
+            _corpseMaterial = ViewWorld.MakeUnlit(new Color(0.173f, 0.678f, 0.839f, 0.6f), true);
+            _corpseRing.sharedMaterial = _corpseMaterial;
+            _corpseRing.enabled = false;
+
+            var beamObject = new GameObject("ChannelBeam");
+            beamObject.transform.SetParent(transform, false);
+            _channelBeam = beamObject.AddComponent<LineRenderer>();
+            _channelBeam.positionCount = 2;
+            _channelBeam.widthMultiplier = 0.04f;
+            _channelBeam.useWorldSpace = true;
+            _channelMaterial = ViewWorld.MakeUnlit(new Color(0.173f, 0.678f, 0.839f, 0.5f), true);
+            _channelBeam.sharedMaterial = _channelMaterial;
+            _channelBeam.enabled = false;
 
             _wardShell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Destroy(_wardShell.GetComponent<Collider>());
@@ -94,6 +157,43 @@ namespace CinderCourt.View
             }
             if ((events & SimEvents.BoltCast) != 0)
                 SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.75f, 0.55f, 1f, 0.7f), 0.3f, 0.2f);
+            // Grave Pulse (#7): the E field persists 3 s in the sim but only
+            // had a 0.2 s burst — show the actual damage radius for the full
+            // duration, anchored at the cast position (field never moves).
+            if ((events & SimEvents.PulseCast) != 0)
+            {
+                _pulseTime = PulseRingSeconds;
+                _pulseX = sim.Player.X;
+                _pulseY = sim.Player.Y;
+                _pulseRing.enabled = true;
+            }
+            // Pickup absorption (#13): tells the next SyncPickups sweep that a
+            // vanished pickup was collected (vs expired) this tick batch.
+            if ((events & SimEvents.PickupCollected) != 0)
+                _pickupCollectedFlag = true;
+            // Extraction corpse marker (#16): cache the freshest dead elite
+            // position. Corpse TTL is sim-owned (10 s) — marker is decoration.
+            if ((events & SimEvents.EliteDown) != 0)
+            {
+                var enemies = sim.Enemies;
+                for (var i = 0; i < enemies.Count; i++)
+                {
+                    var e = enemies[i];
+                    if (!e.Dead || e.IsBoss || e.Scale <= 1.2f) continue;
+                    _corpseX = e.X;
+                    _corpseY = e.Y;
+                    _corpseTime = 10f;
+                    _corpseRing.enabled = true;
+                    break;
+                }
+            }
+            if ((events & SimEvents.ExtractionComplete) != 0)
+            {
+                // Existing burst handles the completion pop — just clear.
+                _corpseTime = 0f;
+                _corpseRing.enabled = false;
+                _channelBeam.enabled = false;
+            }
         }
 
         // --- simple expanding ring pool for kit one-shots ------------------------
@@ -171,7 +271,57 @@ namespace CinderCourt.View
                 if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
+            if (_pulseRing != null) _pulseRing.enabled = false;
+            _pulseTime = 0f;
+            for (var i = 0; i < _flying.Count; i++)
+                if (_flying[i].View != null) Destroy(_flying[i].View.gameObject);
+            _flying.Clear();
+            _pickupCollectedFlag = false;
+            _pickupLife.Clear();
+            if (_corpseRing != null) _corpseRing.enabled = false;
+            _corpseTime = 0f;
+            if (_channelBeam != null) _channelBeam.enabled = false;
             if (_wardShell != null) _wardShell.SetActive(false);
+        }
+
+        /// <summary>
+        /// Extraction ceremony (#16), dungeon only: corpse marker blinks for
+        /// the corpse TTL; while the channel runs, a beam links player to
+        /// corpse and the marker ring shrinks with progress.
+        /// </summary>
+        public void SyncExtraction(float progress, float target, in PlayerState player)
+        {
+            var channeling = target > 0f && progress > 0f;
+            if (_channelBeam.enabled != channeling)
+                _channelBeam.enabled = channeling;
+            if (_corpseTime <= 0f)
+            {
+                if (_corpseRing.enabled) _corpseRing.enabled = false;
+                if (_channelBeam.enabled) _channelBeam.enabled = false;
+                return;
+            }
+            _corpseTime -= Time.deltaTime;
+            var center = ViewWorld.ToWorld(_corpseX, _corpseY, 0.05f);
+            // Ring shrinks as the channel banks seconds; idle = full radius.
+            var shrink = channeling ? 1f - Mathf.Clamp01(progress / target) : 1f;
+            var radius = 0.9f * Mathf.Max(0.15f, shrink);
+            for (var i = 0; i < 28; i++)
+            {
+                var angle = (Mathf.PI * 2f * i) / 28f;
+                _corpseRing.SetPosition(i, center + new Vector3(
+                    Mathf.Cos(angle) * radius, 0f,
+                    Mathf.Sin(angle) * radius * (1f / SimConfig.IsoY)));
+            }
+            // Cyan blink, urgency rising as the corpse TTL runs out.
+            var blink = 0.35f + 0.25f * Mathf.PingPong(Time.time * 3f, 1f);
+            var color = _corpseMaterial.color;
+            color.a = blink * Mathf.Clamp01(_corpseTime / 3f + 0.4f);
+            _corpseMaterial.color = color;
+            if (channeling)
+            {
+                _channelBeam.SetPosition(0, ViewWorld.ToWorld(player.X, player.Y, 0.5f));
+                _channelBeam.SetPosition(1, center);
+            }
         }
 
         /// <summary>Campaign only. Builds static visuals once, animates per frame.</summary>
@@ -191,6 +341,14 @@ namespace CinderCourt.View
                 {
                     case HazardKind.EmberVent:
                     {
+                        // Eruption burst (#17): HazardPulse fires for EVERY vent
+                        // each cycle boundary with no identity — a CycleT wrap
+                        // on this vent is the only per-vent eruption signal.
+                        if (hazard.CycleT < view.PrevCycleT)
+                            SpawnBurst(hazard.X, hazard.Y,
+                                new Color(0.953f, 0.349f, 0.173f, 0.9f), 0.9f, 0.3f);
+                        _hazardViews[i].PrevCycleT = hazard.CycleT;
+
                         // Telegraph: ring brightens and pulses before the burst.
                         var color = view.RingMaterial.color;
                         if (hazard.Telegraphing)
@@ -228,6 +386,9 @@ namespace CinderCourt.View
             root.transform.SetParent(transform, false);
             root.transform.position = ViewWorld.ToWorld(hazard.X, hazard.Y);
             view.Root = root.transform;
+            // Seed with the live phase so the first SyncHazards frame does not
+            // read a bogus wrap and mis-fire the eruption burst (#17 risk).
+            view.PrevCycleT = hazard.CycleT;
 
             switch (hazard.Kind)
             {
@@ -289,6 +450,9 @@ namespace CinderCourt.View
 
         public void SyncWard(in PlayerState player)
         {
+            // Player world position cache — absorption target for #13 and any
+            // future player-anchored effect. SyncWard runs every view frame.
+            _playerWorld = ViewWorld.ToWorld(player.X, player.Y, 0.4f);
             var active = player.WardTime > 0f;
             if (_wardShell.activeSelf != active)
                 _wardShell.SetActive(active);
@@ -311,6 +475,11 @@ namespace CinderCourt.View
             { "pickup-ember", "pickup-flask", "pickup-relic", "equip-weapon" };
         readonly Material[] _pickupIconMaterials = new Material[4];
 
+        // Last-known Life per pickup id: the sweep needs it to tell a collected
+        // pickup (Life still healthy) from an expired one (Life ran out) after
+        // the sim already dropped it from the list (#13).
+        readonly Dictionary<int, float> _pickupLife = new Dictionary<int, float>(16);
+
         public void SyncPickups(IReadOnlyList<PickupState> pickups)
         {
             for (var i = 0; i < pickups.Count; i++)
@@ -321,6 +490,7 @@ namespace CinderCourt.View
                     view = SpawnPickupIcon(pickup) ?? SpawnGem(pickup);
                     _pickupViews[pickup.Id] = view;
                 }
+                _pickupLife[pickup.Id] = pickup.Life;
                 var bobHeight = 0.25f + Mathf.Sin(pickup.Bob * 3.4f) * 0.07f;
                 view.position = ViewWorld.ToWorld(pickup.X, pickup.Y, bobHeight);
                 // Material table is non-null exactly when the icon path won -
@@ -347,10 +517,27 @@ namespace CinderCourt.View
                 }
                 for (var i = 0; i < _stale.Count; i++)
                 {
-                    Destroy(_pickupViews[_stale[i]].gameObject);
-                    _pickupViews.Remove(_stale[i]);
+                    var id = _stale[i];
+                    var view = _pickupViews[id];
+                    // Absorption (#13): collected pickups (event fired and Life
+                    // not yet expired) fly to the player instead of vanishing.
+                    var collected = _pickupCollectedFlag
+                        && _pickupLife.TryGetValue(id, out var life) && life > 0.05f;
+                    if (collected && _flying.Count < 8)
+                        _flying.Add(new FlyingPickup
+                        {
+                            View = view,
+                            Start = view.position,
+                            StartScale = view.localScale,
+                            T = 0f,
+                        });
+                    else
+                        Destroy(view.gameObject);
+                    _pickupViews.Remove(id);
+                    _pickupLife.Remove(id);
                 }
             }
+            _pickupCollectedFlag = false;
         }
 
         Transform SpawnGem(PickupState pickup)
@@ -415,6 +602,61 @@ namespace CinderCourt.View
                 if (_novaTime <= 0f) _novaRing.enabled = false;
             }
             UpdateBursts(Time.deltaTime);
+            UpdatePulseRing(Time.deltaTime);
+            UpdateFlyingPickups(Time.deltaTime);
+        }
+
+        /// <summary>
+        /// Grave Pulse persistent field ring (#7): fixed radius at the cast
+        /// position for the field's 3 s life, alpha pulsing on the same 0.5 s
+        /// rhythm as the sim's damage ticks (HackSpec.PulseTickInterval).
+        /// </summary>
+        void UpdatePulseRing(float deltaTime)
+        {
+            if (_pulseTime <= 0f) return;
+            _pulseTime -= deltaTime;
+            if (_pulseTime <= 0f)
+            {
+                _pulseRing.enabled = false;
+                return;
+            }
+            var radius = 190f * ViewWorld.Scale;   // HackSpec.PulseRadius (view copy)
+            var center = ViewWorld.ToWorld(_pulseX, _pulseY, 0.05f);
+            for (var i = 0; i < RingSegments; i++)
+            {
+                var angle = (Mathf.PI * 2f * i) / RingSegments;
+                _pulseRing.SetPosition(i, center + new Vector3(
+                    Mathf.Cos(angle) * radius, 0f,
+                    Mathf.Sin(angle) * radius * (1f / SimConfig.IsoY)));
+            }
+            // 0.5 s alpha pulse resonating with the tick cadence; gentle fade
+            // over the last second so the expiry never pops.
+            var tickPhase = Mathf.PingPong(_pulseTime * 4f, 1f);
+            var endFade = Mathf.Clamp01(_pulseTime);
+            var color = _pulseMaterial.color;
+            color.a = (0.25f + 0.35f * tickPhase) * endFade;
+            _pulseMaterial.color = color;
+        }
+
+        /// <summary>Collected pickups fly into the player over 0.22 s (#13).</summary>
+        void UpdateFlyingPickups(float deltaTime)
+        {
+            for (var i = _flying.Count - 1; i >= 0; i--)
+            {
+                var fly = _flying[i];
+                fly.T += deltaTime;
+                var t = Mathf.Clamp01(fly.T / 0.22f);
+                if (t >= 1f || fly.View == null)
+                {
+                    if (fly.View != null) Destroy(fly.View.gameObject);
+                    _flying.RemoveAt(i);
+                    continue;
+                }
+                var eased = t * t;   // accelerate toward the player
+                fly.View.position = Vector3.Lerp(fly.Start, _playerWorld, eased);
+                fly.View.localScale = fly.StartScale * (1f - t);
+                _flying[i] = fly;
+            }
         }
     }
 }

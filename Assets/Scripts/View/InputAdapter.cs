@@ -20,7 +20,19 @@ namespace CinderCourt.View
         public Profile Mode = Profile.Arena;
 
         // Touch D-pad state (set by HudView's TouchButton components).
+        // Kept as a keyboard-free fallback surface; the virtual joystick
+        // (mobile spec #7) is the primary touch movement source.
         public bool TouchLeft, TouchRight, TouchUp, TouchDown;
+
+        // Virtual joystick vector (set by HudView.VirtualJoystick). SIGN
+        // CONVENTION: SimInput.MoveY is SCREEN-DOWN POSITIVE (SimTypes.cs L24
+        // "screen-down positive, original convention"; the D-pad ▲ handler
+        // does moveY -= 1). The joystick therefore stores +Y = drag DOWN on
+        // screen, i.e. TouchMoveY = -uguiDragDelta.y / radius. Values are
+        // pre-processed by the joystick (deadzone 0.15, re-normalized above
+        // it) — the sim normalizes the merged vector anyway (CinderSim
+        // L1013-1016), so direction is the only channel that matters.
+        public float TouchMoveX, TouchMoveY;
 
         bool _attackLatch;
         bool _novaLatch;
@@ -84,6 +96,8 @@ namespace CinderCourt.View
             if (TouchRight) moveX += 1f;
             if (TouchUp) moveY -= 1f;
             if (TouchDown) moveY += 1f;
+            moveX += TouchMoveX;   // joystick (already deadzoned + normalized)
+            moveY += TouchMoveY;   // screen-down positive, see field comment
             moveX = Mathf.Clamp(moveX, -1f, 1f);
             moveY = Mathf.Clamp(moveY, -1f, 1f);
 

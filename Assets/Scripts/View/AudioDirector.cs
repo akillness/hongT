@@ -91,6 +91,21 @@ namespace CinderCourt.View
                 Play(_wave);          // triumphant horn
                 Play(_pickup, 0.9f);  // sparkle on top
             }
+            // Dungeon kit events (presentation spec #18): volume variations of
+            // the existing 8 clips — interim contract until dedicated cues land.
+            if ((events & SimEvents.DashUsed) != 0) Play(_strike, 0.5f);
+            if ((events & SimEvents.BoltCast) != 0) Play(_nova, 0.45f);
+            if ((events & SimEvents.PulseCast) != 0) Play(_ward, 0.6f);
+            if ((events & SimEvents.LevelUp) != 0)
+            {
+                Play(_pickup, 1f);
+                Play(_wave, 0.4f);    // fanfare layer
+            }
+            if ((events & SimEvents.EliteDown) != 0) Play(_kill, 1f);
+            if ((events & SimEvents.ExtractionComplete) != 0) Play(_ward, 0.9f);
+            if ((events & SimEvents.BossPhase2) != 0) Play(_gameover, 0.35f);   // low menace
+            if ((events & SimEvents.ComboFinisher) != 0) Play(_kill, 0.7f);
+            if ((events & SimEvents.BossSpawned) != 0) Play(_wave, 0.9f);
         }
     }
 }

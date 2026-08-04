@@ -12,6 +12,8 @@ namespace CinderCourt.View
 
         const float BaseFov = 32f;
         const float ReferenceAspect = 1.5f;
+        // Prologue top-down frame: arena half-height * 1.15 (v0.2 verified).
+        const float PrologueOrthoSize = 2.7f * 1.15f;
         static readonly Vector3 ArenaCenter = ViewWorld.ToWorld(768f, 604f);
 
         Camera _camera;
@@ -19,6 +21,11 @@ namespace CinderCourt.View
         Quaternion _baseRotation;
         float _shakeTime, _shakeDuration, _shakeAmplitude;
         float _lastAspect;
+        // Portrait/narrow compensation factor (mobile spec #9). 1 at the
+        // reference 3:2 aspect; grows as the viewport narrows so Dungeon
+        // orbit distance and Prologue ortho width preserve battlefield
+        // coverage that the landscape-tuned constants assume.
+        float _aspectWiden = 1f;
 
         Profile _profile = Profile.Arena;
         float _profileTime;
@@ -65,9 +72,10 @@ namespace CinderCourt.View
                 case Profile.Prologue:
                     // Vertical top-down orthographic — reads as a 2D defense game.
                     _camera.orthographic = true;
-                    _camera.orthographicSize = 2.7f * 1.15f;   // arena half-height * 1.15
+                    _camera.orthographicSize = PrologueOrthoSize;
                     _camera.transform.position = ArenaCenter + new Vector3(0f, 14f, 0f);
                     _camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    ApplyAspect(true);
                     break;
                 case Profile.PrologueReveal:
                     _camera.orthographic = false; // perspective blend-down
@@ -77,6 +85,7 @@ namespace CinderCourt.View
                     _camera.orthographic = false;
                     _camera.fieldOfView = 42f;    // original-verified combat FOV
                     _dungeonDistance = _dungeonTargetDistance = 17f;
+                    ApplyAspect(true);
                     break;
             }
         }
@@ -101,12 +110,25 @@ namespace CinderCourt.View
 
         void ApplyAspect(bool force)
         {
-            if (_camera == null || _profile != Profile.Arena) return;
+            if (_camera == null) return;
             var aspect = _camera.aspect;
             if (!force && Mathf.Approximately(aspect, _lastAspect)) return;
             _lastAspect = aspect;
-            var widen = Mathf.Clamp(ReferenceAspect / Mathf.Max(0.5f, aspect), 1f, 2f);
-            _camera.fieldOfView = BaseFov * widen;
+            // Mobile spec #9: portrait aspect 0.462 leaves 28% (Prologue) /
+            // 59% (Dungeon FOV 42) of the arena width visible — widen by the
+            // narrowness ratio, upper clamp 2.2 (was 2.0, Arena-only).
+            _aspectWiden = Mathf.Clamp(ReferenceAspect / Mathf.Max(0.5f, aspect), 1f, 2.2f);
+            switch (_profile)
+            {
+                case Profile.Arena:
+                    _camera.fieldOfView = BaseFov * _aspectWiden;
+                    break;
+                case Profile.Prologue:
+                    _camera.orthographicSize = PrologueOrthoSize * _aspectWiden;
+                    break;
+                // Dungeon consumes _aspectWiden as a distance multiplier at
+                // the PlaceOrbit call site (FOV 42 stays — verified value).
+            }
         }
 
         void LateUpdate()
@@ -134,6 +156,7 @@ namespace CinderCourt.View
                 }
 
                 case Profile.Prologue:
+                    ApplyAspect(false);   // resize/rotate during play (spec #9)
                     ApplyShakeAround(
                         ArenaCenter + new Vector3(0f, 14f, 0f),
                         Quaternion.Euler(90f, 0f, 0f));
@@ -144,20 +167,25 @@ namespace CinderCourt.View
                     // 2.2 s sweep: 90° top-down -> 55° perspective (the "2.5D reveal").
                     // Start distance matches the ortho frame exactly:
                     // orthoSize / tan(FOV/2) = 3.105 / tan(21°) ≈ 8.1 — no size pop.
+                    // Both endpoints scale by _aspectWiden so the sweep stays
+                    // pop-free against the widened ortho frame (start) and the
+                    // widened dungeon orbit (end) on narrow aspects.
+                    ApplyAspect(false);
                     _revealT = Mathf.Clamp01(_profileTime / 2.2f);
                     var eased = 1f - Mathf.Pow(1f - _revealT, 3f);
                     var pitch = Mathf.Lerp(90f, 55f, eased);
-                    var distance = Mathf.Lerp(8.1f, 17f, eased);
+                    var distance = Mathf.Lerp(8.1f, 17f, eased) * _aspectWiden;
                     PlaceOrbit(pitch, distance, ArenaCenter);
                     break;
                 }
 
                 case Profile.Dungeon:
                 {
+                    ApplyAspect(false);   // portrait: distance-widen, FOV fixed
                     _dungeonDistance = Mathf.Lerp(
                         _dungeonDistance, _dungeonTargetDistance,
                         1f - Mathf.Exp(-Time.deltaTime * 2.2f));
-                    PlaceOrbit(55f, _dungeonDistance, ArenaCenter);
+                    PlaceOrbit(55f, _dungeonDistance * _aspectWiden, ArenaCenter);
                     ApplyShakeOffset();
                     break;
                 }
@@ -199,5 +227,25 @@ namespace CinderCourt.View
                 Mathf.PerlinNoise(Time.time * 37f, 0.3f) - 0.5f,
                 Mathf.PerlinNoise(0.7f, Time.time * 41f) - 0.5f,
                 0f) * (2f * _shakeAmplitude * falloff);
+        // --- append-only presentation API (spec #2, JuiceLane) ---------------
+        // Extra shake tiers are requested by GameView instead of extending the
+        // OnEvents chain above (MobileLane owns aspect/profile code paths).
+
+        /// <summary>
+        /// Request a shake without stomping a stronger one already playing:
+        /// a weaker punch only lands once the current shake has decayed below
+        /// its amplitude. Reuses the existing profile-aware shake pipeline.
+        /// </summary>
+        public void Punch(float amplitude, float duration)
+        {
+            if (_shakeTime > 0f)
+            {
+                var falloff = Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration));
+                if (_shakeAmplitude * falloff >= amplitude) return;
+            }
+            _shakeDuration = duration;
+            _shakeTime = duration;
+            _shakeAmplitude = amplitude;
+        }
     }
 }

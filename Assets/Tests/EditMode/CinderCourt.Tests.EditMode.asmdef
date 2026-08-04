@@ -3,6 +3,8 @@
     "rootNamespace": "CinderCourt.Tests",
     "references": [
         "CinderCourt.Sim",
+        "CinderCourt.View",
+        "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

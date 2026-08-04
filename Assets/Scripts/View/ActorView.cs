@@ -26,6 +26,16 @@ namespace CinderCourt.View
         float _flashTime;
         bool _dead;
 
+        // --- presentation additions (presentation-impact-spec) ---------------
+        static readonly Color PlayerFlashColor = new Color(1f, 0.35f, 0.3f);
+        static readonly Color EnemyFlashColor = new Color(1f, 0.45f, 0.2f);   // ember tone
+        static readonly Color EliteGold = new Color(1f, 0.78f, 0.25f);
+        float _lastHealth = float.MaxValue;   // enemy health-delta cache (spec #5)
+        float _deathPop;                      // kill pop timer (spec #4)
+        bool _eliteTint;                      // gold pulse marker (spec #14)
+        Color _flashColor = PlayerFlashColor;
+        TrailRenderer _swingTrail;            // player-only (spec #8)
+
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
 
@@ -85,13 +95,31 @@ namespace CinderCourt.View
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.Health / SimConfig.PlayerMaxHealth, 1f, false, 0f,
                   state.DamageCooldown > SimConfig.PlayerHitGrace - 0.16f);
+            // Swing trail (spec #8): union of the arena (0.167-0.333) and
+            // dungeon combo (0.10-0.30) active windows — pure decoration,
+            // hit judgement stays in the sim.
+            if (_swingTrail != null)
+                _swingTrail.emitting = state.Action == ActorAction.Attack
+                    && state.ActionTime >= 0.10f && state.ActionTime < 0.34f;
         }
 
-        public void SyncEnemy(in EnemyState state)
+        /// <summary>
+        /// Returns the damage taken this frame (spec #5/#6). The sim never
+        /// exposes per-enemy DidDamage, so a health drop between frames IS the
+        /// hit signal. First sync after pooling never counts as a hit.
+        /// </summary>
+        public float SyncEnemy(in EnemyState state)
         {
+            var damage = 0f;
+            if (_lastHealth < float.MaxValue && state.Health < _lastHealth - 0.01f)
+                damage = _lastHealth - state.Health;
+            _lastHealth = state.Health;
+            var hit = damage > 0f && !state.Dead;
+            if (hit) _flashColor = EnemyFlashColor;
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.MaxHealth > 0f ? state.Health / state.MaxHealth : 0f,
-                  state.Scale, state.Dead, state.FadeTime, false);
+                  state.Scale, state.Dead, state.FadeTime, hit);
+            return damage;
         }
 
         float _companionLastX;
@@ -104,6 +132,37 @@ namespace CinderCourt.View
             Apply(simX, simY, facing,
                   attacking ? ActorAction.Attack : ActorAction.Move,
                   1f, 0.92f, false, 0f, false);
+        }
+
+        /// <summary>Elite marker (spec #14): pulsing gold tint through the
+        /// shared MaterialPropertyBlock path. Cleared by ResetForPool.</summary>
+        public void SetEliteTint(bool on) => _eliteTint = on;
+
+        /// <summary>
+        /// Player-only weapon trail (spec #8). Prefers the humanoid right hand
+        /// bone; falls back to a model-root offset on non-humanoid rigs.
+        /// </summary>
+        public void EnableSwingTrail()
+        {
+            if (_swingTrail != null) return;
+            Transform anchor = null;
+            if (_animator != null && _animator.isHuman)
+                anchor = _animator.GetBoneTransform(HumanBodyBones.RightHand);
+            var host = new GameObject("SwingTrail");
+            host.transform.SetParent(anchor != null ? anchor : _model, false);
+            if (anchor == null)
+                host.transform.localPosition = new Vector3(0.35f, 1.05f, 0f);
+            _swingTrail = host.AddComponent<TrailRenderer>();
+            _swingTrail.time = 0.18f;
+            _swingTrail.startWidth = 0.06f;
+            _swingTrail.endWidth = 0f;
+            _swingTrail.minVertexDistance = 0.02f;
+            _swingTrail.sharedMaterial = ViewWorld.MakeUnlit(Color.white, true);
+            _swingTrail.startColor = new Color(0.953f, 0.349f, 0.173f, 0.85f); // ember #f3592c
+            _swingTrail.endColor = new Color(0.953f, 0.349f, 0.173f, 0f);
+            _swingTrail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _swingTrail.receiveShadows = false;
+            _swingTrail.emitting = false;
         }
 
         void Apply(float simX, float simY, int facing, ActorAction action,
@@ -122,12 +181,17 @@ namespace CinderCourt.View
                 if (!_dead)
                 {
                     _dead = true;
+                    _deathPop = 0.09f;   // kill pop (spec #4)
                     if (_animator != null && _animator.isActiveAndEnabled)
                         _animator.SetInteger(ActionParam, (int)ActorAction.Die);
                 }
                 // Shrink fade (0.34 s) — cheaper than URP transparent conversion.
+                // Kill pop: brief 1.18x punch on the death frame, damped by the
+                // actor scale so the 1.6x boss does not balloon (spec #4).
                 var f = Mathf.Clamp01(fadeTime / SimConfig.EnemyFade);
-                transform.localScale = Vector3.one * (_baseScale * (0.4f + 0.6f * f));
+                var pop = 1f + (0.18f / Mathf.Max(1f, scale)) * Mathf.Clamp01(_deathPop / 0.09f);
+                _deathPop -= Time.deltaTime;
+                transform.localScale = Vector3.one * (_baseScale * (0.4f + 0.6f * f) * pop);
                 if (_healthRoot.gameObject.activeSelf) _healthRoot.gameObject.SetActive(false);
                 return;
             }
@@ -144,8 +208,25 @@ namespace CinderCourt.View
             if (_flashTime > 0f)
             {
                 _flashTime -= Time.deltaTime;
-                var pulse = Mathf.Clamp01(_flashTime / 0.13f);
-                _block.SetColor(BaseColorId, Color.Lerp(Color.white, new Color(1f, 0.35f, 0.3f), pulse));
+                if (_flashTime > 0f)
+                {
+                    var pulse = Mathf.Clamp01(_flashTime / 0.13f);
+                    _block.SetColor(BaseColorId, Color.Lerp(Color.white, _flashColor, pulse));
+                }
+                else
+                {
+                    // Flash over: drop the override so prefab tints survive.
+                    _block.Clear();
+                }
+                for (var i = 0; i < _renderers.Length; i++)
+                    _renderers[i].SetPropertyBlock(_block);
+            }
+            else if (_eliteTint)
+            {
+                // Elite gold tint pulse (spec #14) — 1.2 s brightness cycle.
+                var glow = 0.85f + 0.3f * Mathf.PingPong(Time.time * 0.83f, 1f);
+                _block.SetColor(BaseColorId, new Color(
+                    EliteGold.r * glow, EliteGold.g * glow, EliteGold.b * glow));
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
             }
@@ -182,6 +263,16 @@ namespace CinderCourt.View
             _dead = false;
             _flashTime = 0f;
             _healthFraction = 1f;
+            _lastHealth = float.MaxValue;
+            _deathPop = 0f;
+            _eliteTint = false;
+            _flashColor = PlayerFlashColor;
+            if (_block != null && _renderers != null)
+            {
+                _block.Clear();
+                for (var i = 0; i < _renderers.Length; i++)
+                    _renderers[i].SetPropertyBlock(_block);
+            }
             if (_animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.Rebind();
