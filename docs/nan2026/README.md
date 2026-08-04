@@ -13,15 +13,26 @@
 |---|---|---|---|---|
 | 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 111/111 통과 |
 | 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (48.1 s) | 캡처 완료 · **업로드 필요** |
-| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) | 마크다운 갱신 · 제출 PDF는 그대로 보존 |
-| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) (0-bis Unity 증보 포함) | 마크다운 갱신 · 제출 PDF는 그대로 보존 |
-| 5 | 팀원 롤 기술서 | PDF | [`03-team-roles.md`](03-team-roles.md) | 원본 유지 · 제출 PDF는 그대로 보존 |
+| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (111/111 반영) |
+| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 포함) | 마크다운·PDF 재생성 완료 (111/111 반영) |
+| 5 | 팀원 롤 기술서 | PDF | [`03-team-roles.md`](03-team-roles.md) → [`pdf/03-team-roles.pdf`](pdf/03-team-roles.pdf) | 마크다운·PDF 재생성 완료 |
 
 ## 페이지 구성 (제출물 1)
 
 - `/` — 로비 기본 진입점: 프롤로그와 6단계 캠페인 선택
 - `/?mode=arena` — 원작 Cinder Court 규칙의 무한 웨이브 아레나
 - `/campaign.html` — 이전 링크 호환용 `/` 즉시 리다이렉트
+
+## PDF 재생성
+
+```bash
+node tools/docs/build-nan2026-pdf.mjs        # 3종 전체
+node tools/docs/build-nan2026-pdf.mjs --only 02   # 단일 문서
+```
+
+pandoc + XeLaTeX + rsvg-convert 필요. 본문 Apple SD Gothic Neo, 코드
+D2Coding (`brew install --cask font-d2coding`). SVG 다이어그램은 빌드 시
+벡터 PDF로 변환되어 포함된다.
 
 ## 사람이 해야 하는 남은 작업
 
