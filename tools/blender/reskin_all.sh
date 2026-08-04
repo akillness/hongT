@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Re-skin all 7 roster characters from the Abyssal-Surge motion library.
+# Re-skin all 8 roster characters from the Abyssal-Surge motion library.
 # Output: Assets/Art/Characters/<id>.fbx + _workspace/current/engineering/reskin/<id>.json
 #
 # Mesh sources (audited 2026-08-04, _workspace/current/engineering/reskin):
@@ -18,10 +18,11 @@ OUT_DIR="Assets/Art/Characters"
 REPORT_DIR="_workspace/current/engineering/reskin"
 mkdir -p "$OUT_DIR" "$REPORT_DIR"
 
-IDS=(guard ember-cohort scout shade possessed shadow-commander-boss broken-court-monarch-boss)
+IDS=(guard lantern-reaver ember-cohort scout shade possessed shadow-commander-boss broken-court-monarch-boss)
 
 mesh_glb_for() {
   case "$1" in
+    lantern-reaver)             echo "$SRC/assets/mesh/character/lantern-reaver-character/glb/base_basic_pbr.glb" ;;
     scout)                     echo "$SRC/assets/mesh/enemy/scout/glb/base_basic_pbr.glb" ;;
     shade)                     echo "$SRC/assets/mesh/enemy/shade/glb/base_basic_pbr.glb" ;;
     possessed)                 echo "$SRC/assets/mesh/enemy/possessed/glb/base_basic_pbr.glb" ;;

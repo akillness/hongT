@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -11,6 +13,16 @@ namespace CinderCourt.EditorTools
     {
         const string SocialPreviewFile = "cinder-court-link-preview.png";
         const string SocialPreviewSource = "docs/branding/" + SocialPreviewFile;
+        const string BuildCacheVersionMarkerPrefix = "/* CinderCourt WebGL build cache version: ";
+        const string BuildCacheVersionMarkerSuffix = " */";
+        static readonly string[] WebGlBuildResources =
+        {
+            "build-webgl.loader.js",
+            "build-webgl.data.unityweb",
+            "build-webgl.framework.js.unityweb",
+            "build-webgl.wasm.unityweb",
+        };
+
 
         public static void BuildWebGL()
         {
@@ -63,6 +75,10 @@ namespace CinderCourt.EditorTools
         ///    viewport-fit=cover for belt-and-braces);
         ///  - social preview relative OG/Twitter metadata + image copy;
         ///  - devicePixelRatio cap 2 (3x phones would render 1170x2532);
+        ///  - fixed backing store: Unity 6's automatic canvas-resize path
+        ///    recurses on a full-viewport portrait canvas, so the backing
+        ///    store is explicitly sized before the loader and after responsive
+        ///    viewport, orientation, and fullscreen resizes;
         ///  - responsive canvas: UA-independent CSS replaces the fixed
         ///    1280x853 sizing — letterbox preserving 1280:853 (~3:2) down to
         ///    500px CSS width, full-viewport fill below (phones);
@@ -71,7 +87,8 @@ namespace CinderCourt.EditorTools
         static void PolishIndexHtml(string outputDir)
         {
             var indexPath = Path.Combine(outputDir, "index.html");
-            if (!File.Exists(indexPath)) return;
+            if (!File.Exists(indexPath))
+                throw new FileNotFoundException("WebGL build did not produce index.html", indexPath);
             var html = File.ReadAllText(indexPath);
             html = html.Replace("<title>Unity Web Player | ", "<title>");
 
@@ -108,6 +125,21 @@ namespace CinderCourt.EditorTools
                     "showBanner: unityShowBanner,\n" +
                     "        devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),");
 
+            html = VersionWebGlBuildAssetUrls(outputDir, html);
+
+            // Unity 6.0.5's automatic canvas-matching loop overflows its WASM
+            // stack when the responsive CSS makes a narrow portrait viewport
+            // fill the canvas. Disable Unity's auto-match loop; the backing
+            // store is set from the rendered canvas rect immediately before
+            // the loader starts, after the UA-specific class is in place.
+            const string backingStoreMarker = "/* CinderCourt fixed WebGL backing store */";
+            if (!html.Contains(backingStoreMarker))
+                html = html.Replace(
+                    "// By default, Unity keeps WebGL canvas render target size matched with",
+                    "/* CinderCourt fixed WebGL backing store */\n" +
+                    "      config.matchWebGLToCanvasSize = false;\n\n" +
+                    "      // By default, Unity keeps WebGL canvas render target size matched with");
+
             // Fixed desktop sizing -> class-driven responsive CSS (spec #12).
             html = html.Replace(
                 "        canvas.style.width = \"1280px\";\n" +
@@ -118,8 +150,176 @@ namespace CinderCourt.EditorTools
             html = html.Replace("canvas.style.width = \"1280px\";", "canvas.classList.add(\"unity-responsive\");");
             html = html.Replace("canvas.style.height = \"853px\";", "");
 
+            const string backingStoreCall = "setUnityBackingStoreSize();";
+            if (!html.Contains(backingStoreCall))
+                html = html.Replace(
+                    "document.querySelector(\"#unity-loading-bar\").style.display = \"block\";",
+                    "function setUnityBackingStoreSize() {\n" +
+                    "        var rect = canvas.getBoundingClientRect();\n" +
+                    "        var scale = Math.min(window.devicePixelRatio || 1, 2);\n" +
+                    "        canvas.width = Math.max(1, Math.round(rect.width * scale));\n" +
+                    "        canvas.height = Math.max(1, Math.round(rect.height * scale));\n" +
+                    "      }\n" +
+                    "      var backingStoreResizeRequest = 0;\n" +
+                    "      function queueUnityBackingStoreSize() {\n" +
+                    "        if (backingStoreResizeRequest)\n" +
+                    "          window.cancelAnimationFrame(backingStoreResizeRequest);\n" +
+                    "        backingStoreResizeRequest = window.requestAnimationFrame(function() {\n" +
+                    "          backingStoreResizeRequest = 0;\n" +
+                    "          setUnityBackingStoreSize();\n" +
+                    "        });\n" +
+                    "      }\n" +
+                    "      window.addEventListener(\"resize\", queueUnityBackingStoreSize);\n" +
+                    "      window.addEventListener(\"orientationchange\", queueUnityBackingStoreSize);\n" +
+                    "      if (window.visualViewport)\n" +
+                    "        window.visualViewport.addEventListener(\"resize\", queueUnityBackingStoreSize);\n" +
+                    "      setUnityBackingStoreSize();\n\n" +
+                    "      document.querySelector(\"#unity-loading-bar\").style.display = \"block\";");
+
+            const string startupErrorMarker = "unityShowBanner(message, \"error\");";
+            if (!html.Contains(startupErrorMarker))
+                html = html.Replace(
+                    "alert(message);",
+                    "document.querySelector(\"#unity-loading-bar\").style.display = \"none\";\n" +
+                    "                unityShowBanner(message, \"error\");");
+
             File.WriteAllText(indexPath, html);
             CopySocialPreview(outputDir);
+            VerifyWebGlShell(indexPath, outputDir, html);
+        }
+        static string VersionWebGlBuildAssetUrls(string outputDir, string html)
+        {
+            var currentVersion = ComputeWebGlBuildVersion(outputDir);
+            var currentMarker = BuildCacheVersionMarkerPrefix + currentVersion + BuildCacheVersionMarkerSuffix;
+            var markerStart = html.IndexOf(BuildCacheVersionMarkerPrefix, StringComparison.Ordinal);
+            if (markerStart >= 0)
+            {
+                var markerEnd = html.IndexOf(BuildCacheVersionMarkerSuffix,
+                    markerStart + BuildCacheVersionMarkerPrefix.Length, StringComparison.Ordinal);
+                if (markerEnd < 0)
+                    throw new InvalidDataException("WebGL build cache marker is malformed");
+
+                var previousMarker = html.Substring(
+                    markerStart,
+                    markerEnd + BuildCacheVersionMarkerSuffix.Length - markerStart);
+                html = html.Replace(previousMarker, currentMarker);
+            }
+            else
+            {
+                const string buildUrlDeclaration = "var buildUrl = \"Build\";";
+                if (!html.Contains(buildUrlDeclaration))
+                    throw new InvalidDataException("WebGL index does not declare its Build URL");
+
+                html = html.Replace(buildUrlDeclaration, currentMarker + "\n      " + buildUrlDeclaration);
+            }
+
+            for (var i = 0; i < WebGlBuildResources.Length; i++)
+                html = SetWebGlBuildResourceVersion(html, WebGlBuildResources[i], currentVersion);
+
+            return html;
+        }
+
+        static string SetWebGlBuildResourceVersion(string html, string resource, string version)
+        {
+            var pattern = Regex.Escape(resource) + @"(?:\?v=[A-Za-z0-9][A-Za-z0-9._-]*)?(?=[""'])";
+            var resourcePattern = new Regex(pattern);
+            if (resourcePattern.Matches(html).Count != 1)
+                throw new InvalidDataException($"WebGL index must reference '{resource}' exactly once");
+
+            return resourcePattern.Replace(html, resource + "?v=" + version, 1);
+        }
+
+
+        static string ComputeWebGlBuildVersion(string outputDir)
+        {
+            var combinedResourceHashes = new byte[WebGlBuildResources.Length * 32];
+            for (var i = 0; i < WebGlBuildResources.Length; i++)
+            {
+                var resourcePath = Path.Combine(outputDir, "Build", WebGlBuildResources[i]);
+                if (!File.Exists(resourcePath))
+                    throw new FileNotFoundException("WebGL build resource is missing", resourcePath);
+
+                byte[] resourceHash;
+                using (var resourceStream = File.OpenRead(resourcePath))
+                using (var resourceHasher = SHA256.Create())
+                    resourceHash = resourceHasher.ComputeHash(resourceStream);
+
+                Buffer.BlockCopy(resourceHash, 0, combinedResourceHashes, i * resourceHash.Length, resourceHash.Length);
+            }
+
+            byte[] combinedHash;
+            using (var combinedHasher = SHA256.Create())
+                combinedHash = combinedHasher.ComputeHash(combinedResourceHashes);
+
+            const string hex = "0123456789abcdef";
+            var versionCharacters = new char[16];
+            for (var i = 0; i < versionCharacters.Length / 2; i++)
+            {
+                var value = combinedHash[i];
+                versionCharacters[i * 2] = hex[value >> 4];
+                versionCharacters[i * 2 + 1] = hex[value & 0x0f];
+            }
+
+            return new string(versionCharacters);
+        }
+        static int CountOccurrences(string value, string token)
+        {
+            var count = 0;
+            var offset = 0;
+            while ((offset = value.IndexOf(token, offset, StringComparison.Ordinal)) >= 0)
+            {
+                count += 1;
+                offset += token.Length;
+            }
+
+            return count;
+        }
+
+
+        
+        static void VerifyWebGlShell(string indexPath, string outputDir, string html)
+        {
+            var requiredMarkers = new[]
+            {
+                "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">",
+                "canvas.classList.add(\"unity-responsive\");",
+                "devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2)",
+                "config.matchWebGLToCanvasSize = false;",
+                "function queueUnityBackingStoreSize()",
+                "window.addEventListener(\"resize\", queueUnityBackingStoreSize);",
+                "window.addEventListener(\"orientationchange\", queueUnityBackingStoreSize);",
+                "window.visualViewport.addEventListener(\"resize\", queueUnityBackingStoreSize);",
+                "width: min(1280px, 100vw, calc(100vh * 1280 / 853));",
+                "aspect-ratio: 1280 / 853;",
+                "width: 100%; height: 100%; aspect-ratio: auto;",
+                "touch-action: none;",
+                "canvas.getBoundingClientRect();",
+                "unityShowBanner(message, \"error\");",
+                "<meta property=\"og:image\" content=\"./cinder-court-link-preview.png\">",
+                "<meta name=\"twitter:image\" content=\"./cinder-court-link-preview.png\">",
+            };
+
+            var currentVersion = ComputeWebGlBuildVersion(outputDir);
+            var currentMarker = BuildCacheVersionMarkerPrefix + currentVersion + BuildCacheVersionMarkerSuffix;
+            if (CountOccurrences(html, currentMarker) != 1)
+                throw new InvalidDataException($"WebGL index cache marker is stale or malformed: {indexPath}");
+
+            for (var i = 0; i < WebGlBuildResources.Length; i++)
+            {
+                var resource = WebGlBuildResources[i];
+                var resourceUrl = resource + "?v=" + currentVersion;
+                if (CountOccurrences(html, resource) != 1 || CountOccurrences(html, resourceUrl) != 1)
+                    throw new InvalidDataException($"WebGL index cache-bust contract is not atomic for '{resource}': {indexPath}");
+            }
+            for (var i = 0; i < requiredMarkers.Length; i++)
+            {
+                if (!html.Contains(requiredMarkers[i]))
+                    throw new InvalidDataException($"WebGL index contract missing '{requiredMarkers[i]}': {indexPath}");
+            }
+
+            var previewPath = Path.Combine(outputDir, SocialPreviewFile);
+            if (!File.Exists(previewPath))
+                throw new FileNotFoundException("WebGL social preview was not copied", previewPath);
         }
 
         static void CopySocialPreview(string outputDir)
@@ -143,7 +343,7 @@ namespace CinderCourt.EditorTools
     <style>
       /* mobile-layout spec #10-#13: brand letterbox + responsive canvas */
       html, body { background: #050812; }
-      #unity-canvas { background: #050812; }
+      #unity-canvas { background: #050812; touch-action: none; }
       /* Desktop / wide: letterbox preserving 1280:853 (~3:2), never overflow
          the viewport (spec #12 — fixes sub-1280 windows + iPadOS desktop UA). */
       #unity-canvas.unity-responsive {

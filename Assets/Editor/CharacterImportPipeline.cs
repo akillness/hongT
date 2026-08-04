@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using CinderCourt.Sim;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -17,13 +18,6 @@ namespace CinderCourt.EditorTools
         const string ClipDir = "Assets/Art/Motion";
         const string PrefabDir = "Assets/Resources/Characters";
         const string ControllerPath = "Assets/Art/Motion/CinderActor.controller";
-
-        // Full roster per docs/SIM_SPEC.md §Roster. Import fails when any is absent.
-        static readonly string[] Roster =
-        {
-            "guard", "lantern-reaver", "ember-cohort", "scout", "shade", "possessed",
-            "shadow-commander-boss", "broken-court-monarch-boss",
-        };
 
         // Bones are renamed to Unity-canonical humanoid names by
         // tools/blender/reskin_character.py; Mecanim auto-maps them.
@@ -75,7 +69,7 @@ namespace CinderCourt.EditorTools
         {
             var present = CharacterFbxPaths()
                 .Select(Path.GetFileNameWithoutExtension).ToHashSet();
-            var absent = Roster.Where(id => !present.Contains(id)).ToList();
+            var absent = CharacterRoster.Ids.Where(id => !present.Contains(id)).ToList();
             if (absent.Count > 0)
                 throw new InvalidOperationException(
                     $"roster incomplete, missing FBX: {string.Join(", ", absent)} " +
