@@ -154,6 +154,10 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 
 **성립 근거 [OBSERVED]**: `HackConfig.Hazards`는 공개 필드이고 `ToCampaignConfig()`가 `if (Hazards != null) stage.Hazards = Hazards;`(HackTypes L142-145)로 스테이지 테이블을 덮어쓴다 — **기믹 조합은 심 무변경으로 성립**. 반면 웨이브 수·보스 비주얼·적 로테이션은 앵커 스테이지에 고정된다(적 비주얼은 `(_wave + _spawnIndexInWave) % VisualRotation`, 보스는 `_config.BossVisual` — CinderSim L1853-1857). 보스 프리팹은 2종뿐이고 `EnemyVisual`은 frozen enum — **조합 보스는 기존 2종의 틴트/스케일 변주로 성립**시키고 신규 enum은 §S4로 격리.
 
+**런 모델 결정 — 인터뷰 계약과의 정합**: 인터뷰 스펙 §Inter-Stage(L87)는 "로비 복귀 없이 Ember Rest로 브리지되는 1런"이다. §T의 6스테이지는 이 모델을 **확장**한다: 정식 완주는 S1→S6를 Ember Rest 5회로 잇는 **한 번의 연속 런**이고, §T2의 `ClearedMask`/`prereqId`는 체인을 끊는 게이트가 아니라 **로비 재진입 지점 해금**(도달한 최심 스테이지부터 재출격 허용)이다. 두 표면의 역할이 겹치지 않음을 카탈로그 주석에 명시.
+
+**Ember Rest 심 경계 충돌 [OBSERVED]**: `BeginEmberRest`는 `roomIndex < 1 || roomIndex > 3`에서 하드 거부(CinderSim L411, false 반환·예외 없음) — 6스테이지 체인의 4번째 휴식부터 **조용히 안 열리고 진행 공백으로만 드러난다**. 보상 덱도 `roomIndex` 키잉(L419-421)이라 방 수 확장은 결정론 오퍼 테이블 변경이다. `CinderSim.cs`는 FROZEN 마킹 3파일에 속하지 않아 편집 가능하지만 결정론 계약이므로 §S5로 등재 — T3 롤아웃의 **선행 심 게이트**다.
+
 ### T1. StageCatalog 리팩터 — 하드코딩 3 제거 (선행 필수)
 - **WHAT**: 스테이지 지식이 View 8곳에 `3` 하드코딩으로 산재(`GameDirector.IsStageUnlocked`/`StageDisplayName`/클리어 기록 switch, `LobbyView for(i<3)`+해금 삼항+`_stageStatus[3]`, `LobbyStaging` 보스 2분기+accent switch, `GameView.BossNameFor`, `StoryCatalog` switch, `SetStageTerrain`의 `Terrain/terrain-<stageId>` 로드). 스위치를 늘리지 말고 **데이터 주도 카탈로그 1개**로 수렴: `StageCatalog = { id, displayName, simAnchorId, hazardOverride[], prereqId, terrainId, accentColor, bossVariant(tint/scale/이름), storyKey }` 배열.
 - **WHERE**: 신규 `Assets/Scripts/View/StageCatalog.cs` (View asmdef — frozen 아님). `CampaignStages`(frozen)는 심 앵커 3종으로 불변 유지.
@@ -207,6 +211,7 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 | S2 | 전방판정 8방향화 (`Facing` 벡터화) | 던전 모드 한정 `HackSpec` 신규 상수 + 판정 분기. 아레나 `dx*facing ≥ -18` 불변 | 아레나 불변 / 던전 리플레이 Digest 갱신 |
 | S3 | 소환수 전투 우선 행동 + 스킬/장비 | `UpdateCompanion` 상태기계(추적↔교전 정지↔복귀), `CompanionSkill*` 상수, `HackConfig` 장착 필드, 스냅샷 노출 확장 | 던전 한정, additive. 인벤토리 영속화는 CampaignStore 스키마 감사 별도 |
 | S4 | 조합 스테이지 전용 웨이브 수·신규 보스 enum·전용 terrain id | `CampaignStages` 테이블 확장 또는 신규 스테이지 레코드 — AMENDMENT #3로 `AllIds` 6원소화 + `CampaignSimTests` 갱신 | Tier A(§T, 앵커 재사용)로 선출시 후 필요 시에만 심사 |
+| S5 | Ember Rest 방 경계 1..3 → 1..5 확장 (§T 선행 게이트) | `BeginEmberRest` 경계 상수를 카탈로그 방 수-1로 일반화 + 오퍼 테이블 roomIndex 4·5 케이스 정의. `CinderSim.cs`는 비FROZEN이나 결정론 계약 — `HackSimTests` preparation 시드 어서션 동반 갱신(1..3 기존 시드 결과는 불변 증명, 4·5는 신규 고정) | 기존 1..3 오퍼 비트 불변 필수 / 4·5는 신규 |
 
 ## 구현 우선순위 제안
 
