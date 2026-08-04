@@ -252,6 +252,9 @@ namespace CinderCourt.View
                 else if ((events & SimEvents.ComboFinisher) != 0) Rig.Punch(0.05f, 0.14f);
                 else if ((events & SimEvents.EnemyKilled) != 0) Rig.Punch(0.02f, 0.08f);
             }
+            // §P2: equip pickup flash — gold pulse on the player model.
+            if ((events & SimEvents.EquipDropped) != 0 && _playerView != null)
+                _playerView.FlashEquip();
 
             if ((events & (SimEvents.GameOver | SimEvents.StageCleared)) != 0 && !_digestWritten)
             {
@@ -329,6 +332,11 @@ namespace CinderCourt.View
                         hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
+                // §P2 rank glow + §C1 combo trail tier. ComboIndex IS the
+                // current swing during Attack (sim advances it at swing end),
+                // and preloads the next tier between swings — both correct.
+                _playerView.SetEquipRanks(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
+                _playerView.SetComboTier(hack.ComboIndex);
                 if (_companionView != null)
                 {
                     var preparation = _sim as IRunPreparationSnapshot;

@@ -37,6 +37,9 @@ namespace CinderCourt.View
         TrailRenderer _swingTrail;            // player-only (spec #8)
         // 16-direction display yaw (§M1): previous sim position, NaN = unseeded.
         float _prevSimX = float.NaN, _prevSimY = float.NaN;
+        float _equipGlow;                     // §P2 rank glow (player only)
+        int _comboTier = -1;                  // §C1 trail tier cache
+        float _flashDuration = 0.13f;         // flash fade denominator
 
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
@@ -144,6 +147,34 @@ namespace CinderCourt.View
         /// shared MaterialPropertyBlock path. Cleared by ResetForPool.</summary>
         public void SetEliteTint(bool on) => _eliteTint = on;
 
+        /// <summary>§P2: equip-rank glow from the three T0-T5 ranks (0..15 sum).
+        /// BaseColor modulation — the proven MPB path (elite tint / hit flash);
+        /// URP emission needs the _EMISSION keyword MPB cannot set. Whole-body
+        /// tint until P1 lands part-split renderers.</summary>
+        public void SetEquipRanks(int weapon, int lantern, int cloak)
+            => _equipGlow = Mathf.Clamp01((weapon + lantern + cloak) / 15f) * 0.45f;
+
+        /// <summary>§P2: gold pickup flash on EquipDropped — shared flash path
+        /// with its own duration; gold end-point keeps the lerp visible and
+        /// reads as "rank up" against the ember glow.</summary>
+        public void FlashEquip()
+        {
+            _flashColor = EliteGold;
+            _flashTime = _flashDuration = 0.4f;
+        }
+
+        /// <summary>§C1: combo-tier weapon trail — hits 1/2 ember (1x/1.5x width),
+        /// finisher gold (2x). Pure decoration; hit windows stay sim-owned.</summary>
+        public void SetComboTier(int tier)
+        {
+            if (_swingTrail == null || tier == _comboTier) return;
+            _comboTier = tier;
+            var c = tier >= 2 ? EliteGold : new Color(0.953f, 0.349f, 0.173f);
+            _swingTrail.startWidth = 0.06f * (tier <= 0 ? 1f : tier == 1 ? 1.5f : 2f);
+            _swingTrail.startColor = new Color(c.r, c.g, c.b, 0.85f);
+            _swingTrail.endColor = new Color(c.r, c.g, c.b, 0f);
+        }
+
         /// <summary>
         /// Player-only weapon trail (spec #8). Prefers the humanoid right hand
         /// bone; falls back to a model-root offset on non-humanoid rigs.
@@ -234,19 +265,23 @@ namespace CinderCourt.View
                 _lastAction = action;
             }
 
-            if (hitFlash) _flashTime = 0.13f;
+            if (hitFlash) { _flashTime = 0.13f; _flashDuration = 0.13f; }
             if (_flashTime > 0f)
             {
                 _flashTime -= Time.deltaTime;
                 if (_flashTime > 0f)
                 {
-                    var pulse = Mathf.Clamp01(_flashTime / 0.13f);
+                    var pulse = Mathf.Clamp01(_flashTime / _flashDuration);
                     _block.SetColor(BaseColorId, Color.Lerp(Color.white, _flashColor, pulse));
                 }
                 else
                 {
-                    // Flash over: drop the override so prefab tints survive.
+                    // Flash over: restore the resting state in the SAME frame
+                    // (Clear alone would blink the rank glow off for 1 frame).
                     _block.Clear();
+                    if (_equipGlow > 0f)
+                        _block.SetColor(BaseColorId,
+                            Color.Lerp(Color.white, EliteGold, _equipGlow));
                 }
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
@@ -257,6 +292,17 @@ namespace CinderCourt.View
                 var glow = 0.85f + 0.3f * Mathf.PingPong(Time.time * 0.83f, 1f);
                 _block.SetColor(BaseColorId, new Color(
                     EliteGold.r * glow, EliteGold.g * glow, EliteGold.b * glow));
+                for (var i = 0; i < _renderers.Length; i++)
+                    _renderers[i].SetPropertyBlock(_block);
+            }
+            else if (_equipGlow > 0f)
+            {
+                // §P2 rank glow: whole-body ember-gold ramp (single material
+                // per character — part-split needs P1), 0.8 s soft pulse.
+                // Priority: hit flash > elite gold > rank glow (spec #14 rule).
+                var pulse = 0.9f + 0.1f * Mathf.PingPong(Time.time * 2.5f, 1f);
+                _block.SetColor(BaseColorId,
+                    Color.Lerp(Color.white, EliteGold, _equipGlow * pulse));
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
             }
@@ -299,6 +345,9 @@ namespace CinderCourt.View
             _prevSimY = float.NaN;
             _eliteTint = false;
             _flashColor = PlayerFlashColor;
+            _flashDuration = 0.13f;
+            _equipGlow = 0f;
+            _comboTier = -1;
             if (_block != null && _renderers != null)
             {
                 _block.Clear();
