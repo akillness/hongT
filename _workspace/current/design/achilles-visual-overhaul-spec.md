@@ -18,6 +18,18 @@
 | 묵직한 콤보·무기 궤적·히트 임팩트 | presentation-impact-spec #1-#8 사수 + 무기 이펙트 확장 (§C) |
 | 자유로운 8방향 이동감 | 조이스틱 임의각 이동(이미 존재) + 16분할 표시 요 (§M1) |
 
+### 레퍼런스 캡처 실측 — 2026-08-04 사용자 제공 2장 [OBSERVED]
+
+**출처 주의**: 두 캡처의 URL 바는 `watch?v=wbDv6nawEeY`(아킬레우스 리뷰) — 사용자가 이번 턴에 준 링크(`tOaQEsM2q-8`)와 **다른 영상 ID**다. 영상 본편은 이 세션에서 시청 불가 — [OBSERVED]는 이 2캡처와 인터뷰 L63-64 기록뿐이며, 둘은 인터뷰 스펙이 기록한 바로 그 레퍼런스 프레임의 원본이다(신규 입력 아님). "플레이 VFX·모션 연계·연출" 방향은 사용자 구술 지시로서 §C/§P/§L이 담당한다.
+
+§U2가 이미 대응하는 관찰 외에, 캡처에만 있는 구체 문법 5가지를 승격한다 (정보 구조만 차용 — 배치·아이콘 스타일은 저장소 문법 유지, 인터뷰 L48 UI 레이아웃 복제 금지):
+
+1. **아이템 행 문법**: 아이콘 타일(수량 배지) + 이름 + 등급 라벨("신화") + 강화 핍 행 → T0-T5 랭크를 **기존 콤보 핍 문법 재사용**으로 표시 + 랭크명 라벨(T5="정화됨" 등 원본 명명). 신규 rarity 없음(§P2).
+2. **탭 바 양끝 Q·E 키캡** (탭 순환 입력 관례) → U2 SANCTUM 탭 순환에 Q/E 배선 + 키캡 표시.
+3. **2블록 스탯**(방어 3행/저항 4행) → U2를 좌 "기본 스탯(공격/체력/이속)" · 우 "장비 델타(무기/랜턴/클록)" 2열로 승격 — 기존 "1행 델타"는 레퍼런스 대비 의도적 축소였으나 2열이 판독성 계약(§U 원칙)에 더 부합. **저항 체계는 심에 없음 — 도입은 §S 게이트, 보류 권고**.
+4. **다이아몬드 소비 슬롯 + 수량 배지** → U1 슬롯 바의 기름 비용 뱃지로 번역(소비아이템 시스템 신설 아님).
+5. **화자 접두 하단 자막**("포보스: …" — 보스가 도발 대사로 개막) → 저장소는 말풍선(`SpeechBubbleView`) 문법. 보스 인트로 비트(§L1/cycle2-spec A1) 한정으로 **하단 중앙 화자 자막 1줄**을 병행하고 전투 중에는 말풍선 유지. 뱀꼬리·보스 해부 복제 금지(인터뷰 L70) — 우리 보스는 인간형 집행자.
+
 ## 기준 사실 (코드 검증 완료)
 
 | 항목 | 값 | 위치 |
@@ -188,12 +200,26 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 
 웨이브 곡선 5,5,6,6,7,7 단조 증가 + 최종 2연전만 Monarch — 난이도 클라이맥스 유지.
 
-- **보스 변주 (View, §P2 문법 재사용)**: S2 "회랑 감독관" = Commander + 엠버 림 / S4 "우물의 증인" = Commander + 바이올렛 틴트 + 스케일 1.1(S3 무변주 Commander와 구분) / S6 "판결자" = Monarch + 골드-재 틴트. 이름은 StoryCatalog 확장(카탈로그 storyKey).
+- **보스 바디 (View 프리팹 매핑 — enum 불변) [OBSERVED 매니페스트]**: retained 보스 GLB 3종을 조합 스테이지 전용 바디로 채택 — S2 "회랑 감독관" = `mesh/boss/s1-cinder-warden`, S4 "우물의 증인" = `s2-veil-tactician`, S6 "판결자" = `s3-gate-sovereign`. 심은 여전히 `BossCommander/BossMonarch`(frozen enum)를 말하고, **View가 `StageCatalog.bossVariant(prefabId+tint+storyKey)`로 스폰 프리팹만 교체**한다. 각 바디는 리스킨 파이프라인 + RUNTIME_ANIMATION_CONTRACT 조인트 게이트 + ≤25k tri 필수. 파이프라인 실패 시 폴백: 기존 2종 틴트 변주(구계획).
 - **스토리 비트 (원본, 복제 금지 계약 내)**: S2 아카이브의 잿불이 회랑으로 번지며 **집행자가 판결문을 위조하는 첫 융합 기억** 목격 → S4 증언 기둥이 우물로 가라앉고 수호자 메아리가 **위조 전 원본 증언** 회수 → S6 재와 제단이 겹친 최종 법정에서 회수한 기억 전부를 제단에 세워 **집행자의 이름을 판결문에 되새김** → Tribunal Arena 개방.
 - **터레인/조명**: 신규 FBX 없이 시작 — S2 = terrain-abyss-chancel + 스팬 엠버 벤트 프롭·엠버 accent, S4 = terrain-echo-throne + 챈슬 기둥 프롭·바이올렛-시안 accent, S6 = terrain-echo-throne + 스팬 재 잔해 프롭·골드-재 accent. accent는 카탈로그 필드로 LobbyStaging switch 대체.
 
 ### T4. 자산 생성 계획 (CLAUDE.md §3 도구 고정 계약)
 - **키 아트/텍스처 액센트**: 스테이지별 컨셉 1장 + 액센트 텍스처(≤1024) — `gti --dry-run` 선행 후 생성, `docs/provenance/`에 프롬프트·소스·도구 기록.
+- **OBJ 판정 [OBSERVED]**: 매니페스트 전수(1072행) — OBJ 191행 **전부** `disposition=delete, runtimeReference=false`. **사용 가능 OBJ 0건** (인터뷰 계약 L45 재확인 — "non-runtime OBJ paths are not approval to copy"). "사용 가능한 것 전부 사용" 요구는 **retained GLB 32종 전량 채택**으로 이행한다.
+- **retained GLB 32종 채택 표** (매니페스트 RT/retain 전수):
+
+  | 그룹 | 자산 | Unity 용도 |
+  |---|---|---|
+  | 보스 바디 3 | s1-cinder-warden · s2-veil-tactician · s3-gate-sovereign | T3 조합 스테이지 보스 바디 (상기) |
+  | 플레이어 1 | lantern-reaver-character | 임포트 완료 (`a6ca6ab`) |
+  | 추가 릭 2 | human-command-boss · shadow-soldier-v04 | §T 이후 정예/NPC 후보 — 예산 실측 후 |
+  | 프롭 2 | prop-sprite-sheet-single-object.03 / .05 | S2/S4/S6 드레싱 프롭 킷 시드 |
+  | 터레인 8 | cinder-span floor/terrain/features/props · abyss-chancel floor/textured · echo-throne floor/textured | 기존 3스테이지 소스 + features/props 팩은 조합 스테이지 비보행 드레싱 |
+  | 스테이지 VFX 6 | arrival-breach-gate · deform-fracture-seam · drop-beacon-pillar · cinder-span-ember-wake · abyss-chancel-mirror-static · echo-throne-fracture-echo | breach-gate=방 진입 리빌, fracture-seam=보스 P2 균열(§C), beacon-pillar=가디언 hold 마커, ember-wake=S2 벤트, mirror-static=S4 증언 기둥, fracture-echo=S6 제단 |
+  | 모션 코어 10 | unarmed-core + ingame 캐릭터 릭(기임포트 6종 제외분) | 액션 라이브러리 소스 |
+
+- **예산 게이트 [OBSERVED]**: 현 빌드 80.7 MB / 120 MB — 여유 39.3 MB. GLB 채택분은 T5 스모크에서 스테이지당 tri/MB 증분 실측 기록, 초과 시 features/props 팩부터 데시메이트.
 - **프롭 킷**: 벤트 링/재 잔해/기둥 파편 소품 — 정본은 `blender -b -P tools/blender/<script>.py` 배치 스크립트. 이 세션에서는 **Blender MCP로 대화형 반복** 후, 확정 파라미터를 배치 스크립트로 역기록해 재현성 유지(생성 산출물 커밋 전 `git tag -f pre-props-<date>`).
 - **예산**: 캐릭터 ≤25k tri·총 빌드 ≤120 MB 불변 — 프롭 킷은 스테이지당 합계 ≤8k tri 목표 `[TARGET]`.
 
@@ -212,7 +238,7 @@ presentation-impact-spec의 **절대 사수 8종**(#1 히트스톱, #2 셰이크
 | S1 | 부위 내구도(진짜 파손 게이지) | `EnemyState`에 파츠 HP 배열 추가는 스냅샷 계약 변경 — 대안: 파생 스칼라(HP 임계)로 P1을 유지하고 S1은 **보류 권고** | Arena/Campaign Digest 불변 필수 |
 | S2 | 전방판정 8방향화 (`Facing` 벡터화) | 던전 모드 한정 `HackSpec` 신규 상수 + 판정 분기. 아레나 `dx*facing ≥ -18` 불변 | 아레나 불변 / 던전 리플레이 Digest 갱신 |
 | S3 | 소환수 전투 우선 행동 + 스킬/장비 | `UpdateCompanion` 상태기계(추적↔교전 정지↔복귀), `CompanionSkill*` 상수, `HackConfig` 장착 필드, 스냅샷 노출 확장 | 던전 한정, additive. 인벤토리 영속화는 CampaignStore 스키마 감사 별도 |
-| S4 | 조합 스테이지 전용 웨이브 수·신규 보스 enum·전용 terrain id | `CampaignStages` 테이블 확장 또는 신규 스테이지 레코드 — AMENDMENT #3로 `AllIds` 6원소화 + `CampaignSimTests` 갱신 | Tier A(§T, 앵커 재사용)로 선출시 후 필요 시에만 심사 |
+| S4 | 조합 스테이지 전용 웨이브 수·보스 거동 차별화 | 보스 **자산** 부족은 retained GLB 3종으로 해소(T3, View 프리팹 매핑 — enum 불변). 남는 심 수요는 전용 웨이브 수/거동뿐 — 필요 시에만 AMENDMENT #3 심사 | Tier A(§T)로 선출시, enum 확장 보류 |
 | S5 | Ember Rest 방 경계 1..3 → 1..5 확장 (§T 선행 게이트) | `BeginEmberRest` 경계 리터럴 1곳을 카탈로그 방 수-1로 일반화. 오퍼는 순수 해시라 4·5 케이스 정의 불요. `CinderSim.cs`는 비FROZEN이나 결정론 계약 — `HackSimTests`에 roomIndex 4·5 오퍼 시드 고정 어서션 추가(1..3은 해시 불변으로 기존 테스트가 증명) | **COST S** — 기존 1..3 오퍼 비트 불변 자동 / 4·5 신규 고정 |
 
 ## 구현 우선순위 제안
