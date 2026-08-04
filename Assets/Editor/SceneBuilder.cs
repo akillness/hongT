@@ -68,15 +68,34 @@ namespace CinderCourt.EditorTools
             var root = new GameObject("GameRoot");
             var bootstrapType = System.Type.GetType(
                 "CinderCourt.View.GameBootstrap, CinderCourt.View");
-            if (bootstrapType != null) root.AddComponent(bootstrapType);
-            else Debug.LogWarning("[SceneBuilder] GameBootstrap type not found — add after View lane lands");
+            if (bootstrapType != null)
+            {
+                root.AddComponent(bootstrapType);
+            }
+            else if (System.Environment.GetEnvironmentVariable(
+                         "CINDER_ALLOW_NO_BOOTSTRAP") == "1")
+            {
+                Debug.LogWarning("[SceneBuilder] GameBootstrap missing — allowed by env override");
+            }
+            else
+            {
+                // A scene without the bootstrap is a dead build that would still
+                // sail through BuildScript+deploy. Fail loudly instead.
+                throw new System.InvalidOperationException(
+                    "GameBootstrap type not found (View lane not landed or not compiling). " +
+                    "Set CINDER_ALLOW_NO_BOOTSTRAP=1 to build a scaffold scene anyway.");
+            }
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             Debug.Log($"[SceneBuilder] saved {ScenePath}");
-            if (Application.isBatchMode) AssetDatabase.SaveAssets();
+            if (Application.isBatchMode)
+            {
+                AssetDatabase.SaveAssets();
+                EditorApplication.Exit(0);
+            }
         }
 
         static float SimWorld(float px) => px * S;

@@ -1,0 +1,107 @@
+{
+  "input": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/shadow-commander-boss/model.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/shadow-commander-boss.fbx",
+  "warnings": [],
+  "materials": [
+    {
+      "name": "model.001",
+      "albedoTexture": "texture_diffuse.001"
+    }
+  ],
+  "meshSource": "/Users/jangyoung/orca/Abyssal-Surge/assets/mesh/enemy/shadow-commander-boss/glb/base_basic_pbr.glb",
+  "meshSwap": {
+    "scale": 0.9124601975339858,
+    "scaleMode": "height",
+    "armFit": 0.7709301996002075,
+    "heightOvershoot": 1.0,
+    "skeletonHeight": 1.7309661954641342,
+    "meshHeight": 1.8970320022092384,
+    "skeletonSpan": 1.573081612586975,
+    "meshSpan": 1.403331995010376
+  },
+  "sourceVertexCount": 23716,
+  "sourceTriCount": 38313,
+  "removedBones": [
+    "DEF-pelvis.L",
+    "DEF-pelvis.R"
+  ],
+  "hygiene": {
+    "mergedVerts": 4547,
+    "looseRemoved": 0
+  },
+  "heatOrphans": 0,
+  "orphansTransferFilled": 0,
+  "orphansRigidResidual": 0,
+  "decimatedTo": 24999,
+  "textures": [
+    {
+      "name": "texture_diffuse",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_diffuse.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal.001",
+      "size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "nonNormalizedVertices": 0,
+  "finalTriCount": 24999,
+  "finalVertexCount": 12512,
+  "bones": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ]
+}

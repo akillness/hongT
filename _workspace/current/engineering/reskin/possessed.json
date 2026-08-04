@@ -1,0 +1,106 @@
+{
+  "input": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/possessed/model.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/possessed.fbx",
+  "warnings": [],
+  "materials": [
+    {
+      "name": "model.001",
+      "albedoTexture": "texture_diffuse.001"
+    }
+  ],
+  "meshSource": "/Users/jangyoung/orca/Abyssal-Surge/assets/mesh/enemy/possessed/glb/base_basic_pbr.glb",
+  "meshSwap": {
+    "scale": 0.9323635579858015,
+    "scaleMode": "height",
+    "armFit": 0.7616985575276335,
+    "heightOvershoot": 1.0,
+    "skeletonHeight": 1.7586660999804735,
+    "meshHeight": 1.886245000587266,
+    "skeletonSpan": 1.6975868940353394,
+    "meshSpan": 1.4748689532279968
+  },
+  "sourceVertexCount": 5781,
+  "sourceTriCount": 8320,
+  "removedBones": [
+    "DEF-pelvis.L",
+    "DEF-pelvis.R"
+  ],
+  "hygiene": {
+    "mergedVerts": 1630,
+    "looseRemoved": 0
+  },
+  "heatOrphans": 0,
+  "orphansTransferFilled": 0,
+  "orphansRigidResidual": 0,
+  "textures": [
+    {
+      "name": "texture_diffuse",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_diffuse.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal.001",
+      "size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "nonNormalizedVertices": 0,
+  "finalTriCount": 8320,
+  "finalVertexCount": 4151,
+  "bones": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ]
+}

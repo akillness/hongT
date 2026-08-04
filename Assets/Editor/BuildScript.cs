@@ -44,6 +44,7 @@ namespace CinderCourt.EditorTools
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 throw new Exception("WebGL build failed");
             }
+            if (Application.isBatchMode) EditorApplication.Exit(0);
         }
     }
 }

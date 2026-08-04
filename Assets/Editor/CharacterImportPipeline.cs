@@ -18,6 +18,13 @@ namespace CinderCourt.EditorTools
         const string PrefabDir = "Assets/Resources/Characters";
         const string ControllerPath = "Assets/Art/Motion/CinderActor.controller";
 
+        // Full roster per docs/SIM_SPEC.md §Roster. Import fails when any is absent.
+        static readonly string[] Roster =
+        {
+            "guard", "ember-cohort", "scout", "shade", "possessed",
+            "shadow-commander-boss", "broken-court-monarch-boss",
+        };
+
         // Bones are renamed to Unity-canonical humanoid names by
         // tools/blender/reskin_character.py; Mecanim auto-maps them.
 
@@ -48,6 +55,7 @@ namespace CinderCourt.EditorTools
                 BuildPrefabs();
                 AssetDatabase.SaveAssets();
                 Debug.Log("[CharacterImportPipeline] DONE");
+                if (Application.isBatchMode) EditorApplication.Exit(0);
             }
             catch (Exception error)
             {
@@ -65,6 +73,13 @@ namespace CinderCourt.EditorTools
 
         static void ReimportCharacters()
         {
+            var present = CharacterFbxPaths()
+                .Select(Path.GetFileNameWithoutExtension).ToHashSet();
+            var absent = Roster.Where(id => !present.Contains(id)).ToList();
+            if (absent.Count > 0)
+                throw new InvalidOperationException(
+                    $"roster incomplete, missing FBX: {string.Join(", ", absent)} " +
+                    "(run tools/blender/reskin_all.sh)");
             foreach (var path in CharacterFbxPaths())
             {
                 var importer = (ModelImporter)AssetImporter.GetAtPath(path);

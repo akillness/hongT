@@ -1,0 +1,75 @@
+{
+  "input": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/ember-cohort/model.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/ember-cohort.fbx",
+  "warnings": [],
+  "materials": [
+    {
+      "name": "model",
+      "albedoTexture": "texture_diffuse"
+    }
+  ],
+  "meshSource": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/ember-cohort/model.glb",
+  "sourceVertexCount": 5881,
+  "sourceTriCount": 8884,
+  "removedBones": [
+    "DEF-pelvis.L",
+    "DEF-pelvis.R"
+  ],
+  "hygiene": {
+    "mergedVerts": 1449,
+    "looseRemoved": 0
+  },
+  "heatOrphans": 0,
+  "orphansTransferFilled": 0,
+  "orphansRigidResidual": 0,
+  "textures": [
+    {
+      "name": "texture_diffuse",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal",
+      "size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "nonNormalizedVertices": 0,
+  "finalTriCount": 8882,
+  "finalVertexCount": 4432,
+  "bones": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ]
+}

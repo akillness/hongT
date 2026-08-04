@@ -1,0 +1,107 @@
+{
+  "input": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/broken-court-monarch-boss/model.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/broken-court-monarch-boss.fbx",
+  "warnings": [],
+  "materials": [
+    {
+      "name": "model.001",
+      "albedoTexture": "texture_diffuse.001"
+    }
+  ],
+  "meshSource": "/Users/jangyoung/orca/Abyssal-Surge/assets/mesh/character/broken-court-monarch-boss-character/glb/base_basic_pbr.glb",
+  "meshSwap": {
+    "scale": 1.1351145555302093,
+    "scaleMode": "span",
+    "armFit": 0.9493528362018709,
+    "heightOvershoot": 1.2212057898711648,
+    "skeletonHeight": 1.7314681373536587,
+    "meshHeight": 1.8627890057546317,
+    "skeletonSpan": 1.4900954961776733,
+    "meshSpan": 1.3127269744873047
+  },
+  "sourceVertexCount": 28708,
+  "sourceTriCount": 41355,
+  "removedBones": [
+    "DEF-pelvis.L",
+    "DEF-pelvis.R"
+  ],
+  "hygiene": {
+    "mergedVerts": 8091,
+    "looseRemoved": 0
+  },
+  "heatOrphans": 36,
+  "orphansTransferFilled": 36,
+  "orphansRigidResidual": 0,
+  "decimatedTo": 25000,
+  "textures": [
+    {
+      "name": "texture_diffuse",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_diffuse.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal.001",
+      "size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "nonNormalizedVertices": 0,
+  "finalTriCount": 25000,
+  "finalVertexCount": 12436,
+  "bones": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ]
+}
