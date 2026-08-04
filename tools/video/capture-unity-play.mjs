@@ -3,9 +3,19 @@
 // build (GitHub Pages). Every frame is a frame the browser actually rendered
 // while the game ran; input goes through the CDP input domain — the same path
 // a physical keyboard/mouse takes. Nothing is composited or regenerated; the
-// only post step is a head-trim (loading splash) and H.264 transcode.
+// only post steps are a head-trim (loading splash) and H.264 transcode.
 //
 //   node tools/video/capture-unity-play.mjs [--seconds 55] [--out <path>]
+//
+// Route: lobby (live diorama) → Cinder Span descent → melee/skills → companion
+// command console (Enter, ASCII alias 'nova' → Korean feedback toast) → more
+// combat → console 'shield' (Void Aegis) → fight to credits. A returning-player
+// save (prologueDone) is seeded via localStorage so stage 1 is unlocked — the
+// same JSON shape CampaignStore.Save writes; gameplay itself is not touched.
+//
+// Headless note: CDP cannot compose Hangul (no IME) and Unity's WebGL input
+// reads keyboard events, not DOM insertText — so console commands use the
+// parser's documented ASCII aliases; feedback copy on screen stays Korean.
 //
 // Playwright is resolved from the sibling Abyssal-Surge checkout (dev-machine
 // tool dependency, not a runtime dependency of this repo).
@@ -22,7 +32,13 @@ const { chromium } = require(path.join(ROOT, "..", "..", "..", "Abyssal-Surge", 
 
 const URL = "https://akillness.github.io/hongT/";
 const W = 1440, H = 900;
-const SORTIE = { x: 1255, y: 220 }; // lobby primary action (verified by smoke)
+const CINDER_SPAN = { x: 1273, y: 321 }; // stage-1 강하 (verified by smoke)
+const SEED = JSON.stringify({
+  clearedMask: 0,
+  equipment: { weapon: 0, lantern: 0, cloak: 0 },
+  stats: { attack: 0, vitality: 0, swiftness: 0, points: 0 },
+  relics: 0, roster: [], active: "", prologueDone: true,
+});
 
 function parseArgs(argv) {
   const args = { seconds: 55, out: "docs/nan2026/assets/video/nan2026-cinder-court-unity-play.mp4" };
@@ -48,75 +64,80 @@ async function main() {
   const pageErrors = [];
   page.on("pageerror", (e) => pageErrors.push(String(e)));
 
+  // Returning-player save so stage 1 is unlocked (prologue already cleared).
+  await page.goto(URL, { waitUntil: "domcontentloaded" });
+  await page.evaluate((seed) => localStorage.setItem("abyssal-lantern:unity:campaign", seed), SEED);
   await page.goto(URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#unity-loading-bar", { state: "hidden", timeout: 120000 });
-  // Splash still plays ~2s after the loading bar hides.
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(2200); // splash still plays ~2s after the bar hides
   const loadOffset = (Date.now() - captureStart) / 1000;
 
-  const log = { beats: [], attacks: 0, skills: 0 };
+  const log = { beats: [], attacks: 0 };
   const started = Date.now();
   const at = () => Number(((Date.now() - started) / 1000).toFixed(1));
+  const beat = (name) => log.beats.push({ t: at(), beat: name });
 
-  // 1) Lobby beauty shot — live 3D diorama with slow orbit.
-  await page.waitForTimeout(5600);
-  log.beats.push({ t: at(), beat: "lobby-done" });
+  // 1) Lobby beauty shot — live 3D diorama, sanctum/sortie panels.
+  await page.waitForTimeout(5200);
+  beat("lobby-done");
 
-  // 2) Sortie into the prologue fight.
-  await page.mouse.click(SORTIE.x, SORTIE.y);
-  log.beats.push({ t: at(), beat: "sortie" });
-  await page.waitForTimeout(1700);
+  // 2) Descend into Cinder Span (campaign stage 1).
+  await page.mouse.click(CINDER_SPAN.x, CINDER_SPAN.y);
+  beat("cinder-span");
+  await page.waitForTimeout(1500);
+  // step off the spawn vents immediately
+  await page.keyboard.down("KeyW"); await page.keyboard.down("KeyD");
+  await page.waitForTimeout(650);
+  await page.keyboard.up("KeyW"); await page.keyboard.up("KeyD");
 
-  // 3) Melee loop: stay central so cohorts walk into the 160-range band,
-  //    flip facing (A/D) to strike both sides, keep Space cadence, brief
-  //    W/S taps for spacing, periodic Q/E/R (skill kit where bound; the
-  //    defeat panel also binds R = retry, so a bad run self-recovers).
-  const end = started + args.seconds * 1000;
+  // Combat helpers -----------------------------------------------------------
   let flip = false;
-  let lastFace = 0, lastSpace = 0, lastSpacing = 0, lastQ = started + 6500, lastE = started + 2500, lastR = started + 9000;
+  const fight = async (ms) => {
+    const stop = Date.now() + ms;
+    let lastFace = 0, lastSpace = 0, lastR = 0;
+    while (Date.now() < stop) {
+      const now = Date.now();
+      if (now - lastFace > 1100) {
+        const key = flip ? "KeyA" : "KeyD";
+        flip = !flip;
+        await page.keyboard.down(key);
+        await page.waitForTimeout(130);
+        await page.keyboard.up(key);
+        lastFace = Date.now();
+      }
+      if (now - lastSpace > 270) {
+        await page.keyboard.press("Space");
+        log.attacks += 1;
+        lastSpace = Date.now();
+      }
+      // Alive: casts Ash Nova when oil allows (harmless extra flair).
+      // Dead: the defeat panel binds R = 재강하, so a bad run self-recovers
+      // instead of freezing the tail of the video on a static panel.
+      if (now - lastR > 6500) {
+        await page.keyboard.press("KeyR");
+        lastR = Date.now();
+      }
+      await page.waitForTimeout(45);
+    }
+  };
+  const consoleCommand = async (text) => {
+    await page.keyboard.press("Enter");        // open console (0.2x slow-mo)
+    await page.waitForTimeout(650);            // let the hint line read
+    await page.keyboard.type(text, { delay: 70 });
+    await page.waitForTimeout(350);
+    await page.keyboard.press("Enter");        // submit -> intent -> SimInput
+    beat(`console:${text}`);
+    await page.waitForTimeout(900);            // feedback toast + cast visual
+  };
 
-  while (Date.now() < end) {
-    const now = Date.now();
-    if (now - lastFace > 1100) {
-      const key = flip ? "KeyA" : "KeyD";
-      flip = !flip;
-      await page.keyboard.down(key);
-      await page.waitForTimeout(130);
-      await page.keyboard.up(key);
-      lastFace = Date.now();
-    }
-    if (now - lastSpacing > 6800) {
-      const key = flip ? "KeyW" : "KeyS";
-      await page.keyboard.down(key);
-      await page.waitForTimeout(190);
-      await page.keyboard.up(key);
-      lastSpacing = Date.now();
-    }
-    if (now - lastSpace > 260) {
-      await page.keyboard.press("Space");
-      log.attacks += 1;
-      lastSpace = Date.now();
-    }
-    if (now - lastQ > 9000) {
-      await page.keyboard.press("KeyQ");
-      log.skills += 1;
-      log.beats.push({ t: at(), beat: "Q" });
-      lastQ = Date.now();
-    }
-    if (now - lastE > 11000) {
-      await page.keyboard.press("KeyE");
-      log.skills += 1;
-      log.beats.push({ t: at(), beat: "E" });
-      lastE = Date.now();
-    }
-    if (now - lastR > 15000) {
-      await page.keyboard.press("KeyR");
-      log.beats.push({ t: at(), beat: "R" });
-      lastR = Date.now();
-      await page.waitForTimeout(400);
-    }
-    await page.waitForTimeout(45);
-  }
+  // 3) Fight, showcasing the command console twice — shield early while HP
+  //    is high (Void Aegis buys survival), nova once a pack has gathered.
+  const end = started + args.seconds * 1000;
+  await fight(4500);
+  await consoleCommand("shield");  // -> Void Aegis ring + 방패 HUD
+  await fight(8000);
+  await consoleCommand("nova");    // -> "잿불 노바 시전", AOE burn decal
+  while (Date.now() < end) await fight(Math.min(2000, Math.max(250, end - Date.now())));
 
   await page.waitForTimeout(600);
   const video = page.video();
@@ -126,7 +147,6 @@ async function main() {
   const raw = await video.path();
   const outPath = path.join(ROOT, args.out);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  // Head-trim the load splash; H.264 MP4 @30fps for submission parity.
   execFileSync("ffmpeg", [
     "-y", "-loglevel", "error",
     "-ss", String(Math.max(0, loadOffset - 0.4)),

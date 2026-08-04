@@ -16,8 +16,9 @@ lang: ko
 | 3D 캐릭터 재스키닝 | Blender 5.1 headless + 에이전트 워크플로 | 8종 휴머노이드 FBX (본히트 자동 웨이트) |
 | 모션 | Mixamo 벤치 FBX → Unity Humanoid 리타겟 | 11액션 공유 라이브러리 |
 | 사운드 | **ElevenLabs sound-generation API** | SFX 8종 + 로어 앰비언트 + BGM 루프 (`docs/provenance/audio.json`) |
-| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 111/111 통과, 실패 0 |
-| 플레이 영상 | CDP 스크린캐스트 하니스 | 배포 빌드 실플레이 48 s |
+| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 146/146 통과, 실패 0 |
+| 플레이 영상 | Playwright 녹화 + CDP 실입력 하니스 | 배포 빌드 실플레이 55 s (로비→프롤로그→웨이브 2→재강하) |
+| **동료 명령 콘솔** | 로컬 키워드 파서 (기본) + **선택적 Gemini 2.0 Flash** 자유문장 폴백 | 던전 내 자연어 명령 → 닫힌 의도 집합 → 결정론 SimInput 래치 (분류 테스트 20종) |
 | UI 아이콘 세트 | god-tibo-imagen (gpt-5.4) + 마젠타 키 매팅 | 스킬 7·장비 3·스탯 3·픽업 3·앱 1·버튼 9-slice 플레이트 (256px 스프라이트, `Assets/Resources/Icons/`) |
 | 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX 변환 → URP Unlit 리맵 | 3개 지형 앵커를 공유하는 6단계 캠페인 바닥·소품·피처 프리팹 (`Assets/Resources/Terrain/`) |
 | 브랜드 범퍼 | Remotion 4 프로그래매틱 렌더 | `hongt-brand-bumper.mp4` (1280×720, 9.4 s) |
@@ -31,8 +32,16 @@ Avatar·공유 액션 컨트롤러·활성 Animator·SkinnedMeshRenderer와 공�
 오른손 모션을 검증한다. 근거 리포트:
 `_workspace/current/engineering/reskin/*.json`.
 
-**런타임 무 AI 원칙은 유지된다** — 배포 빌드는 외부 추론 호출·API 키·네트워크
-요청이 없는 정적 페이지다. ElevenLabs 오디오는 제작 시점 생성 후 mp3로 고정.
+**런타임 무 AI 원칙은 기본값으로 유지된다** — 배포 빌드는 외부 추론 호출·API
+키·네트워크 요청이 없는 정적 페이지다. ElevenLabs 오디오는 제작 시점 생성 후
+mp3로 고정. **단 하나의 opt-in 예외**가 동료 명령 콘솔이다: 기본 경로는 로컬
+키워드 파서(네트워크 0)이고, 플레이어가 **자신의** Gemini API 키를 런타임에
+직접 등록한 경우에만("키 <key>" 콘솔 명령 또는 `#gemini=` URL 프래그먼트 —
+프래그먼트는 서버 로그에 남지 않음) 미분류 자유문장을 Gemini 2.0 Flash로
+분류한다. 키는 빌드·저장소에 포함되지 않고 PlayerPrefs에만 저장되며, 응답은
+의도 단어 1개로 제한되어 키 입력과 동일한 결정론 SimInput 래치로만 진입한다.
+네트워크 실패는 Unknown으로 강등되어 정직한 토스트를 띄울 뿐 입력을 잠그지
+않는다. 즉 **시뮬레이션은 어떤 경로로도 AI 출력에 의존하지 않는다.**
 
 # 0. 요약
 

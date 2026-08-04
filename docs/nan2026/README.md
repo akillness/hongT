@@ -11,10 +11,10 @@
 
 | # | 제출물 | 제출 형태 | 이 저장소의 산출물 | 상태 |
 |---|---|---|---|---|
-| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 111/111 통과 |
-| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (55.0 s, 1440×900) | 배포 빌드 재캡처 완료 (로비→프롤로그→웨이브 2→재강하) · **업로드 필요** |
-| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (111/111 반영) |
-| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 포함) | 마크다운·PDF 재생성 완료 (111/111 반영) |
+| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 146/146 통과 |
+| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (55.0 s, 1440×900) | 배포 빌드 재캡처 완료 (로비→캠페인 1단계→명령 콘솔→웨이브 2→재강하) · **업로드 필요** |
+| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (146/146 반영) |
+| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 + 명령 콘솔 포함) | 마크다운·PDF 재생성 완료 (146/146 반영) |
 | 5 | 팀원 롤 기술서 | PDF | [`03-team-roles.md`](03-team-roles.md) → [`pdf/03-team-roles.pdf`](pdf/03-team-roles.pdf) | 마크다운·PDF 재생성 완료 |
 
 ## 페이지 구성 (제출물 1)
@@ -50,4 +50,7 @@ node tools/video/capture-unity-play.mjs --seconds 55
 ```
 
 Playwright 녹화 + CDP 입력. 로딩 스플래시 head-trim과 H.264 30 fps 트랜스코드만
-후처리한다. 근거: 이 저장소 커밋 히스토리와 `docs/provenance/`.
+후처리한다. 복귀 플레이어 시점을 위해 프롤로그 클리어 저장(`CampaignStore` v2
+스키마)을 localStorage에 시드한다. headless 환경은 한글 IME 조합이 불가하므로
+콘솔 명령은 파서의 영문 별칭(`shield`/`nova`)을 쓴다 — 화면 피드백은 한국어
+그대로다. 근거: 이 저장소 커밋 히스토리와 `docs/provenance/`.
