@@ -175,11 +175,19 @@ namespace CinderCourt.Sim
         private float _companionTimer;
         private float _companionShow;
         private int _companionFacing;
+        private CompanionBehavior _companionBehavior;
+        private readonly float _boltDamage;
+        private readonly float _pulseTickDamage;
+        private readonly float _ashNovaDamage;
+        private readonly float _companionAttackInterval;
+        private readonly float _companionAttackRange;
+        private readonly float _companionDamageScale;
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
         private int _emberRestSeed;
         private PreparationOffer _emberRestOffer0, _emberRestOffer1, _emberRestOffer2;
         private PreparationOffer _selectedPreparation;
+        private readonly PreparationOffer _appliedPreparationInput;
         private float _bossHp, _bossMaxHp;
         private int _bossPhase;
         private bool _bossPhase2Done;
@@ -195,6 +203,12 @@ namespace CinderCourt.Sim
             _prologue = false;
             _dungeon = false;
             _companionActive = false;
+            _boltDamage = HackSpec.BoltDamage;
+            _pulseTickDamage = HackSpec.PulseTickDamage;
+            _ashNovaDamage = HackSpec.AshNovaDamage;
+            _companionAttackInterval = HackSpec.CompanionAttackInterval;
+            _companionAttackRange = HackSpec.CompanionAttackRange;
+            _companionDamageScale = HackSpec.CompanionDamageScale;
             _hazards = NoHazards;
             _hazardRuntime = NoHazardRuntime;
             _hazardView = new List<HazardState>(0);
@@ -214,6 +228,12 @@ namespace CinderCourt.Sim
             _prologue = false;
             _dungeon = false;
             _companionActive = false;
+            _boltDamage = HackSpec.BoltDamage;
+            _pulseTickDamage = HackSpec.PulseTickDamage;
+            _ashNovaDamage = HackSpec.AshNovaDamage;
+            _companionAttackInterval = HackSpec.CompanionAttackInterval;
+            _companionAttackRange = HackSpec.CompanionAttackRange;
+            _companionDamageScale = HackSpec.CompanionDamageScale;
             _hazards = config.Hazards ?? NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -229,13 +249,41 @@ namespace CinderCourt.Sim
         public CinderSim(in HackConfig config)
         {
             _hack = true;
-            _hackConfig = config;
             _gameMode = config.Mode;
             _prologue = config.Mode == GameMode.Prologue;
             _dungeon = config.Mode == GameMode.Dungeon;
             _campaign = _dungeon;
-            _config = _dungeon ? config.ToCampaignConfig() : default;
-            _companionActive = _dungeon && !string.IsNullOrEmpty(config.CompanionId);
+            _appliedPreparationInput = _dungeon ? config.PreparationOffer : default;
+
+            HackConfig configured = config;
+            float boltDamage = HackSpec.BoltDamage;
+            float pulseTickDamage = HackSpec.PulseTickDamage;
+            float ashNovaDamage = HackSpec.AshNovaDamage;
+            float companionAttackInterval = HackSpec.CompanionAttackInterval;
+            float companionAttackRange = HackSpec.CompanionAttackRange;
+            float companionDamageScale = HackSpec.CompanionDamageScale;
+            if (_dungeon)
+            {
+                ApplyPreparation(
+                    in config.PreparationOffer,
+                    ref configured,
+                    ref boltDamage,
+                    ref pulseTickDamage,
+                    ref ashNovaDamage,
+                    ref companionAttackInterval,
+                    ref companionAttackRange,
+                    ref companionDamageScale);
+            }
+
+            _hackConfig = configured;
+            _boltDamage = boltDamage;
+            _pulseTickDamage = pulseTickDamage;
+            _ashNovaDamage = ashNovaDamage;
+            _companionAttackInterval = companionAttackInterval;
+            _companionAttackRange = companionAttackRange;
+            _companionDamageScale = companionDamageScale;
+            _config = _dungeon ? configured.ToCampaignConfig() : default;
+            _companionActive = _dungeon && !string.IsNullOrEmpty(configured.CompanionId);
             _hazards = _dungeon ? (_config.Hazards ?? NoHazards) : NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -247,6 +295,76 @@ namespace CinderCourt.Sim
                 _hazardView.Add(default);
             }
             Restart();
+        }
+
+        /// <summary>
+        /// Applies one validated room-local Ember Rest offer. This constructor-only
+        /// normalization leaves every non-dungeon config path untouched.
+        /// </summary>
+        private static void ApplyPreparation(
+            in PreparationOffer offer,
+            ref HackConfig config,
+            ref float boltDamage,
+            ref float pulseTickDamage,
+            ref float ashNovaDamage,
+            ref float companionAttackInterval,
+            ref float companionAttackRange,
+            ref float companionDamageScale)
+        {
+            if (offer.Variant < 1 || offer.Variant > 3
+                || offer.Magnitude < 1 || offer.Magnitude > 2)
+            {
+                return;
+            }
+
+            switch (offer.Kind)
+            {
+                case PreparationOfferKind.Stat:
+                    switch (offer.Variant)
+                    {
+                        case 1:
+                            config.MetaStats.Attack = HackSpec.ClampStat(config.MetaStats.Attack + offer.Magnitude);
+                            break;
+                        case 2:
+                            config.MetaStats.Vitality = HackSpec.ClampStat(config.MetaStats.Vitality + offer.Magnitude);
+                            break;
+                        case 3:
+                            config.MetaStats.Swiftness = HackSpec.ClampStat(config.MetaStats.Swiftness + offer.Magnitude);
+                            break;
+                    }
+                    break;
+                case PreparationOfferKind.SkillRune:
+                    switch (offer.Variant)
+                    {
+                        case 1:
+                            boltDamage = HackSpec.BoltDamage * (1f + 0.10f * offer.Magnitude);
+                            break;
+                        case 2:
+                            pulseTickDamage = HackSpec.PulseTickDamage * (1f + 0.10f * offer.Magnitude);
+                            break;
+                        case 3:
+                            ashNovaDamage = HackSpec.AshNovaDamage * (1f + 0.10f * offer.Magnitude);
+                            break;
+                    }
+                    break;
+                case PreparationOfferKind.GuardianResonance:
+                    switch (offer.Variant)
+                    {
+                        case 1:
+                            companionAttackInterval = MathF.Max(
+                                0.5f,
+                                HackSpec.CompanionAttackInterval * (1f - 0.10f * offer.Magnitude));
+                            break;
+                        case 2:
+                            companionAttackRange = HackSpec.CompanionAttackRange + 20f * offer.Magnitude;
+                            break;
+                        case 3:
+                            companionDamageScale = HackSpec.CompanionDamageScale
+                                * (1f + 0.10f * offer.Magnitude);
+                            break;
+                    }
+                    break;
+            }
         }
 
         // --- ISimSnapshot ----------------------------------------------------
@@ -304,6 +422,7 @@ namespace CinderCourt.Sim
         public float CompanionX => _companionX;
         public float CompanionY => _companionY;
         public bool CompanionAttacking => _companionShow > 0f;
+        public CompanionBehavior CompanionBehavior => _companionBehavior;
         public float BossHp => _bossHp;
         public float BossMaxHp => _bossMaxHp;
         public int BossPhase => _bossPhase;
@@ -315,6 +434,8 @@ namespace CinderCourt.Sim
         public PreparationOffer EmberRestOffer1 => _emberRestOffer1;
         public PreparationOffer EmberRestOffer2 => _emberRestOffer2;
         public PreparationOffer SelectedPreparation => _selectedPreparation;
+        /// <summary>Ember Rest offer supplied to this dungeon run at construction.</summary>
+        public PreparationOffer AppliedPreparationInput => _appliedPreparationInput;
         public int CompanionFacing => _companionFacing;
 
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
@@ -408,7 +529,7 @@ namespace CinderCourt.Sim
         /// </summary>
         public bool BeginEmberRest(int roomIndex, int rewardSeed)
         {
-            if (!_dungeon || !_stageCleared || _emberRestOpen || roomIndex < 1 || roomIndex > 3)
+            if (!_dungeon || !_stageCleared || _emberRestOpen || roomIndex < 1 || roomIndex > 5)
             {
                 return false;
             }
@@ -524,6 +645,7 @@ namespace CinderCourt.Sim
             UpdatePlayer(dt, in input);
             if (_companionActive && _mode != SimMode.GameOver)
             {
+                UpdateCompanionBehavior(in input);
                 UpdateCompanion(dt);
             }
             UpdateEnemies(dt);
@@ -701,12 +823,12 @@ namespace CinderCourt.Sim
                     continue;
                 }
                 DamageEnemy(ref splashed, ElementalDamage(
-                    HackSpec.BoltDamage * HackSpec.BoltSplashScale, HackSpec.BoltElement, splashed.State.Visual));
+                    _boltDamage * HackSpec.BoltSplashScale, HackSpec.BoltElement, splashed.State.Visual));
             }
 
             ref Enemy primary = ref _enemies[target];
             DamageEnemy(ref primary, ElementalDamage(
-                HackSpec.BoltDamage, HackSpec.BoltElement, primary.State.Visual));
+                _boltDamage, HackSpec.BoltElement, primary.State.Visual));
         }
 
         /// <summary>§2.3 E: a 190 px field at the cast point, 26 every 0.5 s for 3 s.</summary>
@@ -741,7 +863,7 @@ namespace CinderCourt.Sim
                 }
                 Knockback(ref enemy, HackSpec.AshNovaKnockback, HackSpec.ComboKnockbackTime);
                 DamageEnemy(ref enemy, ElementalDamage(
-                    HackSpec.AshNovaDamage, HackSpec.AshNovaElement, enemy.State.Visual));
+                    _ashNovaDamage, HackSpec.AshNovaElement, enemy.State.Visual));
             }
         }
 
@@ -778,7 +900,7 @@ namespace CinderCourt.Sim
                         continue;
                     }
                     DamageEnemy(ref enemy, ElementalDamage(
-                        HackSpec.PulseTickDamage, HackSpec.PulseElement, enemy.State.Visual));
+                        _pulseTickDamage, HackSpec.PulseElement, enemy.State.Visual));
                 }
             }
 
@@ -996,6 +1118,19 @@ namespace CinderCourt.Sim
             _corpses[_corpseCount] = default;
         }
 
+        /// <summary>Recall takes priority when both one-shot companion commands arrive together.</summary>
+        private void UpdateCompanionBehavior(in SimInput input)
+        {
+            if (input.CompanionRecallQueued)
+            {
+                _companionBehavior = CompanionBehavior.Follow;
+            }
+            else if (input.CompanionHoldQueued)
+            {
+                _companionBehavior = CompanionBehavior.Hold;
+            }
+        }
+
         /// <summary>
         /// §4: the companion trails the player by 80 px and, every 1.1 s, hits the
         /// nearest enemy inside 200 px for 60% of the player's damage. It cannot be
@@ -1003,17 +1138,20 @@ namespace CinderCourt.Sim
         /// </summary>
         private void UpdateCompanion(float deltaTime)
         {
-            float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-            float targetY = _player.Y;
-            float deltaX = targetX - _companionX;
-            float deltaY = targetY - _companionY;
-            float distance = Hypot(deltaX, deltaY);
-            if (distance > MoveEpsilon)
+            if (_companionBehavior == CompanionBehavior.Follow)
             {
-                float stepX = deltaX / distance * _playerSpeed * deltaTime;
-                float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
-                _companionX += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
-                _companionY += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+                float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+                float targetY = _player.Y;
+                float deltaX = targetX - _companionX;
+                float deltaY = targetY - _companionY;
+                float distance = Hypot(deltaX, deltaY);
+                if (distance > MoveEpsilon)
+                {
+                    float stepX = deltaX / distance * _playerSpeed * deltaTime;
+                    float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
+                    _companionX += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
+                    _companionY += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+                }
             }
 
             _companionShow = MathF.Max(0f, _companionShow - deltaTime);
@@ -1027,7 +1165,7 @@ namespace CinderCourt.Sim
                 return;
             }
 
-            int target = NearestEnemyIndex(_companionX, _companionY, HackSpec.CompanionAttackRange);
+            int target = NearestEnemyIndex(_companionX, _companionY, _companionAttackRange);
             if (target < 0)
             {
                 _companionFacing = _player.Facing;
@@ -1040,9 +1178,9 @@ namespace CinderCourt.Sim
                 _companionFacing = targetDeltaX > 0f ? 1 : -1;
             }
 
-            _companionTimer = HackSpec.CompanionAttackInterval;
+            _companionTimer = _companionAttackInterval;
             _companionShow = HackSpec.CompanionAttackDisplay;
-            DamageEnemy(ref _enemies[target], _playerDamage * HackSpec.CompanionDamageScale);
+            DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale);
         }
 
         /// <summary>
@@ -1347,8 +1485,7 @@ namespace CinderCourt.Sim
         private void DamagePlayer(float amount) => DamagePlayer(amount, false);
 
         /// <summary>
-        /// <paramref name="bypassWard"/> is the campaign hazard rule: an ember-vent
-        /// pulse ignores Ward but still obeys the 0.38 s grace window.
+        /// <paramref name="bypassWard"/> skips Ward but still obeys the 0.38 s grace window.
         /// </summary>
         private void DamagePlayer(float amount, bool bypassWard)
         {
@@ -2007,8 +2144,9 @@ namespace CinderCourt.Sim
             _extractionBonus = 0f;
             _rosterMask = _hack ? _hackConfig.RosterMask : 0;
             _corpseCount = 0;
-            _companionTimer = HackSpec.CompanionAttackInterval;
+            _companionTimer = _companionAttackInterval;
             _companionShow = 0f;
+            _companionBehavior = CompanionBehavior.Follow;
             _emberRestOpen = false;
             _emberRestRoomIndex = 0;
             _emberRestSeed = 0;
@@ -2114,8 +2252,8 @@ namespace CinderCourt.Sim
                     _events |= SimEvents.HazardPulse;
                     if (IsoWithin(hazard.X, hazard.Y, _player.X, _player.Y, hazard.Radius))
                     {
-                        // Gimmicks are player risk only, and Ward does not stop them.
-                        DamagePlayer(CampaignSpec.VentDamage, true);
+                        // Gimmicks are player risk only.
+                        DamagePlayer(CampaignSpec.VentDamage);
                     }
                     continue;
                 }

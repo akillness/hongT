@@ -208,6 +208,35 @@ namespace CinderCourt.Tests
             Assert.IsTrue(pulsedDamage, "standing on a vent across a pulse must cost HP");
         }
 
+        [Test]
+        public void EmberVent_Pulse_WardNegatesDamageAndStartsGrace()
+        {
+            var config = Stage(CampaignStages.CinderSpan, cloak: 5);
+            // Place the sole vent under the public campaign spawn position. Its phase
+            // guarantees the second fixed step crosses exactly one pulse boundary.
+            config.Hazards = new[]
+            {
+                HazardConfig.Vent(
+                    SimConfig.ArenaX,
+                    SimConfig.ArenaY + SimConfig.PlayerStartYOffset,
+                    CampaignSpec.VentPeriod - SimConfig.FixedStep * 1.5f)
+            };
+            var sim = new CinderSim(in config);
+            var healthBefore = sim.Player.Health;
+            var ward = new SimInput { WardQueued = true };
+
+            sim.Tick(in ward);
+            Assert.IsTrue((sim.Events & SimEvents.WardCast) != 0, "ward must be active before the vent pulse");
+            Assert.Greater(sim.Player.WardTime, 0f, "ward duration must remain active");
+
+            sim.Tick(Idle);
+
+            Assert.IsTrue((sim.Events & SimEvents.HazardPulse) != 0, "configured vent must still pulse");
+            Assert.AreEqual(healthBefore, sim.Player.Health, 1e-3f, "active ward must negate the vent pulse");
+            Assert.AreEqual(SimConfig.PlayerHitGrace, sim.Player.DamageCooldown, 1e-3f,
+                "warded pulse must retain normal contact-grace semantics");
+        }
+
         static void WalkOnto(CinderSim sim, float targetX, float targetY, int maxTicks)
         {
             for (var t = 0; t < maxTicks; t++)
@@ -216,7 +245,7 @@ namespace CinderCourt.Tests
                 var dy = targetY - sim.Player.Y;
                 if (dx * dx + dy * dy < 20f * 20f) return;
                 var len = MathF.Max(0.001f, MathF.Sqrt(dx * dx + dy * dy));
-                var input = new SimInput { MoveX = dx / len, MoveY = dy / len, WardQueued = true };
+                var input = new SimInput { MoveX = dx / len, MoveY = dy / len };
                 sim.Tick(in input);
             }
         }

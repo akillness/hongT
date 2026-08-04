@@ -14,6 +14,9 @@ namespace CinderCourt.Sim
     /// </summary>
     public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2 }
 
+    /// <summary>Active dungeon companion locomotion mode.</summary>
+    public enum CompanionBehavior { Follow = 0, Hold = 1 }
+
     /// <summary>
     /// Elemental cycle (docs/SIM_SPEC_HACKSLASH.md §2.4):
     /// <c>ember &gt; frost &gt; veil &gt; void &gt; ember</c>. Values 1..4 are the cycle
@@ -77,6 +80,11 @@ namespace CinderCourt.Sim
         /// mask rather than a string list so the sim stays allocation free.
         /// </summary>
         public int RosterMask;
+        /// <summary>
+        /// Selected Ember Rest preparation for this destination room only. Its default
+        /// value is <see cref="PreparationOfferKind.None"/> and is inert.
+        /// </summary>
+        public PreparationOffer PreparationOffer;
 
         /// <summary>The frozen arena run expressed as a hack config (no meta/equipment).</summary>
         public static HackConfig Arena() => new HackConfig
@@ -196,6 +204,7 @@ namespace CinderCourt.Sim
         float CompanionX { get; }
         float CompanionY { get; }
         bool CompanionAttacking { get; }
+        CompanionBehavior CompanionBehavior { get; }
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }

@@ -68,6 +68,38 @@ namespace CinderCourt.Tests
             Assert.That(actual.Variant, Is.EqualTo(expected.Variant), $"{label} variant");
             Assert.That(actual.Magnitude, Is.EqualTo(expected.Magnitude), $"{label} magnitude");
         }
+        private static PreparationOffer Preparation(PreparationOfferKind kind, int variant, int magnitude)
+        {
+            return new PreparationOffer
+            {
+                Kind = kind,
+                Variant = variant,
+                Magnitude = magnitude,
+            };
+        }
+
+        private static void AssertPreparationIsInert(
+            HackConfig baselineConfig,
+            PreparationOffer offer,
+            string label)
+        {
+            HackConfig preparedConfig = baselineConfig;
+            preparedConfig.PreparationOffer = offer;
+            var baseline = new CinderSim(in baselineConfig);
+            var prepared = new CinderSim(in preparedConfig);
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                SimInput input = Script(tick);
+                baseline.Tick(in input);
+                prepared.Tick(in input);
+                Assert.That(prepared.Events, Is.EqualTo(baseline.Events), $"{label} tick {tick} events");
+            }
+
+            AssertSameDigest(baseline.Digest, prepared.Digest, label);
+            Assert.That(prepared.Player.X, Is.EqualTo(baseline.Player.X).Within(Tolerance), label);
+            Assert.That(prepared.Player.Y, Is.EqualTo(baseline.Player.Y).Within(Tolerance), label);
+            Assert.That(prepared.Player.Health, Is.EqualTo(baseline.Player.Health).Within(Tolerance), label);
+        }
 
         private static SimInput Script(int tick)
         {
@@ -85,6 +117,40 @@ namespace CinderCourt.Tests
             for (int tick = 0; tick < ticks; tick += 1)
             {
                 sim.Tick(Script(tick));
+            }
+            return sim.Digest;
+        }
+
+        private static void AssertCompanionCommandsAreInert(HackConfig config, string label)
+        {
+            var baseline = new CinderSim(in config);
+            var commanded = new CinderSim(in config);
+            for (int tick = 0; tick < 360; tick += 1)
+            {
+                SimInput controlInput = Script(tick);
+                SimInput commandInput = controlInput;
+                commandInput.CompanionHoldQueued = tick % 71 == 0;
+                commandInput.CompanionRecallQueued = tick % 113 == 0;
+
+                baseline.Tick(in controlInput);
+                commanded.Tick(in commandInput);
+                Assert.That(commanded.Events, Is.EqualTo(baseline.Events), $"{label} tick {tick} events");
+            }
+
+            AssertSameDigest(baseline.Digest, commanded.Digest, $"{label} digest");
+            Assert.That(commanded.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow), label);
+            Assert.That(commanded.CompanionX, Is.EqualTo(baseline.CompanionX).Within(Tolerance), label);
+            Assert.That(commanded.CompanionY, Is.EqualTo(baseline.CompanionY).Within(Tolerance), label);
+        }
+
+        private static RunDigest RunCompanionCommandSequence(CinderSim sim)
+        {
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                SimInput input = Script(tick);
+                input.CompanionHoldQueued = tick == 90 || tick == 420 || tick == 660;
+                input.CompanionRecallQueued = tick == 240 || tick == 420 || tick == 720;
+                sim.Tick(in input);
             }
             return sim.Digest;
         }
@@ -419,11 +485,14 @@ namespace CinderCourt.Tests
         /// fully spawned and the four survivors parked in the poke ring around a
         /// stationary player. Every §2 test starts here.
         /// </summary>
-        private static CinderSim ClusteredWaveTwo(int rosterMask = 0)
+        private static CinderSim ClusteredWaveTwo(
+            int rosterMask = 0,
+            PreparationOffer preparation = default)
         {
             // Vitality only widens the health pool — it never moves an enemy, so the
             // trajectory into this state is identical for every stat spread.
             var config = Dungeon(vitality: 10, cloak: 5, rosterMask: rosterMask);
+            config.PreparationOffer = preparation;
             var sim = new CinderSim(in config);
 
             for (int tick = 0; tick < 60 * 120 && !(sim.Wave == 2 && sim.PendingSpawns == 0); tick += 1)
@@ -449,6 +518,36 @@ namespace CinderCourt.Tests
                     Is.EqualTo(IsElite(enemy) ? baseline * HackSpec.EliteHealthMul : baseline).Within(Tolerance),
                     "wave 2 dungeon health is 86 + 11, tripled for the elite");
             }
+            return sim;
+        }
+
+        /// <summary>
+        /// A level-1 in-range fixture for damage assertions whose formula must not
+        /// include the level-two run bonus.
+        /// </summary>
+        private static CinderSim FirstWaveEnemyInRange(HackConfig config)
+        {
+            var sim = new CinderSim(in config);
+            bool foundInRange = false;
+            for (int tick = 0; tick < 60 * 10 && !foundInRange; tick += 1)
+            {
+                sim.Tick(Idle);
+                for (int index = 0; index < sim.Enemies.Count; index += 1)
+                {
+                    EnemyState enemy = sim.Enemies[index];
+                    if (!enemy.Dead
+                        && enemy.Health == enemy.MaxHealth
+                        && IsoDistance(enemy.X, enemy.Y, sim.Player.X, sim.Player.Y) <= 110f)
+                    {
+                        foundInRange = true;
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(sim.Wave, Is.EqualTo(1), "setup must remain in wave 1");
+            Assert.That(foundInRange, Is.True, "the first-wave fixture must place an untouched enemy in range");
+            Assert.That(sim.Level, Is.EqualTo(1), "setup must not add a level-damage bonus");
             return sim;
         }
 
@@ -1325,6 +1424,42 @@ namespace CinderCourt.Tests
             Assert.That(dealt, Is.EqualTo(expected).Within(1e-2f));
         }
 
+        /// <summary>Swing at the in-range first-wave fixture without waiting for a new spawn.</summary>
+        private static void AssertInRangeSwingDamage(CinderSim sim, float expected)
+        {
+            int targetId = -1;
+            float nearest = float.MaxValue;
+            for (int index = 0; index < sim.Enemies.Count; index += 1)
+            {
+                EnemyState enemy = sim.Enemies[index];
+                float distance = IsoDistance(enemy.X, enemy.Y, sim.Player.X, sim.Player.Y);
+                if (!enemy.Dead && enemy.Health == enemy.MaxHealth && distance < nearest)
+                {
+                    targetId = enemy.Id;
+                    nearest = distance;
+                }
+            }
+
+            Assert.That(targetId, Is.GreaterThan(0), "the in-range fixture must retain an untouched target");
+            EnemyState target = EnemyById(sim, targetId);
+            sim.Tick(new SimInput { MoveX = target.X > sim.Player.X ? 1f : -1f });
+            target = EnemyById(sim, targetId);
+            Assert.That(target.Dead, Is.False, "the fixture target survives through the facing tick");
+            Assert.That(target.Health, Is.EqualTo(target.MaxHealth), "the fixture target is untouched");
+            Assert.That(IsoDistance(target.X, target.Y, sim.Player.X, sim.Player.Y), Is.LessThanOrEqualTo(120f));
+            Assert.That((target.X - sim.Player.X) * sim.Player.Facing,
+                Is.GreaterThanOrEqualTo(SimConfig.FacingArcTolerance));
+
+            float before = target.Health;
+            sim.Tick(new SimInput { AttackQueued = true });
+            for (int tick = 0; tick < 30 && (sim.Events & SimEvents.EnemyHit) == 0; tick += 1)
+            {
+                sim.Tick(Idle);
+            }
+            float dealt = before - EnemyById(sim, targetId).Health;
+            Assert.That(dealt, Is.EqualTo(expected).Within(1e-2f));
+        }
+
         [Test]
         public void GravePulse_LastsExactlyThreeSecondsOnADurableTarget()
         {
@@ -1504,6 +1639,189 @@ namespace CinderCourt.Tests
         }
 
         [Test]
+        public void Companion_HoldLocksCoordinatesWhileRetainingItsAttackCadence()
+        {
+            var config = Dungeon(cloak: 5, companionId: "ember-cohort");
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = -1f });
+            }
+
+            sim.Tick(new SimInput { CompanionHoldQueued = true });
+            IHackSnapshot heldSnapshot = sim;
+            float heldX = sim.CompanionX;
+            float heldY = sim.CompanionY;
+            Assert.That(heldSnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Hold));
+
+            int firstHitAt = -1;
+            int secondHitAt = -1;
+            for (int tick = 0; tick < 60 * 4; tick += 1)
+            {
+                sim.Tick(Idle);
+                Assert.That(sim.CompanionX, Is.EqualTo(heldX).Within(Tolerance), "hold must retain x");
+                Assert.That(sim.CompanionY, Is.EqualTo(heldY).Within(Tolerance), "hold must retain y");
+                if ((sim.Events & SimEvents.EnemyHit) == SimEvents.None)
+                {
+                    continue;
+                }
+
+                Assert.That(sim.CompanionAttacking, Is.True,
+                    "holding only stops follower movement, not companion combat");
+                if (firstHitAt < 0)
+                {
+                    firstHitAt = tick;
+                }
+                else
+                {
+                    secondHitAt = tick;
+                    break;
+                }
+            }
+
+            Assert.That(firstHitAt, Is.GreaterThanOrEqualTo(0), "the held companion must still engage");
+            Assert.That(secondHitAt, Is.GreaterThan(firstHitAt), "the held companion must attack more than once");
+            Assert.That((secondHitAt - firstHitAt) * SimConfig.FixedStep,
+                Is.EqualTo(HackSpec.CompanionAttackInterval).Within(SimConfig.FixedStep),
+                "hold preserves the existing 1.1 s attack cadence");
+        }
+
+        [Test]
+        public void Companion_RecallResumesFollowingWithoutTeleporting()
+        {
+            var config = Dungeon(cloak: 5, companionId: "ember-cohort");
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = -1f });
+            }
+            sim.Tick(new SimInput { CompanionHoldQueued = true });
+            float heldX = sim.CompanionX;
+            float heldY = sim.CompanionY;
+
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = 1f });
+            }
+            Assert.That(sim.CompanionX, Is.EqualTo(heldX).Within(Tolerance), "hold must survive player movement");
+            Assert.That(sim.CompanionY, Is.EqualTo(heldY).Within(Tolerance), "hold must survive player movement");
+
+            float targetX = sim.Player.X - HackSpec.CompanionFollowOffset * sim.Player.Facing;
+            float targetY = sim.Player.Y;
+            float distanceBeforeRecall = MathF.Sqrt(
+                (targetX - sim.CompanionX) * (targetX - sim.CompanionX)
+                + (targetY - sim.CompanionY) * (targetY - sim.CompanionY));
+            sim.Tick(new SimInput { CompanionRecallQueued = true });
+            float recallStep = MathF.Sqrt(
+                (sim.CompanionX - heldX) * (sim.CompanionX - heldX)
+                + (sim.CompanionY - heldY) * (sim.CompanionY - heldY));
+            float distanceAfterRecall = MathF.Sqrt(
+                (targetX - sim.CompanionX) * (targetX - sim.CompanionX)
+                + (targetY - sim.CompanionY) * (targetY - sim.CompanionY));
+
+            Assert.That(sim.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            Assert.That(recallStep, Is.GreaterThan(0f), "recall must resume normal movement");
+            Assert.That(recallStep, Is.LessThanOrEqualTo(config.PlayerSpeed * SimConfig.FixedStep + Tolerance),
+                "recall must take a normal follower step instead of teleporting");
+            Assert.That(distanceAfterRecall, Is.LessThan(distanceBeforeRecall), "recall must close the follow gap");
+
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(Idle);
+            }
+            Assert.That(sim.CompanionX,
+                Is.EqualTo(sim.Player.X - HackSpec.CompanionFollowOffset * sim.Player.Facing).Within(Tolerance));
+            Assert.That(sim.CompanionY, Is.EqualTo(sim.Player.Y).Within(Tolerance));
+        }
+
+        [Test]
+        public void Companion_SimultaneousHoldAndRecallResolvesToRecall()
+        {
+            var config = Dungeon(companionId: "ember-cohort");
+            var control = new CinderSim(in config);
+            var simultaneous = new CinderSim(in config);
+            for (int tick = 0; tick < 90; tick += 1)
+            {
+                var input = new SimInput { MoveX = -1f };
+                control.Tick(in input);
+                simultaneous.Tick(in input);
+            }
+
+            control.Tick(Idle);
+            simultaneous.Tick(new SimInput { CompanionHoldQueued = true, CompanionRecallQueued = true });
+
+            Assert.That(simultaneous.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            Assert.That(simultaneous.CompanionX, Is.EqualTo(control.CompanionX).Within(Tolerance));
+            Assert.That(simultaneous.CompanionY, Is.EqualTo(control.CompanionY).Within(Tolerance));
+            Assert.That(simultaneous.Events, Is.EqualTo(control.Events),
+                "hold/recall inputs must not create a new event when recall wins");
+            AssertSameDigest(control.Digest, simultaneous.Digest, "simultaneous commands must match a follow control");
+        }
+
+        [Test]
+        public void Companion_RedundantCommandsAreNoOpsAndRestartResetsFollow()
+        {
+            var config = Dungeon(companionId: "ember-cohort");
+            var following = new CinderSim(in config);
+            var followControl = new CinderSim(in config);
+            following.Tick(new SimInput { CompanionRecallQueued = true });
+            followControl.Tick(Idle);
+            Assert.That(following.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            Assert.That(following.CompanionX, Is.EqualTo(followControl.CompanionX).Within(Tolerance));
+            Assert.That(following.CompanionY, Is.EqualTo(followControl.CompanionY).Within(Tolerance));
+            Assert.That(following.Events, Is.EqualTo(followControl.Events));
+
+            following.Tick(new SimInput { CompanionHoldQueued = true });
+            followControl.Tick(new SimInput { CompanionHoldQueued = true });
+            following.Tick(new SimInput { CompanionHoldQueued = true });
+            followControl.Tick(Idle);
+            Assert.That(following.CompanionBehavior, Is.EqualTo(CompanionBehavior.Hold));
+            Assert.That(following.CompanionX, Is.EqualTo(followControl.CompanionX).Within(Tolerance));
+            Assert.That(following.CompanionY, Is.EqualTo(followControl.CompanionY).Within(Tolerance));
+            Assert.That(following.Events, Is.EqualTo(followControl.Events));
+
+            following.Tick(new SimInput { RestartQueued = true });
+            Assert.That(following.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            Assert.That(following.CompanionX,
+                Is.EqualTo(following.Player.X - HackSpec.CompanionFollowOffset * following.Player.Facing).Within(Tolerance));
+            Assert.That(following.CompanionY, Is.EqualTo(following.Player.Y).Within(Tolerance));
+        }
+
+        [Test]
+        public void Companion_CommandsAreInertOutsideDungeonAndWithoutAnActiveCompanion()
+        {
+            var arena = HackConfig.Arena();
+            arena.CompanionId = "ember-cohort";
+            AssertCompanionCommandsAreInert(arena, "arena");
+
+            var prologue = HackConfig.Prologue();
+            prologue.CompanionId = "ember-cohort";
+            AssertCompanionCommandsAreInert(prologue, "prologue");
+
+            AssertCompanionCommandsAreInert(Dungeon(), "dungeon without a companion");
+        }
+
+        [Test]
+        public void Companion_CommandSequencesProduceIdenticalSnapshotsAndDigests()
+        {
+            var config = Dungeon(attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2,
+                companionId: "ember-cohort");
+            var first = new CinderSim(in config);
+            var second = new CinderSim(in config);
+            RunDigest firstDigest = RunCompanionCommandSequence(first);
+            RunDigest secondDigest = RunCompanionCommandSequence(second);
+
+            AssertSameDigest(firstDigest, secondDigest, "hold/recall command replay");
+            Assert.That(first.CompanionBehavior, Is.EqualTo(second.CompanionBehavior));
+            Assert.That(first.CompanionX, Is.EqualTo(second.CompanionX).Within(Tolerance));
+            Assert.That(first.CompanionY, Is.EqualTo(second.CompanionY).Within(Tolerance));
+            Assert.That(first.CompanionFacing, Is.EqualTo(second.CompanionFacing));
+            Assert.That(first.CompanionAttacking, Is.EqualTo(second.CompanionAttacking));
+            Assert.That(first.Player.X, Is.EqualTo(second.Player.X).Within(Tolerance));
+            Assert.That(first.Player.Y, Is.EqualTo(second.Player.Y).Within(Tolerance));
+        }
+
+        [Test]
         public void EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose()
         {
             var unclearedConfig = Dungeon();
@@ -1540,6 +1858,330 @@ namespace CinderCourt.Tests
                 "selection closes through the public Ember Rest exit");
             AssertSamePreparationOffer(first1, rest.SelectedPreparation,
                 "the selected offer persists after the rest closes");
+        }
+
+        [Test]
+        public void EmberRest_LegacyRoomsPersistTheirSelectedOffer()
+        {
+            var sim = ClearedCinderSpan();
+            IRunPreparationSnapshot rest = sim;
+            for (int roomIndex = 1; roomIndex <= 3; roomIndex += 1)
+            {
+                int selectedIndex = roomIndex - 1;
+                int rewardSeed = 173 + roomIndex;
+                Assert.That(sim.BeginEmberRest(roomIndex, rewardSeed), Is.True, $"room {roomIndex} must remain available");
+
+                PreparationOffer expected;
+                switch (selectedIndex)
+                {
+                    case 0: expected = rest.EmberRestOffer0; break;
+                    case 1: expected = rest.EmberRestOffer1; break;
+                    default: expected = rest.EmberRestOffer2; break;
+                }
+
+                Assert.That(sim.TrySelectPreparation(selectedIndex), Is.True, $"room {roomIndex} selection");
+                Assert.That(sim.EndEmberRest(), Is.True, $"room {roomIndex} close");
+                AssertSamePreparationOffer(expected, rest.SelectedPreparation, $"room {roomIndex} selected offer");
+            }
+        }
+
+        [Test]
+        public void EmberRest_ExtendedRoomsAreAvailableAndRepeatTheirOffersDeterministically()
+        {
+            var sim = ClearedCinderSpan();
+            IRunPreparationSnapshot rest = sim;
+            Assert.That(sim.BeginEmberRest(6, 173), Is.False, "room six remains outside the 1..5 contract");
+
+            for (int roomIndex = 4; roomIndex <= 5; roomIndex += 1)
+            {
+                int rewardSeed = 173 + roomIndex;
+                Assert.That(sim.BeginEmberRest(roomIndex, rewardSeed), Is.True, $"room {roomIndex} must be available");
+                Assert.That(rest.EmberRestRoomIndex, Is.EqualTo(roomIndex));
+                PreparationOffer first0 = rest.EmberRestOffer0;
+                PreparationOffer first1 = rest.EmberRestOffer1;
+                PreparationOffer first2 = rest.EmberRestOffer2;
+                Assert.That(first0.IsValid && first1.IsValid && first2.IsValid, Is.True,
+                    $"room {roomIndex} must publish all selectable offers");
+
+                Assert.That(sim.EndEmberRest(), Is.True);
+                Assert.That(sim.BeginEmberRest(roomIndex, rewardSeed), Is.True,
+                    $"room {roomIndex} must reopen with the same seed");
+                AssertSamePreparationOffer(first0, rest.EmberRestOffer0, $"room {roomIndex} first offer");
+                AssertSamePreparationOffer(first1, rest.EmberRestOffer1, $"room {roomIndex} second offer");
+                AssertSamePreparationOffer(first2, rest.EmberRestOffer2, $"room {roomIndex} third offer");
+                Assert.That(sim.EndEmberRest(), Is.True);
+            }
+        }
+
+        [Test]
+        public void EmberRestPreparation_StatVariantsApplyOnlyTheirCappedDestinationStat()
+        {
+            for (int variant = 1; variant <= 3; variant += 1)
+            {
+                for (int magnitude = 1; magnitude <= 2; magnitude += 1)
+                {
+                    var config = Dungeon(attack: 9, vitality: 9, swiftness: 9);
+                    config.PreparationOffer = Preparation(PreparationOfferKind.Stat, variant, magnitude);
+                    var sim = FirstWaveEnemyInRange(config);
+                    int expectedAttack = variant == 1 ? Math.Min(10, 9 + magnitude) : 9;
+                    int expectedVitality = variant == 2 ? Math.Min(10, 9 + magnitude) : 9;
+                    int expectedSwiftness = variant == 3 ? Math.Min(10, 9 + magnitude) : 9;
+
+                    Assert.That(sim.Player.Health,
+                        Is.EqualTo(SimConfig.PlayerMaxHealth + HackSpec.VitalityHealthPerPoint * expectedVitality)
+                            .Within(Tolerance),
+                        $"stat variant {variant}, magnitude {magnitude} vitality");
+
+                    float x = sim.Player.X;
+                    sim.Tick(new SimInput { MoveX = 1f });
+                    Assert.That(sim.Player.X - x,
+                        Is.EqualTo(SimConfig.PlayerSpeed
+                            * (1f + HackSpec.SwiftnessSpeedPerPoint * expectedSwiftness)
+                            * SimConfig.FixedStep).Within(Tolerance),
+                        $"stat variant {variant}, magnitude {magnitude} swiftness");
+
+                    AssertInRangeSwingDamage(
+                        sim,
+                        SimConfig.PlayerDamage * (1f + HackSpec.AttackPerPoint * expectedAttack));
+                }
+            }
+        }
+
+        [Test]
+        public void EmberRestPreparation_SkillRuneVariantsMultiplyOnlyTheirSelectedSkillDamage()
+        {
+            for (int magnitude = 1; magnitude <= 2; magnitude += 1)
+            {
+                float multiplier = 1f + 0.10f * magnitude;
+
+                var bolt = ClusteredWaveTwo(
+                    preparation: Preparation(PreparationOfferKind.SkillRune, 1, magnitude));
+                bolt.Tick(new SimInput { MoveX = -1f });
+                int primaryId = -1;
+                float primaryDistance = float.MaxValue;
+                int boltEliteId = -1;
+                for (int index = 0; index < bolt.Enemies.Count; index += 1)
+                {
+                    EnemyState enemy = bolt.Enemies[index];
+                    float distance = IsoDistance(enemy.X, enemy.Y, bolt.Player.X, bolt.Player.Y);
+                    if (distance < primaryDistance)
+                    {
+                        primaryDistance = distance;
+                        primaryId = enemy.Id;
+                    }
+                    if (IsElite(enemy))
+                    {
+                        boltEliteId = enemy.Id;
+                    }
+                }
+                EnemyState primary = EnemyById(bolt, primaryId);
+                EnemyState boltElite = EnemyById(bolt, boltEliteId);
+                Assert.That(boltEliteId, Is.GreaterThan(0), "clustered wave contains a durable bolt target");
+                Assert.That(boltEliteId == primaryId
+                        || IsoDistance(boltElite.X, boltElite.Y, primary.X, primary.Y) <= HackSpec.BoltSplashRadius,
+                    Is.True,
+                    "the durable elite receives either the bolt primary or its splash");
+                bolt.Tick(new SimInput { BoltQueued = true });
+                float boltScale = boltEliteId == primaryId ? 1f : HackSpec.BoltSplashScale;
+                float boltExpected = HackSpec.BoltDamage * multiplier * boltScale
+                    * HackSpec.Matchup(Element.Void, HackSpec.ElementOf(boltElite.Visual));
+                Assert.That(boltElite.MaxHealth - EnemyById(bolt, boltEliteId).Health,
+                    Is.EqualTo(boltExpected).Within(1e-2f),
+                    $"rift bolt magnitude {magnitude}");
+
+                var pulse = ClusteredWaveTwo(
+                    preparation: Preparation(PreparationOfferKind.SkillRune, 2, magnitude));
+                pulse.Tick(new SimInput { MoveX = -1f });
+                int pulseEliteId = -1;
+                for (int index = 0; index < pulse.Enemies.Count; index += 1)
+                {
+                    if (IsElite(pulse.Enemies[index]))
+                    {
+                        pulseEliteId = pulse.Enemies[index].Id;
+                        break;
+                    }
+                }
+                pulse.Tick(new SimInput { PulseQueued = true });
+                for (int tick = 0; tick < 30 && (pulse.Events & SimEvents.EnemyHit) == SimEvents.None; tick += 1)
+                {
+                    pulse.Tick(Idle);
+                }
+                EnemyState pulseElite = EnemyById(pulse, pulseEliteId);
+                float pulseExpected = HackSpec.PulseTickDamage * multiplier
+                    * HackSpec.Matchup(Element.Ember, HackSpec.ElementOf(pulseElite.Visual));
+                Assert.That(pulseElite.MaxHealth - pulseElite.Health,
+                    Is.EqualTo(pulseExpected).Within(1e-2f),
+                    $"grave pulse tick magnitude {magnitude}");
+
+                var nova = ClusteredWaveTwo(
+                    preparation: Preparation(PreparationOfferKind.SkillRune, 3, magnitude));
+                nova.Tick(new SimInput { MoveX = -1f });
+                int novaEliteId = -1;
+                for (int index = 0; index < nova.Enemies.Count; index += 1)
+                {
+                    if (IsElite(nova.Enemies[index]))
+                    {
+                        novaEliteId = nova.Enemies[index].Id;
+                        break;
+                    }
+                }
+                EnemyState novaEliteBefore = EnemyById(nova, novaEliteId);
+                Assert.That(IsoDistance(novaEliteBefore.X, novaEliteBefore.Y, nova.Player.X, nova.Player.Y),
+                    Is.LessThanOrEqualTo(HackSpec.AshNovaRadius), "the durable elite is inside the nova");
+                nova.Tick(new SimInput { NovaQueued = true });
+                EnemyState novaElite = EnemyById(nova, novaEliteId);
+                float novaExpected = HackSpec.AshNovaDamage * multiplier
+                    * HackSpec.Matchup(Element.Ember, HackSpec.ElementOf(novaElite.Visual));
+                Assert.That(novaElite.MaxHealth - novaElite.Health,
+                    Is.EqualTo(novaExpected).Within(1e-2f),
+                    $"ash nova magnitude {magnitude}");
+            }
+        }
+
+        [Test]
+        public void EmberRestPreparation_GuardianResonanceUsesOnlyItsSelectedCompanionValue()
+        {
+            for (int magnitude = 1; magnitude <= 2; magnitude += 1)
+            {
+                var cadenceConfig = Dungeon(companionId: "ember-cohort");
+                cadenceConfig.PreparationOffer = Preparation(PreparationOfferKind.GuardianResonance, 1, magnitude);
+                var cadence = new CinderSim(in cadenceConfig);
+                int firstHitAt = -1;
+                int secondHitAt = -1;
+                for (int tick = 0; tick < 60 * 30 && secondHitAt < 0; tick += 1)
+                {
+                    cadence.Tick(Idle);
+                    if ((cadence.Events & SimEvents.EnemyHit) == SimEvents.None || !cadence.CompanionAttacking)
+                    {
+                        continue;
+                    }
+                    if (firstHitAt < 0)
+                    {
+                        firstHitAt = tick;
+                    }
+                    else
+                    {
+                        secondHitAt = tick;
+                    }
+                }
+                Assert.That(firstHitAt, Is.GreaterThanOrEqualTo(0), $"cadence magnitude {magnitude} first hit");
+                Assert.That(secondHitAt, Is.GreaterThan(firstHitAt), $"cadence magnitude {magnitude} second hit");
+                float expectedCadence = MathF.Max(0.5f,
+                    HackSpec.CompanionAttackInterval * (1f - 0.10f * magnitude));
+                Assert.That((secondHitAt - firstHitAt) * SimConfig.FixedStep,
+                    Is.EqualTo(expectedCadence).Within(SimConfig.FixedStep),
+                    $"guardian cadence magnitude {magnitude}");
+
+                var rangeConfig = Dungeon(companionId: "ember-cohort");
+                rangeConfig.PreparationOffer = Preparation(PreparationOfferKind.GuardianResonance, 2, magnitude);
+                var ordinaryRangeConfig = Dungeon(companionId: "ember-cohort");
+                var ordinaryRange = new CinderSim(in ordinaryRangeConfig);
+                var preparedRange = new CinderSim(in rangeConfig);
+                float extendedRange = HackSpec.CompanionAttackRange + 20f * magnitude;
+                bool hitOnlyInExtendedBand = false;
+                for (int tick = 0; tick < 60 * 60 && !hitOnlyInExtendedBand; tick += 1)
+                {
+                    float nearest = float.MaxValue;
+                    for (int index = 0; index < preparedRange.Enemies.Count; index += 1)
+                    {
+                        EnemyState enemy = preparedRange.Enemies[index];
+                        if (!enemy.Dead)
+                        {
+                            nearest = MathF.Min(nearest,
+                                IsoDistance(enemy.X, enemy.Y, preparedRange.CompanionX, preparedRange.CompanionY));
+                        }
+                    }
+
+                    SimInput input = new SimInput
+                    {
+                        MoveX = tick < 180 ? 1f : -1f,
+                        CompanionHoldQueued = tick == 0,
+                    };
+                    ordinaryRange.Tick(in input);
+                    preparedRange.Tick(in input);
+                    if ((preparedRange.Events & SimEvents.EnemyHit) == SimEvents.None
+                        || !preparedRange.CompanionAttacking)
+                    {
+                        continue;
+                    }
+
+                    Assert.That(nearest, Is.LessThanOrEqualTo(extendedRange + Tolerance),
+                        $"guardian range magnitude {magnitude} must not attack beyond its stated range");
+                    if (nearest > HackSpec.CompanionAttackRange + Tolerance
+                        && (ordinaryRange.Events & SimEvents.EnemyHit) == SimEvents.None)
+                    {
+                        hitOnlyInExtendedBand = true;
+                    }
+                }
+                Assert.That(hitOnlyInExtendedBand, Is.True,
+                    $"guardian range magnitude {magnitude} must reach an enemy beyond 200 px");
+
+                var damageConfig = Dungeon(companionId: "ember-cohort");
+                damageConfig.PreparationOffer = Preparation(PreparationOfferKind.GuardianResonance, 3, magnitude);
+                var damage = new CinderSim(in damageConfig);
+                float dealt = -1f;
+                var ids = new System.Collections.Generic.List<int>();
+                var health = new System.Collections.Generic.List<float>();
+                for (int tick = 0; tick < 60 * 30 && dealt < 0f; tick += 1)
+                {
+                    ids.Clear();
+                    health.Clear();
+                    for (int index = 0; index < damage.Enemies.Count; index += 1)
+                    {
+                        ids.Add(damage.Enemies[index].Id);
+                        health.Add(damage.Enemies[index].Health);
+                    }
+
+                    damage.Tick(Idle);
+                    if ((damage.Events & SimEvents.EnemyHit) == SimEvents.None || !damage.CompanionAttacking)
+                    {
+                        continue;
+                    }
+                    for (int index = 0; index < damage.Enemies.Count; index += 1)
+                    {
+                        EnemyState enemy = damage.Enemies[index];
+                        int before = ids.IndexOf(enemy.Id);
+                        if (before >= 0 && health[before] > enemy.Health)
+                        {
+                            dealt = health[before] - enemy.Health;
+                            break;
+                        }
+                    }
+                }
+                Assert.That(dealt,
+                    Is.EqualTo(SimConfig.PlayerDamage * HackSpec.CompanionDamageScale
+                        * (1f + 0.10f * magnitude)).Within(1e-2f),
+                    $"guardian damage magnitude {magnitude}");
+            }
+        }
+
+        [Test]
+        public void EmberRestPreparation_NoneAndInvalidOffersAreExactDungeonNoOps()
+        {
+            HackConfig dungeon = Dungeon(companionId: "ember-cohort");
+            AssertPreparationIsInert(dungeon, default, "default preparation");
+            AssertPreparationIsInert(dungeon, Preparation(PreparationOfferKind.None, 1, 2), "none kind");
+            AssertPreparationIsInert(dungeon, Preparation(PreparationOfferKind.Stat, 0, 1), "low variant");
+            AssertPreparationIsInert(dungeon, Preparation(PreparationOfferKind.SkillRune, 4, 1), "high variant");
+            AssertPreparationIsInert(dungeon, Preparation(PreparationOfferKind.GuardianResonance, 1, 0), "low magnitude");
+            AssertPreparationIsInert(dungeon, Preparation(PreparationOfferKind.GuardianResonance, 1, 3), "high magnitude");
+            AssertPreparationIsInert(dungeon, Preparation((PreparationOfferKind)99, 1, 1), "unknown kind");
+        }
+
+        [Test]
+        public void EmberRestPreparation_IsInertInArenaAndPrologue()
+        {
+            PreparationOffer[] offers =
+            {
+                Preparation(PreparationOfferKind.Stat, 1, 2),
+                Preparation(PreparationOfferKind.SkillRune, 2, 2),
+                Preparation(PreparationOfferKind.GuardianResonance, 3, 2),
+            };
+            for (int index = 0; index < offers.Length; index += 1)
+            {
+                AssertPreparationIsInert(HackConfig.Arena(), offers[index], $"arena offer {index}");
+                AssertPreparationIsInert(HackConfig.Prologue(), offers[index], $"prologue offer {index}");
+            }
         }
 
         // --- §7 boss phase 2 ------------------------------------------------------
@@ -1649,20 +2291,28 @@ namespace CinderCourt.Tests
         // --- §13 determinism ------------------------------------------------------
 
         [Test]
-        public void Hack_Deterministic_SameConfigAndInputsProduceTheSameDigest()
+        public void Companion_DefaultFollowWithoutCommandsPreservesTheDungeonDigest()
         {
             var config = Dungeon(attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2,
                 companionId: "ember-cohort");
+            var firstSim = new CinderSim(in config);
+            var secondSim = new CinderSim(in config);
 
-            RunDigest first = RunHackScript(config);
-            RunDigest second = RunHackScript(config);
-            AssertSameDigest(first, second, "the dungeon run must be reproducible");
+            RunDigest first = RunHackScript(firstSim);
+            RunDigest second = RunHackScript(secondSim);
+            AssertSameDigest(first, second, "a dungeon run with no hold/recall commands must be reproducible");
             Assert.That(first.Kills, Is.GreaterThan(0), "the scripted run must not be empty");
+            IHackSnapshot firstSnapshot = firstSim;
+            IHackSnapshot secondSnapshot = secondSim;
+            Assert.That(firstSnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow),
+                "the public snapshot defaults omitted control fields to Follow");
+            Assert.That(secondSnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            Assert.That(firstSim.CompanionX, Is.EqualTo(secondSim.CompanionX).Within(Tolerance));
+            Assert.That(firstSim.CompanionY, Is.EqualTo(secondSim.CompanionY).Within(Tolerance));
         }
 
-        private static RunDigest RunHackScript(HackConfig config)
+        private static RunDigest RunHackScript(CinderSim sim)
         {
-            var sim = new CinderSim(in config);
             for (int tick = 0; tick < 1800; tick += 1)
             {
                 var input = Script(tick);

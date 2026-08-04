@@ -30,6 +30,8 @@ namespace CinderCourt.Sim
         public bool DashQueued;
         public bool BoltQueued;
         public bool PulseQueued;
+        public bool CompanionHoldQueued;
+        public bool CompanionRecallQueued;
     }
 
     public struct PlayerState

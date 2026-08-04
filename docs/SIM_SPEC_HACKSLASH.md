@@ -202,3 +202,168 @@ stateDiagram-v2
 - `docs/RELEASE_NOTES.md` v0.2.0 항목.
 - git tag `v0.2.0` + `gh release create` (릴리즈 노트 + 플레이 영상 첨부).
 - 배포: gh-pages 갱신 후 프로덕션 스모크.
+
+## Frozen Contract Amendment #3 — Companion Hold / Recall (2026-08-04)
+
+**Status: additive and frozen.** This amendment amends §§4, 12, and 13 only as
+specified below. It supersedes only an incompatible interpretation of those
+sections; every other existing companion, input, snapshot, determinism, and
+mode contract remains in force.
+
+### Scope and invariants
+
+- Use the existing **Companion** noun. The controls apply only to the active
+  configured companion in `Dungeon`; they are inert in `Arena`, `Prologue`, and
+  any run with no active companion.
+- `SimInput.CompanionHoldQueued` and `SimInput.CompanionRecallQueued` are
+  additive, one-shot bool inputs. If both are queued in one simulation update,
+  **recall wins**: both inputs are consumed and only recall takes effect.
+- `CompanionBehavior.Hold` captures and locks the companion's current
+  coordinates. While held, only follower movement is skipped. The companion
+  still uses its existing nearest-target selection, 200 px range, 1.1 s
+  cadence, player-damage ×60% neutral damage, and untargetable status from §4.
+- `CompanionBehavior.Follow` is the default. Recall changes behavior to
+  `Follow` and resumes the existing 80 px-offset follower movement on its
+  normal update path; it must not teleport or otherwise relocate the companion.
+- Holding an already held companion and recalling an already following
+  companion are no-ops. `Restart` always resets behavior to `Follow`.
+
+### SimTypes, snapshot, and migration
+
+- §12's frozen `SimInput` list is extended only with
+  `CompanionHoldQueued` and `CompanionRecallQueued` (bool).
+- Add `CompanionBehavior { Follow, Hold }` and expose a public
+  `CompanionBehavior` field on the hack/campaign snapshot surface. Every
+  restored or migrated snapshot that lacks this field defaults to `Follow`.
+- No `SimEvents` member or event semantics are added. §11 persistence is
+  unchanged: companion behavior is neither saved nor restored as campaign
+  progress.
+
+### Explicit non-goals
+
+- No companion skills, equipment, persistence, or cooldowns.
+- No change to `GuardianResonance` effect semantics.
+- No replacement of existing companion combat, follow distance, targeting,
+  damage, or untargetability rules beyond skipping follower movement while held.
+
+### Required deterministic proof before release
+
+- A no-command `Dungeon` regression preserves its existing digest, and every
+  legacy `Arena` and `Prologue` digest remains unchanged.
+- An active `Dungeon` companion holds at the coordinates captured by hold while
+  retaining its existing target/range/cadence/damage/untargetability behavior;
+  recall resumes ordinary 80 px following without a teleport.
+- Simultaneous hold and recall resolves to recall; redundant hold/recall
+  commands are no-ops; restart resets `Follow`; and both commands are inert in
+  `Arena`, `Prologue`, and runs without a companion.
+- Snapshot construction and migration default an omitted behavior field to
+  `Follow`, while a public snapshot exposes the current behavior; the controls
+  introduce no `SimEvents` flag.
+- Replaying identical complete config and hold/recall command sequences yields
+  identical snapshots and digests.
+
+## Frozen Contract Amendment #4 — Ember Rest Next-Room Preparation (2026-08-04)
+
+**Status: additive and frozen.** This amendment defines the sole runtime meaning
+of an Ember Rest `PreparationOffer`. It amends §§2–4, 12, and 13 only as
+specified below. It preserves all frozen `Arena`, `Prologue`, and unselected
+`Dungeon` behavior.
+
+### Ownership, handoff, and lifetime
+
+- `GameDirector` owns exactly one transient selected `PreparationOffer` for the
+  next logical room. An Ember Rest selection replaces that one value; no
+  selection is represented as `None`.
+- On the next-stage handoff, `GameDirector` passes that exact selected offer
+  into `HackConfig`. `HackConfig` owns the resulting room-local
+  `PreparationOffer` value; it is not reconstructed from UI state, campaign
+  state, or a second random selection.
+- The offer is active only for that one destination `Dungeon` room. It applies
+  from the room's configuration through the room end, then is consumed and
+  discarded. It must not carry to a later room, retry, stage, or campaign.
+- The selection and the `HackConfig` value are transient. They are not saved,
+  restored, migrated, included in campaign progress, or exposed as persistent
+  inventory, equipment, companion state, or an `IHackSnapshot` field.
+- `None` and no Ember Rest selection are exact no-ops: they alter no
+  `HackConfig` gameplay value, event, snapshot, digest, room routing, or
+  persistent state.
+- Ember Rest offer generation and its deterministic hash are unchanged. This
+  amendment carries the already selected offer; it neither rehashes it nor
+  changes its candidate set, ordering, seed inputs, or selection rule.
+
+### Exact destination-Dungeon effects
+
+Let `m` be the selected offer's existing magnitude, where `m ∈ {1, 2}`. All
+effects in this section apply only when `HackConfig.Mode == Dungeon`; every
+other mode treats the carried offer as inert.
+
+- `Stat` variant 1, 2, or 3 targets `Attack`, `Vitality`, or `Swiftness`,
+  respectively. Add `m` to that existing in-run preparation stat, capped at
+  the existing maximum of 10:
+  `preparedStat = min(10, existingStat + m)`. The other two stats are
+  unchanged.
+- `SkillRune` variant 1, 2, or 3 targets `Rift Bolt`, `Grave Pulse`, or `Ash
+  Nova`, respectively. Its only effect is a damage multiplier
+  `1 + 0.10 × m` on the selected skill in the destination Dungeon:
+  `riftBoltDamage × (1 + 0.10 × m)`,
+  `gravePulseTickDamage × (1 + 0.10 × m)`, or
+  `ashNovaDamage × (1 + 0.10 × m)`. In particular, Grave Pulse modifies each
+  tick, not its duration, interval, radius, cast cost, cooldown, or any
+  non-tick value. The non-selected skills are unchanged.
+- `GuardianResonance` variant 1, 2, or 3 targets companion cadence, range, or
+  damage, respectively, and only in the destination Dungeon:
+  `cadence = max(0.5 s, 1.1 s × (1 - 0.10 × m))`,
+  `range = 200 px + 20 px × m`, or
+  `damage = ordinaryCompanionDamage × (1 + 0.10 × m)`.
+  The two non-selected companion values remain their ordinary §4 values.
+  `ordinaryCompanionDamage` retains §4's player-damage ×60% neutral-damage
+  basis before this multiplier.
+
+### Compatibility and explicit non-goals
+
+- This amendment supersedes **only** Amendment #3's “No change to
+  `GuardianResonance` effect semantics” non-goal, and only for a selected,
+  transient Ember Rest `GuardianResonance` offer under the exact formulas
+  above.
+- It does not alter the ordinary §4 companion combat contract or Amendment
+  #3's hold/recall contract. In particular, absent that selected temporary
+  offer, companion follow offset, target selection, cadence, range, damage,
+  neutral element, untargetability, hold coordinates, recall behavior, and
+  command precedence remain unchanged.
+- It adds no persistence, progression reward, inventory item, equipment,
+  cooldown, skill unlock, new random draw, `SimInput`, `SimEvents`, or
+  cross-mode effect. It does not alter any damage, stat, or companion value in
+  `Arena`, `Prologue`, a Dungeon without a selection, or a Dungeon configured
+  with `None`.
+
+### Required visible wording
+
+The Ember Rest offer card and the selected-offer confirmation must name the
+affected target and exact magnitude rather than describe a generic “boost”:
+
+- `Attack +{m}`, `Vitality +{m}`, or `Swiftness +{m}` for `Stat`.
+- `Rift Bolt +{10 × m}% damage`, `Grave Pulse +{10 × m}% tick damage`, or
+  `Ash Nova +{10 × m}% damage` for `SkillRune`.
+- `Companion cadence −{10 × m}% (min 0.5 s)`,
+  `Companion range +{20 × m} px`, or
+  `Companion damage +{10 × m}%` for `GuardianResonance`.
+
+Each braced expression is rendered as its evaluated integer: `m = 1` yields
+`+1`, `+10%`, or `+20 px`; `m = 2` yields `+2`, `+20%`, or `+40 px`.
+
+### Required deterministic proof before release
+
+- Every `Stat`, `SkillRune`, and `GuardianResonance` variant at magnitudes 1
+  and 2 must apply only its stated destination-Dungeon formula, including the
+  stat cap and the 0.5 s cadence floor.
+- A selected offer must be present in the next destination `HackConfig`, stay
+  active for that room only, and be absent after that room ends; it must never
+  appear in save, restore, migration, campaign-progress, or snapshot data.
+- No selection and `None` must preserve the existing Dungeon result exactly;
+  all legacy `Arena` and `Prologue` digests must remain unchanged even when a
+  carried offer is present.
+- `GuardianResonance` must affect only the selected temporary preparation and
+  leave ordinary §4 and Amendment #3 hold/recall behavior unchanged.
+- Identical complete stage handoffs, selected offers, and simulation inputs
+  must yield identical snapshots and digests. The deterministic Ember Rest
+  offer hash must remain unchanged from before this amendment.
