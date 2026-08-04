@@ -185,6 +185,69 @@ namespace CinderCourt.Tests
             Assert.That(violations, Is.Empty,
                 "touch targets under the 44 CSS px floor:\n" + string.Join("\n", violations));
         }
+        private static PreparationOffer Preparation(PreparationOfferKind kind, int variant, int magnitude)
+        {
+            return new PreparationOffer
+            {
+                Kind = kind,
+                Variant = variant,
+                Magnitude = magnitude
+            };
+        }
+
+        private static Button VisibleButtonWithText(Canvas canvas, string text)
+        {
+            foreach (var button in canvas.GetComponentsInChildren<Button>(false))
+            {
+                var label = button.GetComponentInChildren<Text>();
+                if (label != null && label.text.Contains(text)) return button;
+            }
+            Assert.Fail($"visible button text missing: {text}");
+            return null;
+        }
+
+        private static void AssertVisibleText(Canvas canvas, string text)
+        {
+            foreach (var label in canvas.GetComponentsInChildren<Text>(false))
+            {
+                if (label.text.Contains(text)) return;
+            }
+            Assert.Fail($"visible text missing: {text}");
+        }
+
+        private static List<RectTransform> ButtonRects(params Button[] buttons)
+        {
+            var rects = new List<RectTransform>();
+            foreach (var button in buttons)
+            {
+                var rect = button.transform as RectTransform;
+                Assert.That(rect, Is.Not.Null, $"button lacks a RectTransform: {button.name}");
+                rects.Add(rect);
+            }
+            return rects;
+        }
+
+        private static void AssertRaycastableActions(params Button[] buttons)
+        {
+            foreach (var button in buttons)
+            {
+                Assert.That(button.gameObject.activeInHierarchy, Is.True,
+                    $"visible Ember Rest action is inactive: {button.name}");
+                Assert.That(button.targetGraphic, Is.Not.Null,
+                    $"visible Ember Rest action has no raycast Graphic: {button.name}");
+                Assert.That(button.targetGraphic.raycastTarget, Is.True,
+                    $"visible Ember Rest action cannot receive taps: {button.name}");
+            }
+        }
+
+        private static void AssertHiddenActions(params Button[] buttons)
+        {
+            foreach (var button in buttons)
+            {
+                Assert.That(button.gameObject.activeInHierarchy, Is.False,
+                    $"hidden Ember Rest action still occupies the raycast hierarchy: {button.name}");
+            }
+        }
 
         private Image HealthFill()
         {
@@ -197,6 +260,23 @@ namespace CinderCourt.Tests
             }
             Assert.Fail("HUD did not render a health value");
             return null;
+        }
+
+        [Test]
+        public void PrologueToast_DescribesDesktopOrTouchControls()
+        {
+            var canvas = _hudObject.GetComponentInChildren<Canvas>(true);
+
+            _hud.ShowPrologueToast(0);
+            AssertVisibleText(canvas, "이동 — W A S D 또는 방향키");
+            _hud.ShowPrologueToast(1);
+            AssertVisibleText(canvas, "타격 — Space");
+
+            _hud.ForceTouchControlsForTest();
+            _hud.ShowPrologueToast(0);
+            AssertVisibleText(canvas, "이동 — 왼쪽 조이스틱 드래그");
+            _hud.ShowPrologueToast(1);
+            AssertVisibleText(canvas, "타격 — 오른쪽 타격 버튼");
         }
 
         // --------------------------------------------------------- tests --
@@ -346,6 +426,136 @@ namespace CinderCourt.Tests
             _hud.ResetRunUi();
             Assert.That(_hud.RetryModalVisible, Is.False,
                 "resetting the visible terminal panel must disable the retry shortcut");
+        }
+
+        [Test]
+        public void GameOver_HidesCombatTouchTargets_ClearsTouchInput_AndRestoresOnResume()
+        {
+            var input = _hudObject.AddComponent<InputAdapter>();
+            _hud.Input = input;
+            ArrangePhone(dungeon: true);
+
+            var targets = new List<RectTransform>();
+            _hud.CollectCombatTouchTargetsForTest(targets);
+            Assert.That(targets, Has.Count.EqualTo(3),
+                "the virtual joystick, strike, and dungeon dash hit targets must all be testable");
+            foreach (var target in targets)
+            {
+                Assert.That(target.gameObject.activeInHierarchy, Is.True,
+                    $"combat touch target was not active before game over: {Path(target)}");
+                var hitGraphic = target.GetComponent<Graphic>();
+                Assert.That(hitGraphic, Is.Not.Null,
+                    $"combat touch target lacks its visual hit surface: {Path(target)}");
+                Assert.That(hitGraphic.raycastTarget, Is.True,
+                    $"active combat touch target cannot receive taps: {Path(target)}");
+            }
+
+            input.TouchMoveX = 0.75f;
+            input.TouchMoveY = -0.5f;
+            input.QueueAttack();
+            input.QueueDash();
+            _hud.OnEvents(SimEvents.GameOver, new CinderSim());
+
+            foreach (var target in targets)
+                Assert.That(target.gameObject.activeInHierarchy, Is.False,
+                    $"game-over modal left a combat touch target tappable: {Path(target)}");
+            var gameOverInput = input.Sample();
+            Assert.That(gameOverInput.MoveX, Is.Zero,
+                "game over must clear a held virtual-joystick horizontal move");
+            Assert.That(gameOverInput.MoveY, Is.Zero,
+                "game over must clear a held virtual-joystick vertical move");
+            Assert.That(gameOverInput.AttackQueued, Is.False,
+                "game over must discard a queued strike from a hidden touch target");
+            Assert.That(gameOverInput.DashQueued, Is.False,
+                "game over must discard a queued dash from a hidden touch target");
+
+            _hud.Sync(new CinderSim());
+
+            foreach (var target in targets)
+            {
+                Assert.That(target.gameObject.activeInHierarchy, Is.True,
+                    $"normal gameplay did not restore combat touch target: {Path(target)}");
+                Assert.That(target.GetComponent<Graphic>().raycastTarget, Is.True,
+                    $"restored combat touch target cannot receive taps: {Path(target)}");
+            }
+        }
+
+        [Test]
+        public void PhoneEmberRest_OffersThreeEffects_WithReplacementWordingAnd44PxActions()
+        {
+            var canvas = ArrangePhone(dungeon: true);
+            var attack = Preparation(PreparationOfferKind.Stat, 1, 2);
+            var gravePulse = Preparation(PreparationOfferKind.SkillRune, 2, 1);
+            var companionRange = Preparation(PreparationOfferKind.GuardianResonance, 2, 2);
+
+            _hud.ShowEmberRestForTest(2, attack, gravePulse, companionRange);
+            Canvas.ForceUpdateCanvases();
+
+            Assert.That(_hud.EmberRestVisible, Is.True,
+                "a prepared nonfinal room must expose the actionable Ember Rest panel");
+            AssertVisibleText(canvas, "다음 방에 적용 (이전 준비 대체)");
+
+            var attackButton = VisibleButtonWithText(canvas, "Attack +2");
+            var gravePulseButton = VisibleButtonWithText(canvas, "Grave Pulse +10% tick damage");
+            var companionRangeButton = VisibleButtonWithText(canvas, "Companion range +40 px");
+            var deferButton = VisibleButtonWithText(canvas, "준비 보류");
+            var continueButton = VisibleButtonWithText(canvas, "계속");
+            Assert.That(attackButton, Is.Not.SameAs(gravePulseButton));
+            Assert.That(gravePulseButton, Is.Not.SameAs(companionRangeButton));
+            Assert.That(continueButton.interactable, Is.False,
+                "continuation must require an explicit offer selection or defer");
+
+            var actions = new[] { attackButton, gravePulseButton, companionRangeButton, deferButton, continueButton };
+            AssertRaycastableActions(actions);
+            AssertNoPairwiseOverlap(ButtonRects(actions));
+            AssertTouchFloor(ButtonRects(actions));
+
+            gravePulseButton.onClick.Invoke();
+            Assert.That(continueButton.interactable, Is.True,
+                "selecting a visible offer must unlock the explicit continuation control");
+            AssertVisibleText(canvas, "선택됨: Grave Pulse +10% tick damage");
+            AssertVisibleText(canvas, "다음 방에 적용 (이전 준비 대체)");
+
+            deferButton.onClick.Invoke();
+            AssertVisibleText(canvas, "준비 보류");
+            AssertVisibleText(canvas, "다음 방에 적용 (이전 준비 대체)");
+        }
+
+        [Test]
+        public void EmberRest_HideAndRunReset_RemovePanelRaycastsAndDecisionState()
+        {
+            var canvas = ArrangePhone(dungeon: true);
+            var attack = Preparation(PreparationOfferKind.Stat, 1, 1);
+            var gravePulse = Preparation(PreparationOfferKind.SkillRune, 2, 2);
+            var companionRange = Preparation(PreparationOfferKind.GuardianResonance, 2, 1);
+
+            _hud.ShowEmberRestForTest(2, attack, gravePulse, companionRange);
+            var actions = new[]
+            {
+                VisibleButtonWithText(canvas, "Attack +1"),
+                VisibleButtonWithText(canvas, "Grave Pulse +20% tick damage"),
+                VisibleButtonWithText(canvas, "Companion range +20 px"),
+                VisibleButtonWithText(canvas, "준비 보류"),
+                VisibleButtonWithText(canvas, "계속")
+            };
+            var continueButton = actions[4];
+            AssertRaycastableActions(actions);
+            actions[3].onClick.Invoke();
+            Assert.That(continueButton.interactable, Is.True,
+                "defer is an explicit none choice that enables continuation");
+
+            _hud.HideEmberRest();
+            Assert.That(_hud.EmberRestVisible, Is.False,
+                "hiding the panel must remove its modal interaction surface");
+            AssertHiddenActions(actions);
+
+            _hud.ShowEmberRestForTest(3, attack, gravePulse, companionRange);
+            Assert.That(continueButton.interactable, Is.False,
+                "reopening Ember Rest must not retain a prior defer or selection");
+            _hud.ResetRunUi();
+            Assert.That(_hud.EmberRestVisible, Is.False,
+                "every run entry reset must hide an outstanding Ember Rest panel");
+            AssertHiddenActions(actions);
         }
 
         [Test]

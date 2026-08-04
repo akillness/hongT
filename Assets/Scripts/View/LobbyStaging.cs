@@ -40,6 +40,7 @@ namespace CinderCourt.View
         /// <summary>Compose (or retint) the diorama for the selected stage.</summary>
         public void Show(string stageId, string companionId)
         {
+            if (!StageCatalog.TryGet(stageId, out var stage)) return;
             gameObject.SetActive(true);
             if (_warden == null && _bootstrap != null)
             {
@@ -47,20 +48,26 @@ namespace CinderCourt.View
                 SetAction(_warden, ActorAction.Idle);
             }
 
-            var bossVisual = stageId == CampaignStages.EchoThrone
-                ? "broken-court-monarch-boss" : "shadow-commander-boss";
+            var bossVisual = stage.Boss.ResourceId;
             if (_bossVisualShown != bossVisual)
             {
                 _bossVisualShown = bossVisual;
                 if (_boss != null) Destroy(_boss);
                 var prefab = Resources.Load<GameObject>($"Characters/{bossVisual}");
-                _boss = Compose(prefab, BossSpot, 232f, 1.45f);
-                // §L1 ladder step 2: Show's source motion (Mutant Roaring.fbx)
-                // is a foreign rig vs idle (Unarmed Idle.fbx) — the retarget
-                // crumples the boss in the lobby (the run path never plays
-                // Show). Idle keeps the silhouette clean; menace returns via
-                // rank tint/rim (§P2) once that lands.
+                _boss = Compose(prefab, BossSpot, 232f, 1.45f * stage.Boss.Scale);
+                // Show's source motion is a foreign rig versus idle. Idle keeps
+                // the lobby silhouette clean while catalog tint carries rank.
                 SetAction(_boss, ActorAction.Idle);
+            }
+            if (_boss != null)
+            {
+                // The actor is retained when adjacent stages share the same
+                // fallback resource. Resetting its MPBs and scale on every Show
+                // prevents one logical stage's presentation from leaking into
+                // the next one.
+                _boss.transform.localScale = Vector3.one * (1.45f * stage.Boss.Scale);
+                ClearRendererPropertyBlocks(_boss);
+                TintRenderers(_boss, stage.Boss.Tint);
             }
 
             var wantCompanion = companionId ?? "";
@@ -79,12 +86,7 @@ namespace CinderCourt.View
             }
 
             // Stage accent tint (original two-layer lighting contract).
-            _accent.color = stageId switch
-            {
-                CampaignStages.AbyssChancel => new Color(0.56f, 0.40f, 1f),
-                CampaignStages.EchoThrone => new Color(0.45f, 0.78f, 1f),
-                _ => new Color(0.95f, 0.35f, 0.17f),
-            };
+            _accent.color = stage.AccentColor;
         }
 
         public void Hide()
@@ -127,6 +129,17 @@ namespace CinderCourt.View
             var renderers = root.GetComponentsInChildren<Renderer>();
             for (var i = 0; i < renderers.Length; i++)
                 renderers[i].SetPropertyBlock(block);
+        }
+
+        static void ClearRendererPropertyBlocks(GameObject root)
+        {
+            var block = new MaterialPropertyBlock();
+            var renderers = root.GetComponentsInChildren<Renderer>();
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                block.Clear();
+                renderers[i].SetPropertyBlock(block);
+            }
         }
     }
 }

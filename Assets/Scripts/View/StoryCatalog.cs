@@ -52,6 +52,28 @@ namespace CinderCourt.View
                     }
                     break;
 
+                case "ember-gallery":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "불씨가 늘어선 회랑을 지나, 같은 사슬의 다른 매듭을 찾으세요.";
+                            return true;
+                        case BossEntry:
+                            speaker = CinderWarden;
+                            text = "불꽃이 늘었다고 길이 늘어난 것은 아니다.";
+                            return true;
+                        case BossPhase2:
+                            speaker = CinderWarden;
+                            text = "회랑 끝의 재는 네 발자국을 모두 기억한다.";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "불씨들은 길을 비췄다. 이제 어느 문이 진짜인지 골라야 한다.";
+                            return true;
+                    }
+                    break;
+
                 case "abyss-chancel":
                     switch (beatKind)
                     {
@@ -74,6 +96,28 @@ namespace CinderCourt.View
                     }
                     break;
 
+                case "witness-well":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "증언의 우물은 대답보다 먼저, 무엇을 잊었는지 묻습니다.";
+                            return true;
+                        case BossEntry:
+                            speaker = VeilTactician;
+                            text = "우물은 거짓말하지 않는다. 다만 전부 말하지 않을 뿐이지.";
+                            return true;
+                        case BossPhase2:
+                            speaker = VeilTactician;
+                            text = "네가 들은 증언은 아직 결말을 고르지 못했다.";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "우물은 잠잠해졌다. 남은 목소리는 네 선택을 기다린다.";
+                            return true;
+                    }
+                    break;
+
                 case "echo-throne":
                     switch (beatKind)
                     {
@@ -92,6 +136,28 @@ namespace CinderCourt.View
                         case Completion:
                             speaker = DuskWarden;
                             text = "왕좌는 비었다. 그런데 명령은 내 등불 안에서 계속된다.";
+                            return true;
+                    }
+                    break;
+
+                case "ash-verdict":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "재의 판결 앞에서, 왕좌가 남긴 명령의 무게를 견디세요.";
+                            return true;
+                        case BossEntry:
+                            speaker = GateSovereign;
+                            text = "판결은 끝났다. 남은 것은 네가 복종할 차례다.";
+                            return true;
+                        case BossPhase2:
+                            speaker = GateSovereign;
+                            text = "재가 되어도 명령은 사라지지 않는다.";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "판결은 끝났다. 이제 등불은 네 손에서 다른 길을 밝힌다.";
                             return true;
                     }
                     break;

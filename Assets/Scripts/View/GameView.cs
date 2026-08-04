@@ -23,11 +23,39 @@ namespace CinderCourt.View
         public System.Action<SimEvents, ICinderSim> OnRunEvents;
 
         public ICinderSim Sim => _sim;
+        /// <summary>Read-only Ember Rest state for the active dungeon run.</summary>
+        public IRunPreparationSnapshot EmberRestSnapshot => _sim as IRunPreparationSnapshot;
+
+        /// <summary>Opens the active simulation's deterministic Ember Rest.</summary>
+        public bool BeginEmberRest(int roomIndex, int rewardSeed)
+            => _sim != null && _sim.BeginEmberRest(roomIndex, rewardSeed);
+
+        /// <summary>Selects one offered preparation on the active Ember Rest.</summary>
+        public bool TrySelectEmberRestOffer(int offerIndex)
+            => _sim != null && _sim.TrySelectPreparation(offerIndex);
+
+        /// <summary>Records an explicit no-preparation decision on the active Ember Rest.</summary>
+        public bool DeferEmberRest()
+            => _sim != null && _sim.DeferPreparation();
+
+        /// <summary>Closes Ember Rest, leaving its selected value readable for handoff.</summary>
+        public bool EndEmberRest()
+            => _sim != null && _sim.EndEmberRest();
+
+        /// <summary>Selected preparation after a successful rest choice; None when absent.</summary>
+        public PreparationOffer SelectedEmberRestPreparation
+            => _sim != null ? _sim.SelectedPreparation : default;
+
 
         CinderSim _sim;
         readonly Dictionary<int, ActorView> _enemyViews = new Dictionary<int, ActorView>(SimConfig.EnemyCap * 2);
         readonly Stack<ActorView>[] _pools = new Stack<ActorView>[6];
         readonly List<int> _toRecycle = new List<int>(SimConfig.EnemyCap);
+        readonly Dictionary<ActorView, Renderer[]> _bossRenderers =
+            new Dictionary<ActorView, Renderer[]>(2);
+        MaterialPropertyBlock _bossPresentationBlock;
+        bool _initialized;
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         ActorView _playerView;
         ActorView _companionView;
@@ -36,6 +64,7 @@ namespace CinderCourt.View
         bool _isDungeon;
         bool _campaignUiOn;
         bool _dungeonUiOn;
+        string _logicalStageId;
 
         // --- presentation state (presentation-impact-spec #1/#3/#6) ----------
         // Hit-stop / slow-mo drive Time.timeScale ONLY. Determinism-safe: the
@@ -59,8 +88,20 @@ namespace CinderCourt.View
         static readonly Color EnemyDamageColor = new Color(1f, 0.5f, 0.3f);
         static readonly Color FinisherDamageColor = new Color(0.87f, 0.78f, 0.41f);
 
+        void Awake()
+        {
+            _bossPresentationBlock = new MaterialPropertyBlock();
+        }
+
         void Start()
         {
+            EnsureInitialized();
+        }
+
+        void EnsureInitialized()
+        {
+            if (_initialized) return;
+            _initialized = true;
             for (var i = 0; i < _pools.Length; i++)
                 _pools[i] = new Stack<ActorView>(8);
             _playerView = ActorView.Create(
@@ -72,40 +113,49 @@ namespace CinderCourt.View
             var poolHost = new GameObject("DamageNumbers");
             poolHost.transform.SetParent(transform, false);
             _damageNumbers = poolHost.AddComponent<DamageNumberPool>();
+            _damageNumbers.Initialize();
             CacheDamageNumberSlots();
         }
 
         /// <summary>Start a run. Idempotent across restarts of the same mode.</summary>
-        public void Begin(in HackConfig config, string stageDisplayName, string companionId)
+        public void Begin(in HackConfig config, string stageDisplayName, string companionId,
+                          string logicalStageId = null)
         {
-            EndRun();
-            _sim = new CinderSim(in config);
             _isDungeon = config.Mode == GameMode.Dungeon;
+            EndRun();
+            _logicalStageId = logicalStageId ?? string.Empty;
+            var companionActive = !string.IsNullOrEmpty(companionId);
+            _sim = new CinderSim(in config);
             _accumulator = 0f;
             _digestWritten = false;
             _lastPlayerHealth = _sim.Player.Health;
             _deathNumberPunchTimer = 0f;
             if (_damageNumbers != null) _damageNumbers.transform.localScale = Vector3.one;
             if (Hud != null) Hud.ResetRunUi();
-            if (_playerView == null) Start();
+            EnsureInitialized();
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
 
             if (_isDungeon)
             {
-                if (!_campaignUiOn && Hud != null)
+                if (Hud != null)
                 {
-                    _campaignUiOn = true;
-                    Hud.EnableCampaignUi(stageDisplayName, config.ToCampaignConfig().Waves);
+                    if (!_campaignUiOn)
+                    {
+                        _campaignUiOn = true;
+                        Hud.EnableCampaignUi(stageDisplayName, config.ToCampaignConfig().Waves);
+                    }
+                    if (!_dungeonUiOn)
+                    {
+                        _dungeonUiOn = true;
+                        Hud.EnableDungeonUi(BossNameFor(_logicalStageId));
+                    }
+                    Hud.RefreshDungeonStage(stageDisplayName, config.ToCampaignConfig().Waves,
+                        BossNameFor(_logicalStageId), companionActive);
+                    Hud.SetCampaignSurfacesVisible(true);
                 }
-                if (!_dungeonUiOn && Hud != null)
-                {
-                    _dungeonUiOn = true;
-                    Hud.EnableDungeonUi(BossNameFor(config.StageId));
-                }
-                if (Hud != null) Hud.SetCampaignSurfacesVisible(true);
 
-                if (!string.IsNullOrEmpty(companionId) && Bootstrap != null)
+                if (companionActive && Bootstrap != null)
                 {
                     var (prefab, tint) = Bootstrap.CompanionVisual(companionId);
                     _companionView = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
@@ -129,7 +179,8 @@ namespace CinderCourt.View
             _enemyViews.Clear();
             if (_companionView != null)
             {
-                Destroy(_companionView.gameObject);
+                if (Application.isPlaying) Destroy(_companionView.gameObject);
+                else DestroyImmediate(_companionView.gameObject);
                 _companionView = null;
             }
             if (_playerView != null) _playerView.gameObject.SetActive(false);
@@ -142,6 +193,7 @@ namespace CinderCourt.View
             _finisherTick = false;
             _lastPlayerHealth = 0f;
             _deathNumberPunchTimer = 0f;
+            _logicalStageId = string.Empty;
             Time.timeScale = 1f;
         }
 
@@ -154,12 +206,10 @@ namespace CinderCourt.View
             Time.timeScale = 1f;
         }
 
-        internal static string BossNameFor(string stageId) => stageId switch
-        {
-            "abyss-chancel" => "Veil Tactician",
-            "echo-throne" => "Gate Sovereign",
-            _ => "Cinder Warden",
-        };
+        internal static string BossNameFor(string stageId)
+            => StageCatalog.TryGet(stageId, out var entry)
+                ? entry.Boss.HudName
+                : "Cinder Warden";
 
         void Update()
         {
@@ -181,6 +231,8 @@ namespace CinderCourt.View
                 input.PulseQueued = false;
                 input.DashQueued = false;
                 input.RestartQueued = false;
+                input.CompanionHoldQueued = false;
+                input.CompanionRecallQueued = false;
                 _accumulator -= SimConfig.FixedStep;
                 steps++;
             }
@@ -285,7 +337,9 @@ namespace CinderCourt.View
                 _digestWritten = true;
                 WebGLStorage.WriteRunDigest(_sim.Digest);
             }
-            if ((events & SimEvents.StageCleared) != 0 && Hud != null)
+            if ((events & SimEvents.StageCleared) != 0 && Hud != null &&
+                (!StageCatalog.TryGet(_logicalStageId, out var clearedStage) ||
+                 clearedStage.CatalogIndex == StageCatalog.Entries.Count - 1))
                 Hud.ShowStageClear(_sim.Digest);
             if ((events & SimEvents.WaveStarted) != 0)
                 _digestWritten = false;
@@ -322,6 +376,9 @@ namespace CinderCourt.View
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
                 var damage = view.SyncEnemy(in state);
+                if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
+                    && state.Visual == stage.Boss.Visual)
+                    ApplyBossPresentation(view, in stage);
                 if (damage > 0f)
                 {
                     // §C3: contact spark at the struck enemy (dedicated pool,
@@ -501,6 +558,23 @@ namespace CinderCourt.View
                 _deathNumberPunchTimer = 0f;
                 _damageNumbers.transform.localScale = Vector3.one;
             }
+        }
+
+        void ApplyBossPresentation(ActorView view, in StageEntry stage)
+        {
+            // ActorView.ResetForPool clears the old MPB before this rented actor
+            // can change logical stages. Reapply after SyncEnemy because its
+            // flash path can otherwise clear the catalog tint.
+            view.transform.localScale *= stage.Boss.Scale;
+            if (!_bossRenderers.TryGetValue(view, out var renderers))
+            {
+                renderers = view.GetComponentsInChildren<Renderer>();
+                _bossRenderers.Add(view, renderers);
+            }
+            _bossPresentationBlock.Clear();
+            _bossPresentationBlock.SetColor(BaseColorId, stage.Boss.Tint);
+            for (var i = 0; i < renderers.Length; i++)
+                renderers[i].SetPropertyBlock(_bossPresentationBlock);
         }
 
         ActorView Rent(EnemyVisual visual)

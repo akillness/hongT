@@ -16,7 +16,7 @@ namespace CinderCourt.View
     /// <summary>User intents raised by the lobby. Wired by GameDirector.</summary>
     public struct LobbyCallbacks
     {
-        /// <summary>"prologue" or a stage id ("cinder-span" | "abyss-chancel" | "echo-throne").</summary>
+        /// <summary>"prologue" or a logical campaign stage id from <see cref="StageCatalog"/>.</summary>
         public System.Action<string> OnSortie;
         /// <summary>"attack" | "vitality" | "swiftness".</summary>
         public System.Action<string> OnAllocateStat;
@@ -39,14 +39,6 @@ namespace CinderCourt.View
         static readonly Color ButtonBack = new Color(0.16f, 0.13f, 0.24f, 0.9f);
         static readonly Color ButtonActive = new Color(0.32f, 0.28f, 0.16f, 0.95f);
 
-        // --- catalog (spec §9; ids match GameBootstrap visuals) ----------------
-        static readonly string[] StageIds = { "cinder-span", "abyss-chancel", "echo-throne" };
-        static readonly string[] StageKickers = { "CINDER SPAN", "ABYSS CHANCEL", "ECHO THRONE" };
-        static readonly string[] StageTitles = { "재의 다리", "서약의 성당", "메아리 왕좌" };
-        static readonly string[] StageBosses = { "Cinder Warden", "Veil Tactician", "Gate Sovereign" };
-        static readonly int[] StageWaves = { 5, 6, 7 };
-        // cycle2 B1: stage hazard glyphs (skill icon reuse — vent/pillar/echo).
-        static readonly string[] StageHazardIcons = { "skill-nova", "skill-aegis", "skill-pulse" };
 
         const int StatCap = 10;
         const int EquipCap = 5;
@@ -80,9 +72,9 @@ namespace CinderCourt.View
 
         // Sortie cards.
         Text _prologueStatus;  Text _prologueButtonLabel;
-        readonly Text[] _stageStatus = new Text[3];
-        readonly Button[] _stageButtons = new Button[3];
-        readonly CanvasGroup[] _stageGroups = new CanvasGroup[3];
+        readonly Text[] _stageStatus = new Text[StageCatalog.Entries.Count];
+        readonly Button[] _stageButtons = new Button[StageCatalog.Entries.Count];
+        readonly CanvasGroup[] _stageGroups = new CanvasGroup[StageCatalog.Entries.Count];
         // cycle2 B3: prologue card border lines pulse ember until PrologueDone.
         Image[] _prologueBorder;
         bool _prologueGuide;
@@ -160,13 +152,11 @@ namespace CinderCourt.View
             // cycle2 B3: first-run guide — ember border pulse until done.
             SetPrologueGuide(!data.PrologueDone);
 
-            var stageCleared0 = data.CinderSpanCleared;
-            var stageCleared1 = data.AbyssChancelCleared;
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
-                bool cleared = i == 0 ? stageCleared0 : i == 1 ? stageCleared1 : data.EchoThroneCleared;
-                bool unlocked = data.PrologueDone &&
-                    (i == 0 || (i == 1 ? stageCleared0 : stageCleared1));
+                var entry = StageCatalog.Entries[i];
+                var cleared = StageCatalog.IsCleared(in data, in entry);
+                var unlocked = StageCatalog.IsUnlocked(in data, in entry);
                 _stageStatus[i].text = cleared ? "정화 완료" : unlocked ? "강하 가능" : "잠김";
                 _stageStatus[i].color = cleared ? Gold : unlocked ? Cyan : Lock;
                 _stageButtons[i].interactable = unlocked;
@@ -292,12 +282,12 @@ namespace CinderCourt.View
                 _sortieRect.anchorMax = new Vector2(1f, 1f);
                 _sortieRect.pivot = new Vector2(0.5f, 1f);
                 _sortieRect.anchoredPosition = new Vector2(0, -72);
-                _sortieRect.sizeDelta = new Vector2(-32, 560);
+                _sortieRect.sizeDelta = new Vector2(-32, 620);
 
                 _sanctumRect.anchorMin = new Vector2(0f, 1f);
                 _sanctumRect.anchorMax = new Vector2(1f, 1f);
                 _sanctumRect.pivot = new Vector2(0.5f, 1f);
-                _sanctumRect.anchoredPosition = new Vector2(0, -648);
+                _sanctumRect.anchoredPosition = new Vector2(0, -708);
                 _sanctumRect.sizeDelta = new Vector2(-32, 560);
             }
             else
@@ -306,7 +296,7 @@ namespace CinderCourt.View
                 _sortieRect.anchorMax = new Vector2(1f, 1f);
                 _sortieRect.pivot = new Vector2(1f, 1f);
                 _sortieRect.anchoredPosition = new Vector2(-16, -72);
-                _sortieRect.sizeDelta = new Vector2(392, 560);
+                _sortieRect.sizeDelta = new Vector2(392, 620);
 
                 _sanctumRect.anchorMin = new Vector2(0f, 1f);
                 _sanctumRect.anchorMax = new Vector2(0f, 1f);
@@ -322,6 +312,13 @@ namespace CinderCourt.View
             for (var i = 0; i < roster.Length; i++)
                 if (roster[i] == id) return true;
             return false;
+        }
+
+        static string CompanionNameFor(string id)
+        {
+            for (var i = 0; i < CompanionIds.Length; i++)
+                if (CompanionIds[i] == id) return CompanionNames[i];
+            return id;
         }
 
         // ---------------------------------------------------------------- top --
@@ -362,7 +359,7 @@ namespace CinderCourt.View
         void BuildSortiePanel(Transform root)
         {
             var panel = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-16, -72), new Vector2(392, 560), PanelColor);
+                new Vector2(-16, -72), new Vector2(392, 620), PanelColor);
             _sortieRect = panel.GetComponent<RectTransform>();
             _sortieRect.pivot = new Vector2(1f, 1f);
             Border(panel.transform, true);
@@ -391,14 +388,13 @@ namespace CinderCourt.View
             prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
-            // Stage cards ×3 (sequential unlock, prologue-gated).
-            for (var i = 0; i < 3; i++)
+            // Six logical stages share the same compact card grammar.
+            for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
-                var card = Card(panel.transform, -174 - i * 122, 112);
-                Eyebrow(card.transform, 12, -10, StageKickers[i], StageTitles[i]);
-                // cycle2 B1: hazard glyph left of the boss line (24px, skill
-                // icon reuse — vent/pillar/echo). Non-interactive.
-                var glyphSprite = Resources.Load<Sprite>("Icons/" + StageHazardIcons[i]);
+                var entry = StageCatalog.Entries[i];
+                var card = Card(panel.transform, -174 - i * 70, 68);
+                Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
+                var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)
                 {
                     var glyphObject = new GameObject("HazardGlyph");
@@ -411,23 +407,21 @@ namespace CinderCourt.View
                     glyphRect.anchorMin = new Vector2(0, 1);
                     glyphRect.anchorMax = new Vector2(0, 1);
                     glyphRect.pivot = new Vector2(0, 1);
-                    glyphRect.anchoredPosition = new Vector2(12f, -59f);
+                    glyphRect.anchoredPosition = new Vector2(12f, -44f);
                     glyphRect.sizeDelta = new Vector2(24f, 24f);
                 }
-                var sub = Label(card.transform, 40, -62, 240, 18,
-                    $"보스 {StageBosses[i]} • 웨이브 {StageWaves[i]}", 12, TextAnchor.MiddleLeft);
-                sub.color = InkDim;
-                var reward = Label(card.transform, 12, -80, 240, 16,
-                    i == 0 ? "보상: 잿불 사도 동행" : i == 1 ? "보상: 그림자 메아리 동행" : "보상: 홀린 자 메아리 동행",
-                    11, TextAnchor.MiddleLeft);
-                reward.color = Gold;   // cycle2 B1: reward line emphasis
-                _stageStatus[i] = Label(card.transform, -12, -10, 120, 20, "잠김", 13, TextAnchor.MiddleRight);
+                var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
+                    ? "동행 없음"
+                    : CompanionNameFor(entry.CompanionReward);
+                var sub = Label(card.transform, 34, -44, 220, 16,
+                    $"보상: {rewardText}", 10, TextAnchor.MiddleLeft);
+                sub.color = Gold;
+                _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
-                var stageId = StageIds[i];
-                var button = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 10),
-                    new Vector2(96, 44), "강하", 16,
-                    () => _callbacks.OnSortie?.Invoke(stageId));
+                var button = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
+                    new Vector2(84, 28), "강하", 13,
+                    () => _callbacks.OnSortie?.Invoke(entry.Id));
                 button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
                 _stageButtons[i] = button.GetComponent<Button>();
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();

@@ -28,6 +28,9 @@ namespace CinderCourt.View
         bool _runEndPersisted;
         GameObject _stageTerrain;         // instantiated Resources/Terrain prefab
         string _stageTerrainId = "";
+        string _emberRestNextStageId = "";
+        PreparationOffer _emberRestPreparation;
+        bool _emberRestDecisionMade;
 
         public State Current => _state;
 
@@ -54,6 +57,9 @@ namespace CinderCourt.View
             _input.OnDungeonRetryShortcut = TryRetryStageShortcut;
             _game.OnRunEvents = OnRunEvents;
 
+            _hud.OnEmberRestOfferSelected = SelectEmberRestOffer;
+            _hud.OnEmberRestDeferred = DeferEmberRest;
+            _hud.OnEmberRestContinue = ContinueFromEmberRest;
             var callbacks = new LobbyCallbacks
             {
                 OnSortie = OnSortie,
@@ -76,6 +82,7 @@ namespace CinderCourt.View
         void EnterLobby()
         {
             _state = State.Lobby;
+            ClearEmberRestRoute();
             SetStageTerrain(null);        // back to the base court plate
             _game.EndRun();
             _lobby.Refresh(_data);
@@ -95,7 +102,12 @@ namespace CinderCourt.View
         void SetStageTerrain(string stageId)
         {
             if (_stageTerrainId == (stageId ?? "")) return;
-            if (_stageTerrain != null) { Destroy(_stageTerrain); _stageTerrain = null; }
+            if (_stageTerrain != null)
+            {
+                if (Application.isPlaying) Destroy(_stageTerrain);
+                else DestroyImmediate(_stageTerrain);
+                _stageTerrain = null;
+            }
             _stageTerrainId = stageId ?? "";
             if (string.IsNullOrEmpty(stageId)) return;
             var prefab = Resources.Load<GameObject>("Terrain/terrain-" + stageId);
@@ -128,16 +140,8 @@ namespace CinderCourt.View
         }
 
         bool IsStageUnlocked(string stageId)
-        {
-            if (!_data.PrologueDone) return false;
-            return stageId switch
-            {
-                "cinder-span" => true,
-                "abyss-chancel" => _data.CinderSpanCleared,
-                "echo-throne" => _data.AbyssChancelCleared,
-                _ => false,
-            };
-        }
+            => StageCatalog.TryGet(stageId, out var entry)
+                && StageCatalog.IsUnlocked(in _data, in entry);
 
         // ------------------------------------------------------------ sorties --
         void OnSortie(string target)
@@ -148,6 +152,7 @@ namespace CinderCourt.View
 
         void StartArena()
         {
+            ClearEmberRestRoute();
             _state = State.Arena;
             SetStageTerrain(null);
             PrepareRunUi();
@@ -161,6 +166,7 @@ namespace CinderCourt.View
 
         void StartPrologue()
         {
+            ClearEmberRestRoute();
             _state = State.Prologue;
             SetStageTerrain(null);        // tutorial runs on the court plate
             PrepareRunUi();
@@ -173,27 +179,36 @@ namespace CinderCourt.View
             _hud.ShowPrologueToast(0);
         }
 
-        void StartDungeon(string stageId)
+        void StartDungeon(string stageId, PreparationOffer preparation = default)
         {
+            if (!preparation.IsValid) ClearEmberRestRoute();
+            if (!StageCatalog.TryGet(stageId, out var entry))
+            {
+                EnterLobby();
+                return;
+            }
             var metaStats = MetaStats.Of(_data.Attack, _data.Vitality, _data.Swiftness);
             var equipTiers = EquipTiers.Of(_data.Weapon, _data.Lantern, _data.Cloak);
             var companion = string.IsNullOrEmpty(_data.Active) ? null : _data.Active;
-            if (!HackConfig.TryDungeon(stageId, metaStats, equipTiers, companion,
+            if (!HackConfig.TryDungeon(entry.SimAnchorId, metaStats, equipTiers, companion,
                     RosterMaskOf(_data.Roster), out var config))
             {
                 EnterLobby();
                 return;
             }
+            if (entry.HazardOverride != null)
+                config.Hazards = entry.HazardOverride;
+            config.PreparationOffer = preparation;
             _state = State.Dungeon;
-            _runStageId = stageId;
+            _runStageId = entry.Id;
             _runEndPersisted = false;
-            SetStageTerrain(stageId);     // stage-specific painted ground
+            SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
-            _game.Begin(config, StageDisplayName(stageId), _data.Active);
+            _game.Begin(config, entry.DisplayName, _data.Active, entry.Id);
 
-            if (StoryCatalog.TryGet(stageId, StoryCatalog.StageStart, out var speaker, out var text))
+            if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
         }
 
@@ -206,12 +221,70 @@ namespace CinderCourt.View
             _hud.SetHudVisible(true);
         }
 
-        static string StageDisplayName(string stageId) => stageId switch
+        static int EmberRestSeedFor(in StageEntry entry) => entry.CatalogIndex;
+
+        bool HasDirectEmberRestSuccessor(out StageEntry current, out StageEntry successor)
         {
-            "abyss-chancel" => "Abyss Chancel",
-            "echo-throne" => "Echo Throne",
-            _ => "Cinder Span",
-        };
+            successor = default;
+            if (!StageCatalog.TryGet(_runStageId, out current)) return false;
+            var successorIndex = current.CatalogIndex + 1;
+            if (successorIndex >= StageCatalog.Entries.Count) return false;
+            successor = StageCatalog.Entries[successorIndex];
+            return successor.CatalogIndex == successorIndex;
+        }
+
+        void BeginEmberRest()
+        {
+            if (!HasDirectEmberRestSuccessor(out var current, out var successor) ||
+                !_game.BeginEmberRest(current.CatalogIndex + 1, EmberRestSeedFor(in current)))
+                return;
+            _emberRestNextStageId = successor.Id;
+            _emberRestPreparation = default;
+            _emberRestDecisionMade = false;
+            _hud.ShowEmberRest(_game.EmberRestSnapshot);
+        }
+
+        bool SelectEmberRestOffer(int offerIndex)
+        {
+            if (string.IsNullOrEmpty(_emberRestNextStageId) ||
+                !_game.TrySelectEmberRestOffer(offerIndex))
+                return false;
+            _emberRestPreparation = _game.SelectedEmberRestPreparation;
+            _emberRestDecisionMade = true;
+            return true;
+        }
+
+        bool DeferEmberRest()
+        {
+            if (string.IsNullOrEmpty(_emberRestNextStageId) || !_game.DeferEmberRest())
+                return false;
+            _emberRestPreparation = default;
+            _emberRestDecisionMade = true;
+            return true;
+        }
+
+        void ContinueFromEmberRest()
+        {
+            if (!_emberRestDecisionMade || string.IsNullOrEmpty(_emberRestNextStageId) ||
+                !_game.EndEmberRest())
+                return;
+            var nextStageId = _emberRestNextStageId;
+            var preparation = _emberRestPreparation;
+            _emberRestNextStageId = "";
+            _emberRestPreparation = default;
+            _emberRestDecisionMade = false;
+            _hud.HideEmberRest();
+            StartDungeon(nextStageId, preparation);
+        }
+
+        void ClearEmberRestRoute()
+        {
+            _emberRestNextStageId = "";
+            _emberRestPreparation = default;
+            _emberRestDecisionMade = false;
+            _hud.HideEmberRest();
+        }
+
 
         static int RosterMaskOf(string[] roster)
         {
@@ -292,6 +365,7 @@ namespace CinderCourt.View
             if ((events & SimEvents.StageCleared) != 0 && !_runEndPersisted)
             {
                 _runEndPersisted = true;
+                var shouldBeginEmberRest = false;
                 if (_state == State.Prologue)
                 {
                     _data.PrologueDone = true;
@@ -303,9 +377,11 @@ namespace CinderCourt.View
                 else if (_state == State.Dungeon)
                 {
                     PersistDungeonClear(sim);
+                    shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
                 }
                 CampaignStore.Save(in _data);
                 _lobby.Refresh(_data);
+                if (shouldBeginEmberRest) BeginEmberRest();
             }
             if ((events & SimEvents.GameOver) != 0 && !_runEndPersisted && _state == State.Dungeon)
             {
@@ -326,22 +402,8 @@ namespace CinderCourt.View
 
         void PersistDungeonClear(ICinderSim sim)
         {
-            var firstClear = false;
-            switch (_runStageId)
-            {
-                case "cinder-span":
-                    firstClear = !_data.CinderSpanCleared;
-                    _data.CinderSpanCleared = true;
-                    break;
-                case "abyss-chancel":
-                    firstClear = !_data.AbyssChancelCleared;
-                    _data.AbyssChancelCleared = true;
-                    break;
-                case "echo-throne":
-                    firstClear = !_data.EchoThroneCleared;
-                    _data.EchoThroneCleared = true;
-                    break;
-            }
+            if (!StageCatalog.TryGet(_runStageId, out var entry)) return;
+            StageCatalog.MarkCleared(ref _data, in entry, out var firstClear);
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
             _data.Points += firstClear ? 3 : 2;
             _data.Relics += sim.Relics;
@@ -355,17 +417,11 @@ namespace CinderCourt.View
                 _data.Cloak = Mathf.Max(_data.Cloak, campaign.CloakRank);
             }
 
-            // Boss-reward companion (spec §4).
-            if (firstClear)
+            // Only base stages retain their established companion rewards.
+            if (firstClear && !string.IsNullOrEmpty(entry.CompanionReward))
             {
-                var reward = _runStageId switch
-                {
-                    "abyss-chancel" => "shade-echo",
-                    "echo-throne" => "possessed-echo",
-                    _ => "ember-cohort",
-                };
-                AddToRoster(reward);
-                if (string.IsNullOrEmpty(_data.Active)) _data.Active = reward;
+                AddToRoster(entry.CompanionReward);
+                if (string.IsNullOrEmpty(_data.Active)) _data.Active = entry.CompanionReward;
             }
 
             var hack = sim as IHackSnapshot;
@@ -402,10 +458,13 @@ namespace CinderCourt.View
         // ------------------------------------------------------------- story --
         void DispatchStory(SimEvents events, ICinderSim sim)
         {
+            var storyKey = StageCatalog.TryGet(_runStageId, out var stage)
+                ? stage.StoryKey
+                : _runStageId;
             if ((events & SimEvents.BossSpawned) != 0)
             {
                 var bossAnchor = BossAnchor(sim);
-                if (StoryCatalog.TryGet(_runStageId, StoryCatalog.BossEntry,
+                if (StoryCatalog.TryGet(storyKey, StoryCatalog.BossEntry,
                         out var entrySpeaker, out var entryText))
                 {
                     _speech.Show(entrySpeaker, entryText, bossAnchor);
@@ -417,13 +476,13 @@ namespace CinderCourt.View
                 _rig.FocusPulse(bossAnchor, 0.45f);
             }
             if ((events & SimEvents.BossPhase2) != 0 &&
-                StoryCatalog.TryGet(_runStageId, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
+                StoryCatalog.TryGet(storyKey, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
             {
                 _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
                 _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
             }
             if ((events & SimEvents.StageCleared) != 0 &&
-                StoryCatalog.TryGet(_runStageId, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
+                StoryCatalog.TryGet(storyKey, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
                 _speech.Show(doneSpeaker, doneText,
                     ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 1.6f));
         }

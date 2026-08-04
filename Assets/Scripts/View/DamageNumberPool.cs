@@ -21,9 +21,18 @@ namespace CinderCourt.View
         readonly Dictionary<int, string> _strings = new Dictionary<int, string>(64);
         Camera _camera;
         Font _font;
+        bool _initialized;
+
 
         void Awake()
         {
+            Initialize();
+        }
+
+        public void Initialize()
+        {
+            if (_initialized) return;
+            _initialized = true;
             // Same font contract as HudView: bundled Hangul-capable font with
             // the builtin as editor fallback (WebGL has no OS font fallback).
             _font = Resources.Load<Font>("Fonts/HudKorean");

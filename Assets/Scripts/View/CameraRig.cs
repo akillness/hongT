@@ -52,11 +52,19 @@ namespace CinderCourt.View
 
         public void SetProfile(Profile profile)
         {
-            if (_profile == profile) return;
+            if (_profile == profile)
+            {
+                _focusTimer = 0f;
+                _focusDuration = 1f;
+                _focusTarget = Vector3.zero;
+                return;
+            }
             _profile = profile;
             _profileTime = 0f;
             _revealT = 0f;
             _focusTimer = 0f;   // stale boss focus must not survive a run exit
+            _focusDuration = 1f;
+            _focusTarget = Vector3.zero;
             if (_camera == null) return;
             switch (profile)
             {
@@ -104,6 +112,7 @@ namespace CinderCourt.View
 
         void Shake(float duration, float amplitude)
         {
+            if (ViewPrefs.ReducedMotion) return;
             var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
             if (scaledAmplitude <= 0f) return;
             _shakeDuration = duration;
@@ -264,9 +273,9 @@ namespace CinderCourt.View
 
         /// <summary>
         /// Request a shake without stomping a stronger one already playing:
-        /// a weaker punch only lands once the current shake has decayed below
         public void Punch(float amplitude, float duration)
         {
+            if (ViewPrefs.ReducedMotion) return;
             var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
             if (scaledAmplitude <= 0f) return;
             if (_shakeTime > 0f)

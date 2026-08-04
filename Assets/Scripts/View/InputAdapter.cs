@@ -3,8 +3,8 @@
 // owned here (docs/SIM_SPEC_HACKSLASH.md §2.3): the sim only trusts booleans.
 //
 //   Arena    : Q=Nova  E=Ward                     R=Restart  Space=Attack
-//   Prologue : movement + Space only              R=Restart
-//   Dungeon  : Q=Bolt  E=Pulse  R=Nova  F=Ward    Shift=Dash Space=Combo
+//   Dungeon  : Q=Bolt  E=Pulse  R=Nova  F=Ward  G=Companion Hold
+//              H=Companion Recall Shift=Dash Space=Combo
 //              (restart is panel-button only — R is a skill)
 using CinderCourt.Sim;
 using UnityEngine;
@@ -47,6 +47,8 @@ namespace CinderCourt.View
         bool _pulseLatch;
         bool _dashLatch;
         bool _restartLatch;
+        bool _companionHoldLatch;
+        bool _companionRecallLatch;
 
         void Update()
         {
@@ -76,6 +78,8 @@ namespace CinderCourt.View
                     if (keyboard.fKey.wasPressedThisFrame) _wardLatch = true;
                     if (keyboard.leftShiftKey.wasPressedThisFrame ||
                         keyboard.rightShiftKey.wasPressedThisFrame) _dashLatch = true;
+                    if (keyboard.gKey.wasPressedThisFrame) _companionHoldLatch = true;
+                    if (keyboard.hKey.wasPressedThisFrame) _companionRecallLatch = true;
                     break;
             }
         }
@@ -88,6 +92,31 @@ namespace CinderCourt.View
         public void QueuePulse() => _pulseLatch = true;
         public void QueueDash() => _dashLatch = true;
         public void QueueRestart() => _restartLatch = true;
+        public void QueueCompanionHold() => _companionHoldLatch = true;
+        public void QueueCompanionRecall() => _companionRecallLatch = true;
+        /// <summary>Clears held on-screen movement when a modal removes its
+        /// pointer targets. A captured finger will not necessarily receive
+        /// PointerUp after the modal intercepts it.</summary>
+        public void ClearTouchState()
+        {
+            TouchLeft = TouchRight = TouchUp = TouchDown = false;
+            TouchMoveX = TouchMoveY = 0f;
+        }
+        /// <summary>Discards combat actions queued by touch targets hidden by a
+        /// terminal modal without consuming the modal's restart/retry input.</summary>
+        public void ClearCombatLatches()
+        {
+            _attackLatch = false;
+            _novaLatch = false;
+            _wardLatch = false;
+            _boltLatch = false;
+            _pulseLatch = false;
+            _dashLatch = false;
+            _companionHoldLatch = false;
+            _companionRecallLatch = false;
+        }
+
+
 
         public SimInput Sample()
         {
@@ -120,6 +149,8 @@ namespace CinderCourt.View
                 PulseQueued = _pulseLatch,
                 DashQueued = _dashLatch,
                 RestartQueued = _restartLatch,
+                CompanionHoldQueued = _companionHoldLatch,
+                CompanionRecallQueued = _companionRecallLatch,
             };
         }
 
@@ -133,6 +164,8 @@ namespace CinderCourt.View
             _pulseLatch = false;
             _dashLatch = false;
             _restartLatch = false;
+            _companionHoldLatch = false;
+            _companionRecallLatch = false;
         }
     }
 }

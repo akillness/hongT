@@ -10,10 +10,8 @@ namespace CinderCourt.View
     /// <summary>Full lobby meta state, one struct, all fields explicit.</summary>
     public struct CampaignData
     {
-        // v0.1 fields (kept for backwards compatibility).
-        public bool CinderSpanCleared;
-        public bool AbyssChancelCleared;
-        public bool EchoThroneCleared;
+        // v3 clear progression (six catalog stages, bits 0-5).
+        public int ClearedMask;
         public int Weapon, Lantern, Cloak;          // equipment tiers T0-T5
 
         // v2 fields (spec §11).
@@ -39,12 +37,21 @@ namespace CinderCourt.View
             var raw = WebGLStorage.GetString(Key);
             if (string.IsNullOrEmpty(raw)) return data;
 
-            // "cleared" ids may also appear in "roster"; scope the stage scan
-            // to the cleared array segment only.
-            var cleared = Section(raw, "\"cleared\":[", ']');
-            data.CinderSpanCleared = cleared.Contains("\"cinder-span\"");
-            data.AbyssChancelCleared = cleared.Contains("\"abyss-chancel\"");
-            data.EchoThroneCleared = cleared.Contains("\"echo-throne\"");
+            // v3 clear progression takes precedence over the legacy cleared ids.
+            // The fixed-shape integer parser returns zero for missing/negative values.
+            var hasClearedMask = raw.IndexOf("\"clearedMask\":", System.StringComparison.Ordinal) >= 0;
+            if (hasClearedMask)
+            {
+                data.ClearedMask = ExtractInt(raw, "\"clearedMask\":") & 0x3F;
+            }
+            else
+            {
+                // Legacy ids may also appear in roster; scope this scan to cleared only.
+                var cleared = Section(raw, "\"cleared\":[", ']');
+                if (cleared.Contains("\"cinder-span\"")) data.ClearedMask |= 1 << 0;
+                if (cleared.Contains("\"abyss-chancel\"")) data.ClearedMask |= 1 << 2;
+                if (cleared.Contains("\"echo-throne\"")) data.ClearedMask |= 1 << 4;
+            }
 
             data.Weapon = ExtractInt(raw, "\"weapon\":");
             data.Lantern = ExtractInt(raw, "\"lantern\":");
@@ -65,12 +72,8 @@ namespace CinderCourt.View
         public static void Save(in CampaignData data)
         {
             Builder.Length = 0;
-            Builder.Append("{\"cleared\":[");
-            var first = true;
-            if (data.CinderSpanCleared) { Builder.Append("\"cinder-span\""); first = false; }
-            if (data.AbyssChancelCleared) { if (!first) Builder.Append(','); Builder.Append("\"abyss-chancel\""); first = false; }
-            if (data.EchoThroneCleared) { if (!first) Builder.Append(','); Builder.Append("\"echo-throne\""); }
-            Builder.Append("],\"equipment\":{\"weapon\":").Append(data.Weapon)
+            Builder.Append("{\"clearedMask\":").Append(data.ClearedMask & 0x3F)
+                .Append(",\"equipment\":{\"weapon\":").Append(data.Weapon)
                 .Append(",\"lantern\":").Append(data.Lantern)
                 .Append(",\"cloak\":").Append(data.Cloak)
                 .Append("},\"stats\":{\"attack\":").Append(data.Attack)

@@ -29,10 +29,10 @@ namespace CinderCourt.View
         Font _font;
         Image _healthFill, _chargeFill;
         Text _healthText, _chargeText, _waveText, _scoreText, _relicText, _enemyText;
-        Text _loreText, _finalText;
+        Text _loreText, _finalText, _retryLabel;
         Image _novaCooldownOverlay, _wardCooldownOverlay;
         CanvasGroup _novaGroup, _wardGroup;
-        GameObject _gameOverPanel;
+        GameObject _gameOverPanel, _touchJoystickRoot;
         Text _muteLabel;
 
         // --- campaign extensions (primitive-typed; driven by GameView) -------
@@ -41,10 +41,23 @@ namespace CinderCourt.View
         GameObject _equipPanel;
         Text _equipText;
         GameObject _stageClearPanel;
-        Text _stageClearText;
+        Text _stageClearText, _stageClearRetryLabel;
         string _campaignStageName;
         int _campaignTotalWaves;
         int _lastEquipHash = -1;
+
+        // --- Ember Rest: one reusable next-room preparation panel ------------
+        GameObject _emberRestBlocker, _emberRestPanel;
+        Text _emberRestRoomText, _emberRestDecisionText;
+        readonly Image[] _emberRestOfferCards = new Image[3];
+        readonly PreparationOffer[] _emberRestOffers = new PreparationOffer[3];
+        Button _emberRestContinueButton;
+        bool _emberRestDecisionMade;
+        int _emberRestSelectedIndex = -1;
+        public System.Func<int, bool> OnEmberRestOfferSelected;
+        public System.Func<bool> OnEmberRestDeferred;
+        public System.Action OnEmberRestContinue;
+
 
         int _lastHealth = -1, _lastCharge = -1, _lastWave = -1, _lastScore = -1,
             _lastRelics = -1, _lastEnemies = -1;
@@ -73,6 +86,7 @@ namespace CinderCourt.View
         int _lastScreenWidth = -1, _lastScreenHeight = -1;
         Rect _lastSafeArea;
         bool _touchActive;
+        bool _touchCombatControlsVisible = true;
         float _rotateHintTimer;
 
         RectTransform _metersRect, _statsRect, _muteRect;
@@ -256,9 +270,12 @@ namespace CinderCourt.View
             var overTitle = Label(_gameOverPanel.transform, 0, -18, 460, 34, "잿불 법정 함락", 26, TextAnchor.MiddleCenter);
             overTitle.color = new Color(1f, 0.55f, 0.4f);
             _finalText = Label(_gameOverPanel.transform, 0, -70, 460, 60, "", 18, TextAnchor.MiddleCenter);
-            TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 26),
+            var retryButton = TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 26),
                 new Vector2(200, 44), "재강하 (R)", 20, RetryRun);
+            _retryLabel = retryButton.GetComponentInChildren<Text>();
             _gameOverPanel.SetActive(false);
+
+            BuildEmberRestPanel(root);
 
             // --- wave banner (#20) + level toast (#19), raycast-off ----------
             _waveBanner = Label(root, 0, -140, 600, 60, "", 34, TextAnchor.MiddleCenter);
@@ -601,8 +618,9 @@ namespace CinderCourt.View
             _stageClearText = Label(_stageClearPanel.transform, 0, -74, 480, 60, "", 18, TextAnchor.MiddleCenter);
             TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(-105, 24),
                 new Vector2(190, 44), "캠페인으로", 18, ReturnHome);
-            TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(105, 24),
+            var stageClearRetryButton = TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(105, 24),
                 new Vector2(190, 44), "재강하 (R)", 18, RetryRun);
+            _stageClearRetryLabel = stageClearRetryButton.GetComponentInChildren<Text>();
             _stageClearPanel.SetActive(false);
 
             // Campaign game-over also offers the way back to the hub.
@@ -629,6 +647,18 @@ namespace CinderCourt.View
                 _lastEquipHash = equipHash;
                 _equipText.text = $"무기 {weapon} • 랜턴 {lantern} • 망토 {cloak}";
             }
+        }
+
+        /// <summary>Refreshes reused campaign surfaces for a direct room handoff.</summary>
+        public void RefreshDungeonStage(string stageName, int totalWaves, string bossDisplayName,
+                                        bool companionActive)
+        {
+            _campaignStageName = stageName;
+            _campaignTotalWaves = totalWaves;
+            _lastBannerHash = -1;
+            if (_bossName != null) _bossName.text = bossDisplayName;
+            if (_companionHoldButton != null) _companionHoldButton.SetActive(companionActive);
+            if (_companionRecallButton != null) _companionRecallButton.SetActive(companionActive);
         }
 
         /// <summary>True only while a visible terminal panel can consume the retry shortcut.</summary>
@@ -675,6 +705,156 @@ namespace CinderCourt.View
             SetBossIntroState(ViewPrefs.ReducedMotion ? 1f : 0f, 0f);
         }
 
+
+        /// <summary>Whether the reusable Ember Rest panel is currently actionable.</summary>
+        internal bool EmberRestVisible => _emberRestBlocker != null && _emberRestBlocker.activeInHierarchy;
+
+        /// <summary>Shows all three deterministic offers published by the active sim.</summary>
+        public void ShowEmberRest(IRunPreparationSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.EmberRestOpen) return;
+            ShowEmberRest(snapshot.EmberRestRoomIndex, snapshot.EmberRestOffer0,
+                snapshot.EmberRestOffer1, snapshot.EmberRestOffer2);
+        }
+
+        /// <summary>Test seam for the reusable panel without constructing a simulation.</summary>
+        internal void ShowEmberRestForTest(int roomIndex, PreparationOffer offer0,
+                                           PreparationOffer offer1, PreparationOffer offer2)
+            => ShowEmberRest(roomIndex, offer0, offer1, offer2);
+
+        public void HideEmberRest()
+        {
+            _emberRestDecisionMade = false;
+            _emberRestSelectedIndex = -1;
+            if (_emberRestContinueButton != null) _emberRestContinueButton.interactable = false;
+            if (_emberRestBlocker != null) _emberRestBlocker.SetActive(false);
+        }
+
+        void ShowEmberRest(int roomIndex, PreparationOffer offer0,
+                           PreparationOffer offer1, PreparationOffer offer2)
+        {
+            if (_emberRestBlocker == null) return;
+            _emberRestOffers[0] = offer0;
+            _emberRestOffers[1] = offer1;
+            _emberRestOffers[2] = offer2;
+            _emberRestDecisionMade = false;
+            _emberRestSelectedIndex = -1;
+            _emberRestRoomText.text = $"다음 방 {roomIndex} 준비";
+            _emberRestDecisionText.text =
+                "준비를 하나 선택하거나 보류하십시오\n다음 방에 적용 (이전 준비 대체)";
+            for (var i = 0; i < _emberRestOfferCards.Length; i++)
+            {
+                if (_emberRestOfferCards[i] == null) continue;
+                _emberRestOfferCards[i].color = new Color(0.16f, 0.13f, 0.24f, 0.9f);
+                _emberRestOfferCards[i].GetComponentInChildren<Text>().text =
+                    EmberRestEffectLabel(_emberRestOffers[i]) + "\n선택";
+            }
+            _emberRestContinueButton.interactable = false;
+            _emberRestBlocker.transform.SetAsLastSibling();
+            _emberRestBlocker.SetActive(true);
+        }
+
+        void BuildEmberRestPanel(Transform root)
+        {
+            _emberRestBlocker = Panel(root, Vector2.zero, Vector2.one, Vector2.zero,
+                Vector2.zero, new Color(0f, 0f, 0f, 0.32f));
+            _emberRestBlocker.name = "EmberRestBlocker";
+            _emberRestBlocker.GetComponent<Image>().raycastTarget = true;
+            _emberRestPanel = Panel(_emberRestBlocker.transform,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(620, 420), new Color(0.02f, 0.05f, 0.06f, 0.96f));
+            _emberRestPanel.name = "EmberRestPanel";
+            _emberRestPanel.GetComponent<Image>().raycastTarget = true;
+            var title = Label(_emberRestPanel.transform, 0, -18, 620, 34, "잿불 휴식", 26,
+                TextAnchor.MiddleCenter);
+            title.color = new Color(1f, 0.83f, 0.45f);
+            _emberRestRoomText = Label(_emberRestPanel.transform, 0, -52, 620, 24, "", 17,
+                TextAnchor.MiddleCenter);
+            _emberRestRoomText.color = new Color(0.56f, 0.91f, 1f);
+
+            for (var i = 0; i < 3; i++)
+            {
+                var offerIndex = i;
+                var card = TextButton(_emberRestPanel.transform, new Vector2(0f, 1f),
+                    new Vector2(20 + i * 200, -88), new Vector2(188, 128), "", 16,
+                    () => SelectEmberRestOffer(offerIndex));
+                card.name = "EmberRestOffer" + (i + 1);
+                _emberRestOfferCards[i] = card.GetComponent<Image>();
+            }
+
+            var defer = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(-206, 18), new Vector2(196, 92), "준비 보류", 17, DeferEmberRest);
+            defer.name = "EmberRestDefer";
+            var continueButton = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(10, 18), new Vector2(196, 92), "계속", 17, ContinueEmberRest);
+            continueButton.name = "EmberRestContinue";
+            _emberRestContinueButton = continueButton.GetComponent<Button>();
+            _emberRestDecisionText = Label(_emberRestPanel.transform, 0, -236, 620, 40, "", 15,
+                TextAnchor.MiddleCenter);
+            _emberRestDecisionText.color = new Color(0.92f, 0.94f, 1f);
+            _emberRestBlocker.SetActive(false);
+        }
+
+        void SelectEmberRestOffer(int offerIndex)
+        {
+            if (offerIndex < 0 || offerIndex >= _emberRestOffers.Length) return;
+            if (OnEmberRestOfferSelected != null && !OnEmberRestOfferSelected(offerIndex))
+                return;
+            _emberRestDecisionMade = true;
+            _emberRestSelectedIndex = offerIndex;
+            _emberRestDecisionText.text = "선택됨: " + EmberRestEffectLabel(_emberRestOffers[offerIndex])
+                + "\n다음 방에 적용 (이전 준비 대체)";
+            UpdateEmberRestSelectionVisuals();
+        }
+
+        void DeferEmberRest()
+        {
+            if (OnEmberRestDeferred != null && !OnEmberRestDeferred()) return;
+            _emberRestDecisionMade = true;
+            _emberRestSelectedIndex = -1;
+            _emberRestDecisionText.text = "준비 보류\n다음 방에 적용 (이전 준비 대체)";
+            UpdateEmberRestSelectionVisuals();
+        }
+
+        void ContinueEmberRest()
+        {
+            if (!_emberRestDecisionMade) return;
+            OnEmberRestContinue?.Invoke();
+        }
+
+        void UpdateEmberRestSelectionVisuals()
+        {
+            for (var i = 0; i < _emberRestOfferCards.Length; i++)
+            {
+                if (_emberRestOfferCards[i] == null) continue;
+                _emberRestOfferCards[i].color = i == _emberRestSelectedIndex
+                    ? new Color(0.28f, 0.52f, 0.46f, 0.96f)
+                    : new Color(0.16f, 0.13f, 0.24f, 0.9f);
+            }
+            _emberRestContinueButton.interactable = true;
+        }
+
+        internal static string EmberRestEffectLabel(PreparationOffer offer)
+        {
+            var magnitude = offer.Magnitude;
+            switch (offer.Kind)
+            {
+                case PreparationOfferKind.Stat:
+                    return offer.Variant == 1 ? $"Attack +{magnitude}"
+                        : offer.Variant == 2 ? $"Vitality +{magnitude}"
+                        : offer.Variant == 3 ? $"Swiftness +{magnitude}" : "Invalid preparation";
+                case PreparationOfferKind.SkillRune:
+                    return offer.Variant == 1 ? $"Rift Bolt +{10 * magnitude}% damage"
+                        : offer.Variant == 2 ? $"Grave Pulse +{10 * magnitude}% tick damage"
+                        : offer.Variant == 3 ? $"Ash Nova +{10 * magnitude}% damage" : "Invalid preparation";
+                case PreparationOfferKind.GuardianResonance:
+                    return offer.Variant == 1 ? $"Companion cadence −{10 * magnitude}% (min 0.5 s)"
+                        : offer.Variant == 2 ? $"Companion range +{20 * magnitude} px"
+                        : offer.Variant == 3 ? $"Companion damage +{10 * magnitude}%" : "Invalid preparation";
+                default:
+                    return "Invalid preparation";
+            }
+        }
         public void ResetRunUi()
         {
             _maxHealthSeen = SimConfig.PlayerMaxHealth;
@@ -682,7 +862,9 @@ namespace CinderCourt.View
             _recentHazardTime = -999f;
             _bossAliveAtDeath = false;
             ResetTransientCeremonies();
+            HideEmberRest();
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
+            SetTouchCombatControlsVisible(true);
             if (_bossBar != null) _bossBar.SetActive(false);
             _lastBossFraction = -1f;
             _lastBossPhase = -1;
@@ -731,10 +913,18 @@ namespace CinderCourt.View
         Canvas _canvas;
         GameObject _prologueToast;
         Text _prologueToastText;
-        static readonly string[] PrologueSteps =
+        static readonly string[] DesktopPrologueSteps =
         {
             "이동 — W A S D 또는 방향키",
             "타격 — Space",
+            "기름 게이지를 보라. 초당 +7, 처치당 +6.",
+            "웨이브를 비우면 다음 군단이 온다.",
+        };
+
+        static readonly string[] TouchPrologueSteps =
+        {
+            "이동 — 왼쪽 조이스틱 드래그",
+            "타격 — 오른쪽 타격 버튼",
             "기름 게이지를 보라. 초당 +7, 처치당 +6.",
             "웨이브를 비우면 다음 군단이 온다.",
         };
@@ -750,6 +940,7 @@ namespace CinderCourt.View
                 if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
                 if (_stageClearPanel != null) _stageClearPanel.SetActive(false);
                 HidePrologueToast();
+                HideEmberRest();
             }
         }
 
@@ -782,11 +973,41 @@ namespace CinderCourt.View
         /// (mobile spec #4/#5): dash-by-thumb exists only where dash exists.</summary>
         void SyncTouchModeSurfaces()
         {
+            var terminalModalVisible = (_gameOverPanel != null && _gameOverPanel.activeSelf) ||
+                                       (_stageClearPanel != null && _stageClearPanel.activeSelf);
+            var combatControlsVisible = _touchCombatControlsVisible && !terminalModalVisible;
+            if (_touchJoystickRoot != null && _touchJoystickRoot.activeSelf != combatControlsVisible)
+                _touchJoystickRoot.SetActive(combatControlsVisible);
+            if (_strikeRect != null && _strikeRect.gameObject.activeSelf != combatControlsVisible)
+                _strikeRect.gameObject.SetActive(combatControlsVisible);
+
             var dungeonOn = _dungeonRoot != null && _dungeonRoot.activeSelf;
-            if (_dashTouchRect != null && _dashTouchRect.gameObject.activeSelf != dungeonOn)
-                _dashTouchRect.gameObject.SetActive(dungeonOn);
+            var dashVisible = combatControlsVisible && dungeonOn;
+            if (_dashTouchRect != null && _dashTouchRect.gameObject.activeSelf != dashVisible)
+                _dashTouchRect.gameObject.SetActive(dashVisible);
             if (_strikeRect != null)
                 _strikeRect.anchoredPosition = new Vector2(-24, dungeonOn ? 150 : 36);
+        }
+
+        void SetTouchCombatControlsVisible(bool visible)
+        {
+            _touchCombatControlsVisible = visible;
+            if (!visible && Input != null)
+            {
+                Input.ClearTouchState();
+                Input.ClearCombatLatches();
+            }
+            SyncTouchModeSurfaces();
+        }
+
+
+        /// <summary>Test seam: the three pointer targets must disable together
+        /// beneath a terminal modal, then restore when the simulation resumes.</summary>
+        internal void CollectCombatTouchTargetsForTest(List<RectTransform> into)
+        {
+            if (_touchJoystickRoot != null) into.Add(_touchJoystickRoot.GetComponent<RectTransform>());
+            if (_strikeRect != null) into.Add(_strikeRect);
+            if (_dashTouchRect != null) into.Add(_dashTouchRect);
         }
 
         void SetArenaCardsVisible(bool visible)
@@ -798,7 +1019,8 @@ namespace CinderCourt.View
         /// <summary>Prologue tutorial toast (spec §1). step -1 hides.</summary>
         public void ShowPrologueToast(int step)
         {
-            if (step < 0 || step >= PrologueSteps.Length) { HidePrologueToast(); return; }
+            var steps = _touchActive ? TouchPrologueSteps : DesktopPrologueSteps;
+            if (step < 0 || step >= steps.Length) { HidePrologueToast(); return; }
             if (_prologueToast == null)
             {
                 var root = (Transform)_safeRoot;
@@ -814,7 +1036,7 @@ namespace CinderCourt.View
                 _prologueToastText.color = new Color(0.62f, 0.95f, 0.88f);
             }
             _prologueToast.SetActive(true);
-            _prologueToastText.text = PrologueSteps[step];
+            _prologueToastText.text = steps[step];
         }
 
         public void HidePrologueToast()
@@ -837,6 +1059,7 @@ namespace CinderCourt.View
         Image _extractRing;
         GameObject _extractRoot;
         Text _shieldText;
+        GameObject _companionHoldButton, _companionRecallButton;
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
@@ -921,6 +1144,13 @@ namespace CinderCourt.View
                 _skillCardRects[i] = card.GetComponent<RectTransform>();
                 _skillCardRects[i].sizeDelta = new Vector2(108, 88);
             }
+            // 92 u is the 44 CSS px floor at the narrowest Phone scaler.
+            _companionHoldButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
+                new Vector2(-16, 104), new Vector2(154, 92), "동료 대기 (G)", 16,
+                () => { if (Input != null) Input.QueueCompanionHold(); });
+            _companionRecallButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
+                new Vector2(-16, 4), new Vector2(154, 92), "동료 호출 (H)", 16,
+                () => { if (Input != null) Input.QueueCompanionRecall(); });
 
             // --- shield readout ---------------------------------------------------
             _shieldText = Label(dungeonRoot, 0, 0, 200, 24, "", 15, TextAnchor.MiddleLeft);
@@ -1338,8 +1568,9 @@ namespace CinderCourt.View
             // (390 CSS width portrait, match 0.35) gives 0.488 CSS px/u, so
             // 44 CSS pt needs >=90 u: base 180 u (88 px), strike 110 u
             // (54 px), dash 96 u (47 px) all clear the floor.
-            var catchPanel = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
+            _touchJoystickRoot = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
                 new Vector2(0, 0), new Vector2(260, 260), new Color(0f, 0f, 0f, 0f));
+            var catchPanel = _touchJoystickRoot;
             catchPanel.GetComponent<Image>().raycastTarget = true;   // joystick catch surface
             var joystick = catchPanel.AddComponent<VirtualJoystick>();
             joystick.Input = Input;
@@ -1378,6 +1609,9 @@ namespace CinderCourt.View
             dash.SetActive(false);   // SyncTouchModeSurfaces enables in dungeon
 
             _touchActive = true;
+            if (_retryLabel != null) _retryLabel.text = "다시 도전";
+            if (_stageClearRetryLabel != null) _stageClearRetryLabel.text = "다시 도전";
+            SyncTouchModeSurfaces();
         }
 
         /// <summary>Joystick art layer; falls back to a translucent disc panel
@@ -1439,10 +1673,14 @@ namespace CinderCourt.View
 
             public void OnDrag(PointerEventData eventData) => Steer(eventData);
 
-            public void OnPointerUp(PointerEventData eventData)
+            public void OnPointerUp(PointerEventData _) => ResetStick();
+
+            void OnDisable() => ResetStick();
+
+            void ResetStick()
             {
-                BaseRect.anchoredPosition = RestCenter;
-                NubRect.anchoredPosition = Vector2.zero;
+                if (BaseRect != null) BaseRect.anchoredPosition = RestCenter;
+                if (NubRect != null) NubRect.anchoredPosition = Vector2.zero;
                 if (Input != null) { Input.TouchMoveX = 0f; Input.TouchMoveY = 0f; }
             }
 
@@ -1501,9 +1739,13 @@ namespace CinderCourt.View
                     $"{deathContext} • 웨이브 {digest.Wave} 도달";
                 ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
+                SetTouchCombatControlsVisible(false);
             }
             if ((events & SimEvents.WaveStarted) != 0 && _gameOverPanel.activeSelf)
+            {
                 _gameOverPanel.SetActive(false);
+                SetTouchCombatControlsVisible(true);
+            }
 
             // --- juice: wave banner (#20) -------------------------------------
             if ((events & SimEvents.WaveStarted) != 0)
@@ -1606,6 +1848,7 @@ namespace CinderCourt.View
             if (_gameOverPanel.activeSelf && sim.Mode != SimMode.GameOver)
             {
                 _gameOverPanel.SetActive(false);
+                SetTouchCombatControlsVisible(true);
                 // Restart landed on wave 1 again — reseed the opening lore.
                 _loreText.text = LoreBeats[(sim.Wave - 1) % LoreBeats.Length];
                 _loreTimer = 6f;
@@ -1726,7 +1969,7 @@ namespace CinderCourt.View
         void SyncBossIntro()
         {
             if (!_bossIntroActive) return;
-            _bossIntroTimer -= Time.deltaTime;
+            _bossIntroTimer -= Time.unscaledDeltaTime;
             var elapsed = BossIntroDuration - _bossIntroTimer;
             const float transition = 0.15f;
             var slide = ViewPrefs.ReducedMotion
@@ -1754,7 +1997,7 @@ namespace CinderCourt.View
         void SyncStageClearCeremony()
         {
             if (!_stageClearPending) return;
-            _stageClearTimer -= Time.deltaTime;
+            _stageClearTimer -= Time.unscaledDeltaTime;
             var elapsed = StageClearDuration - _stageClearTimer;
             const float transition = 0.12f;
             var alpha = _stageClearTimer <= transition
@@ -1788,6 +2031,7 @@ namespace CinderCourt.View
             _stageClearText.text =
                 $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
             _stageClearPanel.SetActive(true);
+            SetTouchCombatControlsVisible(false);
         }
 
         void SyncComboPips()

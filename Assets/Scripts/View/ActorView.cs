@@ -56,7 +56,7 @@ namespace CinderCourt.View
             {
                 // Capsule fallback keeps the game playable before prefabs land.
                 instance = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                Destroy(instance.GetComponent<Collider>());
+                RemovePrimitiveCollider(instance);
                 instance.transform.localScale = new Vector3(0.5f, 0.9f, 0.5f);
                 var renderer = instance.GetComponent<Renderer>();
                 renderer.sharedMaterial = ViewWorld.MakeUnlit(fallbackColor, false);
@@ -73,6 +73,14 @@ namespace CinderCourt.View
             view.BuildHealthBar();
             return view;
         }
+        static void RemovePrimitiveCollider(GameObject primitive)
+        {
+            var collider = primitive.GetComponent<Collider>();
+            if (collider == null) return;
+            if (Application.isPlaying) Destroy(collider);
+            else DestroyImmediate(collider);
+        }
+
 
         void BuildHealthBar()
         {
@@ -81,14 +89,14 @@ namespace CinderCourt.View
             _healthRoot.localPosition = new Vector3(0f, 2.05f, 0f);
 
             var back = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Destroy(back.GetComponent<Collider>());
+            RemovePrimitiveCollider(back);
             back.transform.SetParent(_healthRoot, false);
             back.transform.localScale = new Vector3(0.74f, 0.085f, 1f);
             back.GetComponent<Renderer>().sharedMaterial =
                 ViewWorld.MakeUnlit(new Color(0.05f, 0.04f, 0.09f, 0.9f), true);
 
             var fill = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Destroy(fill.GetComponent<Collider>());
+            RemovePrimitiveCollider(fill);
             fill.transform.SetParent(_healthRoot, false);
             fill.transform.localPosition = new Vector3(0f, 0f, -0.001f);
             fill.transform.localScale = new Vector3(0.7f, 0.055f, 1f);
