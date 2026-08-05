@@ -16,7 +16,8 @@ namespace CinderCourt.Sim
     /// (docs/SIM_SPEC_HACKSLASH.md) — prologue, combo, dash, skills, elites,
     /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
-    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot, IRunPreparationSnapshot
+    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot,
+                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -153,6 +154,12 @@ namespace CinderCourt.Sim
         private float _comboLink;     // seconds left of the 0.9 s chain window
         private bool _comboLanded;    // current swing already damaged something
         private ComboVariant _comboVariant;  // finisher branch, latched at swing start
+        // Input depth §3/§5.
+        private float _chargeTime;            // seconds the attack key has been held
+        private bool _growthOfferOpen;
+        private float _growthOfferTime;
+        private GrowthChoiceKind _lastGrowthChoice;
+        private int _growthAttack, _growthVitality, _growthSwiftness;
         private float _dashCooldown;
         private float _dashTime;
         private float _dashDirX, _dashDirY;
@@ -445,6 +452,18 @@ namespace CinderCourt.Sim
         public PreparationOffer AppliedPreparationInput => _appliedPreparationInput;
         public int CompanionFacing => _companionFacing;
 
+        // --- input depth §5 (IGrowthChoiceSnapshot, additive) -----------------
+        public bool GrowthOfferOpen => _growthOfferOpen;
+        public float GrowthOfferTime => _growthOfferTime;
+        public GrowthChoiceKind LastGrowthChoice => _lastGrowthChoice;
+        public int GrowthAttack => _growthAttack;
+        public int GrowthVitality => _growthVitality;
+        public int GrowthSwiftness => _growthSwiftness;
+        /// <summary>§3: 0..1 charge progress, for the HUD gauge.</summary>
+        public float ChargeProgress => _chargeTime <= 0f
+            ? 0f
+            : MathF.Min(1f, _chargeTime / HackSpec.ChargeReadySeconds);
+
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
         /// <summary>Spawn queue length for a wave, boss slot included, enemy cap applied.</summary>
@@ -671,6 +690,10 @@ namespace CinderCourt.Sim
                 if (_dungeon)
                 {
                     UpdateExtraction(dt);
+                    // Input depth §5: runs AFTER the wave/kill path that can
+                    // open an offer, so a level-up gained this tick gets its
+                    // full window rather than losing one tick of it.
+                    UpdateGrowthOffer(dt, in input);
                 }
                 UpdateWave(dt);
             }
@@ -787,7 +810,14 @@ namespace CinderCourt.Sim
             }
 
             _charge -= HackSpec.DashCost;
-            _dashCooldown = HackSpec.DashCooldownSeconds;
+            // Input depth §5: swiftness shortens the dodge cycle as well as
+            // raising speed. Speed alone made it the weak pick — a movement
+            // stat that does not change how often you can escape is not really
+            // a defensive choice. Clamped so stacked points cannot drive the
+            // cooldown toward zero.
+            _dashCooldown = HackSpec.DashCooldownSeconds * MathF.Max(
+                HackSpec.GrowthSwiftnessCooldownFloor,
+                1f - HackSpec.GrowthSwiftnessCooldown * _growthSwiftness);
             _dashTime = HackSpec.DashTime;
             _dashDirX = directionX;
             _dashDirY = directionY;
@@ -1036,6 +1066,71 @@ namespace CinderCourt.Sim
             ApplyLevelStats();
             _player.Health = MathF.Min(_playerMaxHealth, _player.Health + (_playerMaxHealth - previousMax));
             _events |= SimEvents.LevelUp;
+
+            // Input depth §5: open a choice instead of ending here. The stat
+            // bump above still lands, so ignoring the offer is exactly the old
+            // behaviour; choosing adds a point on top. A pending offer is
+            // auto-confirmed rather than queued — two stacked offers would
+            // leave the player unable to tell which level they are choosing.
+            if (_dungeon)
+            {
+                if (_growthOfferOpen)
+                {
+                    ApplyGrowthChoice(GrowthChoiceKind.None);
+                }
+                _growthOfferOpen = true;
+                _growthOfferTime = HackSpec.GrowthOfferSeconds;
+            }
+        }
+
+        /// <summary>Input depth §5: bank one growth point and close the offer.
+        /// <c>None</c> means the timer expired — it applies nothing extra, so
+        /// a player who never presses 1/2/3 gets exactly the pre-amendment
+        /// automatic distribution and loses nothing.</summary>
+        private void ApplyGrowthChoice(GrowthChoiceKind choice)
+        {
+            _growthOfferOpen = false;
+            _growthOfferTime = 0f;
+            _lastGrowthChoice = choice;
+            switch (choice)
+            {
+                case GrowthChoiceKind.Attack:
+                    _growthAttack += 1;
+                    break;
+                case GrowthChoiceKind.Vitality:
+                    _growthVitality += 1;
+                    // Vitality heals immediately, or the choice would feel
+                    // like nothing at the moment it is made.
+                    _player.Health = MathF.Min(
+                        _playerMaxHealth + HackSpec.GrowthVitalityHealth,
+                        _player.Health + HackSpec.GrowthVitalityHealth);
+                    break;
+                case GrowthChoiceKind.Swiftness:
+                    _growthSwiftness += 1;
+                    break;
+            }
+            ApplyLevelStats();
+        }
+
+        /// <summary>Input depth §5: run the offer clock. The sim never pauses
+        /// for it — the fight continues while the player decides.</summary>
+        private void UpdateGrowthOffer(float deltaTime, in SimInput input)
+        {
+            if (!_growthOfferOpen)
+            {
+                return;
+            }
+            int picked = input.GrowthChoice;
+            if (picked >= 1 && picked <= 3)
+            {
+                ApplyGrowthChoice((GrowthChoiceKind)picked);
+                return;
+            }
+            _growthOfferTime -= deltaTime;
+            if (_growthOfferTime <= 0f)
+            {
+                ApplyGrowthChoice(GrowthChoiceKind.None);
+            }
         }
 
         /// <summary>§3: an elite leaves an extractable corpse marker for 10 s.</summary>
@@ -1365,6 +1460,11 @@ namespace CinderCourt.Sim
                 movementX /= movementLength;
                 movementY /= movementLength;
                 float attackScale = _player.Action == ActorAction.Attack ? SimConfig.AttackMoveScale : 1f;
+                // Input depth §3: a building charge costs mobility, so the
+                // heavy is a commitment rather than free damage. Multiplies
+                // with the swing penalty — the two never both apply, since a
+                // live swing zeroes the charge.
+                if (_chargeTime > 0f) attackScale *= HackSpec.ChargeMoveScale;
                 _player.X += movementX * _playerSpeed * attackScale * deltaTime;
                 _player.Y += movementY * _playerSpeed * SimConfig.YMoveScale * attackScale * deltaTime;
                 _player.Moving = true;
@@ -1536,10 +1636,30 @@ namespace CinderCourt.Sim
                         _comboIndex = 0;
                     }
                 }
+                // Input depth §3: charge builds while the key STAYS down after
+                // a swing has finished. The press itself already swung
+                // instantly (above), so mashing is unchanged and holding costs
+                // no latency — the two readings never compete for the same
+                // press. Released early, the charge is simply discarded.
+                if (_dungeon && input.AttackHeld)
+                {
+                    _chargeTime += deltaTime;
+                }
+                else
+                {
+                    if (_chargeTime >= HackSpec.ChargeReadySeconds)
+                    {
+                        ReleaseCharge();
+                    }
+                    _chargeTime = 0f;
+                }
                 SetPlayerAction(_player.Moving ? ActorAction.Move : ActorAction.Idle, false);
                 _player.ActionTime += deltaTime;
                 return;
             }
+
+            // A live swing cancels any charge — the two cannot overlap.
+            _chargeTime = 0f;
 
             _player.ActionTime += deltaTime;
 
@@ -1559,6 +1679,50 @@ namespace CinderCourt.Sim
             _comboIndex = (index + 1) % HackSpec.ComboLength;
             _comboLink = HackSpec.ComboLinkWindow;
             SetPlayerAction(ActorAction.Idle, true);
+        }
+
+        /// <summary>Input depth §3: the charged heavy. Reuses the finisher's
+        /// reach and arc so it never becomes a second, different weapon —
+        /// only the numbers change. Damage x1.8, knockback x2.0.</summary>
+        private void ReleaseCharge()
+        {
+            _player.AttackId += 1;
+            _player.AttackCooldown = HackSpec.ComboSwing[HackSpec.ComboLength - 1];
+            _comboSwing = -1;
+            _comboIndex = 0;
+            _comboLink = 0f;
+            _comboVariant = ComboVariant.Neutral;
+            SetPlayerAction(ActorAction.Critical, true);
+            _events |= SimEvents.PlayerStruck;
+
+            float damage = _playerDamage * HackSpec.ChargeDamageMul;
+            bool landed = false;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead || enemy.LastHitAttack == _player.AttackId)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - _player.X;
+                float deltaY = (enemy.State.Y - _player.Y) * SimConfig.IsoY;
+                if (deltaX * _player.Facing < SimConfig.FacingArcTolerance
+                    || deltaX * deltaX + deltaY * deltaY
+                       > SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
+                {
+                    continue;
+                }
+                enemy.LastHitAttack = _player.AttackId;
+                landed = true;
+                Knockback(ref enemy,
+                    HackSpec.ComboKnockbackDistance * HackSpec.ChargeKnockbackMul,
+                    HackSpec.ComboKnockbackTime);
+                DamageEnemy(ref enemy, damage);
+            }
+            if (landed)
+            {
+                _events |= SimEvents.ComboFinisher;
+            }
         }
 
         /// <summary>
@@ -2304,12 +2468,19 @@ namespace CinderCourt.Sim
         private void ApplyLevelStats()
         {
             int levels = _level - 1;
+            // Input depth §5: banked growth points multiply on TOP of the
+            // automatic level curve. At zero points every term is exactly 1 or
+            // 0, so the arena and campaign paths keep their frozen values bit
+            // for bit — a player who ignores the offer is unaffected.
             _playerDamage = _baseDamage
                 * (1f + HackSpec.LevelDamageBonus * levels)
-                * (1f + _extractionBonus);
-            _playerMaxHealth = _baseMaxHealth + HackSpec.LevelHealthBonus * levels;
+                * (1f + _extractionBonus)
+                * (1f + HackSpec.GrowthAttackBonus * _growthAttack);
+            _playerMaxHealth = _baseMaxHealth + HackSpec.LevelHealthBonus * levels
+                + HackSpec.GrowthVitalityHealth * _growthVitality;
             _lanternRegen = _baseRegen + HackSpec.LevelRegenBonus * levels;
-            _playerSpeed = _baseSpeed;
+            _playerSpeed = _baseSpeed
+                * (1f + HackSpec.GrowthSwiftnessSpeed * _growthSwiftness);
         }
 
         /// <summary>Run-start reset of every hack &amp; slash field (§2-§7).</summary>
@@ -2322,6 +2493,13 @@ namespace CinderCourt.Sim
             _comboLink = 0f;
             _comboLanded = false;
             _comboVariant = ComboVariant.Neutral;
+            _chargeTime = 0f;
+            _growthOfferOpen = false;
+            _growthOfferTime = 0f;
+            _lastGrowthChoice = GrowthChoiceKind.None;
+            _growthAttack = 0;
+            _growthVitality = 0;
+            _growthSwiftness = 0;
             _dashCooldown = 0f;
             _dashTime = 0f;
             _dashDirX = 0f;

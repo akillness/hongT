@@ -331,6 +331,31 @@ namespace CinderCourt.Sim
         public const float BossSlamKnockbackDistance = 150f;
         public const float BossSlamKnockbackTime = 0.26f;
 
+        // --- input depth (_workspace/current/design/input-depth-spec.md) ---
+        /// <summary>§3: hold this long AFTER a swing ends to arm the heavy.
+        /// Under the boss telegraph (0.80 s) on purpose — a player who reads a
+        /// wind-up still has time to push a charge into the opening.</summary>
+        public const float ChargeReadySeconds = 0.45f;
+        public const float ChargeDamageMul = 1.8f;
+        public const float ChargeKnockbackMul = 2.0f;
+        /// <summary>§3: charging is a commitment — movement is slowed while it
+        /// builds, so the heavy costs position instead of being free damage.</summary>
+        public const float ChargeMoveScale = 0.45f;
+
+        /// <summary>§5: seconds before an unanswered level-up offer confirms
+        /// itself. Short on purpose — a longer window would leave a player who
+        /// ignores it without stats for a meaningful slice of a 19 s boss
+        /// fight, which would make "ignoring costs nothing" false.</summary>
+        public const float GrowthOfferSeconds = 5f;
+        public const float GrowthAttackBonus = 0.08f;     // +8% damage per point
+        public const float GrowthVitalityHealth = 6f;     // +6 max HP per point
+        public const float GrowthSwiftnessSpeed = 0.04f;  // +4% move per point
+        /// <summary>§5: -6% dash cooldown per swiftness point, floored at 0.55
+        /// so a fully-invested build still has a real dodge cycle rather than
+        /// a permanent i-frame.</summary>
+        public const float GrowthSwiftnessCooldown = 0.06f;
+        public const float GrowthSwiftnessCooldownFloor = 0.55f;
+
         /// <summary>B-1 (AMENDMENT #4): dungeon-only boss HP factor, on top of
         /// the frozen SimConfig.BossHealthMul. Shares UpdateBossPhase's
         /// _dungeon gate, so boss length and boss phases always apply to the

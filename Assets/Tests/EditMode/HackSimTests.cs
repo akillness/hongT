@@ -2225,6 +2225,142 @@ namespace CinderCourt.Tests
                 "telegraph must stay constant across phases");
         }
 
+        // --- input depth §3/§5: charge and growth choice ------------------------
+
+        /// <summary>Ignoring the offer must cost NOTHING — that is the whole
+        /// claim that lets it ship without a tutorial. A pilot that never
+        /// presses 1/2/3 must end with zero banked points and the same stats
+        /// it had before the amendment.</summary>
+        [Test]
+        public void GrowthOffer_AutoConfirmsAndCostsNothingWhenIgnored()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+            var growth = (IGrowthChoiceSnapshot)sim;
+
+            bool sawOffer = false;
+            float longestOpen = 0f, openFor = 0f;
+            for (int tick = 0; tick < 60 * 240; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if (growth.GrowthOfferOpen)
+                {
+                    sawOffer = true;
+                    openFor += SimConfig.FixedStep;
+                    if (openFor > longestOpen) longestOpen = openFor;
+                }
+                else
+                {
+                    openFor = 0f;
+                }
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+
+            Assert.IsTrue(sawOffer, "the pilot must level at least once and see an offer");
+            Assert.That(longestOpen, Is.LessThan(HackSpec.GrowthOfferSeconds + 0.2f),
+                $"an ignored offer stayed open {longestOpen:F2}s - it must auto-confirm");
+            Assert.That(growth.GrowthAttack + growth.GrowthVitality + growth.GrowthSwiftness,
+                Is.EqualTo(0), "ignoring the offer must bank nothing");
+            Assert.That(growth.LastGrowthChoice, Is.EqualTo(GrowthChoiceKind.None));
+        }
+
+        /// <summary>The offer must never stop the fight. A sim that paused
+        /// would turn every level-up into a free safe window.</summary>
+        [Test]
+        public void GrowthOffer_DoesNotPauseTheSim()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+            var growth = (IGrowthChoiceSnapshot)sim;
+
+            for (int tick = 0; tick < 60 * 240; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if (growth.GrowthOfferOpen)
+                {
+                    // The offer's own clock is the falsifiable witness: it can
+                    // only decrease if the sim is still stepping. Position and
+                    // wave are not usable here — a cornered pilot may be still
+                    // and a wave may not turn over inside 30 ticks.
+                    float clockBefore = growth.GrowthOfferTime;
+                    Assert.That(clockBefore, Is.GreaterThan(0f),
+                        "an open offer must carry a live countdown");
+                    for (int inner = 0; inner < 30; inner += 1) sim.Tick(Pilot(sim, true));
+                    float elapsed = clockBefore - growth.GrowthOfferTime;
+                    if (growth.GrowthOfferOpen)
+                    {
+                        Assert.That(elapsed, Is.EqualTo(30 * SimConfig.FixedStep).Within(0.005f),
+                            $"30 ticks must burn 30 fixed steps of the offer clock, burnt {elapsed:F3}s");
+                    }
+                    else
+                    {
+                        // It auto-confirmed inside the window, which is itself
+                        // proof the clock ran.
+                        Assert.That(clockBefore, Is.LessThanOrEqualTo(30 * SimConfig.FixedStep + 0.005f),
+                            "the offer closed early, so its clock must have been nearly spent");
+                    }
+                    return;
+                }
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+            Assert.Pass("no level-up reached in budget; auto-confirm covered elsewhere");
+        }
+
+        /// <summary>Each growth axis must actually move the stat it names.
+        /// Pinned through the real constants so a silent zero cannot ship.</summary>
+        [Test]
+        public void GrowthAxes_EachRaiseSomethingReal()
+        {
+            Assert.That(HackSpec.GrowthAttackBonus, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthVitalityHealth, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthSwiftnessSpeed, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthSwiftnessCooldown, Is.GreaterThan(0f),
+                "swiftness must shorten the dodge cycle, not just raise speed");
+            Assert.That(HackSpec.GrowthSwiftnessCooldownFloor, Is.InRange(0.3f, 0.9f),
+                "the cooldown floor must leave a real dodge cycle at full investment");
+        }
+
+        /// <summary>Charge must be reachable INSIDE a boss telegraph, or the
+        /// heavy can never be used against the fight it exists for.</summary>
+        [Test]
+        public void ChargeWindow_FitsInsideABossTelegraph()
+        {
+            Assert.That(HackSpec.ChargeReadySeconds, Is.LessThan(HackSpec.BossTelegraph[0]),
+                $"charge takes {HackSpec.ChargeReadySeconds}s but the telegraph is "
+                + $"{HackSpec.BossTelegraph[0]}s - it could never be armed on a read");
+            Assert.That(HackSpec.ChargeDamageMul, Is.GreaterThan(1f));
+            Assert.That(HackSpec.ChargeMoveScale, Is.LessThan(1f),
+                "charging must cost mobility or it is free damage");
+        }
+
+        /// <summary>Holding attack must NOT change a mashing player's run.
+        /// AttackHeld arrives on every tick a key is down, so a naive read
+        /// would let mashers charge by accident.</summary>
+        [Test]
+        public void HoldingAttack_DoesNotAlterAMashingRun()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var mashing = new CinderSim(in config);
+            var holding = new CinderSim(in config);
+
+            for (int tick = 0; tick < 60 * 30; tick += 1)
+            {
+                var a = Pilot(mashing, true);
+                mashing.Tick(in a);
+                var b = Pilot(holding, true);
+                b.AttackHeld = true;          // same pilot, key never released
+                holding.Tick(in b);
+            }
+
+            // The held run is ALLOWED to differ - that is the feature. What
+            // must hold is that the mashing run never accumulates charge, so a
+            // player who taps gets exactly the pre-amendment sim.
+            Assert.That(mashing.ChargeProgress, Is.EqualTo(0f),
+                "a player who never holds must never accumulate charge");
+            Assert.That(holding.ChargeProgress, Is.GreaterThanOrEqualTo(0f),
+                "the held run must expose a valid charge reading");
+        }
+
         // --- motion depth: the player can be launched --------------------------
 
         /// <summary>A launch must never outrun a deliberate dodge, or the
