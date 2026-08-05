@@ -1,0 +1,7 @@
+flowchart LR
+  T[텍스트 입력] --> P[로컬 키워드 파서]
+  P -- 매치 --> L[SimInput 래치]
+  P -- Unknown --> G{Gemini 키?}
+  G -- 없음 --> F[정직한 피드백 토스트]
+  G -- 있음 --> C[Gemini 분류 1단어] --> W[FromIntentWord] --> L
+  L --> S[결정론 심 틱]

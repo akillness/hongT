@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> Lobby
+    Lobby --> Prologue: 프롤로그 출정
+    Lobby --> Dungeon: 스테이지 출정
+    Prologue --> Lobby: 클리어/사망
+    Dungeon --> Lobby: 클리어/사망
+    note right of Lobby: 라이브 3D 배경 + uGUI 패널

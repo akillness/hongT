@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/badge/version-v0.2.0-2cadd6?style=flat-square)](docs/RELEASE_NOTES.md)
 [![Unity](https://img.shields.io/badge/Unity-6000.5.6f1-000000?style=flat-square&logo=unity)](https://unity.com)
 [![WebGL](https://img.shields.io/badge/target-WebGL-8f67ff?style=flat-square)](https://akillness.github.io/hongT/)
-[![Tests](https://img.shields.io/badge/EditMode%20tests-61%20passed-3fb950?style=flat-square)](Assets/Tests/EditMode)
+[![Tests](https://img.shields.io/badge/EditMode%20tests-195%20passed-3fb950?style=flat-square)](Assets/Tests/EditMode)
 [![Deploy](https://img.shields.io/badge/Pages-gh--pages-24292f?style=flat-square&logo=github)](https://github.com/akillness/hongT/deployments)
 
 > 마지막 등불을 든 **Dusk Warden**이 되어, 등불의 기름을 태워 잿불 군단의
@@ -18,22 +18,20 @@
 
 ## 게임 구조 (v0.2.0)
 
-```mermaid
-stateDiagram-v2
-    [*] --> Lobby: index.html
-    Lobby --> Prologue: 점화 훈련 (2D 탑다운 디펜스)
-    Prologue --> Lobby: 클리어 — 2.5D 전환 연출
-    Lobby --> Dungeon: 스테이지 강하 (핵앤슬래시)
-    Dungeon --> Lobby: 정화 / 함락
-    Lobby --> Arena: ?mode=arena (무한 웨이브)
-```
+![게임 구조](docs/assets/diagrams/game-flow.svg)
+
+<!-- 원본: docs/assets/diagrams/game-flow.mmd — 재생성:
+     mmdc -i docs/assets/diagrams/game-flow.mmd \
+          -o docs/assets/diagrams/game-flow.svg \
+          -c docs/assets/diagrams/config.json -b transparent -->
 
 - **로비** — 라이브 3D 배경(워든·동료·보스 대치) 위 성장/장비/군단 패널.
 - **프롤로그** — 탑다운 오소그래픽 "2D 디펜스"로 조작·기름 경제를 학습.
   클리어하면 카메라가 55°로 내려오며 2.5D 던전이 열린다.
 - **던전 (본편)** — 3콤보·대시·스킬 4종·원소 상성·정예 추출·동료 동행·
-  보스 2페이즈·장비 드롭·레벨업. 스테이지 3구역:
-  Cinder Span → Abyss Chancel → Echo Throne.
+  보스 3페이즈·장비 드롭·레벨업. 스테이지 6구역:
+  Cinder Span → Ember Gallery → Abyss Chancel → Witness Well →
+  Echo Throne → Ash Verdict.
 
 ## 조작
 
@@ -69,7 +67,7 @@ stateDiagram-v2
 # Unity 6000.5.6f1 필요 (URP 17.5)
 bash tools/unity_batch.sh method CinderCourt.EditorTools.CharacterImportPipeline.ImportAll
 bash tools/unity_batch.sh method CinderCourt.EditorTools.SceneBuilder.Build
-bash tools/unity_batch.sh tests     # EditMode 61 (아레나 20 + 캠페인 10 + 핵앤슬래시 31)
+bash tools/unity_batch.sh tests     # EditMode 195 (아레나 20 + 캠페인 11 + 핵앤슬래시 46 + 뷰/QA 118)
 bash tools/unity_batch.sh build     # build-webgl/
 python3 -m http.server 4173 --directory build-webgl
 ```

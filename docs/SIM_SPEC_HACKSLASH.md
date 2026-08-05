@@ -7,15 +7,12 @@
 
 ## 0. 모드와 상태머신 (단일 씬)
 
-```mermaid
-stateDiagram-v2
-    [*] --> Lobby
-    Lobby --> Prologue: 프롤로그 출정
-    Lobby --> Dungeon: 스테이지 출정
-    Prologue --> Lobby: 클리어/사망
-    Dungeon --> Lobby: 클리어/사망
-    note right of Lobby: 라이브 3D 배경 + uGUI 패널
-```
+![모드 상태머신](assets/diagrams/hackslash-flow.svg)
+
+<!-- 원본: docs/assets/diagrams/hackslash-flow.mmd — 재생성:
+     mmdc -i docs/assets/diagrams/hackslash-flow.mmd \
+          -o docs/assets/diagrams/hackslash-flow.svg \
+          -c docs/assets/diagrams/config.json -b transparent -->
 
 - **씬은 CinderCourt.unity 하나.** `GameDirector`(View)가 상태 전환 소유.
 - URL 계약: `index.html` → Lobby 부팅. `?mode=arena` → 구 무한 아레나(회귀 보존).

@@ -1,0 +1,16 @@
+{
+  "theme": "base",
+  "htmlLabels": false,
+  "themeVariables": {
+    "fontFamily": "Apple SD Gothic Neo, Noto Sans KR, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#fdf3e7",
+    "primaryTextColor": "#2b1d10",
+    "primaryBorderColor": "#c8853f",
+    "lineColor": "#7a4a1e",
+    "secondaryColor": "#e8f2f5",
+    "tertiaryColor": "#ffffff"
+  },
+  "flowchart": { "curve": "basis", "htmlLabels": false },
+  "state": { "htmlLabels": false }
+}

@@ -37,15 +37,12 @@
 
 ## Gemini 명령 아키텍처 (결정론 보존)
 
-```mermaid
-flowchart LR
-  T[텍스트 입력] --> P[로컬 키워드 파서]
-  P -- 매치 --> L[SimInput 래치]
-  P -- Unknown --> G{Gemini 키?}
-  G -- 없음 --> F[정직한 피드백 토스트]
-  G -- 있음 --> C[Gemini 분류 1단어] --> W[FromIntentWord] --> L
-  L --> S[결정론 심 틱]
-```
+![Gemini 명령 아키텍처](assets/vfx-command-flow.svg)
+
+<!-- 원본: _workspace/current/design/assets/vfx-command-flow.mmd — 재생성:
+     mmdc -i _workspace/current/design/assets/vfx-command-flow.mmd \
+          -o _workspace/current/design/assets/vfx-command-flow.svg \
+          -c docs/assets/diagrams/config.json -b transparent -->
 
 - 키는 빌드에 절대 미포함: 런타임 등록(`키 <key>` 콘솔 명령 / `#gemini=` URL **프래그먼트** — 쿼리스트링은 GitHub 로그에 남으므로 금지) → PlayerPrefs.
 - LLM 출력은 닫힌 intent 단어 1개 → 기존 래치. 지연은 래치 시점만 이동, 심 규칙 불변. 리플레이에는 확정 명령만 남음.
