@@ -83,9 +83,17 @@ namespace CinderCourt.EditorTools
             // 71.9% dissolved — a visible luminance step right on the seam.)
             // Cost: fog variants already ship (GraphicsSettings), so this adds
             // zero draw calls, zero triangles, and no new shader variants.
+            // fogColor is deliberately NOT equal to backgroundColor. Setting
+            // them equal (the obvious first try) makes fog erase the very
+            // geometry added to fill the outskirts: anything past fogEnd
+            // renders at exactly the clear colour, so the void floor becomes
+            // indistinguishable from the void it exists to hide. Measured on
+            // the live build: 18.7% of the frame still sat at clear colour.
+            // A slightly lifted, warmer haze keeps distant floor READABLE as
+            // floor while still dissolving the apron's hard rim.
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = camera.backgroundColor;
+            RenderSettings.fogColor = new Color(0.075f, 0.062f, 0.092f);
             RenderSettings.fogStartDistance = 19f;
             RenderSettings.fogEndDistance = 22.5f;
 
@@ -107,6 +115,45 @@ namespace CinderCourt.EditorTools
             AssetDatabase.CreateAsset(material, "Assets/Art/Materials/CourtBackdrop.mat");
             plate.GetComponent<MeshRenderer>().sharedMaterial =
                 AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/CourtBackdrop.mat");
+
+            // --- Void floor -------------------------------------------------
+            // Fog alone CANNOT close the outskirts, and the geometry proves
+            // it. At the dungeon orbit the depths are:
+            //   far playable edge 18.68 u | NEAR apron edge 14.05 u
+            // The near apron rim is CLOSER to the camera than the far edge of
+            // the play area, so any distance band that hides the rim also
+            // hazes the arena. Distance fog can only ever dissolve the FAR
+            // rim — which it does, 99% — leaving the near and side edges as
+            // hard lines against the clear colour. Verified in the live
+            // build, not assumed.
+            //
+            // So put something there. A single unlit quad well below the
+            // apron, in the clear colour, turns "the world stops here" into
+            // "the floor continues into the dark". 40 x 26 world u covers the
+            // frustum footprint at the widest tier (boss orbit 21, 16:9).
+            // Cost: 2 triangles, 1 draw call, no texture.
+            var voidFloor = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            voidFloor.name = "VoidFloor";
+            Object.DestroyImmediate(voidFloor.GetComponent<Collider>());
+            voidFloor.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            // Under the apron (which sits at y ~= 0), centred on the arena.
+            voidFloor.transform.position = new Vector3(
+                SimWorld(1536f) / 2f, -0.35f, -SimWorld(1024f) / 2f);
+            voidFloor.transform.localScale = new Vector3(40f, 26f, 1f);
+            var voidMaterial = new Material(shader) { name = "VoidFloor" };
+            // Value matched to the apron's SHADOW tone, not to the background.
+            // Measured on the live build: with the floor at 0.055 the seam was
+            // a 4x luminance step (sum 39 -> 151 across one sample), which
+            // reads as "the world ends here" even though floor IS present.
+            // The floor must be dark enough to recede but close enough that
+            // the apron edge becomes a gradient rather than a cliff.
+            voidMaterial.SetColor("_BaseColor", new Color(0.105f, 0.092f, 0.125f, 1f));
+            AssetDatabase.DeleteAsset("Assets/Art/Materials/VoidFloor.mat");
+            AssetDatabase.CreateAsset(voidMaterial, "Assets/Art/Materials/VoidFloor.mat");
+            voidFloor.GetComponent<MeshRenderer>().sharedMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/VoidFloor.mat");
+            voidFloor.GetComponent<MeshRenderer>().shadowCastingMode =
+                UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // --- Game root -------------------------------------------------------
             var root = new GameObject("GameRoot");
