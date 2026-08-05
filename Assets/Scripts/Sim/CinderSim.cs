@@ -152,6 +152,7 @@ namespace CinderCourt.Sim
         private int _comboSwing;      // hit currently swinging, -1 when idle
         private float _comboLink;     // seconds left of the 0.9 s chain window
         private bool _comboLanded;    // current swing already damaged something
+        private ComboVariant _comboVariant;  // finisher branch, latched at swing start
         private float _dashCooldown;
         private float _dashTime;
         private float _dashDirX, _dashDirY;
@@ -876,6 +877,12 @@ namespace CinderCourt.Sim
             _shield = HackSpec.AegisShield;
             _shieldTime = HackSpec.AegisDuration;
             _castInvuln = HackSpec.AegisCastInvuln;
+            // Motion depth: the authored `defence` clip (Body Block) shipped
+            // dead. The aegis cast window is literally a block — the player is
+            // invulnerable for AegisCastInvuln seconds — so the pose and the
+            // rule now say the same thing. Forced: the block must read
+            // immediately, and it is what makes the i-frames legible.
+            SetPlayerAction(ActorAction.Defence, true);
             _events |= SimEvents.WardCast;
         }
 
@@ -1401,11 +1408,41 @@ namespace CinderCourt.Sim
             }
         }
 
+        /// <summary>Which finisher the third combo hit becomes. Dungeon only —
+        /// the arena path always resolves Neutral, preserving its digest.</summary>
+        internal enum ComboVariant
+        {
+            Neutral = 0,   // no direction held: the original finisher
+            Launcher = 1,  // toward the facing: knockback x1.6
+            Retreat = 2,   // away from the facing: knockback x0.7
+            Spin = 3,      // vertical only: knockback x1.0, reach x1.35
+        }
+
+        /// <summary>Pure: the direction held at the finisher's first frame maps
+        /// to a variant. Compared against facing so "forward" means forward for
+        /// a left-facing player too. The deadzone keeps a drifting stick from
+        /// flipping the branch.</summary>
+        internal static ComboVariant ResolveFinisherVariant(float moveX, float moveY, int facing)
+        {
+            const float Deadzone = 0.35f;
+            bool horizontal = MathF.Abs(moveX) >= Deadzone;
+            bool vertical = MathF.Abs(moveY) >= Deadzone;
+
+            if (horizontal)
+            {
+                // Facing is +1 right / -1 left, so a positive product means the
+                // player pushed the way the character already looks.
+                return moveX * facing > 0f ? ComboVariant.Launcher : ComboVariant.Retreat;
+            }
+            return vertical ? ComboVariant.Spin : ComboVariant.Neutral;
+        }
+
         /// <summary>
         /// §2.1: a three-hit chain. Each hit owns a swing length and an active window;
         /// re-pressing inside the 0.9 s link window advances the chain, otherwise the
         /// next press restarts at hit 1.
         /// </summary>
+
         private void UpdateCombo(float deltaTime, in SimInput input)
         {
             if (input.AttackQueued && _comboSwing < 0)
@@ -1420,7 +1457,21 @@ namespace CinderCourt.Sim
                 _comboLink = 0f;
                 _player.AttackId += 1;
                 _player.AttackCooldown = HackSpec.ComboSwing[hit];
-                SetPlayerAction(ActorAction.Attack, true);
+                // Input depth §2: the FINISHER branches on the direction held
+                // the moment it starts. Latched here, not read per-enemy, so
+                // every enemy in one swing takes the same variant even if the
+                // stick moves mid-swing. Needs no SimInput field: MoveX/MoveY
+                // already arrive on the same tick as AttackQueued.
+                _comboVariant = _dungeon && hit == HackSpec.ComboLength - 1
+                    ? ResolveFinisherVariant(input.MoveX, input.MoveY, _player.Facing)
+                    : ComboVariant.Neutral;
+                // Motion depth: the authored `critical` clip (Illegal Elbow
+                // Punch) shipped dead. The Launcher — the committed forward
+                // finisher — is the one swing that deserves its own pose, so
+                // the strongest choice in the combo finally LOOKS different.
+                SetPlayerAction(_comboVariant == ComboVariant.Launcher
+                    ? ActorAction.Critical
+                    : ActorAction.Attack, true);
                 _events |= SimEvents.PlayerStruck;
             }
 
@@ -1479,8 +1530,13 @@ namespace CinderCourt.Sim
                 float deltaX = enemy.State.X - _player.X;
                 float deltaY = (enemy.State.Y - _player.Y) * SimConfig.IsoY;
                 bool inFacingArc = deltaX * _player.Facing >= SimConfig.FacingArcTolerance;
+                // Input depth §2: Spin sweeps wider instead of hitting harder,
+                // so a vertical finisher answers "I am surrounded" rather than
+                // "this one enemy must die".
+                float reach = SimConfig.PlayerAttackRange
+                    * (finisher && _comboVariant == ComboVariant.Spin ? HackSpec.SpinReachMul : 1f);
                 if (!inFacingArc
-                    || deltaX * deltaX + deltaY * deltaY > SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
+                    || deltaX * deltaX + deltaY * deltaY > reach * reach)
                 {
                     continue;
                 }
@@ -1489,7 +1545,9 @@ namespace CinderCourt.Sim
                 landed = true;
                 if (finisher)
                 {
-                    Knockback(ref enemy, HackSpec.ComboKnockbackDistance, HackSpec.ComboKnockbackTime);
+                    Knockback(ref enemy,
+                        HackSpec.ComboKnockbackDistance * HackSpec.FinisherKnockbackMul[(int)_comboVariant],
+                        HackSpec.ComboKnockbackTime);
                 }
                 DamageEnemy(ref enemy, damage);
             }
@@ -1501,6 +1559,17 @@ namespace CinderCourt.Sim
             if (landed)
             {
                 _comboLanded = true;
+            }
+
+            // Input depth §2: Retreat actually retreats — the player slides
+            // backward as the swing lands. Without this the "escape" finisher
+            // only weakens the knockback, which reads as a worse Neutral rather
+            // than a different tool. Gated on `landed` so a whiffed swing is
+            // not a free repositioning tool.
+            if (landed && finisher && _comboVariant == ComboVariant.Retreat)
+            {
+                _player.X -= _player.Facing * HackSpec.RetreatStepDistance;
+                ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
             }
         }
 
@@ -1562,6 +1631,17 @@ namespace CinderCourt.Sim
             _player.DamageCooldown = SimConfig.PlayerHitGrace;
             _player.Health = MathF.Max(0f, _player.Health - amount);
             _events |= SimEvents.PlayerDamaged;
+
+            // Motion depth: the authored `hit` clip (Standing React Small From
+            // Left) shipped dead — damage only ever produced a colour flash.
+            // A real hit that is not a kill now poses the recoil. Dungeon-gated
+            // and never overrides a dash: an i-framed roll must keep reading as
+            // a roll. The pose is not forced, so an in-progress swing wins —
+            // trading a hit for a hit stays a deliberate choice.
+            if (_dungeon && _player.Health > 0f && _dashTime <= 0f)
+            {
+                SetPlayerAction(ActorAction.Hit, false);
+            }
 
             if (_player.Health == 0f)
             {
@@ -2177,6 +2257,7 @@ namespace CinderCourt.Sim
             _comboSwing = -1;
             _comboLink = 0f;
             _comboLanded = false;
+            _comboVariant = ComboVariant.Neutral;
             _dashCooldown = 0f;
             _dashTime = 0f;
             _dashDirX = 0f;
@@ -2389,13 +2470,27 @@ namespace CinderCourt.Sim
 
         // --- Shared math -----------------------------------------------------
 
-        private static void ClampToArena(ref float x, ref float y, float margin)
+        /// <summary>Arena floor clamp. The frozen arena/campaign path uses an
+        /// L1 (diamond) norm — the literal iso floor shape. AMENDMENT #4 gives
+        /// the DUNGEON path an L2 (ellipse) norm instead: same bounding box,
+        /// same drawn floor, but +57% reachable area (280,800 -> 441,080 u2).
+        /// The diamond amputates the corners — at 75% toward the top edge it
+        /// allows |x| &lt;= 130 of a possible 520 — which is what made the room
+        /// feel narrow. The dressing plane (StageCatalog L170-172: x 248..1288,
+        /// y 334..874) is EXACTLY the bounding box, so every point the ellipse
+        /// newly admits already has floor drawn under it.</summary>
+        private void ClampToArena(ref float x, ref float y, float margin)
         {
             float halfWidth = SimConfig.ArenaHalfWidth - margin;
             float halfHeight = SimConfig.ArenaHalfHeight - margin * 0.5f;
             float localX = x - SimConfig.ArenaX;
             float localY = y - SimConfig.ArenaY;
-            float normalized = MathF.Abs(localX) / halfWidth + MathF.Abs(localY) / halfHeight;
+
+            float unitX = localX / halfWidth;
+            float unitY = localY / halfHeight;
+            float normalized = _dungeon
+                ? MathF.Sqrt(unitX * unitX + unitY * unitY)   // ellipse
+                : MathF.Abs(unitX) + MathF.Abs(unitY);        // diamond (frozen)
 
             if (normalized > 1f)
             {

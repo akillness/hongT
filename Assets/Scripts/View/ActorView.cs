@@ -46,8 +46,13 @@ namespace CinderCourt.View
         // They MUST match the row order in CharacterImportPipeline.Clips, which
         // ClipTableTests pins.
         const int Attack2Value = 11, Attack3Value = 12, CastValue = 13;
+        // §M: the roar clip's readable length. Long enough that the entrance
+        // registers, short enough that the boss is not a free target — it can
+        // still turn and attack the instant its AI decides to.
+        const float RoarDuration = 1.1f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
+        float _roarTime;                      // §M boss entrance roar window
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
 
@@ -332,14 +337,31 @@ namespace CinderCourt.View
         /// A live knockback outranks everything except death — being launched is
         /// the strongest thing happening to that body.</summary>
         internal static int ResolveActionValue(
-            ActorAction action, int comboTier, bool castPoseLive, bool knockbackLive = false)
+            ActorAction action, int comboTier, bool castPoseLive, bool knockbackLive = false,
+            bool roarLive = false)
         {
             if (action == ActorAction.Die) return (int)ActorAction.Die;
             if (knockbackLive) return (int)ActorAction.BigHit;
+            // §M: the boss entrance roar. Sits under knockback (a boss launched
+            // mid-roar should read as launched) but over locomotion, because a
+            // roaring boss that walks looks like neither. Idle-only, same rule
+            // as the cast pose: a boss already swinging keeps its swing.
+            if (roarLive && (action == ActorAction.Idle || action == ActorAction.Move
+                || action == ActorAction.Run))
+                return (int)ActorAction.Show;
             if (action == ActorAction.Attack && comboTier > 0)
                 return comboTier == 1 ? Attack2Value : Attack3Value;
             if (castPoseLive && action == ActorAction.Idle) return CastValue;
             return (int)action;
+        }
+
+        /// <summary>§M: starts the entrance roar window. Called from the
+        /// BossSpawned event, which is where the intro letterbox already
+        /// triggers — the sim never poses this, because a sim-side Show would
+        /// be overwritten by the AI on the very next tick.</summary>
+        public void PlayRoar()
+        {
+            _roarTime = RoarDuration;
         }
 
         /// <summary>
@@ -502,8 +524,9 @@ namespace CinderCourt.View
             // exhaustively instead of inferred from screenshots.
             if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
             if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
+            if (_roarTime > 0f) _roarTime -= Time.deltaTime;
             var actionValue = ResolveActionValue(
-                action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f);
+                action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f, _roarTime > 0f);
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.SetInteger(ActionParam, actionValue);
@@ -604,6 +627,7 @@ namespace CinderCourt.View
             _comboTier = -1;
             _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
             _knockbackTime = 0f;      // §M: nor a launch reaction
+            _roarTime = 0f;           // §M: nor an entrance roar
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;

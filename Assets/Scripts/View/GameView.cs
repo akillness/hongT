@@ -61,6 +61,7 @@ namespace CinderCourt.View
         ActorView _companionView;
         float _accumulator;
         bool _digestWritten;
+        bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
         bool _campaignUiOn;
         bool _dungeonUiOn;
@@ -364,6 +365,14 @@ namespace CinderCourt.View
             // §P2: equip pickup flash — gold pulse on the player model.
             if ((events & SimEvents.EquipDropped) != 0 && _playerView != null)
                 _playerView.FlashEquip();
+            // §M: boss entrance roar. The authored `show` clip (Mutant Roaring)
+            // shipped dead for want of a driver. Resolved View-side on purpose:
+            // a sim-side pose would be overwritten by the boss AI on the very
+            // next tick, and holding the boss still sim-side would hand the
+            // player free hits. Deferred one frame is impossible here — the
+            // boss view is rented during the same SyncViews pass, so the roar
+            // is started when the view is first seen carrying IsBoss.
+            if ((events & SimEvents.BossSpawned) != 0) _pendingBossRoar = true;
             // §Lane V1: cast-sync hand glow — element-matched convergence at
             // every cast event. Decoration reading sim events, never gating.
             // §K3: the SAME element color drives the struck mesh's hit flash,
@@ -424,6 +433,15 @@ namespace CinderCourt.View
                     // the 1.35 scale-up gets the pulsing gold tint.
                     if (!state.IsBoss && state.Scale > 1.2f)
                         view.SetEliteTint(true);
+                    // §M: the entrance roar starts the frame the boss's view is
+                    // first rented, which is the same frame BossSpawned raised
+                    // the flag. Consumed here so a second boss (monarch escort
+                    // waves) cannot inherit a stale roar.
+                    if (state.IsBoss && _pendingBossRoar)
+                    {
+                        _pendingBossRoar = false;
+                        view.PlayRoar();
+                    }
                 }
                 // SyncEnemy reports the health delta since last frame — the
                 // view-side hit signal (presentation #5) that also feeds the

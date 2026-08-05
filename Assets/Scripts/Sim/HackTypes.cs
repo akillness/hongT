@@ -310,6 +310,20 @@ namespace CinderCourt.Sim
         public const float LevelRegenBonus = 0.3f;
 
         // --- §3 elites and extraction ---
+        /// <summary>Input depth §2: knockback multiplier per finisher variant,
+        /// indexed by ComboVariant (Neutral/Launcher/Retreat/Spin). Neutral is
+        /// exactly 1.0, so a player who never holds a direction sees the
+        /// original finisher unchanged.</summary>
+        public static readonly float[] FinisherKnockbackMul = { 1.00f, 1.60f, 0.70f, 1.00f };
+
+        /// <summary>Input depth §2: the spin finisher trades force for reach.</summary>
+        public const float SpinReachMul = 1.35f;
+
+        /// <summary>Input depth §2: how far the retreat finisher slides the
+        /// player back. Under one dash (190) so it repositions without
+        /// replacing the dodge.</summary>
+        public const float RetreatStepDistance = 74f;
+
         /// <summary>B-1 (AMENDMENT #4): dungeon-only boss HP factor, on top of
         /// the frozen SimConfig.BossHealthMul. Shares UpdateBossPhase's
         /// _dungeon gate, so boss length and boss phases always apply to the

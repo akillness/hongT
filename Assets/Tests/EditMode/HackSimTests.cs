@@ -2225,6 +2225,104 @@ namespace CinderCourt.Tests
                 "telegraph must stay constant across phases");
         }
 
+        // --- input depth §2: directional finisher --------------------------------
+
+        /// <summary>The resolver is pure, so every branch is pinned here rather
+        /// than sampled through a run. "Forward" is relative to facing, so the
+        /// same stick direction must mean opposite variants for a left-facing
+        /// and a right-facing player — that mirror is the easiest thing to get
+        /// wrong and the hardest to notice.</summary>
+        [TestCase( 0.0f,  0.0f,  1, 0)]   // Neutral
+        [TestCase( 0.2f,  0.0f,  1, 0)]   // inside deadzone -> Neutral
+        [TestCase( 1.0f,  0.0f,  1, 1)]   // right, facing right -> Launcher
+        [TestCase(-1.0f,  0.0f,  1, 2)]   // left, facing right  -> Retreat
+        [TestCase(-1.0f,  0.0f, -1, 1)]   // left, facing LEFT   -> Launcher
+        [TestCase( 1.0f,  0.0f, -1, 2)]   // right, facing LEFT  -> Retreat
+        [TestCase( 0.0f,  1.0f,  1, 3)]   // vertical -> Spin
+        [TestCase( 0.0f, -1.0f,  1, 3)]
+        [TestCase( 1.0f,  1.0f,  1, 1)]   // horizontal wins over vertical
+        public void FinisherVariant_ResolvesRelativeToFacing(
+            float moveX, float moveY, int facing, int expected)
+        {
+            // The enum is internal to keep it off the frozen Sim contract, so
+            // the case data is its integer value.
+            Assert.That((int)CinderSim.ResolveFinisherVariant(moveX, moveY, facing),
+                Is.EqualTo(expected), $"move ({moveX},{moveY}) facing {facing}");
+        }
+
+        /// <summary>Neutral must be EXACTLY the old finisher. If this drifts,
+        /// every player who never holds a direction silently got a balance
+        /// change they did not ask for.</summary>
+        [Test]
+        public void NeutralFinisher_KeepsTheOriginalKnockback()
+        {
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Neutral],
+                Is.EqualTo(1f), "neutral must not scale knockback at all");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Spin],
+                Is.EqualTo(1f), "spin trades reach for force, so its knockback is unchanged");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Launcher],
+                Is.GreaterThan(1f), "launcher must throw harder");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Retreat],
+                Is.LessThan(1f), "retreat trades force for distance");
+            Assert.That(HackSpec.FinisherKnockbackMul.Length,
+                Is.EqualTo(System.Enum.GetValues(typeof(CinderSim.ComboVariant)).Length),
+                "every variant needs a multiplier or the index throws");
+        }
+
+        /// <summary>The retreat step must not become a better dash. If it ever
+        /// outruns the dodge, the dodge stops being the escape tool.</summary>
+        [Test]
+        public void RetreatStep_StaysShorterThanADash()
+        {
+            Assert.That(HackSpec.RetreatStepDistance, Is.LessThan(HackSpec.DashDistance),
+                "the retreat finisher must reposition less than a dedicated dodge");
+            Assert.That(HackSpec.RetreatStepDistance, Is.GreaterThan(0f));
+        }
+
+        /// <summary>AMENDMENT #4: the dungeon floor is an ellipse, the frozen
+        /// arena floor stays a diamond. Pinned by walking a pilot hard into a
+        /// corner and reading where it comes to rest — the corner is exactly
+        /// where the two shapes disagree most.</summary>
+        [Test]
+        public void DungeonFloor_ReachesCornersTheArenaDiamondForbids()
+        {
+            var dungeon = new CinderSim(Dungeon(attack: 5, vitality: 5, swiftness: 5,
+                weapon: 1, lantern: 1, cloak: 1));
+            var arena = new CinderSim();
+
+            // Drive both up-and-right for long enough to pin against the wall.
+            var corner = new SimInput { MoveX = 1f, MoveY = -1f };
+            for (int tick = 0; tick < 60 * 12; tick += 1)
+            {
+                dungeon.Tick(in corner);
+                arena.Tick(in corner);
+            }
+
+            float dungeonX = MathF.Abs(dungeon.Player.X - SimConfig.ArenaX);
+            float dungeonY = MathF.Abs(dungeon.Player.Y - SimConfig.ArenaY);
+            float arenaX = MathF.Abs(arena.Player.X - SimConfig.ArenaX);
+            float arenaY = MathF.Abs(arena.Player.Y - SimConfig.ArenaY);
+
+            float halfWidth = SimConfig.ArenaHalfWidth - SimConfig.PlayerMarginClamp;
+            float halfHeight = SimConfig.ArenaHalfHeight - SimConfig.PlayerMarginClamp * 0.5f;
+
+            // The arena pilot rests ON the diamond: |x|/a + |y|/b == 1.
+            float arenaL1 = arenaX / halfWidth + arenaY / halfHeight;
+            Assert.That(arenaL1, Is.EqualTo(1f).Within(0.02f),
+                $"the frozen arena floor must stay a diamond (L1 = {arenaL1:F3})");
+
+            // The dungeon pilot rests ON the ellipse, OUTSIDE that diamond.
+            float dungeonL2 = MathF.Sqrt(
+                dungeonX / halfWidth * (dungeonX / halfWidth) +
+                dungeonY / halfHeight * (dungeonY / halfHeight));
+            Assert.That(dungeonL2, Is.EqualTo(1f).Within(0.02f),
+                $"the dungeon floor must be an ellipse (L2 = {dungeonL2:F3})");
+
+            float dungeonL1 = dungeonX / halfWidth + dungeonY / halfHeight;
+            Assert.That(dungeonL1, Is.GreaterThan(1.05f),
+                $"the dungeon pilot must stand where the diamond forbids (L1 = {dungeonL1:F3})");
+        }
+
         /// <summary>The whole point of the phases is that a player can SEE
         /// them. A phase reads only if it fits at least one full
         /// telegraph->attack cycle; below that the boss changes state and dies

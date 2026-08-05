@@ -61,6 +61,34 @@ namespace CinderCourt.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.32f, 0.30f, 0.42f);
 
+            // --- Outskirt fill: fog matched to the clear colour ---------------
+            // Measured: the apron is a fixed 1700x1577 sim-unit rectangle while
+            // the camera's ground footprint is a trapezoid that widens with
+            // distance. At 3:2 that leaves 18.9% of the frame on the clear
+            // colour; at 16:9 it is 51.7%. Covering it with geometry needs a
+            // 2.31x prefab scale, which would wreck texel density and the
+            // sense of scale.
+            //
+            // Instead: fogColor == backgroundColor. The apron's hard edge
+            // dissolves into the background, so the empty region reads as
+            // distance rather than as a missing floor.
+            //
+            // Band sized against the RUNTIME dungeon camera, not this editor
+            // one: CameraRig places a 55-degree orbit at distance 17, giving
+            // view depths of 15.61 u at the near playable edge, 17.00 at the
+            // arena centre, 18.68 at the far playable edge, and 22.47 at the
+            // apron rim. Linear 19 -> 22.5 therefore leaves the ENTIRE
+            // playable area at 0% fog and dissolves the rim 99.1%. (16 -> 25
+            // hazed the far playable edge 29.8% while leaving the rim only
+            // 71.9% dissolved — a visible luminance step right on the seam.)
+            // Cost: fog variants already ship (GraphicsSettings), so this adds
+            // zero draw calls, zero triangles, and no new shader variants.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = camera.backgroundColor;
+            RenderSettings.fogStartDistance = 19f;
+            RenderSettings.fogEndDistance = 22.5f;
+
             // --- Backdrop plate -------------------------------------------------
             var plate = GameObject.CreatePrimitive(PrimitiveType.Quad);
             plate.name = "CourtBackdrop";
@@ -128,19 +156,35 @@ namespace CinderCourt.EditorTools
                 profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
                 AssetDatabase.CreateAsset(profile, path);
             }
+            // DEFECT FIX: profile.Add<T>() builds the component in memory but
+            // does NOT parent it to the profile asset, so both entries
+            // serialized as {fileID: 0} — the shipped asset carried two NULL
+            // references and post-processing has been inert since it landed.
+            // AddObjectToAsset is what makes the component a real sub-asset.
+            // (This also means the "desktop p95 10.0 ms" note above measured a
+            // build with post effectively OFF; re-measure after this lands.)
             if (!profile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
+            {
                 bloom = profile.Add<UnityEngine.Rendering.Universal.Bloom>(false);
+                bloom.name = nameof(UnityEngine.Rendering.Universal.Bloom);
+                AssetDatabase.AddObjectToAsset(bloom, profile);
+            }
             bloom.active = true;
             bloom.intensity.Override(0.55f);
             bloom.threshold.Override(1.05f);   // only genuine emissives bloom
             bloom.scatter.Override(0.6f);
             if (!profile.TryGet(out UnityEngine.Rendering.Universal.Vignette vignette))
+            {
                 vignette = profile.Add<UnityEngine.Rendering.Universal.Vignette>(false);
+                vignette.name = nameof(UnityEngine.Rendering.Universal.Vignette);
+                AssetDatabase.AddObjectToAsset(vignette, profile);
+            }
             vignette.active = true;
             vignette.intensity.Override(0.22f);
             vignette.smoothness.Override(0.45f);
             vignette.color.Override(new Color(0.02f, 0.02f, 0.05f));
             EditorUtility.SetDirty(profile);
+            AssetDatabase.SaveAssets();
             return profile;
         }
     }
