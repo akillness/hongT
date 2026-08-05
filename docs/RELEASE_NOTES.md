@@ -1,5 +1,34 @@
 # Release Notes
 
+## GitHub Pages 배포 — Lane V1 시전 동기화 + Lane V4 URP 포스트 (스펙 전 레인 완료) · 2026-08-05
+
+### V1 — 시전 동기화 손 글로우 (`a9bd7ff`, 캐시 `30f826ca74f49b95`)
+- `ActorView.FlashCastGlow`: RightHand 본에 원소색 수렴 글로우 0.12s
+  (0.16→0.055wu 수축 + 안쪽으로 증휘) — 볼트 보라 / 파동 녹색 / 노바 엠버 /
+  에이기스·워드 시안. 심은 즉발 시전이라 글로우는 시전 이벤트에서 시작해
+  "방출 직후 잔광"으로 읽힘. 판정 불변(SimEvents 소비 전용), 풀 리셋 정리,
+  비휴머노이드 리그 무표시.
+- 라이브 스모크: Q 볼트 보라 글로우+스트릭, F 에이기스 시안 글로우+링
+  (0.12s 윈도 내 캡처, 오류 0).
+
+### V4 — URP 포스트 (블룸+비네트) (`7669414`, 캐시 `2442aaa76e15f544`)
+- **게이트 실측 선행** (스펙 요구): 라이브 빌드 전투 중 rAF 720프레임 —
+  p50 8.3 / **p95 10.0 / p99 10.2 ms** (예산 16.7 ms, 여유 ~6.7 ms) → 적용.
+- `CinderPostProfile.asset` (직렬화 자산 — WebGL 셰이더 변형 보존): Bloom
+  intensity 0.55·threshold 1.05 (진짜 발광체만 블룸)·scatter 0.6, Vignette
+  0.22/0.45 다크 네이비. SceneBuilder가 글로벌 볼륨+카메라 포스트 배선.
+- **PostFxGate**: `Application.isMobilePlatform`이면 카메라 포스트 플래그
+  OFF — 모바일 티어는 이 하니스에서 미실측이므로 스펙 규칙(강등, 방치 금지)
+  적용. 데스크톱 전용 적용.
+- 포스트 ON 재실측: p50 8.3 / p95 10.0 / p99 10.3 ms — **포스트 비용이 노이즈
+  이내**, 게이트 통과 확정. 라이브 스모크 오류 0
+  (`deployed-v4-post-lobby.png`, `deployed-v4-post-combat.png`).
+
+### 스펙 현황
+- `deep-interview-vfx-terrain-command-hardening` **전 레인 배포 완료**:
+  T-a 드레싱 → V2 벤트 fill → V3 원소 파티클 → K 키 난독화 → P 본 소켓
+  프롭 → T-b 터레인 분할 → V1 시전 동기화 → V4 URP 포스트.
+
 ## GitHub Pages 배포 — Lane T-b 융합 터레인 연결성 분할 · 2026-08-05
 
 ### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §Lane T-b)

@@ -35,6 +35,22 @@ namespace CinderCourt.EditorTools
             cameraObject.transform.position = new Vector3(7.68f, 11.8f, -17.6f);
             cameraObject.transform.rotation = Quaternion.Euler(44f, 0f, 0f);
 
+            // --- §Lane V4: URP post volume (bloom + vignette) -----------------
+            // Desktop p95 measured 10.0 ms on the live build (gate 16.7 ms,
+            // headroom ~6.7 ms). Mobile is ungated-unmeasured -> PostFxGate
+            // disables the camera flag there at runtime (spec: degrade, not
+            // ship-and-hope). Profile is a serialized asset so URP keeps the
+            // post shaders in the WebGL build.
+            var profile = BuildPostProfile();
+            var volumeObject = new GameObject("PostVolume");
+            var volume = volumeObject.AddComponent<UnityEngine.Rendering.Volume>();
+            volume.isGlobal = true;
+            volume.sharedProfile = profile;
+            var cameraData = cameraObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            cameraData.renderPostProcessing = true;   // PostFxGate turns this off on mobile
+            cameraObject.AddComponent(System.Type.GetType(
+                "CinderCourt.View.PostFxGate, CinderCourt.View"));
+
             // --- Light --------------------------------------------------------
             var lightObject = new GameObject("Directional Light");
             var light = lightObject.AddComponent<Light>();
@@ -99,5 +115,33 @@ namespace CinderCourt.EditorTools
         }
 
         static float SimWorld(float px) => px * S;
+
+        /// <summary>§V4: serialized VolumeProfile (bloom + vignette). Asset on
+        /// disk keeps URP post shaders/variants in the WebGL build; runtime
+        /// only toggles the camera flag (PostFxGate).</summary>
+        static UnityEngine.Rendering.VolumeProfile BuildPostProfile()
+        {
+            const string path = "Assets/Settings/CinderPostProfile.asset";
+            var profile = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.VolumeProfile>(path);
+            if (profile == null)
+            {
+                profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+                AssetDatabase.CreateAsset(profile, path);
+            }
+            if (!profile.TryGet(out UnityEngine.Rendering.Universal.Bloom bloom))
+                bloom = profile.Add<UnityEngine.Rendering.Universal.Bloom>(false);
+            bloom.active = true;
+            bloom.intensity.Override(0.55f);
+            bloom.threshold.Override(1.05f);   // only genuine emissives bloom
+            bloom.scatter.Override(0.6f);
+            if (!profile.TryGet(out UnityEngine.Rendering.Universal.Vignette vignette))
+                vignette = profile.Add<UnityEngine.Rendering.Universal.Vignette>(false);
+            vignette.active = true;
+            vignette.intensity.Override(0.22f);
+            vignette.smoothness.Override(0.45f);
+            vignette.color.Override(new Color(0.02f, 0.02f, 0.05f));
+            EditorUtility.SetDirty(profile);
+            return profile;
+        }
     }
 }

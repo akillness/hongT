@@ -115,6 +115,7 @@ namespace CinderCourt.View
             if (_swingTrail != null)
                 _swingTrail.emitting = state.Action == ActorAction.Attack
                     && state.ActionTime >= 0.10f && state.ActionTime < 0.34f;
+            UpdateCastGlow(Time.deltaTime);   // §V1 convergence step
         }
 
         /// <summary>
@@ -300,6 +301,63 @@ namespace CinderCourt.View
             _swingTrail.emitting = false;
         }
 
+        // --- §Lane V1: cast-sync hand glow ----------------------------------
+        // A small unlit sphere on the right hand that converges (scale 1→0.35)
+        // over the pre-release window, then pops off at emission. Decoration
+        // ONLY: the sim's action frames are the authority — this reads them,
+        // never gates them. Player-only, created lazily with the swing trail's
+        // bone-lookup precedent; non-humanoid rigs simply never show it.
+        Transform _castGlow;
+        Material _castGlowMaterial;
+        float _castGlowTime, _castGlowDuration;
+
+        /// <summary>Begin the convergence glow (call at cast events). Color
+        /// follows the skill's element; duration matches the visual pre-release
+        /// beat (0.12 s per spec §V1).</summary>
+        public void FlashCastGlow(Color color, float duration = 0.12f)
+        {
+            if (_castGlow == null)
+            {
+                Transform anchor = null;
+                if (_animator != null && _animator.isHuman)
+                    anchor = _animator.GetBoneTransform(HumanBodyBones.RightHand);
+                if (anchor == null) return;   // tint floor for non-humanoid rigs
+                var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                var collider = glow.GetComponent<Collider>();
+                if (collider != null) Destroy(collider);
+                glow.name = "CastGlow";
+                glow.transform.SetParent(anchor, false);
+                glow.transform.localPosition = new Vector3(0.02f, 0.05f, 0f);
+                _castGlowMaterial = ViewWorld.MakeUnlit(color, true);
+                var renderer = glow.GetComponent<Renderer>();
+                renderer.sharedMaterial = _castGlowMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                _castGlow = glow.transform;
+            }
+            _castGlowDuration = _castGlowTime = Mathf.Max(0.05f, duration);
+            var c = color; c.a = 0.85f;
+            _castGlowMaterial.color = c;
+            _castGlow.gameObject.SetActive(true);
+        }
+
+        void UpdateCastGlow(float deltaTime)
+        {
+            if (_castGlow == null || !_castGlow.gameObject.activeSelf) return;
+            _castGlowTime -= deltaTime;
+            if (_castGlowTime <= 0f)
+            {
+                _castGlow.gameObject.SetActive(false);
+                return;
+            }
+            // Converge: 0.16 -> 0.055 world units as the release approaches.
+            var progress = 1f - _castGlowTime / _castGlowDuration;
+            _castGlow.localScale = Vector3.one * Mathf.Lerp(0.16f, 0.055f, progress);
+            var color = _castGlowMaterial.color;
+            color.a = 0.85f * (0.55f + 0.45f * progress);   // brighten inward
+            _castGlowMaterial.color = color;
+        }
+
         void Apply(float simX, float simY, int facing, ActorAction action,
                    float healthFraction, float scale, bool dead, float fadeTime,
                    bool hitFlash)
@@ -452,6 +510,7 @@ namespace CinderCourt.View
             _comboTier = -1;
             _gazeYaw = float.NaN;
             ClearEquipProps();   // §Lane P: pooled actors never keep props
+            if (_castGlow != null) _castGlow.gameObject.SetActive(false);   // §V1
             if (_block != null && _renderers != null)
             {
                 _block.Clear();

@@ -337,6 +337,19 @@ namespace CinderCourt.View
             // §P2: equip pickup flash — gold pulse on the player model.
             if ((events & SimEvents.EquipDropped) != 0 && _playerView != null)
                 _playerView.FlashEquip();
+            // §Lane V1: cast-sync hand glow — element-matched convergence at
+            // every cast event. Decoration reading sim events, never gating.
+            if (_playerView != null)
+            {
+                if ((events & SimEvents.BoltCast) != 0)
+                    _playerView.FlashCastGlow(new Color(0.75f, 0.55f, 1f));     // void violet
+                if ((events & SimEvents.PulseCast) != 0)
+                    _playerView.FlashCastGlow(new Color(0.35f, 0.9f, 0.55f));   // grave green
+                if ((events & SimEvents.NovaCast) != 0)
+                    _playerView.FlashCastGlow(new Color(0.95f, 0.35f, 0.17f));  // ember
+                if ((events & SimEvents.WardCast) != 0)
+                    _playerView.FlashCastGlow(new Color(0.45f, 0.85f, 1f));     // cyan aegis/ward
+            }
 
             if ((events & (SimEvents.GameOver | SimEvents.StageCleared)) != 0 && !_digestWritten)
             {
