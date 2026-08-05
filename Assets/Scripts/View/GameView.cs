@@ -444,6 +444,9 @@ namespace CinderCourt.View
                 // current swing during Attack (sim advances it at swing end),
                 // and preloads the next tier between swings — both correct.
                 _playerView.SetEquipRanks(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
+                // §Lane P: socket props follow the same live ranks (idempotent
+                // per band — a mid-run rank-up swaps the prop immediately).
+                _playerView.AttachEquipProps(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
                 _playerView.SetComboTier(hack.ComboIndex);
                 if (_companionView != null)
                 {

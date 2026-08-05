@@ -183,6 +183,84 @@ namespace CinderCourt.View
             _flashTime = _flashDuration = 0.4f;
         }
 
+        // --- §Lane P: rank-tier bone-socket props ---------------------------
+        // Tier bands: T0-1 none / T2-3 basic / T4-5 fine. Prefabs live in
+        // Resources/Props/equip-<slot>-<band>; sources are the two RETAINED
+        // Abyssal-Surge prop meshes + one authored cloak (≤800 tris each).
+        // Bone lookup reuses the swing-trail precedent; a non-humanoid rig
+        // gets no props — §P2 whole-body tint stays the floor.
+        static readonly string[] PropSlots = { "weapon", "lantern", "cloak" };
+        static readonly HumanBodyBones[] PropBones =
+            { HumanBodyBones.RightHand, HumanBodyBones.LeftHand, HumanBodyBones.Chest };
+        readonly GameObject[] _equipProps = new GameObject[3];
+        readonly int[] _equipPropBand = { 0, 0, 0 };   // 0 none / 1 basic / 2 fine
+
+        static int PropBand(int tier) => tier >= 4 ? 2 : tier >= 2 ? 1 : 0;
+
+        /// <summary>§Lane P: attach/refresh socket props for the three ranks.
+        /// Idempotent per band — repeated calls with the same ranks are free;
+        /// a rank-up mid-run swaps the prop the moment the sim rank changes
+        /// (EquipDropped 즉시 반영, spec acceptance option b).</summary>
+        public void AttachEquipProps(int weapon, int lantern, int cloak)
+        {
+            if (_animator == null || !_animator.isHuman) return;
+            for (var slot = 0; slot < 3; slot++)
+            {
+                var tier = slot == 0 ? weapon : slot == 1 ? lantern : cloak;
+                var band = PropBand(tier);
+                if (band == _equipPropBand[slot]) continue;
+                _equipPropBand[slot] = band;
+                if (_equipProps[slot] != null)
+                {
+                    Destroy(_equipProps[slot]);
+                    _equipProps[slot] = null;
+                }
+                if (band == 0) continue;
+                var bone = _animator.GetBoneTransform(PropBones[slot]);
+                if (bone == null) continue;
+                var prefab = Resources.Load<GameObject>(
+                    $"Props/equip-{PropSlots[slot]}-{(band == 2 ? "fine" : "basic")}");
+                if (prefab == null) continue;   // asset missing -> tint floor
+                var prop = Instantiate(prefab, bone, false);
+                prop.name = $"EquipProp-{PropSlots[slot]}";
+                ApplyPropPose(prop.transform, slot);
+                _equipProps[slot] = prop;
+            }
+        }
+
+        /// <summary>Socket-space pose per slot (meshes are normalized by
+        /// tools/blender/convert_equip_props.py: weapon grip at origin blade
+        /// +Y, lantern top at origin body -Y, cloak top edge at origin).</summary>
+        static void ApplyPropPose(Transform prop, int slot)
+        {
+            switch (slot)
+            {
+                case 0:   // weapon in the right palm, blade along the fingers
+                    prop.localPosition = new Vector3(0.03f, 0.04f, 0f);
+                    prop.localRotation = Quaternion.Euler(0f, 0f, -90f);
+                    break;
+                case 1:   // lantern hangs under the left hand
+                    prop.localPosition = new Vector3(0.02f, 0.02f, 0f);
+                    prop.localRotation = Quaternion.Euler(0f, 0f, 180f);
+                    break;
+                default:  // cloak pinned high on the chest, sheet down the back
+                    prop.localPosition = new Vector3(0f, 0.12f, -0.07f);
+                    prop.localRotation = Quaternion.Euler(12f, 180f, 0f);
+                    break;
+            }
+        }
+
+        /// <summary>Pool hygiene: drop attached props with the actor reset.</summary>
+        public void ClearEquipProps()
+        {
+            for (var slot = 0; slot < 3; slot++)
+            {
+                if (_equipProps[slot] != null) Destroy(_equipProps[slot]);
+                _equipProps[slot] = null;
+                _equipPropBand[slot] = 0;
+            }
+        }
+
         /// <summary>§C1: combo-tier weapon trail — hits 1/2 ember (1x/1.5x width),
         /// finisher gold (2x). Pure decoration; hit windows stay sim-owned.</summary>
         public void SetComboTier(int tier)
@@ -373,6 +451,7 @@ namespace CinderCourt.View
             _equipGlow = 0f;
             _comboTier = -1;
             _gazeYaw = float.NaN;
+            ClearEquipProps();   // §Lane P: pooled actors never keep props
             if (_block != null && _renderers != null)
             {
                 _block.Clear();

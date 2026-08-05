@@ -1,5 +1,34 @@
 # Release Notes
 
+## GitHub Pages 배포 — Lane P 본 소켓 장비 프롭 · 2026-08-05
+
+### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §Lane P)
+- **랭크 티어 본 소켓 프롭**: 무기(RightHand)/랜턴(LeftHand)/클록(Chest) 3슬롯
+  × 2밴드 — T0-1 없음 / T2-3 basic / T4-5 fine. `ActorView.AttachEquipProps`
+  가 밴드별 멱등 갱신(런 중 랭크업 즉시 반영), `ResetForPool`에서 정리.
+  비휴머노이드 리그는 무프롭 — §P2 전신 틴트가 하한.
+- **자산 파이프라인**: retained 원작 프롭 2종(블레이드 .03/렐릭 .05, 원작
+  런타임의 PROP_BLADE/RELIC_MESH와 동일 소스) + 절차 저작 클록 →
+  `tools/blender/convert_equip_props.py` (소켓 공간 정규화, ≤800 tri 강제,
+  총 3,832 tri) → `PropImportPipeline` (URP Lit 명시 머티리얼: FBX 임포트가
+  emission을 드랍하고 차콜이 바닥에 묻히는 문제를 밴드 코딩 발광으로 해소
+  — basic 미광 / fine 강발광: 무기 엠버·랜턴 시안·클록 진홍).
+- delete 마킹 소스 불사용(§Non-Goals), 신규 EquipPropTests 5종(존재·렌더러·
+  트라이 예산·착용 가능 월드 크기·URP 셰이더·휴머노이드 소켓 본).
+
+### 게이트·배포
+- EditMode **164/164 통과** (`unity-logs/test-results-102032.xml`).
+- gh-pages `04e64c6`, 캐시 버전 `a64367c75e1720b4` 라이브 확인.
+
+### 배포 후 스모크 (라이브, 1440×900, 오류 0)
+- T5 시드 → Ember Gallery 강하: 우수 엠버 발광 블레이드 + 배면 진홍 클록 +
+  좌수 시안 랜턴 글로우 3점 동시 렌더
+  (`_workspace/current/engineering/deployed-lanep-props.png`).
+- 로컬 검증: basic 밴드(차콜, T2) 근접 캡처와 T5 fine 밴드 대비 확인
+  (`lanep-props-basic-closeup.png`, `lanep-props-fine.png`).
+- 주의(실측): localStorage 시드는 **오리진 스코프** — localhost에서 시드 후
+  github.io로 이동하면 미적용. 라이브 검증 시 라이브 오리진에서 재시드.
+
 ## GitHub Pages 배포 — V2 벤트 fill · V3 원소 파티클 · Lane K 키 난독화 · 2026-08-05
 
 ### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §V2/§V3/§K)
