@@ -65,6 +65,11 @@ namespace CinderCourt.View
         }
         readonly Scorch[] _scorches = new Scorch[4];
         int _scorchCursor;
+        // §W wave warnings: DEDICATED pool. Sharing _scorches (exactly 4 slots,
+        // sized for nova+pulse) would let one 4-ring wave telegraph evict every
+        // live skill decal — the same reason hit sparks were split from bursts.
+        readonly Scorch[] _waveWarnings = new Scorch[4];
+        int _waveWarningCursor;
         LineRenderer _boltStreak;
         Material _boltStreakMaterial;
         float _boltStreakTime;
@@ -307,6 +312,31 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// §W wave-arrival telegraph: ground warning rings at the spawn points
+        /// the incoming wave will use. Directional "they come from here" read,
+        /// not a headcount — the ring set is derived from the sim's PUBLIC
+        /// deterministic <see cref="CinderSim.SpawnPointIndexFor"/> so the View
+        /// never duplicates spawn-count rules. Boss waves ring red and larger.
+        /// Runs on a DEDICATED pool so a wave telegraph never evicts a live
+        /// skill decal; zero new allocation after first use.
+        /// </summary>
+        public void SpawnWaveWarnings(int wave, bool boss)
+        {
+            // Four points off the wave seed progression: enough to read the
+            // arrival arc without carpeting the plate (8 points exist).
+            var color = boss
+                ? new Color(0.85f, 0.12f, 0.12f, 0.55f)
+                : new Color(0.95f, 0.45f, 0.18f, 0.4f);
+            var diameter = (boss ? 300f : 210f) * ViewWorld.Scale;
+            for (var i = 0; i < _waveWarnings.Length; i++)
+            {
+                var point = SimConfig.SpawnPoints[CinderSim.SpawnPointIndexFor(wave, i)];
+                SpawnScorchIn(_waveWarnings, ref _waveWarningCursor, "WaveWarning",
+                              point[0], point[1], diameter, color, 0.6f);
+            }
+        }
+
         // --- simple expanding ring pool for kit one-shots ------------------------
         struct Burst
         {
@@ -377,16 +407,21 @@ namespace CinderCourt.View
 
         /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
         /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
-        /// Pool of 4 — nova(8s cd) + pulse(4s cd) can't exceed it in play.</summary>
+        /// Skill pool is 4 — nova(8s cd) + pulse(4s cd) can't exceed it in play;
+        /// §W wave warnings run on their own pool via the overload below.</summary>
         void SpawnScorch(float simX, float simY, float diameterWorld, Color color, float life)
+            => SpawnScorchIn(_scorches, ref _scorchCursor, "AoeScorch",
+                             simX, simY, diameterWorld, color, life);
+        void SpawnScorchIn(Scorch[] pool, ref int cursor, string name,
+                           float simX, float simY, float diameterWorld, Color color, float life)
         {
-            ref var slot = ref _scorches[_scorchCursor];
-            _scorchCursor = (_scorchCursor + 1) % _scorches.Length;
+            ref var slot = ref pool[cursor];
+            cursor = (cursor + 1) % pool.Length;
             if (slot.Quad == null)
             {
                 var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 Destroy(quad.GetComponent<Collider>());
-                quad.name = "AoeScorch";
+                quad.name = name;
                 quad.transform.SetParent(transform, false);
                 // Flat on the ground, iso-squashed like every ground ring.
                 quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -405,9 +440,15 @@ namespace CinderCourt.View
 
         void UpdateScorches(float deltaTime)
         {
-            for (var i = 0; i < _scorches.Length; i++)
+            StepScorchPool(_scorches, deltaTime);
+            StepScorchPool(_waveWarnings, deltaTime);
+        }
+
+        static void StepScorchPool(Scorch[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
             {
-                ref var scorch = ref _scorches[i];
+                ref var scorch = ref pool[i];
                 if (scorch.Quad == null || !scorch.Quad.gameObject.activeSelf) continue;
                 scorch.Life -= deltaTime;
                 if (scorch.Life <= 0f) { scorch.Quad.gameObject.SetActive(false); continue; }
@@ -525,6 +566,8 @@ namespace CinderCourt.View
                 if (_sparks[i].Ring != null) _sparks[i].Ring.enabled = false;
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
+            for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
+                if (_waveWarnings[i].Quad != null) _waveWarnings[i].Quad.gameObject.SetActive(false);
             if (_boltStreak != null) _boltStreak.enabled = false;
             // V3 systems: drop live particles so run-end never leaks a 0.7 s
             // ember shower onto the lobby diorama.

@@ -326,14 +326,21 @@ namespace CinderCourt.View
                 }
             }
             // Shake tiers (#2) via the append-only CameraRig.Punch API.
-            // Priority mirrors the rig chain: BossSpawned > Finisher > Kill —
-            // Punch itself refuses to weaken a stronger live shake.
+            // Priority mirrors the rig chain: BossSpawned > Finisher > Kill >
+            // WaveStarted — Punch itself refuses to weaken a stronger live
+            // shake, and a boss wave raises BOTH events, so the wave tier sits
+            // LAST to keep the 0.35 boss punch intact (§W).
             if (Rig != null)
             {
                 if ((events & SimEvents.BossSpawned) != 0) Rig.Punch(0.07f, 0.35f);
                 else if ((events & SimEvents.ComboFinisher) != 0) Rig.Punch(0.05f, 0.14f);
                 else if ((events & SimEvents.EnemyKilled) != 0) Rig.Punch(0.02f, 0.08f);
+                else if ((events & SimEvents.WaveStarted) != 0) Rig.Punch(0.05f, 0.15f);
             }
+            // §W wave-arrival telegraph: warning rings at the incoming wave's
+            // spawn points. Boss waves ring red/larger via the same call.
+            if (Vfx != null && (events & SimEvents.WaveStarted) != 0)
+                Vfx.SpawnWaveWarnings(_sim.Wave, (events & SimEvents.BossSpawned) != 0);
             // §P2: equip pickup flash — gold pulse on the player model.
             if ((events & SimEvents.EquipDropped) != 0 && _playerView != null)
                 _playerView.FlashEquip();
