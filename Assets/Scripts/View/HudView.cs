@@ -459,7 +459,17 @@ namespace CinderCourt.View
                 _wardRect.anchoredPosition = new Vector2(95 + arenaShift, 18 + arenaLift);
             }
             if (_loreText != null)
-                _loreText.rectTransform.anchoredPosition = new Vector2(0, 118 + arenaLift);
+            {
+                // Phone-tier DUNGEON: the 4-card row occupies y 54..146 and
+                // the pips y ~200 — lore at 118 sat straight on the cards
+                // (portrait QA finding). Park it above the whole control
+                // stack, clear of the speaker line at 232 (span ≈219..245).
+                var dungeonPhone = tier == LayoutTier.Phone
+                    && _dungeonRoot != null && _dungeonRoot.activeSelf;
+                _loreText.rectTransform.anchoredPosition = dungeonPhone
+                    ? new Vector2(0, 262 + (_touchActive ? 120f : 0f))
+                    : new Vector2(0, 118 + arenaLift);
+            }
 
             ApplyDungeonTier(tier);
             ApplyEquipPlacement();
@@ -960,6 +970,7 @@ namespace CinderCourt.View
             if (_stageBanner != null) _stageBanner.SetActive(visible);
             if (_equipPanel != null) _equipPanel.SetActive(visible);
             if (_dungeonRoot != null) _dungeonRoot.SetActive(visible);
+            ApplyLayoutTier();   // lore/row anchors depend on dungeon-vs-arena
             // Arena's own 2-card row is the inverse (prologue hides both rows).
             SetArenaCardsVisible(!visible && !_prologueMode);
             SyncTouchModeSurfaces();

@@ -29,6 +29,7 @@ captured on every route; **all routes: 0 errors, 0 warnings**.
 | 18 | 최종 빌드 Ash Verdict | 1440×900 | 강하 | 재판정 매스+코너 기념물 드레싱, 제단+분출구 3, V1 글로우 가시 | `finalqa-ash-verdict.png` |
 | 19 | 최종 빌드 아레나 회귀 | 1440×900 | D+Space 교전 | 원작 아레나 백드롭 불변, Q/E 스킬바 | `finalqa-arena.png` |
 | 20 | 최종 빌드 모바일 회귀 | 390×844 DPR 2 | 출정 → 전투 | 프롤로그 정상, PostFxGate로 포스트 미적용 경로 | `finalqa-mobile-combat.png` |
+| 21 | 세로 로어 겹침 수정 (`efb632aac6ccf3e5`) | 390×844 DPR 2 | Ember Gallery 강하 | 로어 라인이 콤보 핍·Q/E/R/F 행 위로 이동 — 겹침 해소, 위→아래 로어/핍/스킬행/SHIFT 순 정렬 | `portrait-lore-fixed.png` |
 
 Second deploy cycle (gh-pages `6ddd724`): source `7256cb5` (companion command
 console + AOE/skill VFX pass), EditMode 146/146

@@ -1,5 +1,28 @@
 # Release Notes
 
+## GitHub Pages 배포 — 세로 모드 로어 겹침 수정 + 폰트 커버리지 게이트 · 2026-08-05
+
+### 변경 (회고 디자인 후보 소진)
+- **세로 모드 로어 겹침 해소**: 폰 티어 던전에서 로어 라인(y=118)이 4카드
+  스킬 행(y 54–146) 위에 그대로 얹혀 있었다 (모바일 QA 실측 발견). 던전
+  활성 + 폰 티어일 때 로어를 컨트롤 스택 위(y=262+lift)로 이동 — 스피커
+  라인(232, 스팬 ≈219–245)과도 비충돌. `SetCampaignSurfacesVisible`이
+  `ApplyLayoutTier`를 재호출하도록 배선해 던전↔아레나 전환 시 앵커가
+  낡지 않게 했다.
+- **폰트 커버리지 게이트 신설** (`FontCoverageTests`): `HudKorean.otf`는
+  생성된 **서브셋**이라 새 한글 문자열이 글리프 없이 배포되면 WebGL에서
+  OS 폴백 없이 글자가 사라진다 (Lane K "난독화" 토스트가 라이브에서 실제로
+  당함). View 소스에서 한글을 재수확해 폰트가 전부 커버하는지 검사하고,
+  실패 시 `bash tools/gen_hud_font.sh` 안내를 낸다 — 함정을 게이트로 고정.
+
+### 게이트·배포
+- EditMode **167/167 통과** (`unity-logs/test-results-113158.xml`).
+- gh-pages `0d3fba5`, 캐시 버전 `efb632aac6ccf3e5` 라이브 확인.
+
+### 배포 후 스모크 (라이브, 390×844 DPR 2, 오류 0)
+- Ember Gallery 세로 강하: 위→아래 **로어 / 콤보 핍 / Q·E·R·F 행 / SHIFT**
+  순으로 정렬, 겹침 없음 (`_workspace/current/engineering/portrait-lore-fixed.png`).
+
 ## GitHub Pages 배포 — Lane V1 시전 동기화 + Lane V4 URP 포스트 (스펙 전 레인 완료) · 2026-08-05
 
 ### V1 — 시전 동기화 손 글로우 (`a9bd7ff`, 캐시 `30f826ca74f49b95`)
