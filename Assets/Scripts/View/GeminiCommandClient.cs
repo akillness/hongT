@@ -20,12 +20,41 @@ namespace CinderCourt.View
         private const string Endpoint =
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
-        public static bool HasKey => !string.IsNullOrEmpty(PlayerPrefs.GetString(KeyPref, ""));
+        public static bool HasKey => !string.IsNullOrEmpty(LoadKey());
 
         public static void StoreKey(string key)
         {
-            PlayerPrefs.SetString(KeyPref, key ?? "");
+            // Obfuscated at rest (spec §Lane K, KeyVault honesty contract).
+            PlayerPrefs.SetString(KeyPref, KeyVault.Protect(key ?? ""));
             PlayerPrefs.Save();
+        }
+
+        /// <summary>
+        /// Stored key → usable plaintext. Three paths (spec §Lane K):
+        /// obfuscated value decrypts; legacy PLAINTEXT value is adopted and
+        /// re-saved obfuscated (one-time migration); a marked value that no
+        /// longer decrypts (device changed, tampering) is CLEARED so HasKey
+        /// turns false and the console shows the re-entry hint — graceful
+        /// loss, never a wedge.
+        /// </summary>
+        internal static string LoadKey()
+        {
+            var stored = PlayerPrefs.GetString(KeyPref, "");
+            if (string.IsNullOrEmpty(stored)) return "";
+            var key = KeyVault.Unprotect(stored);
+            if (key == null)
+            {
+                PlayerPrefs.DeleteKey(KeyPref);
+                PlayerPrefs.Save();
+                return "";
+            }
+            if (!KeyVault.IsProtected(stored))
+            {
+                // Legacy plaintext save — upgrade in place.
+                PlayerPrefs.SetString(KeyPref, KeyVault.Protect(key));
+                PlayerPrefs.Save();
+            }
+            return key;
         }
 
         /// <summary>WebGL convenience: adopt #gemini=KEY once. FRAGMENT, not
@@ -49,7 +78,7 @@ namespace CinderCourt.View
         /// game keeps running; a dead network can never wedge input).</summary>
         public static IEnumerator Classify(string text, Action<CompanionCommandIntent> done)
         {
-            var key = PlayerPrefs.GetString(KeyPref, "");
+            var key = LoadKey();
             if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(text))
             {
                 done(CompanionCommandIntent.Unknown);

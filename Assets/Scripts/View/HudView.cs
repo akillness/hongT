@@ -1159,7 +1159,7 @@ namespace CinderCourt.View
                 if (key.Length > 8)
                 {
                     GeminiCommandClient.StoreKey(key);
-                    ShowConsoleToast("Gemini 키 저장됨 (이 기기에만) — 자유 문장 명령 활성화", 3f);
+                    ShowConsoleToast("Gemini 키 저장됨 (이 기기에만 난독화 저장) — 자유 문장 명령 활성화", 3f);
                 }
                 else ShowConsoleToast("키가 너무 짧습니다", 2f);
                 return;
