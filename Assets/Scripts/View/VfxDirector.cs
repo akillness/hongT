@@ -194,6 +194,9 @@ namespace CinderCourt.View
             // PROVEN seed path (MakeUnlit) — URP Particles shader would be
             // variant-stripped on WebGL (zero material references in build).
             renderer.sharedMaterial = ViewWorld.MakeUnlit(color, true);
+            // Emission is off — Play() once so Emit(count) bursts actually
+            // simulate (a stopped system spawns particles that never age).
+            system.Play();
             return system;
         }
 
@@ -523,6 +526,13 @@ namespace CinderCourt.View
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
             if (_boltStreak != null) _boltStreak.enabled = false;
+            // V3 systems: drop live particles so run-end never leaks a 0.7 s
+            // ember shower onto the lobby diorama.
+            if (_boltSparks != null) _boltSparks.Clear();
+            if (_pulseRipple != null) _pulseRipple.Clear();
+            if (_novaDebris != null) _novaDebris.Clear();
+            if (_aegisFlash != null) _aegisFlash.Clear();
+            _pulseNextEmit = 0f;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
             if (_pulseRing != null) _pulseRing.enabled = false;
