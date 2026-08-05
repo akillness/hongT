@@ -28,6 +28,8 @@ namespace CinderCourt.View
         bool _runEndPersisted;
         GameObject _stageTerrain;         // instantiated Resources/Terrain prefab
         string _stageTerrainId = "";
+        GameObject _stageDressing;        // instantiated dressing clones (view-only)
+        string _stageDressingId = "";
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -84,6 +86,7 @@ namespace CinderCourt.View
             _state = State.Lobby;
             ClearEmberRestRoute();
             SetStageTerrain(null);        // back to the base court plate
+            ApplyStageDressing(null);
             _game.EndRun();
             _lobby.Refresh(_data);
             _lobby.Show();
@@ -116,6 +119,63 @@ namespace CinderCourt.View
             _stageTerrain.name = "StageTerrain";
             // Arena center in view space; terrain FBX is origin-centered, top y=0.
             _stageTerrain.transform.position = ViewWorld.ToWorld(768f, 512f, 0f);
+        }
+
+        /// <summary>
+        /// Stage dressing pass (spec §Lane T-a): clone named children of the
+        /// cinder-span library prefab at static sim-space placements. View-only,
+        /// deterministic, runs once per stage change — never per frame. Pass
+        /// null to clear (lobby/arena/prologue keep the bare court).
+        /// </summary>
+        void ApplyStageDressing(string stageId)
+        {
+            if (_stageDressingId == (stageId ?? "")) return;
+            if (_stageDressing != null)
+            {
+                if (Application.isPlaying) Destroy(_stageDressing);
+                else DestroyImmediate(_stageDressing);
+                _stageDressing = null;
+            }
+            _stageDressingId = stageId ?? "";
+            if (string.IsNullOrEmpty(stageId)) return;
+            var table = StageCatalog.DressingFor(stageId);
+            if (table == null || table.Length == 0) return;
+            var library = Resources.Load<GameObject>(
+                "Terrain/terrain-" + StageCatalog.DressingLibraryTerrainId);
+            if (library == null) return;
+
+            _stageDressing = new GameObject("StageDressing");
+            for (var i = 0; i < table.Length; i++)
+            {
+                var placement = table[i];
+                var source = library.transform.Find(placement.ObjectName);
+                if (source == null) continue; // integrity test guards names
+
+                // Terrain children keep their pivot at the prefab root; the
+                // authored position lives in the BAKED mesh vertices. Anchor a
+                // pivot at the target, clone under it with the authored pose,
+                // then measure the LIVE renderer bounds (asset bounds are not
+                // valid outside a scene) and counter the baked XZ offset so the
+                // mesh center lands on the pivot and yaw/scale act about it.
+                var pivot = new GameObject(placement.ObjectName + "-dressing");
+                pivot.transform.SetParent(_stageDressing.transform, false);
+                pivot.transform.SetPositionAndRotation(
+                    ViewWorld.ToWorld(placement.SimX, placement.SimY, 0f),
+                    Quaternion.Euler(0f, placement.RotationY, 0f));
+                pivot.transform.localScale = Vector3.one * placement.Scale;
+
+                var clone = Instantiate(source.gameObject, pivot.transform);
+                clone.transform.localPosition = source.localPosition;
+                clone.transform.localRotation = source.localRotation;
+                clone.transform.localScale = source.localScale;
+
+                var renderers = clone.GetComponentsInChildren<Renderer>();
+                if (renderers.Length == 0) continue;
+                var bounds = renderers[0].bounds;
+                for (var r = 1; r < renderers.Length; r++) bounds.Encapsulate(renderers[r].bounds);
+                var delta = pivot.transform.position - bounds.center;
+                clone.transform.position += new Vector3(delta.x, 0f, delta.z);
+            }
         }
 
         void ReturnToLobby() => EnterLobby();
@@ -155,6 +215,7 @@ namespace CinderCourt.View
             ClearEmberRestRoute();
             _state = State.Arena;
             SetStageTerrain(null);
+            ApplyStageDressing(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Arena;
             _rig.SetProfile(CameraRig.Profile.Arena);
@@ -169,6 +230,7 @@ namespace CinderCourt.View
             ClearEmberRestRoute();
             _state = State.Prologue;
             SetStageTerrain(null);        // tutorial runs on the court plate
+            ApplyStageDressing(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Prologue;
             _rig.SetProfile(CameraRig.Profile.Prologue);
@@ -203,6 +265,7 @@ namespace CinderCourt.View
             _runStageId = entry.Id;
             _runEndPersisted = false;
             SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
+            ApplyStageDressing(entry.Id);     // per-LOGICAL-stage dressing (spec §T-a)
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);

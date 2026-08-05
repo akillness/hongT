@@ -1,5 +1,37 @@
 # Release Notes
 
+## GitHub Pages 배포 — 조합 스테이지 드레싱 (Lane T-a) · 2026-08-05
+
+### 변경
+- **드레싱 테이블 시스템** (spec `deep-interview-vfx-terrain-command-hardening`
+  §Lane T-a): cinder-span 프리팹의 feature/prop 90종을 공용 드레싱
+  라이브러리로 재사용, `StageCatalog.DressingPlacement` 정적 테이블(무 RNG)로
+  조합 스테이지 3종에 스테이지별 드레싱 부여 — Ember Gallery(상단 능선 암괴
+  4 + 좌하 포켓 + 하단 소품), Witness Well(좌우 대칭 감시자 4 + 상단 소품 열
+  + 하단 아치 기념물), Ash Verdict(상단 재판정 매스 3 + 코너 기념물 + 하단
+  소품). 배치는 전투 평면(248..1288 × 334..874) 밖 + 모든 해저드 반경+50
+  클리어런스 준수. slab/apron은 불변.
+- `GameDirector.ApplyStageDressing`: 스테이지 전환당 1회 실행(프레임당 0),
+  라이브러리 자식의 **베이크드 피벗**(로컬 0, 메시에 위치 베이크)을 라이브
+  렌더러 바운즈로 측정해 피벗 앵커 하위로 중심 정렬 — yaw/스케일이 메시
+  중심 기준으로 작동.
+- 라이브러리 원본이 밀리미터급 마이크로 데칼(바운즈 0.05–0.12 world unit)
+  이라 테이블 스케일은 ×11–22 대역. Ash Verdict 측면 거석 2점은 시각 침범
+  피드백으로 축소·후퇴 튜닝.
+
+### 게이트·배포
+- EditMode **151/151 통과** — 신규 `StageDressingTests` 5종 포함(테이블
+  무결성: 라이브러리 자식 실존·feature/prop 접두사 강제·전투 평면 밖·해저드
+  클리어런스·결정론) (`unity-logs/test-results-092856.xml`).
+- gh-pages `ead692d`, 캐시 버전 `de0be8ac3e61a30f` — 라이브 데이터 리소스
+  새 버전 확인.
+
+### 배포 후 스모크 (라이브, 1440×900, 오류 0)
+- Ember Gallery 강하: 드레싱 9/9 렌더
+  (`_workspace/current/engineering/deployed-dressing-ember-gallery.png`).
+- 로컬 최종 빌드에서 Witness Well·Ash Verdict 드레싱 확인
+  (`dressing-witness-well.png`, `dressing-ash-verdict.png`).
+
 ## GitHub Pages 배포 — 동료 명령 콘솔 + VFX 임팩트 패스 · 2026-08-04
 
 ### 변경 (소스 `7256cb5`, 교차 세션 레인)

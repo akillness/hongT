@@ -137,6 +137,105 @@ namespace CinderCourt.View
                 "ash-verdict", null),
         };
 
+        // ------------------------------------------------------------ dressing --
+        // Spec: deep-interview-vfx-terrain-command-hardening §Lane T-a.
+        // Combo stages reuse the cinder-span prefab's 90 feature/prop children as
+        // a dressing LIBRARY: static tables (no RNG), sim-space coordinates,
+        // placements strictly OUTSIDE the combat plane (x 248..1288, y 334..874)
+        // and clear of every hazard (radius + 50). Slab/apron names are banned —
+        // the fight floor is immutable.
+
+        /// <summary>One deterministic view-only dressing placement (sim coords).</summary>
+        public readonly struct DressingPlacement
+        {
+            public readonly string ObjectName;   // child of Terrain/terrain-cinder-span
+            public readonly float SimX, SimY;    // sim-space ground position
+            public readonly float RotationY;     // degrees, applied on top of source
+            public readonly float Scale;         // uniform multiplier on source scale
+
+            public DressingPlacement(string objectName, float simX, float simY, float rotationY, float scale)
+            {
+                ObjectName = objectName;
+                SimX = simX;
+                SimY = simY;
+                RotationY = rotationY;
+                Scale = scale;
+            }
+        }
+
+        /// <summary>Prefab whose children form the shared dressing library.</summary>
+        public const string DressingLibraryTerrainId = "cinder-span";
+
+        // Combat plane (sim coords): center 768,604, half 520×270 → x 248..1288,
+        // y 334..874. Dressing must stay outside this rectangle.
+        public const float DressingPlaneMinX = 248f, DressingPlaneMaxX = 1288f;
+        public const float DressingPlaneMinY = 334f, DressingPlaneMaxY = 874f;
+        public const float DressingHazardClearance = 50f;
+
+        // Library children are millimetric micro-decals on the authored plate
+        // (renderer bounds ≈0.05–0.12 world units). Dressing scales are therefore
+        // large: ×15–22 turns them into readable rocks/monuments on the 15.36-unit
+        // plate without approaching actor scale.
+        static readonly DressingPlacement[] EmberGalleryDressing =
+        {
+            // Broken colonnade ridge along the top edge; ember rock pocket low-left.
+            new DressingPlacement("terrain-cinder-span-feature-001",  430f, 240f,   0f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-002",  700f, 210f,  25f, 19f),
+            new DressingPlacement("terrain-cinder-span-feature-003",  980f, 235f, -20f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-004", 1230f, 260f,  40f, 18f),
+            new DressingPlacement("terrain-cinder-span-prop-001",     180f, 640f,  10f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-002",     160f, 760f, 200f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-003",     620f, 950f,  90f, 13f),
+            new DressingPlacement("terrain-cinder-span-prop-004",     900f, 960f, 270f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-006", 1380f, 700f, 180f, 20f),
+        };
+
+        static readonly DressingPlacement[] WitnessWellDressing =
+        {
+            // Symmetric witness sentinels flanking the well; scattered court props.
+            new DressingPlacement("terrain-cinder-span-feature-010",  170f, 450f,  90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-011",  180f, 720f,  90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-012", 1360f, 450f, -90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-013", 1350f, 730f, -90f, 18f),
+            new DressingPlacement("terrain-cinder-span-prop-010",     500f, 250f,   0f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-011",     768f, 220f,  45f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-012",    1040f, 250f, -45f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-013",     430f, 940f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-014",    1100f, 950f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-015",  768f, 985f, 180f, 22f),
+        };
+
+        static readonly DressingPlacement[] AshVerdictDressing =
+        {
+            // Tribunal mass top-center; verdict monuments crowding every corner.
+            new DressingPlacement("terrain-cinder-span-feature-020",  620f, 200f,   0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-021",  920f, 200f,   0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-022",  768f, 160f, 180f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-023",  200f, 380f,  35f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-024", 1420f, 400f, -35f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-025",  160f, 900f, 145f, 13f),
+            new DressingPlacement("terrain-cinder-span-feature-026", 1420f, 880f, 215f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-020",     540f, 955f,  15f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-021",     990f, 940f, 335f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-022",     768f, 975f, 180f, 14f),
+        };
+
+        /// <summary>
+        /// Dressing table for a logical stage; null when the stage's own terrain
+        /// prefab already carries its authored dressing (cinder-span) or none is
+        /// defined yet (abyss-chancel/echo-throne await the T-b split).
+        /// </summary>
+        public static DressingPlacement[] DressingFor(string stageId)
+        {
+            switch (stageId)
+            {
+                case "ember-gallery": return EmberGalleryDressing;
+                case "witness-well": return WitnessWellDressing;
+                case "ash-verdict": return AshVerdictDressing;
+                default: return null;
+            }
+        }
+
         public static IReadOnlyList<StageEntry> Entries => AllEntries;
 
         public static bool TryGet(string id, out StageEntry entry)
