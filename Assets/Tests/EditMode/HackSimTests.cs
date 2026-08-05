@@ -2225,6 +2225,33 @@ namespace CinderCourt.Tests
                 "telegraph must stay constant across phases");
         }
 
+        // --- motion depth: the player can be launched --------------------------
+
+        /// <summary>A launch must never outrun a deliberate dodge, or the
+        /// dodge stops being the movement tool and taking a hit becomes the
+        /// fastest way to travel.</summary>
+        [Test]
+        public void BossSlamLaunch_StaysShorterThanADash()
+        {
+            Assert.That(HackSpec.BossSlamKnockbackDistance, Is.LessThan(HackSpec.DashDistance),
+                "a launch must move the player less than their own dash");
+            Assert.That(HackSpec.BossSlamKnockbackTime, Is.GreaterThan(0f));
+
+            // The View infers the launch from a velocity BAND (400-1500 px/s).
+            // A bare floor would also fire on the retreat finisher's one-frame
+            // 74 px step (~4440 px/s at 60 Hz), flashing the "I got hit" pose
+            // during the player's own escape move.
+            float slamSpeed = HackSpec.BossSlamKnockbackDistance / HackSpec.BossSlamKnockbackTime;
+            Assert.That(slamSpeed, Is.GreaterThan(400f).And.LessThan(1500f),
+                $"slam is {slamSpeed:F0} px/s - outside the View band it would never animate");
+            Assert.That(SimConfig.PlayerSpeed, Is.LessThan(400f),
+                "running must stay under the band or walking would trigger the launch pose");
+            float retreatSpeed = HackSpec.RetreatStepDistance * 60f;
+            Assert.That(retreatSpeed, Is.GreaterThan(1500f),
+                $"the retreat step is {retreatSpeed:F0} px/s and MUST sit above the band, "
+                + "or the player's own escape reads as being hit");
+        }
+
         // --- input depth §2: directional finisher --------------------------------
 
         /// <summary>The resolver is pure, so every branch is pinned here rather

@@ -120,6 +120,31 @@ namespace CinderCourt.View
 
         public void SyncPlayer(in PlayerState state)
         {
+            // §M: the player can now be launched (phase-3 boss slam). The sim
+            // keeps that state private — PlayerState is frozen — so the View
+            // infers it from velocity, the same trick already used for
+            // enemies.
+            //
+            // The gate is a BAND, not a floor. Measured px/s:
+            //   walk 218 | slam 577 | dash 864 | retreat finisher 4440
+            //   | run reset 30000+
+            // A bare floor would fire on the retreat finisher — a one-frame
+            // 74 px reposition during the player's OWN swing — and flash the
+            // "I got hit" pose on an escape move. Anything above 1500 px/s is
+            // a teleport (a finisher step or a run reset), never a launch.
+            // The dash is excluded outright because Avoid owns its pose.
+            if (!float.IsNaN(_prevSimX) && Time.deltaTime > 0f
+                && state.Action != ActorAction.Avoid)
+            {
+                var stepX = state.X - _prevSimX;
+                var stepY = state.Y - _prevSimY;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                if (speed > 400f && speed < 1500f)
+                    _knockbackTime = HackSpec.BossSlamKnockbackTime;
+            }
+            // NOTE: _prevSimX/Y are deliberately NOT written here. Apply's
+            // 16-direction yaw block owns them, and writing first would hand
+            // it a zero delta — facing would freeze on every frame.
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.Health / SimConfig.PlayerMaxHealth, 1f, false, 0f,
                   state.DamageCooldown > SimConfig.PlayerHitGrace - 0.16f);

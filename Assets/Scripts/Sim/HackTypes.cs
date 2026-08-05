@@ -324,6 +324,13 @@ namespace CinderCourt.Sim
         /// replacing the dodge.</summary>
         public const float RetreatStepDistance = 74f;
 
+        /// <summary>Motion depth: how far a phase-3 boss slam throws the
+        /// PLAYER. Deliberately shorter than the player's own dash (190) so a
+        /// launch never covers more ground than a deliberate dodge, and short
+        /// enough that the recovery does not read as a stun-lock.</summary>
+        public const float BossSlamKnockbackDistance = 150f;
+        public const float BossSlamKnockbackTime = 0.26f;
+
         /// <summary>B-1 (AMENDMENT #4): dungeon-only boss HP factor, on top of
         /// the frozen SimConfig.BossHealthMul. Shares UpdateBossPhase's
         /// _dungeon gate, so boss length and boss phases always apply to the

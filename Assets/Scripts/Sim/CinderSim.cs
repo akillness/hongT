@@ -156,6 +156,11 @@ namespace CinderCourt.Sim
         private float _dashCooldown;
         private float _dashTime;
         private float _dashDirX, _dashDirY;
+        // Motion depth: player launch state. Deliberately private rather than
+        // on PlayerState — the snapshot contract is frozen, and the View can
+        // infer the launch from position velocity (ActorView L145-158) exactly
+        // as it already does for enemies.
+        private float _playerKnockX, _playerKnockY, _playerKnockTime;
         private float _castInvuln;
         private float _shield;
         private float _shieldTime;
@@ -971,6 +976,30 @@ namespace CinderCourt.Sim
             enemy.KnockTime = time;
         }
 
+        /// <summary>Launch the PLAYER away from a source point. Motion depth:
+        /// until now only enemies could be launched, so nothing the boss did
+        /// ever moved the player's body — every hit read as a number and a
+        /// colour flash. State lives in private fields, NOT on PlayerState, so
+        /// the frozen snapshot contract is untouched; the View infers the
+        /// launch from position velocity exactly as it already does for
+        /// enemies (ActorView L145-158).</summary>
+        private void KnockbackPlayer(float sourceX, float sourceY, float distance, float time)
+        {
+            float deltaX = _player.X - sourceX;
+            float deltaY = _player.Y - sourceY;
+            float length = Hypot(deltaX, deltaY);
+            if (length <= MoveEpsilon)
+            {
+                deltaX = -_player.Facing;
+                deltaY = 0f;
+                length = 1f;
+            }
+            float speed = distance / time;
+            _playerKnockX = deltaX / length * speed;
+            _playerKnockY = deltaY / length * speed;
+            _playerKnockTime = time;
+        }
+
         /// <summary>§2.5: kill XP, level-ups and the stat bump they carry.</summary>
         private void GainXp(int amount)
         {
@@ -1302,6 +1331,28 @@ namespace CinderCourt.Sim
             if (_dashTime > 0f)
             {
                 UpdateDash(deltaTime);
+                return;
+            }
+
+            // Motion depth: a launch owns the step the same way a dash does.
+            // Steering out of it would erase the hit; the player is airborne,
+            // not merely slowed. Attacks stay locked out for the duration,
+            // which is what makes a boss slam cost something. Runs BEFORE the
+            // input read so a held key cannot fight the launch.
+            if (_playerKnockTime > 0f)
+            {
+                float step = MathF.Min(deltaTime, _playerKnockTime);
+                _player.X += _playerKnockX * step;
+                _player.Y += _playerKnockY * SimConfig.YMoveScale * step;
+                ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
+                _playerKnockTime -= deltaTime;
+                _player.Moving = true;
+                _player.ActionTime += deltaTime;
+                if (_playerKnockTime <= 0f)
+                {
+                    _playerKnockTime = 0f;
+                    SetPlayerAction(ActorAction.Idle, true);
+                }
                 return;
             }
 
@@ -1827,7 +1878,20 @@ namespace CinderCourt.Sim
                         ? HackSpec.BossPhase3DamageMul
                         : HackSpec.BossPhase2DamageMul;
                 }
+                float healthBefore = _player.Health;
                 DamagePlayer(damage);
+                // Motion depth: a phase-3 boss slam LAUNCHES the player. Gated
+                // on health actually dropping, so a dash i-frame, a ward, or a
+                // fully-absorbed shield hit does not throw the body — the
+                // launch is the tell that the defence failed. Phase 3 only:
+                // the final phase should feel different in the hands, not just
+                // on the damage number.
+                if (_dungeon && enemy.State.IsBoss && _bossPhase >= 3
+                    && _player.Health < healthBefore && _player.Health > 0f)
+                {
+                    KnockbackPlayer(enemy.State.X, enemy.State.Y,
+                        HackSpec.BossSlamKnockbackDistance, HackSpec.BossSlamKnockbackTime);
+                }
             }
         }
 
@@ -2262,6 +2326,9 @@ namespace CinderCourt.Sim
             _dashTime = 0f;
             _dashDirX = 0f;
             _dashDirY = 0f;
+            _playerKnockX = 0f;
+            _playerKnockY = 0f;
+            _playerKnockTime = 0f;
             _castInvuln = 0f;
             _shield = 0f;
             _shieldTime = 0f;
