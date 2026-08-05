@@ -155,6 +155,7 @@ namespace CinderCourt.View
                 _swingTrail.emitting = state.Action == ActorAction.Attack
                     && state.ActionTime >= 0.10f && state.ActionTime < 0.34f;
             UpdateCastGlow(Time.deltaTime);   // §V1 convergence step
+            UpdateAfterimages(Time.deltaTime);   // dash ghosts (vfx survey)
         }
 
         /// <summary>
@@ -416,6 +417,110 @@ namespace CinderCourt.View
             _swingTrail.emitting = false;
         }
 
+        // --- dash afterimages (vfx survey: hack-and-slash dash flair) --------
+        // Three world-frozen ghosts baked from the skinned mesh, spawned
+        // ~55 ms apart along the dash path, additive ember fade over 0.28 s.
+        // Player-only decoration; capsule fallbacks (no SkinnedMeshRenderer)
+        // and non-triggered actors pay nothing.
+        const int GhostCount = 3;
+        const float GhostLife = 0.28f;
+        const float GhostInterval = 0.055f;
+        static readonly Color GhostColor = new Color(0.953f, 0.349f, 0.173f, 0.55f);
+        SkinnedMeshRenderer _ghostSource;
+        readonly Mesh[] _ghostMeshes = new Mesh[GhostCount];
+        readonly Transform[] _ghosts = new Transform[GhostCount];
+        readonly Material[] _ghostMaterials = new Material[GhostCount];
+        readonly float[] _ghostLives = new float[GhostCount];
+        int _ghostsPending;
+        float _ghostSpawnCooldown;
+
+        /// <summary>Begin a dash afterimage trail (DashUsed event). Safe no-op
+        /// on rigs without a skinned mesh (capsule fallback).</summary>
+        public void TriggerAfterimages()
+        {
+            if (_ghostSource == null)
+                _ghostSource = GetComponentInChildren<SkinnedMeshRenderer>();
+            if (_ghostSource == null) return;
+            _ghostsPending = GhostCount;
+            _ghostSpawnCooldown = 0f;   // first ghost this frame — dash is short
+        }
+
+        void UpdateAfterimages(float deltaTime)
+        {
+            if (_ghostsPending > 0)
+            {
+                _ghostSpawnCooldown -= deltaTime;
+                if (_ghostSpawnCooldown <= 0f)
+                {
+                    SpawnGhost();
+                    _ghostsPending--;
+                    _ghostSpawnCooldown = GhostInterval;
+                }
+            }
+            for (var i = 0; i < GhostCount; i++)
+            {
+                if (_ghostLives[i] <= 0f) continue;
+                _ghostLives[i] -= deltaTime;
+                if (_ghostLives[i] <= 0f)
+                {
+                    if (_ghosts[i] != null) _ghosts[i].gameObject.SetActive(false);
+                    continue;
+                }
+                var color = GhostColor;
+                color.a = GhostColor.a * (_ghostLives[i] / GhostLife) * ViewPrefs.MotionScale;
+                _ghostMaterials[i].color = color;
+            }
+        }
+
+        void SpawnGhost()
+        {
+            // Oldest slot (smallest remaining life) is recycled.
+            var slot = 0;
+            for (var i = 1; i < GhostCount; i++)
+                if (_ghostLives[i] < _ghostLives[slot]) slot = i;
+            if (_ghosts[slot] == null)
+            {
+                var host = new GameObject("DashGhost");
+                _ghostMeshes[slot] = new Mesh();
+                host.AddComponent<MeshFilter>().sharedMesh = _ghostMeshes[slot];
+                var renderer = host.AddComponent<MeshRenderer>();
+                _ghostMaterials[slot] = ViewWorld.MakeAdditive(GhostColor);
+                renderer.sharedMaterial = _ghostMaterials[slot];
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                _ghosts[slot] = host.transform;   // world-frozen: no parent
+            }
+            _ghostSource.BakeMesh(_ghostMeshes[slot], true);
+            var source = _ghostSource.transform;
+            _ghosts[slot].SetPositionAndRotation(source.position, source.rotation);
+            _ghosts[slot].localScale = Vector3.one;
+            _ghosts[slot].gameObject.SetActive(true);
+            _ghostLives[slot] = GhostLife;
+            _ghostMaterials[slot].color = GhostColor;
+        }
+
+        void ClearAfterimages()
+        {
+            _ghostsPending = 0;
+            for (var i = 0; i < GhostCount; i++)
+            {
+                _ghostLives[i] = 0f;
+                if (_ghosts[i] != null) _ghosts[i].gameObject.SetActive(false);
+            }
+        }
+
+        void OnDestroy()
+        {
+            // Ghosts are unparented (world-frozen) — scene teardown must not
+            // leak them, their baked meshes, or their cloned materials.
+            for (var i = 0; i < GhostCount; i++)
+            {
+                if (_ghosts[i] != null) Destroy(_ghosts[i].gameObject);
+                if (_ghostMeshes[i] != null) Destroy(_ghostMeshes[i]);
+                if (_ghostMaterials[i] != null) Destroy(_ghostMaterials[i]);
+            }
+        }
+
         // --- §Lane V1: cast-sync hand glow ----------------------------------
         // A small unlit sphere on the right hand that converges (scale 1→0.35)
         // over the pre-release window, then pops off at emission. Decoration
@@ -656,6 +761,7 @@ namespace CinderCourt.View
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;
+            ClearAfterimages();   // pooled actors never keep dash ghosts
             ClearEquipProps();   // §Lane P: pooled actors never keep props
             if (_castGlow != null) _castGlow.gameObject.SetActive(false);   // §V1
             if (_block != null && _renderers != null)

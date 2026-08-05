@@ -99,7 +99,7 @@ namespace CinderCourt.View
             _novaRing.positionCount = RingSegments;
             _novaRing.widthMultiplier = 0.09f;
             _novaRing.useWorldSpace = true;
-            _novaMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.62f, 0.25f, 1f), true);
+            _novaMaterial = ViewWorld.MakeAdditive(new Color(1f, 0.62f, 0.25f, 1f));
             _novaRing.sharedMaterial = _novaMaterial;
             _novaRing.enabled = false;
 
@@ -111,7 +111,7 @@ namespace CinderCourt.View
             _pulseRing.positionCount = RingSegments;
             _pulseRing.widthMultiplier = 0.06f;
             _pulseRing.useWorldSpace = true;
-            _pulseMaterial = ViewWorld.MakeUnlit(new Color(0.953f, 0.349f, 0.173f, 0.6f), true);
+            _pulseMaterial = ViewWorld.MakeAdditive(new Color(0.953f, 0.349f, 0.173f, 0.6f));
             _pulseRing.sharedMaterial = _pulseMaterial;
             _pulseRing.enabled = false;
 
@@ -234,7 +234,7 @@ namespace CinderCourt.View
             renderer.receiveShadows = false;
             // PROVEN seed path (MakeUnlit) — URP Particles shader would be
             // variant-stripped on WebGL (zero material references in build).
-            renderer.sharedMaterial = ViewWorld.MakeUnlit(color, true);
+            renderer.sharedMaterial = ViewWorld.MakeAdditive(color);
             // Emission is off — Play() once so Emit(count) bursts actually
             // simulate (a stopped system spawns particles that never age).
             system.Play();
@@ -457,7 +457,7 @@ namespace CinderCourt.View
                 slot.Ring.positionCount = 28;
                 slot.Ring.widthMultiplier = 0.05f;
                 slot.Ring.useWorldSpace = true;
-                slot.Material = ViewWorld.MakeUnlit(color, true);
+                slot.Material = ViewWorld.MakeAdditive(color);
                 slot.Ring.sharedMaterial = slot.Material;
             }
             slot.Center = ViewWorld.ToWorld(simX, simY, 0.06f);
@@ -484,7 +484,7 @@ namespace CinderCourt.View
                 slot.Ring.positionCount = 28;
                 slot.Ring.widthMultiplier = 0.035f;
                 slot.Ring.useWorldSpace = true;
-                slot.Material = ViewWorld.MakeUnlit(Color.white, true);
+                slot.Material = ViewWorld.MakeAdditive(Color.white);
                 slot.Ring.sharedMaterial = slot.Material;
             }
             slot.Center = ViewWorld.ToWorld(simX, simY, 0.1f);
@@ -554,7 +554,7 @@ namespace CinderCourt.View
                 _boltStreak.useWorldSpace = true;
                 _boltStreak.startWidth = 0.07f;
                 _boltStreak.endWidth = 0.015f;
-                _boltStreakMaterial = ViewWorld.MakeUnlit(new Color(0.75f, 0.55f, 1f, 0.9f), true);
+                _boltStreakMaterial = ViewWorld.MakeAdditive(new Color(0.75f, 0.55f, 1f, 0.9f));
                 _boltStreak.sharedMaterial = _boltStreakMaterial;
                 _boltStreak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }

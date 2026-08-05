@@ -365,6 +365,11 @@ namespace CinderCourt.View
             // §P2: equip pickup flash — gold pulse on the player model.
             if ((events & SimEvents.EquipDropped) != 0 && _playerView != null)
                 _playerView.FlashEquip();
+            // Dash afterimage ghosts (vfx survey): baked-mesh trail along the
+            // dash path. Reduced motion drops it entirely — it is pure flair.
+            if ((events & SimEvents.DashUsed) != 0 && _playerView != null
+                && !ViewPrefs.ReducedMotion)
+                _playerView.TriggerAfterimages();
             // §M: boss entrance roar. The authored `show` clip (Mutant Roaring)
             // shipped dead for want of a driver. Resolved View-side on purpose:
             // a sim-side pose would be overwritten by the boss AI on the very
