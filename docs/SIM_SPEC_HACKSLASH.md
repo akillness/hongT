@@ -195,6 +195,9 @@
 ## 12. SimTypes 증분 (동결 해제 목록 — 이 외 수정 금지)
 
 - `SimInput` 추가 필드: `DashQueued`, `BoltQueued`, `PulseQueued` (bool).
+- **AMENDMENT #5 (입력 뎁스)** — `SimInput`에 2개 추가:
+  `AttackHeld` (bool, **지속 상태**), `GrowthChoice` (int, 0=없음/1..3).
+  둘 다 기본값이 `false`/`0`이므로 아레나·캠페인 다이제스트 불변.
 - `SimEvents` 추가: `DashUsed=1<<14`, `BoltCast=1<<15`, `PulseCast=1<<16`,
   `LevelUp=1<<17`, `EliteDown=1<<18`, `ExtractionComplete=1<<19`,
   `BossPhase2=1<<20`, `ComboFinisher=1<<21`.
@@ -204,6 +207,48 @@
   ElitesAlive, ExtractionProgress/Target, CompanionX/Y/Attacking, BossHp/BossMaxHp/
   BossPhase, Mode).
 - `CinderSim`에 `CinderSim(in HackConfig)` 오버로드. 기본/캠페인 생성자 불변.
+
+
+## 12.1 AMENDMENT #5 — 입력 뎁스 (차지 · 성장 선택)
+
+전부 **던전 전용**(`_dungeon` 게이트). 아레나·프롤로그·평캠페인 불변.
+
+### 12.1.1 홀드 차지 (§3)
+
+- **누르는 순간은 지금과 동일하게 즉시 스윙한다.** 차지는 스윙이 끝난 뒤에도
+  키가 계속 눌려 있을 때만 쌓인다 — 누름과 홀드가 같은 입력을 두고 경쟁하지
+  않으므로 **연타 플레이어의 시뮬레이션은 비트 단위로 이전과 같다.**
+- 무장 시간 `ChargeReadySeconds = 0.45s`. 보스 텔레그래프(0.80s)보다 짧다 —
+  선딜을 읽고 차지를 밀어넣을 시간이 남는다. EditMode가 이 관계를 고정한다.
+- 완성 후 릴리스: 피해 `×1.8`, 넉백 `×2.0`. 사거리·판정각은 피니셔와 동일.
+- **미완성 릴리스는 폐기**한다. 원하지 않은 스윙이 튀어나오지 않는다.
+- 차지 중 이동 `×0.45`. 스윙 감속과 곱해지지 않는다(스윙이 차지를 0으로 만듦).
+- 포즈는 기존 `critical` 클립 재사용. 신규 자산 없음.
+
+### 12.1.2 성장 선택 (§5)
+
+- 레벨업 시 오퍼가 열린다: `1 공격 / 2 생명 / 3 민첩`.
+- **심은 멈추지 않는다.** 오퍼 중에도 전투가 계속 진행된다.
+- `GrowthOfferSeconds = 5s` 후 자동 확정. 자동 확정은 **아무 것도 추가하지
+  않으므로**, 무시하는 플레이어는 개정 전과 정확히 같은 자동 분배를 받는다.
+  30초가 아니라 5초인 이유: 보스전 전체가 19초라, 30초 무스탯 구간은
+  "무시해도 손해 없다"를 거짓으로 만든다.
+- 오퍼 대기 중 다음 레벨업이 도착하면 **대기 중 오퍼를 즉시 자동 확정**하고
+  교체한다. 큐를 쌓지 않는다 — 두 개가 밀리면 어느 레벨을 고르는지 알 수 없다.
+- 축별 효과(포인트당):
+
+  | 키 | 축 | 효과 |
+  |---|---|---|
+  | 1 | 공격 | 피해 `+8%` |
+  | 2 | 생명 | 최대 HP `+6`, 즉시 회복 |
+  | 3 | 민첩 | 이동 `+4%` **및 대시 쿨 `−6%`**(하한 `×0.55`) |
+
+  민첩에 대시 쿨을 붙인 이유: 이동속도만 주면 셋 중 명백히 약한 선택이 되어
+  실질 2지선다가 된다. 회피 주기를 바꿔야 방어적 선택이 성립한다.
+- 노출: **`IHackSnapshot`을 개정하지 않는다.** `RunPreparationSnapshot.cs`의
+  선례대로 `IGrowthChoiceSnapshot`(`GrowthOfferOpen`, `GrowthOfferTime`,
+  `LastGrowthChoice`, `GrowthAttack/Vitality/Swiftness`)을 **추가**한다.
+- 신규 `SimEvents` 없음 — 기존 `LevelUp`이 오퍼 개시와 같은 틱에 발화한다.
 
 ## 13. 결정론
 
