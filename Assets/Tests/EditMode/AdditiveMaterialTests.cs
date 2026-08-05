@@ -8,6 +8,7 @@ using CinderCourt.View;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.TestTools.Utils;
 
 namespace CinderCourt.Tests
 {
@@ -71,7 +72,8 @@ namespace CinderCourt.Tests
             var material = ViewWorld.MakeAdditive(color);
             try
             {
-                Assert.That(material.color, Is.EqualTo(color),
+                Assert.That(material.color,
+                    Is.EqualTo(color).Using(ColorEqualityComparer.Instance),
                     "the caller's element color must survive the additive setup");
             }
             finally
