@@ -2357,8 +2357,36 @@ namespace CinderCourt.Tests
             // player who taps gets exactly the pre-amendment sim.
             Assert.That(mashing.ChargeProgress, Is.EqualTo(0f),
                 "a player who never holds must never accumulate charge");
-            Assert.That(holding.ChargeProgress, Is.GreaterThanOrEqualTo(0f),
-                "the held run must expose a valid charge reading");
+            // Was `>= 0f`, which is true of every float and is precisely why
+            // the broken charge shipped. With the chain gate the held run is
+            // deterministic: the chain completes, the charge accrues, and the
+            // gate stays shut while it exists - so a held key MUST end armed.
+            Assert.That(holding.ChargeProgress, Is.EqualTo(1f).Within(0.001f),
+                $"a held key ended at {holding.ChargeProgress:F2} charge - it must be armed");
+        }
+
+        /// <summary>The gap this missed the first time: holding the attack key
+        /// AUTO-REPEATS the combo (InputAdapter latches on isPressed), so the
+        /// sim was never idle and the charge could never accrue. A held pilot
+        /// must actually REACH a full charge, or §3 ships as dead code.</summary>
+        [Test]
+        public void HoldingAttack_ActuallyReachesAFullCharge()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+
+            float peak = 0f;
+            for (int tick = 0; tick < 60 * 12; tick += 1)
+            {
+                var input = new SimInput { AttackQueued = true, AttackHeld = true };
+                sim.Tick(in input);
+                if (sim.ChargeProgress > peak) peak = sim.ChargeProgress;
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+
+            Assert.That(peak, Is.EqualTo(1f).Within(0.001f),
+                $"a pilot holding attack peaked at {peak:F2} charge - it must reach 1.0, "
+                + "or the held key is only auto-attacking and the charge layer is unreachable");
         }
 
         // --- motion depth: the player can be launched --------------------------

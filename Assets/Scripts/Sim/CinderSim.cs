@@ -1596,7 +1596,20 @@ namespace CinderCourt.Sim
 
         private void UpdateCombo(float deltaTime, in SimInput input)
         {
-            if (input.AttackQueued && _comboSwing < 0)
+            // Input depth §3: holding the attack key AUTO-REPEATS the chain
+            // (InputAdapter L60 latches on isPressed, deliberately — that is
+            // how a held key walks 1->2->3). So a charge can only begin once
+            // the chain has actually COMPLETED: _comboIndex wraps to 0 while
+            // the link window is still open. Without this gate the sim is
+            // never idle under a held key and the charge could never accrue.
+            bool chainSpent = _dungeon && input.AttackHeld
+                && ((_comboIndex == 0 && _comboLink > 0f)
+                    // Once a charge exists, keep the gate shut so the link
+                    // window expiring cannot restart the chain and eat it.
+                    // Otherwise the usable release window would be only the
+                    // 0.45 s between arming and the 0.9 s chain restart.
+                    || _chargeTime > 0f);
+            if (input.AttackQueued && _comboSwing < 0 && !chainSpent)
             {
                 int hit = _comboLink > 0f ? _comboIndex : 0;
                 if (hit < 0 || hit >= HackSpec.ComboLength)
