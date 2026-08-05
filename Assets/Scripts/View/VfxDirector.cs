@@ -65,11 +65,9 @@ namespace CinderCourt.View
         }
         readonly Scorch[] _scorches = new Scorch[4];
         int _scorchCursor;
-        // §W wave warnings: DEDICATED pool. Sharing _scorches (exactly 4 slots,
-        // sized for nova+pulse) would let one 4-ring wave telegraph evict every
-        // live skill decal — the same reason hit sparks were split from bursts.
-        readonly Scorch[] _waveWarnings = new Scorch[4];
-        int _waveWarningCursor;
+        // §W wave warnings live on a DEDICATED RING pool declared with the other
+        // Burst pools below: a warning must READ as a ring outline, and sharing
+        // any live pool would evict a skill visual mid-play.
         LineRenderer _boltStreak;
         Material _boltStreakMaterial;
         float _boltStreakTime;
@@ -313,27 +311,78 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// §W wave-arrival telegraph: ground warning rings at the spawn points
-        /// the incoming wave will use. Directional "they come from here" read,
-        /// not a headcount — the ring set is derived from the sim's PUBLIC
+        /// §W wave-arrival telegraph: warning rings at the spawn points the
+        /// incoming wave will use. Directional "they come from here" read, not
+        /// a headcount — the ring set is derived from the sim's PUBLIC
         /// deterministic <see cref="CinderSim.SpawnPointIndexFor"/> so the View
         /// never duplicates spawn-count rules. Boss waves ring red and larger.
-        /// Runs on a DEDICATED pool so a wave telegraph never evicts a live
-        /// skill decal; zero new allocation after first use.
+        ///
+        /// Deliberately a CONTRACTING ring, inverting the kit-burst grammar: a
+        /// burst grows outward and reads "something happened here", while a
+        /// telegraph must read "something ARRIVES here". Written as a ring
+        /// outline rather than a ground quad because a filled quad is
+        /// indistinguishable from the stage's own floor decals — verified from
+        /// a live frame diff before this rewrite.
+        /// Dedicated pool; zero new allocation after first use.
         /// </summary>
         public void SpawnWaveWarnings(int wave, bool boss)
         {
-            // Four points off the wave seed progression: enough to read the
-            // arrival arc without carpeting the plate (8 points exist).
+            // One ring per pool slot: enough to read the arrival arc without
+            // carpeting the plate (8 spawn points exist).
             var color = boss
-                ? new Color(0.85f, 0.12f, 0.12f, 0.55f)
-                : new Color(0.95f, 0.45f, 0.18f, 0.4f);
-            var diameter = (boss ? 300f : 210f) * ViewWorld.Scale;
+                ? new Color(0.95f, 0.16f, 0.12f, 0.95f)
+                : new Color(1f, 0.62f, 0.20f, 0.9f);
+            var radius = (boss ? 150f : 105f) * ViewWorld.Scale;
             for (var i = 0; i < _waveWarnings.Length; i++)
             {
                 var point = SimConfig.SpawnPoints[CinderSim.SpawnPointIndexFor(wave, i)];
-                SpawnScorchIn(_waveWarnings, ref _waveWarningCursor, "WaveWarning",
-                              point[0], point[1], diameter, color, 0.6f);
+                ref var slot = ref _waveWarnings[i];
+                if (slot.Ring == null)
+                {
+                    var ringObject = new GameObject("WaveWarning");
+                    ringObject.transform.SetParent(transform, false);
+                    slot.Ring = ringObject.AddComponent<LineRenderer>();
+                    slot.Ring.loop = true;
+                    slot.Ring.positionCount = 28;
+                    // Heavier than a kit burst (0.05): this must carry across a
+                    // busy plate at the exact moment the banner punches in.
+                    slot.Ring.widthMultiplier = 0.10f;
+                    slot.Ring.useWorldSpace = true;
+                    slot.Material = ViewWorld.MakeUnlit(color, true);
+                    slot.Ring.sharedMaterial = slot.Material;
+                }
+                slot.Center = ViewWorld.ToWorld(point[0], point[1], 0.06f);
+                slot.Color = color;
+                slot.MaxRadius = radius;
+                slot.MaxLife = slot.Life = 0.9f;
+                slot.Ring.enabled = true;
+            }
+        }
+
+        /// <summary>§W telegraph step: radius contracts MaxRadius -> 15% while
+        /// alpha holds, so the ring closes on the spawn point instead of fading
+        /// out like a burst. Mirrors <see cref="StepRingPool"/> otherwise.</summary>
+        static void StepWarningPool(Burst[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
+            {
+                ref var warning = ref pool[i];
+                if (warning.Ring == null || !warning.Ring.enabled) continue;
+                warning.Life -= deltaTime;
+                if (warning.Life <= 0f) { warning.Ring.enabled = false; continue; }
+                var progress = 1f - warning.Life / warning.MaxLife;
+                var radius = warning.MaxRadius * Mathf.Lerp(1f, 0.15f, progress);
+                for (var s = 0; s < 28; s++)
+                {
+                    var angle = (Mathf.PI * 2f * s) / 28f;
+                    warning.Ring.SetPosition(s, warning.Center + new Vector3(
+                        Mathf.Cos(angle) * radius, 0f,
+                        Mathf.Sin(angle) * radius * (1f / SimConfig.IsoY)));
+                }
+                // Hold opaque through the close, then release only at the end.
+                var pulse = warning.Color;
+                pulse.a = warning.Color.a * Mathf.Clamp01((1f - progress) * 3f);
+                warning.Material.color = pulse;
             }
         }
 
@@ -352,6 +401,10 @@ namespace CinderCourt.View
         // volley (up to 6 sparks/frame) evict live skill rings mid-play.
         readonly Burst[] _sparks = new Burst[12];
         int _sparkCursor, _sparkBudget;
+        // §W wave warnings: dedicated pool, exactly one ring per spawn point.
+        // Separate from _bursts/_sparks so a wave telegraph never evicts a live
+        // skill or hit ring, and vice versa.
+        readonly Burst[] _waveWarnings = new Burst[4];
 
         void SpawnBurst(float simX, float simY, Color color, float maxRadiusWorld, float life)
         {
@@ -407,21 +460,16 @@ namespace CinderCourt.View
 
         /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
         /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
-        /// Skill pool is 4 — nova(8s cd) + pulse(4s cd) can't exceed it in play;
-        /// §W wave warnings run on their own pool via the overload below.</summary>
+        /// Pool of 4 - nova(8s cd) + pulse(4s cd) can't exceed it in play.</summary>
         void SpawnScorch(float simX, float simY, float diameterWorld, Color color, float life)
-            => SpawnScorchIn(_scorches, ref _scorchCursor, "AoeScorch",
-                             simX, simY, diameterWorld, color, life);
-        void SpawnScorchIn(Scorch[] pool, ref int cursor, string name,
-                           float simX, float simY, float diameterWorld, Color color, float life)
         {
-            ref var slot = ref pool[cursor];
-            cursor = (cursor + 1) % pool.Length;
+            ref var slot = ref _scorches[_scorchCursor];
+            _scorchCursor = (_scorchCursor + 1) % _scorches.Length;
             if (slot.Quad == null)
             {
                 var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
                 Destroy(quad.GetComponent<Collider>());
-                quad.name = name;
+                quad.name = "AoeScorch";
                 quad.transform.SetParent(transform, false);
                 // Flat on the ground, iso-squashed like every ground ring.
                 quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -438,11 +486,7 @@ namespace CinderCourt.View
             slot.Quad.gameObject.SetActive(true);
         }
 
-        void UpdateScorches(float deltaTime)
-        {
-            StepScorchPool(_scorches, deltaTime);
-            StepScorchPool(_waveWarnings, deltaTime);
-        }
+        void UpdateScorches(float deltaTime) => StepScorchPool(_scorches, deltaTime);
 
         static void StepScorchPool(Scorch[] pool, float deltaTime)
         {
@@ -520,6 +564,7 @@ namespace CinderCourt.View
             _sparkBudget = 0;   // §C3 per-frame spawn budget resets here
             StepRingPool(_bursts, deltaTime);
             StepRingPool(_sparks, deltaTime);
+            StepWarningPool(_waveWarnings, deltaTime);   // §W contracting rings
             UpdateScorches(deltaTime);
             UpdateBoltStreak(deltaTime);
         }
@@ -567,7 +612,7 @@ namespace CinderCourt.View
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
-                if (_waveWarnings[i].Quad != null) _waveWarnings[i].Quad.gameObject.SetActive(false);
+                if (_waveWarnings[i].Ring != null) _waveWarnings[i].Ring.enabled = false;
             if (_boltStreak != null) _boltStreak.enabled = false;
             // V3 systems: drop live particles so run-end never leaks a 0.7 s
             // ember shower onto the lobby diorama.
