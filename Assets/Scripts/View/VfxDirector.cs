@@ -68,7 +68,13 @@ namespace CinderCourt.View
         LineRenderer _boltStreak;
         Material _boltStreakMaterial;
         float _boltStreakTime;
-
+        // --- V3 element particles (interview lane; interjection: 파티클 도입) --
+        // 4 pre-created pooled systems, Emit(count) only — no per-cast objects.
+        // Materials clone the PROVEN unlit transparent seed (MakeUnlit): the
+        // URP Particles shader has zero material references in this build and
+        // would be variant-stripped on WebGL (pink/opaque) — spec §V3 contract.
+        ParticleSystem _boltSparks, _pulseRipple, _novaDebris, _aegisFlash;
+        float _pulseNextEmit;   // 0.5 s resonance cadence while the field lives
         // --- campaign hazards (built once on first SyncHazards call) ---------
         struct HazardView
         {
@@ -76,6 +82,8 @@ namespace CinderCourt.View
             public Renderer Ring;       // vent telegraph / altar glow
             public Material RingMaterial;
             public float PrevCycleT;    // eruption wrap detection (#17)
+            public Transform FillDisc;  // V2: imminence fill (vent only)
+            public Material FillMaterial;
         }
         HazardView[] _hazardViews;
 
@@ -141,6 +149,52 @@ namespace CinderCourt.View
                 ViewWorld.MakeUnlit(new Color(0.561f, 0.914f, 1f), false),  // relic #8fe9ff
                 ViewWorld.MakeUnlit(new Color(0.78f, 0.62f, 1f), false),    // equip shard (campaign)
             };
+
+            // V3 element particle pool: 4 systems pre-created, emission off,
+            // Emit(count) on events only. Unlit transparent seed material —
+            // spec §V3 shader-stripping contract.
+            _boltSparks = BuildElementParticles("BoltSparks",
+                new Color(0.75f, 0.55f, 1f, 0.9f), 0.05f, 0.35f, 2.6f);
+            _pulseRipple = BuildElementParticles("PulseRipple",
+                new Color(0.35f, 0.85f, 0.5f, 0.8f), 0.045f, 0.5f, 1.4f);
+            _novaDebris = BuildElementParticles("NovaDebris",
+                new Color(0.953f, 0.42f, 0.2f, 0.9f), 0.06f, 0.7f, 3.2f);
+            _aegisFlash = BuildElementParticles("AegisFlash",
+                new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, 2.0f);
+        }
+
+        ParticleSystem BuildElementParticles(
+            string name, Color color, float size, float life, float speed)
+        {
+            var host = new GameObject(name);
+            host.transform.SetParent(transform, false);
+            var system = host.AddComponent<ParticleSystem>();
+            var main = system.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.startLifetime = life;
+            main.startSpeed = speed;
+            main.startSize = size;
+            // NOTE: URP/Unlit ignores per-particle vertex color — element color
+            // lives in the per-system material; fades are system-level (spec
+            // V3 amended: no per-particle gradients on the unlit seed path).
+            main.maxParticles = 96;                       // hard budget per system
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = 0.6f;                  // debris arcs read grounded
+            var emission = system.emission;
+            emission.enabled = false;                     // Emit(count) only
+            var shape = system.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.12f;
+            var renderer = system.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            // PROVEN seed path (MakeUnlit) — URP Particles shader would be
+            // variant-stripped on WebGL (zero material references in build).
+            renderer.sharedMaterial = ViewWorld.MakeUnlit(color, true);
+            return system;
         }
 
         public void OnEvents(SimEvents events, ISimSnapshot sim)
@@ -161,6 +215,13 @@ namespace CinderCourt.View
                 // one constant serves both modes (decoration, not judgement).
                 SpawnScorch(sim.NovaX, sim.NovaY, SimConfig.NovaRadius * ViewWorld.Scale * 2f,
                     new Color(0.35f, 0.12f, 0.05f, 0.5f), 1.2f);
+                // V3: ember debris arcs out of the blast center (gravity 0.6
+                // pulls them down — grounded read, not airborne glow).
+                if (_novaDebris != null)
+                {
+                    _novaDebris.transform.position = ViewWorld.ToWorld(sim.NovaX, sim.NovaY, 0.4f);
+                    _novaDebris.Emit(ViewPrefs.ReducedMotion ? 13 : 26);
+                }
             }
             // --- dungeon kit one-shots (v0.2) --------------------------------
             if ((events & SimEvents.DashUsed) != 0)
@@ -202,9 +263,18 @@ namespace CinderCourt.View
                 // grounded fill, not just an outline.
                 SpawnScorch(sim.Player.X, sim.Player.Y, 190f * 2f * ViewWorld.Scale,
                     new Color(0.09f, 0.22f, 0.16f, 0.42f), 3f);
+                _pulseNextEmit = 0f;   // V3: first ripple on the next tick sync
             }
             if ((events & SimEvents.WardCast) != 0)
+            {
                 SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.56f, 0.85f, 1f, 0.8f), 0.5f, 0.3f);
+                // V3: absorb flash — inward-reading cyan puff at the cast.
+                if (_aegisFlash != null)
+                {
+                    _aegisFlash.transform.position = ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 0.9f);
+                    _aegisFlash.Emit(ViewPrefs.ReducedMotion ? 6 : 12);
+                }
+            }
             // Pickup absorption (#13): tells the next SyncPickups sweep that a
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
@@ -383,6 +453,12 @@ namespace CinderCourt.View
             _boltStreak.SetPosition(1, ViewWorld.ToWorld(targetX, targetY, 0.9f));
             _boltStreakTime = 0.16f;
             _boltStreak.enabled = true;
+            // V3: violet pierce sparks at the streak's landing point.
+            if (_boltSparks != null)
+            {
+                _boltSparks.transform.position = ViewWorld.ToWorld(targetX, targetY, 0.8f);
+                _boltSparks.Emit(ViewPrefs.ReducedMotion ? 7 : 14);
+            }
         }
 
         void UpdateBoltStreak(float deltaTime)
@@ -541,6 +617,20 @@ namespace CinderCourt.View
                             color.r = 1f; color.g = 0.6f; color.b = 0.3f;
                         }
                         view.RingMaterial.color = color;
+                        // V2 (interview lane, research telegraph rule): the fill
+                        // disc grows with time-to-eruption so "how soon" reads at
+                        // a glance — answering the telegraph's question, not just
+                        // asking it. CycleT runs 0..VentPeriod; eruption at wrap.
+                        if (view.FillDisc != null)
+                        {
+                            var progress = Mathf.Clamp01(hazard.CycleT / CampaignSpec.VentPeriod);
+                            var fillRadius = hazard.Radius * ViewWorld.Scale * progress;
+                            view.FillDisc.localScale = new Vector3(
+                                fillRadius * 2f, 0.010f, fillRadius * 2f / SimConfig.IsoY);
+                            var fillColor = view.FillMaterial.color;
+                            fillColor.a = hazard.Telegraphing ? 0.5f : 0.16f;
+                            view.FillMaterial.color = fillColor;
+                        }
                         break;
                     }
                     case HazardKind.RelicAltar:
@@ -580,6 +670,16 @@ namespace CinderCourt.View
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.3f, 0.22f), true);
                     view.Ring = disc.GetComponent<Renderer>();
                     view.Ring.sharedMaterial = view.RingMaterial;
+                    // V2 imminence fill: inner disc grows 0..radius over the
+                    // cycle (research: time-based fill answers "how soon").
+                    var fill = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(fill.GetComponent<Collider>());
+                    fill.transform.SetParent(root.transform, false);
+                    fill.transform.localPosition = new Vector3(0f, 0.006f, 0f);
+                    fill.transform.localScale = Vector3.zero;
+                    view.FillDisc = fill.transform;
+                    view.FillMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.42f, 0.18f, 0.16f), true);
+                    fill.GetComponent<Renderer>().sharedMaterial = view.FillMaterial;
                     break;
                 }
                 case HazardKind.ObsidianPillar:
@@ -814,6 +914,15 @@ namespace CinderCourt.View
             var color = _pulseMaterial.color;
             color.a = (0.25f + 0.35f * tickPhase) * endFade;
             _pulseMaterial.color = color;
+            // V3: green tick ripple — one ring-edge puff per 0.5 s sim tick,
+            // in phase with the damage cadence (PulseTickInterval view copy).
+            _pulseNextEmit -= deltaTime;
+            if (_pulseNextEmit <= 0f && _pulseRipple != null)
+            {
+                _pulseNextEmit = 0.5f;
+                _pulseRipple.transform.position = center;
+                _pulseRipple.Emit(ViewPrefs.ReducedMotion ? 5 : 10);
+            }
         }
 
         /// <summary>Collected pickups fly into the player over 0.22 s (#13).</summary>
