@@ -305,3 +305,129 @@ parameterized on changed stages) all pass unmodified.
   V12RowsProbe.cs) · `/tmp/funpass-probe/` (calibration probes A-K: kiter
   death t=973, corridor survival, throne interrupt tick 49 / bless tick 346,
   ring pulse order, census maxima, shield gradient 4-vs-10, verdict arc).
+
+## v1.3 meta pass
+
+2026-08-05 · MetaTest · cycle-2 "meta fun pass" — Verdict Pact + derived-stat
+mirror. Numeric truth: `design/meta-fun-pass-spec.md` (M1-M4) +
+`pm/negotiation-record.md` entry 5. Scope: `Assets/Tests/EditMode/` only
+(CampaignSimTests, StageCatalogTests, DungeonGoldenDigestTests header).
+Nothing staged, no sim/view sources touched. All pact symbols and tables were
+agreed with MetaView over irc BEFORE pinning (PactFor signature, extra-kind
+row, exemption scope, 4 collision resolutions — see below).
+
+### Verification (standalone dotnet 8 + NUnitLite 3.14, real repo sources incl. landed v1.3 StageCatalog/LobbyView/GameDirector)
+
+```
+Overall result: Failed — Test Count: 113, Passed: 106, Failed: 7
+  CampaignSimTests          30/30   (4 new v1.3 [Test]s)
+  StageCatalogTests         12/12   (1 new v1.3 [Test])
+  DungeonGoldenDigestTests   0/7    (ALL 7 = the documented dotnet↔Unity float
+                                     drift on Unity-recorded rows — int fields
+                                     byte-identical, identical failure set to
+                                     the v1.2 run: NO v1.3 movement)
+  HackSimTests              54/54
+  StageDressingTests         5/5
+  V12RowsProbe               5/5    (harness-only fixture, not in repo)
+```
+
+`TestResult.xml`: `/tmp/testlane-nunit/TestResult-v13.xml`. The 7 golden fails
+are the same 7 rows that fail under dotnet since v1.2 (Unity literals, ~4 ULP
+X/Y drift); pact data provably touches no golden lane — see the golden section.
+
+### CampaignSimTests — 4 new [Test]s (gate comments on each)
+
+| Test | Gate | What it pins |
+|---|---|---|
+| `DerivedStats_MatchClosedFormOnFullMetaGrid` | M1/M2 (v1.3 spec §검증) | SIM side of the display mirror: `HackConfig.PlayerDamage/PlayerMaxHealth/PlayerSpeed/LanternRegenPerSecond` == closed forms 58×(1+0.03a)×(1+0.06w) · 100+8v+8c · 218×(1+0.02s) · 7×(1+0.08l) on the FULL reachable grid (stats 0..10 × ranks 0..5) + out-of-range clamp cases both directions. Spec literals in-test on purpose: fixed point against constant drift |
+| `LobbyView_DerivedStatDisplay_ReadsSimPropertiesNotLiterals` | M1/M2 | VIEW side, reflection-free source assertion ([CallerFilePath]-anchored, works under Unity AND the harness): LobbyView source must contain all four property reads and must NOT re-spell 58f/218f/0.06f/0.02f/0.08f as literals (0.03f/100f/8f/7f not banned — collide with innocent UI values, e.g. v1.2 card alpha 0.03f; their drift is covered by the grid test + required reads). Tokenizer skips decimal continuations (0.58f safe) |
+| `Telegraph_PactCensusUnderBudget` | D3 | ALL NINE `StageCatalog.PactFor` tables: ≤3 concurrent, ≤2 same-kind over one full hazard-clock LCM. Window/bot DERIVED from the live table (wall→23 s sim [CorridorMidInput] + 276 s analytic mirror; current→12 s kiter; else 3 s) so a MetaView phase adjust re-verifies automatically. Census machinery reused: same AssertTelegraphCensus incl. tick-exact mirror cross-check; march analytic sweep refactored into shared `AssertAnalyticCensus` (v1.2 test's inline copy now calls it — zero behaviour change). Measured maxima: span 2/2v · gallery 2/2v · chancel 1 · well 2/2v · throne 2/1 · verdict 1 · sluice 3/2v · bastion 1 · march 3/2v — all within budget, matching MetaView's analytic arithmetic AND my independent python mirror |
+| `PactSluice_SameConfigSameInputs_IdenticalDigests_AndBotSurvivable` | D1 | pact = just another fixed table (spec M3 '결정론 유지'): pact-sluice 2/1/3 kiter, 1800 ticks × 2 fresh sims → identical digest + player X/Y, AND no GameOver (the pact extra is a mid-lane vent — the v1.1 kiter survival proof carries) |
+
+### StageCatalogTests — 1 new [Test] + helper refactor
+
+| Test | Gate | What it pins |
+|---|---|---|
+| `PactFor_AllNineStages_AppendIdentityExtrasOntoBaseTable` | R4/G2 (v1.3) | Full M3 catalog contract: non-null for all 9 ids (null for unknown); pact[0..baseLen) field-equal to the EFFECTIVE base (override ?? frozen anchor) in order; extras strictly appended and pinned CONTENT-EXACTLY (kind/x/y/phase/push/band/hp): span V(768,604,.6) · gallery P(768,468)+P(768,740) · chancel P(900,500) · well V(560,500,.9) · throne C(768,740,−120,3.3) · verdict Py(576,668) · sluice V(768,604,1.7) · bastion Py(620,720) · march V(768,796,1.2); every extra kind already present in its base (신규 종류 없음); pact array is its own instance (base FROZEN); full radial-clearance on the composed table |
+
+Helper changes: field-loop of `AssertCompositeHazards` extracted to shared
+`AssertHazardFieldsEqual` (used by both v1.2 composite pins and pact pins,
+no behaviour change). `AssertRadialClearance` gains `pactExtraStart`
+(default int.MaxValue = rule OFF for all pre-existing call sites) with ONE
+narrowly-scoped v1.3 exemption: a PACT-EXTRA **vent** may colocate with a
+base **altar** (well) or **pillar** (sluice) — the "guard vent" motif; both
+are zone tests / solid-core-annulus, mechanically inert overlap, mirroring
+the v1.2 guarded-altar exemption. Base tables and non-vent extras keep the
+full v1.2 rules.
+
+### Contract negotiation (irc, before pinning — 4 collisions found & resolved)
+
+My independent verification of MetaView's draft tables found 4 violations of
+the v1.2 clearance contracts; all resolved in the landed tables:
+- (A) gallery pact pillars (768,480)/(768,720): d=124/116 to centre pillar
+  < 132 (2×push-radius walkability) → MetaView MOVED to 468/740 (136/136,
+  edge gaps 56 ≥ 52 player diameter). No exemption needed.
+- (B) well pact vent colocated on NW altar (d=0) → CONFIRMED intent,
+  documented exemption (see above).
+- (C) sluice pact vent colocated on centre pillar (d=0) → CONFIRMED intent,
+  same exemption (bite = standable annulus 40..90).
+- (D) march pact vent (768,880): d=60.5 to dressing prop-010 < 140
+  (radius+50 dressing contract) → MetaView MOVED the VENT to (768,796):
+  prop-010 d≈144.2 ≥ 140, altar d=192 ≥ 160, fully in-plane.
+
+### Goldens — NO rows added, NO rows moved (item-4 contract)
+
+Header of DungeonGoldenDigestTests now carries a REVISION v1.3 note: pact is
+opt-in view routing (GameDirector composes HackConfig + PactFor(id) exactly
+like v1.2 catalog overrides), default runs ride unchanged tables, pact runs
+get no goldens BY DESIGN — pact tables are catalog-pinned (StageCatalogTests),
+budget-pinned (census) and determinism-pinned (D1) instead. The dotnet run
+proves it: the golden failure set is IDENTICAL to the v1.2 baseline (same 7
+Unity-float rows, int fields byte-equal), i.e. zero digest movement from the
+v1.3 landing.
+
+### HudLayoutTests — condition false, not extended (documented non-goal)
+
+The assignment's item 5 was conditional: "if it audits sortie card rects".
+It does not — HudLayoutTests audits the IN-RUN HudView canvas (skill row,
+readouts, ember rest, retry modal); the sortie cards live in LobbyView,
+which has no EditMode rect audit (LobbyView tests exist only in
+GameDirectorCampaignRouteTests, glyph/route level). Arithmetic check of the
+landed pact toggle instead: anchored (−104,6) size 84×28, pivot (1,0) →
+x −188..−104; 강하 at (−12,6) 84×28 → x −96..−12; gap 8 px, zero overlap,
+same 28 u height band as the audited 강하 grammar (≥44 css px at phone
+scale by the same scaler math). Toggle hidden until cleared, and cleared
+cards drop the '보상:' tail, so it never covers live reward text. A
+LobbyView rect audit would need a new fixture building the full lobby
+canvas — flagged as possible follow-up, not v1.3 scope.
+
+### Glyph audit (v1.3 NEW glyphs — main lane HudKorean regen needed)
+
+Independently verified against the SHIPPED `Resources/Fonts/HudKorean.otf`
+cmap (fontTools), string literals only (comments excluded), diff HEAD→v1.3
+across LobbyView/StageCatalog/GameDirector:
+- **Missing from shipped cmap (9): 금 날 담 랍 벼 생 천 + → (U+2192) ✓ (U+2713)**
+  (sources: tier vocab 잿날/담금날/벼림날/밀랍등/잿천, equip delta lines
+  '유물 N → …/재생 +…', pact toggle '서약 ✓'). Matches MetaView's own audit.
+- 17 more Hangul are new IN SOURCE but already in the cmap (결고당대록명밀
+  서숙실약언왕좌증진집최판) — no action.
+- v1.2's queued 렴숙쌍윤흑 are ALREADY in the shipped cmap — the v1.2 regen
+  evidently happened; only the 9 above remain.
+- My test edits add zero UI strings (Korean appears only in comments/assert
+  messages, which never render through HudKorean).
+
+### Handoffs
+
+- **Main lane (Unity EditMode)**: same golden protocol as v1.2 — the 7
+  dotnet-failing rows must PASS as-is under Unity; movement in ANY golden row
+  under Unity is a real v1.3 regression (pact must not touch default runs).
+  All 5 new [Test]s must be green as-is. HudKorean subset regen: the 9 glyphs
+  above.
+- **MetaView**: nothing pending on my side; all four collision resolutions
+  verified in the landed tables. PactRelicMultiplier (=2, PersistDungeonClear
+  only) is view-lane logic outside EditMode reach — browser/QA lane owns the
+  '유물 ×2, 첫클리어 비중복' economics check (negotiation entry 5 QA 실측
+  condition: pact-run average ≤2.2× normal).
+- Harness artifacts: `/tmp/testlane-nunit/` (TestResult-v13.xml, 113-test
+  run) · python census/radial mirror in-session (maxima cross-checked vs
+  MetaView arithmetic; radial distances vs v1.2 rules; cmap via fontTools).

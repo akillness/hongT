@@ -1,6 +1,8 @@
 // Campaign amendment gates (docs/SIM_SPEC_CAMPAIGN.md).
 // Arena regression is owned by CinderSimTests.cs (20 tests) — untouched.
 using System;
+using System.IO;
+using System.Runtime.CompilerServices;
 using CinderCourt.Sim;
 using CinderCourt.View;
 using NUnit.Framework;
@@ -1211,17 +1213,27 @@ namespace CinderCourt.Tests
             AssertTelegraphCensus(CatalogStage555("ash-verdict"), "ash-verdict", 60 * 3, BotInput);
 
             // march full-LCM analytic sweep (mirror validated tick-exactly above).
-            var march = Stage(CampaignStages.AshMarch);
+            AssertAnalyticCensus(Stage(CampaignStages.AshMarch).Hazards, "march", 60 * 276);
+        }
+
+        /// <summary>
+        /// Full-LCM budget sweep through the analytic telegraph mirror alone —
+        /// used where no bot survives the whole window (the mirror is licensed by
+        /// the tick-exact cross-check inside AssertTelegraphCensus: same
+        /// `+= FixedStep` float accumulation, bit-identical stage clock).
+        /// </summary>
+        static void AssertAnalyticCensus(HazardConfig[] table, string label, int ticks)
+        {
             var maxTotal = 0;
             var maxSameKind = 0;
             var stageClock = 0f;
             var perKind = new System.Collections.Generic.Dictionary<HazardKind, int>();
-            for (var t = 1; t <= 60 * 276; t++)
+            for (var t = 1; t <= ticks; t++)
             {
                 stageClock += SimConfig.FixedStep;
                 var total = 0;
                 perKind.Clear();
-                foreach (var hazard in march.Hazards)
+                foreach (var hazard in table)
                 {
                     if (!MirrorTelegraph(hazard, stageClock)) continue;
                     total++;
@@ -1231,8 +1243,8 @@ namespace CinderCourt.Tests
                 maxTotal = Math.Max(maxTotal, total);
                 foreach (var pair in perKind) maxSameKind = Math.Max(maxSameKind, pair.Value);
             }
-            Assert.LessOrEqual(maxTotal, 3, "march 276 s LCM: max simultaneous telegraphs");
-            Assert.LessOrEqual(maxSameKind, 2, "march 276 s LCM: max same-kind telegraphs");
+            Assert.LessOrEqual(maxTotal, 3, $"{label}: max simultaneous telegraphs (analytic LCM sweep)");
+            Assert.LessOrEqual(maxSameKind, 2, $"{label}: max same-kind telegraphs (analytic LCM sweep)");
         }
 
         delegate SimInput CensusBot(CinderSim sim);
@@ -1822,6 +1834,224 @@ namespace CinderCourt.Tests
             }
             input.AttackQueued = true;
             return input;
+        }
+
+        // --- cycle-2 v1.3 meta fun pass (design/meta-fun-pass-spec.md) ----------
+        // M1/M2 show DERIVED REAL NUMBERS in the lobby ("공격력 75.4", not "+3%").
+        // Contract (spec §검증): the view never re-implements the formulas — it
+        // reads HackConfig.PlayerDamage/PlayerMaxHealth/PlayerSpeed/
+        // LanternRegenPerSecond (HackTypes.cs §5/§6 properties, constant-composed).
+        // These two tests are the mirror guard: (1) pins the SIM side of the
+        // mirror to the closed forms at every reachable meta coordinate, so the
+        // properties the lobby prints CANNOT drift from SIM_SPEC_HACKSLASH §5/§6
+        // without failing here; (2) pins the VIEW side structurally — LobbyView
+        // must contain the property reads and must NOT re-spell the frozen
+        // constants as literals.
+
+        // Gate: M1/M2 (v1.3) — closed-form grid: attack 58×(1+0.03a)×(1+0.06w),
+        // maxHP 100+8v+8c, speed 218×(1+0.02s), regen 7×(1+0.08l), all stats
+        // 0..10 (cap 10) × all ranks 0..5 (cap 5), plus out-of-range clamps.
+        // Spec literals appear HERE on purpose: the test is the spec's fixed
+        // point — if SimConfig/HackSpec/CampaignSpec constants move, this fails.
+        [Test]
+        public void DerivedStats_MatchClosedFormOnFullMetaGrid()
+        {
+            for (var attack = 0; attack <= HackSpec.MaxStatPoints; attack++)
+            for (var weapon = 0; weapon <= CampaignSpec.MaxEquipRank; weapon++)
+            {
+                var config = new HackConfig
+                {
+                    MetaStats = MetaStats.Of(attack, 0, 0),
+                    EquipTiers = EquipTiers.Of(weapon, 0, 0),
+                };
+                Assert.AreEqual(
+                    58f * (1f + 0.03f * attack) * (1f + 0.06f * weapon),
+                    config.PlayerDamage, 1e-3f,
+                    $"attack a={attack} w={weapon} must be 58×(1+0.03a)×(1+0.06w)");
+            }
+
+            for (var vitality = 0; vitality <= HackSpec.MaxStatPoints; vitality++)
+            for (var cloak = 0; cloak <= CampaignSpec.MaxEquipRank; cloak++)
+            {
+                var config = new HackConfig
+                {
+                    MetaStats = MetaStats.Of(0, vitality, 0),
+                    EquipTiers = EquipTiers.Of(0, 0, cloak),
+                };
+                Assert.AreEqual(
+                    100f + 8f * vitality + 8f * cloak,
+                    config.PlayerMaxHealth, 1e-3f,
+                    $"maxHP v={vitality} c={cloak} must be 100+8v+8c");
+            }
+
+            for (var swiftness = 0; swiftness <= HackSpec.MaxStatPoints; swiftness++)
+            {
+                var config = new HackConfig { MetaStats = MetaStats.Of(0, 0, swiftness) };
+                Assert.AreEqual(
+                    218f * (1f + 0.02f * swiftness),
+                    config.PlayerSpeed, 1e-3f,
+                    $"speed s={swiftness} must be 218×(1+0.02s)");
+            }
+
+            for (var lantern = 0; lantern <= CampaignSpec.MaxEquipRank; lantern++)
+            {
+                var config = new HackConfig { EquipTiers = EquipTiers.Of(0, lantern, 0) };
+                Assert.AreEqual(
+                    7f * (1f + 0.08f * lantern),
+                    config.LanternRegenPerSecond, 1e-3f,
+                    $"regen l={lantern} must be 7×(1+0.08l)");
+            }
+
+            // Out-of-range meta is clamped (stat cap 10, rank cap 5) — the lobby
+            // preview at the cap must show the capped number, never an
+            // extrapolation.
+            var over = new HackConfig
+            {
+                MetaStats = MetaStats.Of(99, -1, 12),
+                EquipTiers = EquipTiers.Of(9, 8, 7),
+            };
+            Assert.AreEqual(58f * 1.3f * 1.3f, over.PlayerDamage, 1e-3f, "attack clamps at a=10, w=5");
+            Assert.AreEqual(100f + 8f * 5, over.PlayerMaxHealth, 1e-3f, "maxHP clamps at v=0, c=5");
+            Assert.AreEqual(218f * 1.2f, over.PlayerSpeed, 1e-3f, "speed clamps at s=10");
+            Assert.AreEqual(7f * 1.4f, over.LanternRegenPerSecond, 1e-3f, "regen clamps at l=5");
+
+            var under = new HackConfig { EquipTiers = EquipTiers.Of(0, -3, 0) };
+            Assert.AreEqual(7f, under.LanternRegenPerSecond, 1e-3f, "regen clamps at l=0 from below");
+        }
+
+        // Gate: M1/M2 (v1.3) — the VIEW side of the mirror, reflection-free
+        // source assertion: LobbyView reads the four HackConfig derived-stat
+        // properties and never re-spells the distinctive frozen constants
+        // (58f/218f/0.06f/0.02f/0.08f) as literals. 0.03f/100f/8f/7f are NOT
+        // banned — they collide with innocent UI values (e.g. the v1.2 card
+        // background alpha 0.03f); their drift is covered by the grid test
+        // above plus the required property reads here.
+        [Test]
+        public void LobbyView_DerivedStatDisplay_ReadsSimPropertiesNotLiterals()
+        {
+            var source = File.ReadAllText(LobbyViewSourcePath());
+
+            foreach (var required in new[]
+                { "PlayerDamage", "PlayerMaxHealth", "PlayerSpeed", "LanternRegenPerSecond" })
+            {
+                Assert.IsTrue(source.Contains(required),
+                    "LobbyView must read HackConfig." + required
+                    + " for its derived-stat display (meta-fun-pass-spec M1/M2)");
+            }
+
+            foreach (var banned in new[] { "58f", "218f", "0.06f", "0.02f", "0.08f" })
+            {
+                foreach (var idx in AllIndexesOf(source, banned))
+                {
+                    Assert.Fail(
+                        $"LobbyView re-spells frozen formula constant '{banned}' as a literal "
+                        + $"(offset {idx}). Reference SimConfig/HackSpec/CampaignSpec or read the "
+                        + "HackConfig derived-stat properties instead (meta-fun-pass-spec §검증).");
+                }
+            }
+        }
+
+        static System.Collections.Generic.IEnumerable<int> AllIndexesOf(string text, string token)
+        {
+            for (var idx = text.IndexOf(token, StringComparison.Ordinal);
+                 idx >= 0;
+                 idx = text.IndexOf(token, idx + 1, StringComparison.Ordinal))
+            {
+                // Skip decimal continuations like 0.58f / 12.06f — only a literal
+                // that STARTS with the token spelling counts.
+                var before = idx > 0 ? text[idx - 1] : ' ';
+                if (char.IsDigit(before) || before == '.') continue;
+                yield return idx;
+            }
+        }
+
+        /// <summary>
+        /// Repo-relative LobbyView path resolved from THIS source file's compile-time
+        /// location (works under both Unity EditMode and the standalone harness —
+        /// no environment variables, no CWD assumptions).
+        /// </summary>
+        static string LobbyViewSourcePath([CallerFilePath] string thisFile = "")
+        {
+            var editMode = Path.GetDirectoryName(thisFile);
+            var assets = Path.GetDirectoryName(Path.GetDirectoryName(editMode));
+            return Path.Combine(assets, "Scripts", "View", "LobbyView.cs");
+        }
+        /// <summary>
+        /// A pact sortie exactly as GameDirector composes it (meta-fun-pass-spec
+        /// M3): anchor config on the hack lane + StageCatalog.PactFor(id) as the
+        /// hazard table. Pact runs are view-composed configs — catalog-pinned,
+        /// never golden-pinned.
+        /// </summary>
+        static HackConfig PactStage(string catalogId, int weapon, int lantern, int cloak)
+        {
+            Assert.IsTrue(StageCatalog.TryGet(catalogId, out var entry), $"unknown catalog id {catalogId}");
+            Assert.IsTrue(
+                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), null, 0, out var config),
+                $"unknown anchor {entry.SimAnchorId}");
+            var pact = StageCatalog.PactFor(catalogId);
+            Assert.IsNotNull(pact, $"{catalogId}: pact table must exist");
+            config.Hazards = pact;
+            return config;
+        }
+
+        // Gate: D3 (v1.3) — ALL NINE pact tables hold the telegraph budget
+        // (≤3 simultaneous, ≤2 same-kind) over one full hazard-clock LCM.
+        // Window/bot derivation from the live table (not hardcoded per stage,
+        // so a MetaView phase adjustment re-verifies automatically):
+        //   wall in table    → 23 s sim window (CorridorMidInput — the only bot
+        //                      with a no-escape-proof under closing jaws) + the
+        //                      full 276 s LCM(23,6,2.4) via the analytic mirror
+        //                      (no bot survives 4.6 min; mirror licensed by the
+        //                      tick-exact cross-check inside the sim window);
+        //   current in table → 12 s = LCM(6,2.4) kiter window;
+        //   else             → 3 s ≥ vent 2.4 s (altars/pylons/pillars never
+        //                      telegraph).
+        [Test]
+        public void Telegraph_PactCensusUnderBudget()
+        {
+            for (var index = 0; index < StageCatalog.Entries.Count; index += 1)
+            {
+                var id = StageCatalog.Entries[index].Id;
+                var config = PactStage(id, 5, 5, 5);
+
+                var hasWall = false;
+                var hasCurrent = false;
+                foreach (var hazard in config.Hazards)
+                {
+                    hasWall |= hazard.Kind == HazardKind.AshWall;
+                    hasCurrent |= hazard.Kind == HazardKind.TideCurrent;
+                }
+
+                var ticks = hasWall ? 60 * 23 : hasCurrent ? 60 * 12 : 60 * 3;
+                var bot = hasWall ? (CensusBot)CorridorMidInput : BotInput;
+                AssertTelegraphCensus(new CinderSim(in config), config.Hazards, id + " (pact)", ticks, bot);
+
+                if (hasWall)
+                    AssertAnalyticCensus(config.Hazards, id + " (pact)", 60 * 276);
+            }
+        }
+
+        // Gate: D1 (v1.3) — pact runs stay deterministic: the pact is JUST another
+        // fixed placement table (no RNG, spec M3 '결정론 유지'). Same config + same
+        // kiter, two fresh sims → identical digest and player position, AND the
+        // run is bot-survivable at the golden rank (2/1/3) — the pact sluice
+        // gains the stage's identity current, which pushes but never damages, so
+        // the v1.1 kiter survival proof must carry over.
+        [Test]
+        public void PactSluice_SameConfigSameInputs_IdenticalDigests_AndBotSurvivable()
+        {
+            var configA = PactStage("cinder-sluice", 2, 1, 3);
+            var configB = PactStage("cinder-sluice", 2, 1, 3);
+            var simA = new CinderSim(in configA);
+            var simB = new CinderSim(in configB);
+            for (var t = 0; t < 1800; t++) simA.Tick(BotInput(simA));
+            for (var t = 0; t < 1800; t++) simB.Tick(BotInput(simB));
+
+            Assert.AreNotEqual(SimMode.GameOver, simA.Mode,
+                "pact sluice must stay bot-survivable at 2/1/3 (M3: harder, not lethal-by-default)");
+            AssertSameDigest(simA.Digest, simB.Digest, "pact sluice repeat run");
+            Assert.AreEqual(simA.Player.X, simB.Player.X, "pact sluice player X");
+            Assert.AreEqual(simA.Player.Y, simB.Player.Y, "pact sluice player Y");
         }
     }
 }

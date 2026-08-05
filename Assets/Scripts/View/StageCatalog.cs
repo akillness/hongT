@@ -347,6 +347,155 @@ namespace CinderCourt.View
             }
         }
 
+        // ------------------------------------------------- v1.3 verdict pact --
+        // meta-fun-pass-spec.md M3 + negotiation-record entry 5: opt-in replay
+        // ladder for CLEARED stages. A pact table = the stage's effective table
+        // (HazardOverride ?? frozen sim anchor), element-for-element in the same
+        // order, PLUS 1-2 APPENDED placements of the stage's identity gimmick.
+        // No new kinds, no RNG — a pact is just another fixed table, so every
+        // existing hazard-rendering and census path applies unchanged.
+        //
+        // Telegraph budget (≤3 concurrent, ≤2 same-kind — qa band 5) verified
+        // by phase arithmetic per table below. Windows (CampaignSpec, absolute
+        // stage time t):
+        //   vent    tel: t ≡ [1.6−ph, 2.4−ph) mod 2.4  (VentPeriod−VentTelegraph)
+        //   current tel: t ≡ [−ph, 0.8−ph)    mod 6
+        //   wall    tel: t ≡ [4.5−ph, 6.0−ph) mod 23   (WallRest..+WallTelegraph)
+        //   pillar / altar / pylon never telegraph.
+
+        /// <summary>Base-prefix + appended-extras pact table (M3 contract:
+        /// pact[0..base.Length-1] element-equal to the effective base, same
+        /// order; extras strictly at the tail).</summary>
+        static HazardConfig[] Pact(HazardConfig[] baseTable, params HazardConfig[] extras)
+        {
+            var pact = new HazardConfig[baseTable.Length + extras.Length];
+            Array.Copy(baseTable, pact, baseTable.Length);
+            Array.Copy(extras, 0, pact, baseTable.Length, extras.Length);
+            return pact;
+        }
+
+        /// <summary>Frozen sim-anchor hazards for override-less stages. Ranks
+        /// are irrelevant to hazards — zeros keep the lookup pure. Ids are the
+        /// CampaignStages consts, so a miss is a programming error (surfaces
+        /// as TypeInitializationException in the first catalog test).</summary>
+        static HazardConfig[] AnchorHazards(string simStageId)
+            => CampaignStages.TryGet(simStageId, 0, 0, 0, out var config)
+                ? config.Hazards
+                : null;
+
+        // Stage 0 재의 다리 — +1 vent mid-bridge (768,604) ph 0.6. Windows:
+        // base [1.6,2.4)/[0.4,1.2) disjoint; extra [1.0,1.8) meets each pair-
+        // wise ([1.6,1.8) and [1.0,1.2)) but never both at once → max 2, 2v.
+        static readonly HazardConfig[] CinderSpanPact = Pact(
+            AnchorHazards(CampaignStages.CinderSpan),
+            HazardConfig.Vent(768f, 604f, 0.6f));
+
+        // Stage 1 불씨 윤무 — +2 mid-column pillars (768,468)/(768,740), NOT
+        // the spec sketch's "+2 ring vents 0.3/1.5". Proof no vent phase fits:
+        // the base ring's windows ([1.6,2.4) [1.0,1.8) [0.4,1.2) and
+        // [2.2,2.4)∪[0,0.6)) tile the whole 2.4 s period with 2-vent zones of
+        // width 0.2 every 0.6 s ([0.4,0.6) [1.0,1.2) [1.6,1.8) [2.2,2.4));
+        // any additional 0.8 s vent window covers a full residue class mod
+        // 0.6 and therefore intersects a 2-zone at EVERY possible phase →
+        // 3 same-kind, budget breach. Pillars are the stage's own secondary
+        // gimmick (base centre pillar), never telegraph, and narrow the 윤무
+        // ring corridors into a mid-column slalom. 604±136 keeps the v1.2
+        // walkability contract (pillar spacing ≥132; edge gap 56 ≥ player
+        // diameter 52 — squeezable, not sealed). Census stays 2/2v.
+        static readonly HazardConfig[] EmberGalleryPact = Pact(
+            EmberGalleryHazards,
+            HazardConfig.Pillar(768f, 468f),
+            HazardConfig.Pillar(768f, 740f));
+
+        // Stage 2 흑요석 미로 — +1 pillar (900,500) closes the maze diamond
+        // around the vent lane. Single vent → max 1 telegraph.
+        static readonly HazardConfig[] AbyssChancelPact = Pact(
+            AnchorHazards(CampaignStages.AbyssChancel),
+            HazardConfig.Pillar(900f, 500f));
+
+        // Stage 3 쌍 제단 — +1 altar-guard vent ON the NW altar (560,500)
+        // ph 0.9: channelling now rides the rhythm directly. Deliberate
+        // colocation (v1.3 pact exemption to radial non-overlap): altar and
+        // vent are both zone tests, neither is solid — a damage disc over a
+        // channel disc is mechanically well-defined and IS the pact bite.
+        // Vent windows: 0.3→[1.3,2.1), 1.5→[0.1,0.9), 0.9→[0.7,1.5).
+        // Pairwise overlaps [1.3,1.5) and [0.7,0.9); the base pair is
+        // disjoint → no triple. Max 2, 2v.
+        static readonly HazardConfig[] WitnessWellPact = Pact(
+            WitnessWellHazards,
+            HazardConfig.Vent(560f, 500f, 0.9f));
+
+        // Stage 4 왕좌의 조류 — +1 counter-current lane (768,740) push −120
+        // ph 3.3. Position deliberately matches the sluice anchor current so
+        // the view's CurrentPushSign build-time lookup resolves the −x flow.
+        // LCM(6,2.4)=12 s: vents [1.6,2.4)/[0.4,1.2) disjoint (max 1);
+        // currents [5.7,6)∪[0,0.5) vs [2.7,3.5) disjoint (max 1) → max 2.
+        static readonly HazardConfig[] EchoThronePact = Pact(
+            EchoThroneHazards,
+            HazardConfig.Current(768f, 740f, -120f, 3.3f));
+
+        // Stage 5 판결의 방벽 — +1 pylon (576,668): SW counterpart of the
+        // base pylon; aura (280) reaches the centre altar from both diagonals
+        // (dist ≈ 202). Pylons never telegraph; vents [1.6,2.4)/[0.4,1.2)
+        // disjoint → max 1.
+        static readonly HazardConfig[] AshVerdictPact = Pact(
+            AshVerdictHazards,
+            HazardConfig.Pylon(576f, 668f));
+
+        // Stage 6 해류 숙달 — +1 mid-lane vent (768,604) ph 1.7: the safe
+        // corridor's centre now rides the vent rhythm. Deliberate colocation
+        // with the base pillar (v1.3 pact exemption to radial non-overlap):
+        // the pillar core (r40) is solid, so the vent bite is the standable
+        // annulus 40..90 around it — cover behind the pillar stops being
+        // unconditionally safe, which IS the pact bite. No telegraph
+        // interaction (pillars are silent).
+        // LCM(6,2.4)=12 s. Vents: 0.9→[0.7,1.5), 2.1→[1.9,2.4)∪[0,0.3),
+        // 1.7→[2.3,2.4)∪[0,0.7); only pair zone (2.1∧1.7) = [2.3,2.4)∪[0,0.3)
+        // and 0.9 is disjoint from 1.7 → no vent triple (max 2v). Currents
+        // [0,0.8)/[3,3.8) mod 6 disjoint (max 1). Upper bound 2v+1c = 3;
+        // attained at t∈[0,0.3) and [9.5,9.8) in the LCM. ≤3 ✓ ≤2 same ✓.
+        static readonly HazardConfig[] CinderSluicePact = Pact(
+            AnchorHazards(CampaignStages.CinderSluice),
+            HazardConfig.Vent(768f, 604f, 1.7f));
+
+        // Stage 7 방벽 숙달 — +1 pylon (620,720) plugs the SW gap of the
+        // phalanx. Pylons/pillars never telegraph; single vent → max 1.
+        static readonly HazardConfig[] EmberBastionPact = Pact(
+            AnchorHazards(CampaignStages.EmberBastion),
+            HazardConfig.Pylon(620f, 720f));
+
+        // Stage 8 집행 수렴 — +1 vent (768,796) ph 1.2: south-band denial
+        // under the corridor altar (r90 bites y 706..886 — the walkable
+        // strip between altar and south edge). y796 keeps the audited v1.2
+        // dressing clearance (prop-010 at 760,940: d≈144 ≥ r90+50) and
+        // radial non-overlap with the altar (d=192 ≥ 70+90).
+        // Vents: 0.6→[1.0,1.8), 1.8→[2.2,2.4)∪[0,0.6), 1.2→[0.4,1.2); pair
+        // zones [1.0,1.2)/[0.4,0.6), and 0.6∧1.8 disjoint → no vent triple
+        // (max 2v). Walls [4.5,6.0)+23k / [16,17.5)+23k disjoint (max 1).
+        // Upper bound 2v+1w = 3 over the 276 s LCM. ≤3 ✓ ≤2 same-kind ✓.
+        static readonly HazardConfig[] AshMarchPact = Pact(
+            AnchorHazards(CampaignStages.AshMarch),
+            HazardConfig.Vent(768f, 796f, 1.2f));
+
+        /// <summary>Verdict-pact hazard table for a logical stage — non-null
+        /// for every catalog id (M3 contract: effective-base prefix + appended
+        /// identity-gimmick extras). Null only for unknown ids.</summary>
+        public static HazardConfig[] PactFor(string stageId)
+        {
+            switch (stageId)
+            {
+                case "cinder-span": return CinderSpanPact;
+                case "ember-gallery": return EmberGalleryPact;
+                case "abyss-chancel": return AbyssChancelPact;
+                case "witness-well": return WitnessWellPact;
+                case "echo-throne": return EchoThronePact;
+                case "ash-verdict": return AshVerdictPact;
+                case "cinder-sluice": return CinderSluicePact;
+                case "ember-bastion": return EmberBastionPact;
+                case "ash-march": return AshMarchPact;
+                default: return null;
+            }
+        }
         public static IReadOnlyList<StageEntry> Entries => AllEntries;
 
         public static bool TryGet(string id, out StageEntry entry)

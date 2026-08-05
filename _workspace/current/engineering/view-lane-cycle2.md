@@ -367,3 +367,187 @@ shipped Assets/Resources/Fonts/HudKorean.otf cmap(456 codepoints) 대조:
   체크리스트: ① 컴파일 ② StageCatalog/StageDressing/골든 테스트
   ③ gen_hud_font.sh 재생성 후 별칭 5글리프 렌더 ④ 로비 카드 보상 라인
   길이 육안(최장 cinder-span 행).
+
+## v1.3 meta pass
+
+작성: view-lane engineer (meta tabs + verdict pact, run-id cycle-2 stage-2c
+meta-fun-pass). 근거: design/meta-fun-pass-spec.md M1-M4 +
+pm/negotiation-record.md entry 5(서명) + worldview.md '메타 서사 (v1.3)'
+(이 패스에서 신설). 상태: 코드 작성 완료, 미커밋, Unity 미실행(메인 레인
+게이트). 사전 `git status --short`: View 3파일 clean(타 세션 M은
+.vscode/slnx/Packages/wasm/negotiation-record — 전부 미접촉).
+
+### 1. StageCatalog.cs — M3a 서약 테이블 9종 + PactFor
+
+- `PactFor(stageId)` 공개: 9개 카탈로그 id 전부 non-null. 계약(MetaTest와
+  IRC 합의): pact[0..base.Length-1] == 유효 베이스(HazardOverride ??
+  프로즌 앵커, `AnchorHazards`가 CampaignStages.TryGet(0,0,0)로 조회) 원소
+  동일·동순서, 추가분은 꼬리에 엄격 append(`Pact(base, extras)` 헬퍼 —
+  Array.Copy 2회, 정적 초기화 1회 실행이라 할당 예산 무관).
+- 추가 배치(스테이지 정체성 기믹, 신규 종류 0): span Vent(768,604,0.6) ·
+  gallery Pillar(768,468)+(768,740) · chancel Pillar(900,500) · well
+  Vent(560,500,0.9) · throne Current(768,740,−120,3.3) · verdict
+  Pylon(576,668) · sluice Vent(768,604,1.7) · bastion Pylon(620,720) ·
+  march Vent(768,796,1.2).
+- **텔레그래프 예산 산술 (전 테이블 코드 주석 병기 + 기계 스윕 검증)**.
+  창 공식: vent tel (t+ph)mod2.4∈[1.6,2.4) · current tel mod6∈[0,0.8) ·
+  wall tel mod23∈[4.5,6.0). 스테이지별 최대치(0.05s 스윕, LCM 전구간):
+  | 스테이지 | LCM | max 동시 | max 동종 | 근거 요약 |
+  |---|---|---|---|---|
+  | span | 2.4s | 2 | 2v | 추가 0.6 창 [1.0,1.8)이 베이스 두 창과 각각 겹치나 셋이 동시엔 불가(베이스 쌍 서로소) |
+  | gallery | 2.4s | 2 | 2v | 추가분 pillar(무텔레그래프) — 베이스 링 그대로 |
+  | chancel | 2.4s | 1 | 1 | vent 1기 |
+  | well | 2.4s | 2 | 2v | 0.9 창 [0.7,1.5): 0.3창과 [1.3,1.5), 1.5창과 [0.7,0.9) — 베이스 쌍 서로소라 3중 불가 |
+  | throne | 12s | 2 | 1 | vent 쌍 서로소, current 쌍 서로소([5.7,6)∪[0,0.5) vs [2.7,3.5)) → 이종 2가 상한 |
+  | verdict | 2.4s | 1 | 1 | pylon 무텔레그래프 |
+  | sluice | 12s | 3 | 2v | vent 3기 중 (2.1,1.7)만 겹침 [2.3,2.4)∪[0,0.3), 0.9는 1.7과 서로소 → 2v 상한; +current 1 → 3 (t∈[0,0.3),[9.5,9.8)) |
+  | bastion | 2.4s | 1 | 1 | vent 1기 |
+  | march | 276s | 3 | 2v | vent 쌍존 [1.0,1.2)/[0.4,0.6), (0.6,1.8) 서로소 → 2v; wall 쌍 서로소 → +1w = 3 |
+  전부 ≤3 동시 / ≤2 동종 — PASS (MetaTest 독립 미러 센서스와 최대치 일치
+  확인, IRC).
+- **gallery 스펙 이탈(스케치 "+2 ring vents 0.3/1.5" 기각) — 산술 증명**:
+  베이스 4기 링의 텔레그래프 창(0.6s 간격 4개, 각 0.8s)은 2.4s 주기 전체를
+  0.6s마다 폭 0.2s의 2중첩 구간([0.4,0.6) [1.0,1.2) [1.6,1.8) [2.2,2.4))
+  으로 타일링 — 어떤 위상의 추가 vent 창(0.8s = mod 0.6 완전 잔여계)도
+  2중첩 구간과 반드시 교차 → 동종 3 위반이 **위상 무관 필연**. 과제의
+  "위반 시 위상 조정" 조항으로 kind 자체를 스테이지 2차 기믹(pillar)로
+  전환: 중앙 기둥과 3×3 격자를 완성해 윤무 회랑을 좁힌다(정체성 유지).
+- **v1.2 클리어런스 계약 기계 재검증** (MetaTest 교차 확인 4건 포함):
+  gallery pact pillar 간격 — 중앙 기둥과 136/136 ≥132(보행성 규칙), 쌍
+  272; 초안 (768,480)/(768,720)은 124/116 위반이라 이동. march vent —
+  초안 (768,880)이 prop-010(760,940) d=60.5 <140 드레싱 침해 → (768,796)
+  이동: prop-010 d=144.2 ≥140, altar d=192 ≥160, 평면 내(y706..886 남측
+  보행대 거부 밴드). **서약 예외 2건(문서화)**: well vent↔altar d=0,
+  sluice vent↔pillar d=0 — 의도적 동좌표(제단 채널이 리듬을 직접 타게 /
+  기둥 커버 뒤 40..90 환형이 물리는 것 자체가 서약의 bite). 예외 범위는
+  PACT-EXTRA vent↔altar/pillar 한정, 베이스 테이블 불변.
+- throne pact current(768,740): 좌표를 sluice 앵커 current와 일치시켜
+  VfxDirector.CurrentPushSign(빌드 시 앵커 조회)이 −1을 해석 — −120
+  역류가 뷰에서 올바른 방향으로 렌더(뷰 코드 무수정으로 방향 해결).
+
+### 2. LobbyView.cs — M1/M2/M3b/M4
+
+- **M1 성장 탭**: 파생 실수치는 **심의 자체 프로퍼티**로 표시 — 스택
+  HackConfig 프로브(`Probe(in data, +a,+v,+s)`: MetaStats.Of/EquipTiers.Of
+  채운 inert 구조체)에서 PlayerDamage/PlayerMaxHealth/PlayerSpeed 읽기.
+  뷰는 공식을 재조립하지 않음(0.03/0.06 등 조합 상수 미보유) → 미러
+  드리프트 구조적 불가(Main 레인 지시 정정 반영; MetaTest 미러 가드
+  테스트의 필수 4프로퍼티/금지 5리터럴 스캔 자체 검증 PASS). 다음 포인트
+  델타 = probe(x+1)−probe(x) (프로퍼티가 내부 클램프하므로 캡에서 0 —
+  UI는 캡에서 델타 대신 "숙련" 표기). 행 문구: "공격력 75.4 (+2.2)" /
+  "최대 체력 180 (+8)" / "이동 262 (+4.4)"; 캡 "… • 숙련". 정적
+  "+3%/pt" 행이 이 라이브 행으로 대체(효과 요약은 하단 힌트에 존치).
+  장비 기여 자동 합성(프로브가 EquipTiers 동반) — 성장+장비가 한 수치로
+  보임(스펙 M1). 하단 요약(-300, Gold): 3수치 나열만, 총점 지표 없음.
+- **M2 장비 탭**: `EquipTierNames`(internal string[3][6], 법정 어휘 —
+  worldview '메타 서사' 표가 유일 출처): 잿날→담금날→벼림날→선고날→
+  심판날→판결인 / 잿등→밀랍등→서약등→기록등→증언등→진실등 / 잿천→무명포→
+  증인포→기록포→선고포→집행포. 과제 스케치의 판독불가 자리(쟿/릷)는
+  글리프 경제로 조정: 잿- 계열 통일(기존 글리프), 랜턴 T0 香유→잿등
+  (한자 배제 — 폰트/G1), 망토 T1 재릷전→무명포(무명=이름 없는 자 —
+  신분 상승 서사 시작점). 랭크 행: "판결인 • 공격 +30%" — 퍼센트는 단일
+  프로즌 상수 × 랭크(CampaignSpec.WeaponDamagePerRank 등 직독, 조합
+  아님; 유일한 뷰측 상수 접촉이며 금지 리터럴 스캔과 무충돌... 스캔은
+  리터럴 재철자만 금지, 상수 참조는 허용). 구매 버튼: "유물 7 → 공격
+  +4.5" — 프로브 프로퍼티 차분(실효 델타: 무기 델타는 할당된 공격
+  스탯과 승산 합성된 실제 증가분).
+- **M3b 서약 토글**: 클리어 카드 한정 노출(SetActive(cleared), 빌드 시
+  꺼짐). 기하: 강하 버튼 좌측 (-104,6) 84×28 — 감사된 강하 지오메트리
+  (84×28, 같은 행, 갭 8) 복제; 카드 터치 계약 그대로. 상호작용 rect끼리
+  비중첩(강하와 8u 갭, 상태 라벨과 수직 분리). 클리어 카드는 별칭 라인의
+  "• 보상:" 꼬리를 동시 탈락(이미 수령한 보상 — 최장 별칭 89px < 토글
+  좌단 180px, 시각 충돌 없음). 상태: `_pactArmed` Dictionary<string,bool>
+  세션 한정(스펙 §세이브 스키마 — 미저장), `IsPactArmed(stageId)` public
+  읽기 시임. 시각: off "서약"/InkDim/ButtonBack, armed "서약 ✓"/Ember/
+  ember 22% 배경(위험=엠버 색 언어; 탭/로스터의 stateful flat-fill 문법,
+  plated:false).
+- **M4 군단 탭**: `CompanionEpithets` 5종 — 첫 서약의 증인 / 성당의
+  메아리 / 왕좌의 메아리 / 행진의 메아리 / 정예의 잿불 (worldview 표가
+  유일 출처, 전부 기존 글리프). 이름 라벨 offsetMin.y=14로 상단 밴드
+  확보, 별칭은 하단 4..18 정적 라벨(빌드 1회, Refresh 미접촉,
+  raycastTarget=false). 슬롯 0(없음)은 별칭 없음.
+- Refresh 문법 유지: 텍스트/상태만, 재인스턴스화 0. 프로브는 스택 구조체
+  (할당 0); 문자열 보간은 기존 Refresh 문법 그대로(데이터 변경 시에만
+  호출되는 경로, per-frame 아님).
+
+### 3. GameDirector.cs — M3c 라우팅 + 지급
+
+- OnSortie 계약: **콜백 시그니처 불변** (string target 유지). 선택지 중
+  "director가 LobbyView.IsPactArmed(stageId) 읽기"를 채택 — 사유:
+  LobbyCallbacks 4필드 전부 기존 시그니처 유지(테스트/기존 배선 무접촉),
+  서약은 세션 뷰 상태라 소유자(LobbyView)에게 두고 라우터가 조회하는
+  쪽이 상태 이중화가 없음. StartDungeon에서 `_runWasPact` 래치(러닝 중
+  토글 변경이 현행 런에 영향 없음; 리트라이는 재래치 — 토글 유지 시
+  서약 유지).
+- 해저드 선택: 서약 시 `config.Hazards = StageCatalog.PactFor(entry.Id)`
+  가 override/anchor **대신** — else-if 체인이라 기존 경로 문자 그대로
+  보존(서약 미선택 골든 불변, 스펙 §검증).
+- HUD 마커: `_game.Begin(config, displayName + " — 서약", …)` — 기존
+  stageName 파라미터 경유(캠페인 HUD 타이틀로 흐름), 신규 UI 0.
+- 지급: `PactRelicMultiplier = 2` (internal const — 경제 테스트 핀 고정,
+  entry 5 서명 수치). PersistDungeonClear에서 `sim.Relics × 2`는 서약
+  런만; **첫클리어 보너스 비배수**(별도 라인 유지 — entry 5 비중복 조항.
+  서약 토글이 클리어 카드에만 존재하므로 실전에서 서약 런의 firstClear는
+  false — QA 딥링크가 경합해도 보너스 라인은 독립이라 계약 유지, 코드
+  주석 명기). 패배 뱅킹 경로(GameOver)는 비배수 — 서약 보상은 "살아서
+  다시 판결받은 자"에게만(worldview 서사와 일치).
+
+### 4. worldview.md — '메타 서사 (v1.3)' 신설
+
+- 티어명 2표(장비 3슬롯 × T0-T5) + 서사 규약(도구의 재→판결 복권,
+  T5 판결인=도구의 인격화), 서약 의미("판결이 끝난 법정에 다시 서는
+  자는 더 무거운 집행을 서약한다"), 동료 별칭 5행 표(기원 명기).
+  EquipTierNames/CompanionEpithets의 유일 출처 + G1 추적성 조항.
+
+### 신규 글리프 (폰트 재생성 필요 — 메인 레인)
+
+View 어셈블리 렌더 문자열 리터럴 diff(HEAD 대비, 주석 제외 스캐너 —
+v1.2와 동일 도구), 한글 7자 + 심볼 2자:
+
+    금 날 담 랍 벼 생 천   (한글, 전부 LobbyView.cs: 티어명·재생 라벨)
+    → (U+2192, 구매 델타 화살표) ✓ (U+2713, 서약 armed 마커)
+
+shipped HudKorean.otf cmap(466 codepoints) 대조: **9자 전부 미포함**.
+cmap에 §×—•…▲▶▼◀ 등 심볼 선례 있음 — 서브셋 재생성 시 U+2192/U+2713
+추가 가능. 참고: HEAD 리터럴의 · (U+00B7)와 − (U+2212)도 현행 cmap
+미포함(기존 이슈, v1.2 재생성 대기열과 합산 — v1.2의 렴숙쌍윤흑 5자
++ 이번 9자 = 재생성 1회로 14+2자 해소).
+
+### Deviations from assignment spec (사유 포함)
+
+1. **M1/M2 파생 수치 구현 경로**: 과제 원문 "상수 조합 미러" → Main 레인
+   IRC 정정 지시대로 HackConfig 파생 프로퍼티 직독(프로브 패턴)으로 구현.
+   뷰가 조합 상수를 아예 보유하지 않아 미러 드리프트가 타입 수준에서
+   불가능 — MetaTest 미러 가드도 이 계약으로 단순화.
+2. **gallery 서약 추가분 kind 전환** (vent→pillar): 위 §1 산술 증명 —
+   베이스 4기 링이 모든 위상의 추가 vent를 동종 3 위반으로 만듦. 과제의
+   "예산 위반 시 조정" 권한 행사, 정체성은 2차 기믹(기둥)으로 유지.
+3. **march 서약 vent 이동** (스케치 768,880 → 768,796): 880은 드레싱
+   클리어런스(prop-010 d=60.5 <140) 위반 + 평면 경계(y874) 6px 초과.
+   796은 동일한 남측 밴드 거부 의도 유지(y706..886)하며 전 계약 준수.
+4. **티어명 표기 조정**: 과제 스케치의 손상 문자(쟿/릷)와 한자(香)를
+   글리프 경제·G1 어휘로 정규화(§2). worldview 표가 정본.
+5. **서약 토글 28u 높이** (44u 아님): 강하 버튼과 동일한 카드 내 감사
+   지오메트리 복제 — 68u 카드에서 44u 버튼은 v1.2 스크롤 결정(피치
+   보존)과 충돌. 과제의 "카드 공간이 좁으면 강하 좌측" 배치 조항 적용,
+   강하와 동일 취급(같은 행·같은 치수·갭 8).
+
+### 검증 (에디터 없이)
+
+- **Roslyn 구문 파스**(SDK 8.0.129 bincore, LanguageVersion.CSharp9):
+  StageCatalog.cs / LobbyView.cs / GameDirector.cs 전부 SYNTAX OK, 에러 0
+  (전 편집 완료 후 최종 상태 기준).
+- 서약 센서스 기계 스윕: 9테이블 × 각 LCM(2.4/12/276s) × 0.05s 해상도 —
+  최대치 표(§1)와 일치, 전부 ≤3/≤2. MetaTest 독립 미러와 교차 일치.
+- 기하 기계 검증: 추가분 전부 평면 내(248..1288/334..874), 원형 해저드
+  radial 비중첩(문서화 예외 2건 제외), gallery 기둥 간격 132 규칙,
+  march 드레싱 radius+50 전 배치 클리어.
+- 미러 가드 자체 스캔: 필수 4프로퍼티 존재 + 금지 5리터럴(58f/218f/
+  0.06f/0.02f/0.08f) 부재 — PASS.
+- 글리프 diff + cmap 대조: 위 §신규 글리프.
+- 컴파일/EditMode/플레이: **미수행** — 메인 레인 게이트 소유. 에디터
+  체크리스트: ① 컴파일 ② MetaTest v1.3 스위트(카탈로그 계약·센서스·
+  미러 가드·경제 핀) ③ gen_hud_font.sh 재생성(9자, v1.2 5자와 합산) 후
+  장비 탭 티어명/구매 화살표/서약 체크 렌더 ④ 서약 토글 on→강하→클리어
+  →유물 2배 육안 + HUD "— 서약" 타이틀 ⑤ 성장 탭 수치가 강하 결과와
+  일치하는지(프로브==런 배율) 육안.

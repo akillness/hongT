@@ -343,23 +343,10 @@ namespace CinderCourt.Tests
             Assert.That(entry.HazardOverride, Is.Not.Null);
             Assert.That(entry.HazardOverride.Length, Is.EqualTo(expected.Length));
 
+            // v1.2: bands and pylons carry live fields beyond kind/x/y/phase —
+            // pin them ALL (the throne current's push IS the stage identity).
             for (var index = 0; index < expected.Length; index += 1)
-            {
-                var actual = entry.HazardOverride[index];
-                var wanted = expected[index];
-                Assert.That(actual.Kind, Is.EqualTo(wanted.Kind), id + " hazard " + index + " kind");
-                Assert.That(actual.X, Is.EqualTo(wanted.X), id + " hazard " + index + " X");
-                Assert.That(actual.Y, Is.EqualTo(wanted.Y), id + " hazard " + index + " Y");
-                Assert.That(actual.Radius, Is.EqualTo(wanted.Radius), id + " hazard " + index + " radius");
-                Assert.That(actual.Phase, Is.EqualTo(wanted.Phase), id + " hazard " + index + " phase");
-                // v1.2: bands and pylons carry live fields beyond kind/x/y/phase —
-                // pin them all (the throne current's push IS the stage identity).
-                Assert.That(actual.PushX, Is.EqualTo(wanted.PushX), id + " hazard " + index + " pushX");
-                Assert.That(actual.PushY, Is.EqualTo(wanted.PushY), id + " hazard " + index + " pushY");
-                Assert.That(actual.HalfW, Is.EqualTo(wanted.HalfW), id + " hazard " + index + " halfW");
-                Assert.That(actual.HalfH, Is.EqualTo(wanted.HalfH), id + " hazard " + index + " halfH");
-                Assert.That(actual.Hp, Is.EqualTo(wanted.Hp), id + " hazard " + index + " hp");
-            }
+                AssertHazardFieldsEqual(id, index, expected[index], entry.HazardOverride[index]);
 
             AssertRadialClearance(id, entry.HazardOverride);
         }
@@ -372,8 +359,14 @@ namespace CinderCourt.Tests
         /// (verdict 960,540 vs altar r70 clears anyway; march 768,520 sits 84 px from
         /// the corridor altar: pylon bodies never block movement and altars are pure
         /// channel discs, so the overlap is mechanically inert and intended).
+        /// v1.3 (pact tables only): a PACT-EXTRA vent (index ≥ <paramref name="pactExtraStart"/>)
+        /// may colocate with a base altar or pillar — the "guard vent" motif
+        /// (meta-fun-pass-spec M3): a periodic damage disc over a channel disc
+        /// (well) or around a solid core (sluice) is mechanically well-defined
+        /// and IS the pact bite. Scope is deliberately narrow: base tables and
+        /// non-vent extras keep the full v1.2 rules.
         /// </summary>
-        private static void AssertRadialClearance(string id, HazardConfig[] hazards)
+        private static void AssertRadialClearance(string id, HazardConfig[] hazards, int pactExtraStart = int.MaxValue)
         {
             for (var left = 0; left < hazards.Length; left += 1)
             {
@@ -383,6 +376,7 @@ namespace CinderCourt.Tests
                     var b = hazards[right];
                     if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
                     if (IsGuardedAltarPair(a.Kind, b.Kind)) continue;
+                    if (right >= pactExtraStart && IsPactGuardVentPair(a.Kind, b.Kind)) continue;
                     var x = a.X - b.X;
                     var y = a.Y - b.Y;
                     var distance = (float)Math.Sqrt(x * x + y * y);
@@ -397,6 +391,110 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>v1.3 pact-extra guard-vent colocation (see AssertRadialClearance doc).</summary>
+        private static bool IsPactGuardVentPair(HazardKind baseKind, HazardKind extraKind)
+            => extraKind == HazardKind.EmberVent
+            && (baseKind == HazardKind.RelicAltar || baseKind == HazardKind.ObsidianPillar);
+
+        // --- v1.3 meta fun pass — Verdict Pact tables (meta-fun-pass-spec.md M3) --
+
+        // Gate: R4/G2 (v1.3) — the pact contract agreed with MetaView (irc,
+        // 2026-08-05): PactFor(id) is non-null for ALL 9 catalog ids; the pact
+        // table's leading base.Length entries are field-equal to the EFFECTIVE
+        // base table (entry.HazardOverride ?? frozen CampaignStages anchor) in
+        // the same order; extras are strictly APPENDED; every extra reuses a
+        // kind already present in that stage's base table (spec M3: 정체성 기믹
+        // 강화 배치, 신규 종류 없음 — the per-stage kind row is pinned below).
+        // The full pact table obeys the same radial-clearance rules as shipping
+        // tables (band kinds + guarded-altar pairs exempt, pillars 2×push-radius),
+        // plus the v1.3 pact-colocation exemption documented in
+        // AssertRadialClearance.
+        [Test]
+        public void PactFor_AllNineStages_AppendIdentityExtrasOntoBaseTable()
+        {
+            // Final extras agreed with MetaView (irc 2026-08-05), pinned
+            // content-exactly like every other shipping table. Three stages
+            // reinforce with a VENT rather than their headline gimmick — all
+            // deliberate: well "+1 altar-guard vent" (colocated on the NW
+            // altar), sluice "+1 mid-lane vent" (annulus around the center
+            // pillar), march south-strip denial vent (y796 keeps prop-010
+            // dressing clearance d≈144 ≥ 140 and altar d=192 ≥ 160). Gallery
+            // reinforces with PILLARS — a 5th ring vent is budget-impossible
+            // (see header); 604±136 keeps pillar spacing ≥132 and edge gaps
+            // 56 ≥ the 52 player diameter (squeezable, not sealed). Every
+            // extra reuses a kind already present in that stage's base table.
+            var expectedExtras = new System.Collections.Generic.Dictionary<string, HazardConfig[]>
+            {
+                ["cinder-span"]   = new[] { HazardConfig.Vent(768f, 604f, 0.6f) },
+                ["ember-gallery"] = new[] { HazardConfig.Pillar(768f, 468f), HazardConfig.Pillar(768f, 740f) },
+                ["abyss-chancel"] = new[] { HazardConfig.Pillar(900f, 500f) },
+                ["witness-well"]  = new[] { HazardConfig.Vent(560f, 500f, 0.9f) },
+                ["echo-throne"]   = new[] { HazardConfig.Current(768f, 740f, -120f, 3.3f) },
+                ["ash-verdict"]   = new[] { HazardConfig.Pylon(576f, 668f) },
+                ["cinder-sluice"] = new[] { HazardConfig.Vent(768f, 604f, 1.7f) },
+                ["ember-bastion"] = new[] { HazardConfig.Pylon(620f, 720f) },
+                ["ash-march"]     = new[] { HazardConfig.Vent(768f, 796f, 1.2f) },
+            };
+
+            Assert.That(expectedExtras.Count, Is.EqualTo(StageCatalog.Entries.Count),
+                "every catalog stage needs an expected pact-extra row");
+
+            for (var index = 0; index < StageCatalog.Entries.Count; index += 1)
+            {
+                var entry = StageCatalog.Entries[index];
+                var pact = StageCatalog.PactFor(entry.Id);
+                Assert.That(pact, Is.Not.Null, entry.Id + ": every stage must own a pact table");
+
+                var baseTable = EffectiveBaseTable(in entry);
+                var extras = expectedExtras[entry.Id];
+                Assert.That(pact.Length, Is.EqualTo(baseTable.Length + extras.Length),
+                    entry.Id + ": pact = base + identity extras, nothing else");
+                Assert.That(pact, Is.Not.SameAs(baseTable),
+                    entry.Id + ": the pact table must be its own array — the base table is FROZEN");
+
+                for (var i = 0; i < baseTable.Length; i += 1)
+                    AssertHazardFieldsEqual(entry.Id + " pact base prefix", i, baseTable[i], pact[i]);
+
+                for (var i = 0; i < extras.Length; i += 1)
+                {
+                    AssertHazardFieldsEqual(entry.Id + " pact extra", baseTable.Length + i,
+                        extras[i], pact[baseTable.Length + i]);
+                    var kindExistsInBase = false;
+                    for (var b = 0; b < baseTable.Length && !kindExistsInBase; b += 1)
+                        kindExistsInBase = baseTable[b].Kind == extras[i].Kind;
+                    Assert.That(kindExistsInBase, Is.True,
+                        entry.Id + " pact extra " + i + " must reuse a kind already in the base table (신규 종류 없음)");
+                }
+
+                AssertRadialClearance(entry.Id + " (pact)", pact, pactExtraStart: baseTable.Length);
+            }
+
+            Assert.That(StageCatalog.PactFor("not-a-stage"), Is.Null,
+                "unknown ids must not fabricate a pact table");
+        }
+
+        /// <summary>The table a NON-pact run actually rides (v1.2 shipping state).</summary>
+        private static HazardConfig[] EffectiveBaseTable(in StageEntry entry)
+        {
+            if (entry.HazardOverride != null) return entry.HazardOverride;
+            Assert.That(CampaignStages.TryGet(entry.SimAnchorId, 0, 0, 0, out var config), Is.True,
+                entry.SimAnchorId + " must resolve a frozen sim anchor");
+            return config.Hazards;
+        }
+
+        private static void AssertHazardFieldsEqual(string context, int index, in HazardConfig wanted, in HazardConfig actual)
+        {
+            Assert.That(actual.Kind, Is.EqualTo(wanted.Kind), context + " hazard " + index + " kind");
+            Assert.That(actual.X, Is.EqualTo(wanted.X), context + " hazard " + index + " X");
+            Assert.That(actual.Y, Is.EqualTo(wanted.Y), context + " hazard " + index + " Y");
+            Assert.That(actual.Radius, Is.EqualTo(wanted.Radius), context + " hazard " + index + " radius");
+            Assert.That(actual.Phase, Is.EqualTo(wanted.Phase), context + " hazard " + index + " phase");
+            Assert.That(actual.PushX, Is.EqualTo(wanted.PushX), context + " hazard " + index + " pushX");
+            Assert.That(actual.PushY, Is.EqualTo(wanted.PushY), context + " hazard " + index + " pushY");
+            Assert.That(actual.HalfW, Is.EqualTo(wanted.HalfW), context + " hazard " + index + " halfW");
+            Assert.That(actual.HalfH, Is.EqualTo(wanted.HalfH), context + " hazard " + index + " halfH");
+            Assert.That(actual.Hp, Is.EqualTo(wanted.Hp), context + " hazard " + index + " hp");
+        }
         private static bool IsGuardedAltarPair(HazardKind a, HazardKind b)
             => (a == HazardKind.RelicAltar && b == HazardKind.EmberPylon)
             || (a == HazardKind.EmberPylon && b == HazardKind.RelicAltar);

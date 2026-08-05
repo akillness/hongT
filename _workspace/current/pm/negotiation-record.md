@@ -47,3 +47,13 @@ signed: [game-designer, game-pm]
 - comeback 상당: 첫클리어 보너스는 일회성 — 반복 수급 대비 ≤25% 계약(entry 1).
 - steady 상당: 신규 스테이지 포함 T5 도달 12–18세션 밴드(10–20 하니스 밴드 내).
 - fairness 상당: 결제 부재 — paid/free delta 항목 N/A(웨이버, director 승인).
+
+```yaml
+entry: 5
+revenue_point: 심판 서약 (Verdict Pact) 재도전 유물 배수
+balance_number: 서약 클리어 유물 ×2 (뷰 지급)
+designer_bound: "×2 — 강화 고정 배치의 정당 보상, 첫클리어 보너스 비중복(클리어 후 해금이라 자연 배제), 인플레 제한적"
+pm_bound: "T5 도달 밴드(10-20세션) 하한 침식 우려 — 해금 조건이 '해당 스테이지 클리어 후'라 초반 가속 없음 확인 후 승인"
+agreed: "서약 클리어 유물 ×2, 첫클리어 보너스 비중복, 세이브 미기록(출정별 옵트인). QA 실측: 서약 런 평균 유물 ≤ 일반 런 ×2.2 검증 조건부"
+signed: [game-designer, game-pm]
+```

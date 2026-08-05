@@ -26,6 +26,10 @@ namespace CinderCourt.View
         string _selectedStage = "cinder-span";
         string _runStageId = "";
         bool _runEndPersisted;
+        // v1.3 M3: this run was started under an armed verdict pact (the flag
+        // is latched at StartDungeon — the lobby toggle is session-only view
+        // state and may change while a run is live).
+        bool _runWasPact;
         GameObject _stageTerrain;         // instantiated Resources/Terrain prefab
         string _stageTerrainId = "";
         GameObject _stageDressing;        // instantiated dressing clones (view-only)
@@ -258,7 +262,16 @@ namespace CinderCourt.View
                 EnterLobby();
                 return;
             }
-            if (entry.HazardOverride != null)
+            // v1.3 M3: an armed verdict pact swaps in the pact table (base
+            // placements + appended identity-gimmick extras) INSTEAD of the
+            // override/anchor. Pact state is read from the lobby at sortie
+            // time and latched for the whole run (retries included, as long
+            // as the toggle stays armed). Everything downstream is the
+            // ordinary fixed-table path — no RNG, no sim change.
+            _runWasPact = _lobby.IsPactArmed(entry.Id);
+            if (_runWasPact)
+                config.Hazards = StageCatalog.PactFor(entry.Id);
+            else if (entry.HazardOverride != null)
                 config.Hazards = entry.HazardOverride;
             config.PreparationOffer = preparation;
             _state = State.Dungeon;
@@ -269,7 +282,11 @@ namespace CinderCourt.View
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
-            _game.Begin(config, entry.DisplayName, _data.Active, entry.Id);
+            // "— 서약" HUD title suffix: the cheapest always-visible in-run
+            // marker (Begin's stageDisplayName flows to the campaign HUD).
+            _game.Begin(config,
+                _runWasPact ? entry.DisplayName + " — 서약" : entry.DisplayName,
+                _data.Active, entry.Id);
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
@@ -463,13 +480,23 @@ namespace CinderCourt.View
                 _runEndPersisted = false;
         }
 
+        /// <summary>v1.3 M3 (negotiation-record entry 5, signed): a pact clear
+        /// grants sim.Relics × this. VIEW-side payout — the sim's relic count
+        /// is untouched. Internal so the EditMode economy test pins it.</summary>
+        internal const int PactRelicMultiplier = 2;
+
         void PersistDungeonClear(ICinderSim sim)
         {
             if (!StageCatalog.TryGet(_runStageId, out var entry)) return;
             StageCatalog.MarkCleared(ref _data, in entry, out var firstClear);
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
             _data.Points += firstClear ? 3 : 2;
-            _data.Relics += sim.Relics;
+            // v1.3 M3 (entry 5): pact clear pays sim.Relics × 2 — the ONLY
+            // doubled term. First-clear bonus stays single (agreed 비중복);
+            // in practice the pact toggle only exists on cleared cards, so a
+            // pact run's firstClear is false unless a QA deep link races the
+            // toggle — the bonus line below stays independent either way.
+            _data.Relics += _runWasPact ? sim.Relics * PactRelicMultiplier : sim.Relics;
             // Cycle-2 first-clear relic bonus (negotiation-record entry 1,
             // signed designer+pm): view-side grant, sim untouched. One-time —
             // gated on firstClear like the companion reward below.

@@ -6,6 +6,7 @@
 // Style tokens (original web lobby): panel rgba(5,4,9,0.72), border line
 // rgba(128,216,255,0.34), accents cyan #2CADD6 / ember #F3592C / gold
 // #DDC869, eyebrow pattern (EN kicker above, KR title below).
+using CinderCourt.Sim;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -44,11 +45,19 @@ namespace CinderCourt.View
         const int EquipCap = 5;
         static readonly string[] StatIds = { "attack", "vitality", "swiftness" };
         static readonly string[] StatNames = { "공격", "체력", "이속" };
-        static readonly string[] StatEffects = { "+3%/pt", "+8 HP/pt", "+2%/pt" };
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
-        static readonly string[] EquipEffects = { "+6%/T", "+8%/T", "+8HP/T" };
         static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };  // relics for T(i)->T(i+1)
+
+        // v1.3 M2: tier narrative names (court vocabulary — worldview.md
+        // '메타 서사 (v1.3)' is the single source). [slot][tier], slot order
+        // = EquipIds, T0..T5. Internal so the catalog test can glyph-audit.
+        internal static readonly string[][] EquipTierNames =
+        {
+            new[] { "잿날", "담금날", "벼림날", "선고날", "심판날", "판결인" },
+            new[] { "잿등", "밀랍등", "서약등", "기록등", "증언등", "진실등" },
+            new[] { "잿천", "무명포", "증인포", "기록포", "선고포", "집행포" },
+        };
 
         // Roster slots are pre-built for every obtainable companion (boss
         // unlocks + elite extraction echoes) so Refresh never re-instantiates.
@@ -56,6 +65,10 @@ namespace CinderCourt.View
             { "ember-cohort", "shade-echo", "possessed-echo", "scout-echo", "ember-cohort-echo" };
         static readonly string[] CompanionNames =
             { "잿불 사도", "그림자 메아리", "홀린 자 메아리", "정찰꾼 메아리", "잿불 메아리" };
+        // v1.3 M4: one-line identity epithets (court grammar, worldview.md
+        // '메타 서사'): origin function of each echo, indexes CompanionIds.
+        static readonly string[] CompanionEpithets =
+            { "첫 서약의 증인", "성당의 메아리", "왕좌의 메아리", "행진의 메아리", "정예의 잿불" };
 
         LobbyCallbacks _callbacks;
         Font _font;
@@ -75,6 +88,15 @@ namespace CinderCourt.View
         readonly Text[] _stageStatus = new Text[StageCatalog.Entries.Count];
         readonly Button[] _stageButtons = new Button[StageCatalog.Entries.Count];
         readonly CanvasGroup[] _stageGroups = new CanvasGroup[StageCatalog.Entries.Count];
+        readonly Text[] _stageSubLabels = new Text[StageCatalog.Entries.Count];
+        // v1.3 M3b: 서약 toggles — one per stage card, revealed when cleared.
+        readonly Text[] _pactLabels = new Text[StageCatalog.Entries.Count];
+        readonly Image[] _pactBackgrounds = new Image[StageCatalog.Entries.Count];
+        readonly GameObject[] _pactButtons = new GameObject[StageCatalog.Entries.Count];
+        // Session-only opt-in state (meta-fun-pass-spec §세이브 스키마: NEVER
+        // saved — re-armed per session, Hades-heat opt-in grammar).
+        readonly System.Collections.Generic.Dictionary<string, bool> _pactArmed =
+            new System.Collections.Generic.Dictionary<string, bool>();
         // cycle2 B3: prologue card border lines pulse ember until PrologueDone.
         Image[] _prologueBorder;
         bool _prologueGuide;
@@ -88,6 +110,9 @@ namespace CinderCourt.View
         readonly Button[] _statButtons = new Button[3];
         readonly CanvasGroup[] _statGroups = new CanvasGroup[3];
         Text _pointsLeftText;
+        // v1.3 M1: per-stat derived-value lines + honest 3-value summary.
+        readonly Text[] _statDerived = new Text[3];
+        Text _growthSummary;
         // cycle2 B4: 모션 약함 toggle label (ViewPrefs-backed).
         Text _motionLabel;
 
@@ -96,6 +121,8 @@ namespace CinderCourt.View
         readonly Text[] _equipButtonLabels = new Text[3];
         readonly Button[] _equipButtons = new Button[3];
         readonly CanvasGroup[] _equipGroups = new CanvasGroup[3];
+        // v1.3 M2: per-slot rank/effect lines ("T3 • 공격 +18%").
+        readonly Text[] _equipDerived = new Text[3];
 
         // Legion grid (index 0 = "none", 1.. = CompanionIds).
         readonly Text[] _rosterLabels = new Text[CompanionIds.Length + 1];
@@ -161,10 +188,39 @@ namespace CinderCourt.View
                 _stageStatus[i].color = cleared ? Gold : unlocked ? Cyan : Lock;
                 _stageButtons[i].interactable = unlocked;
                 _stageGroups[i].alpha = unlocked ? 1f : 0.45f;
+
+                // v1.3 M3b: 서약 toggle appears once the stage is cleared. The
+                // cleared card drops its redeemed '보상:' tail at the same
+                // moment, so the toggle never covers live reward text.
+                _pactButtons[i].SetActive(cleared);
+                if (cleared)
+                {
+                    _stageSubLabels[i].text = entry.Epithet;
+                    SyncPactVisual(i, IsPactArmed(entry.Id));
+                }
             }
 
-            // --- growth --------------------------------------------------------
             _pointsLeftText.text = $"남은 포인트 {data.Points}";
+            // v1.3 M1: real effective values through the sim's OWN derived-stat
+            // properties (§5/§6 closed forms live in HackConfig; the view
+            // composes no formula, so mirror drift is structurally impossible).
+            // Probe configs are stack structs — no allocation.
+            var probe = Probe(in data, 0, 0, 0);
+            var attackDelta = Probe(in data, 1, 0, 0).PlayerDamage - probe.PlayerDamage;
+            var vitalityDelta = Probe(in data, 0, 1, 0).PlayerMaxHealth - probe.PlayerMaxHealth;
+            var swiftnessDelta = Probe(in data, 0, 0, 1).PlayerSpeed - probe.PlayerSpeed;
+            _statDerived[0].text = data.Attack >= StatCap
+                ? $"공격력 {probe.PlayerDamage:F1} • 숙련"
+                : $"공격력 {probe.PlayerDamage:F1} (+{attackDelta:F1})";
+            _statDerived[1].text = data.Vitality >= StatCap
+                ? $"최대 체력 {probe.PlayerMaxHealth:F0} • 숙련"
+                : $"최대 체력 {probe.PlayerMaxHealth:F0} (+{vitalityDelta:F0})";
+            _statDerived[2].text = data.Swiftness >= StatCap
+                ? $"이동 {probe.PlayerSpeed:F0} • 숙련"
+                : $"이동 {probe.PlayerSpeed:F0} (+{swiftnessDelta:F1})";
+            // Honest 3-value summary — no invented aggregate score (spec M1).
+            _growthSummary.text =
+                $"공격력 {probe.PlayerDamage:F1} • 최대 체력 {probe.PlayerMaxHealth:F0} • 이동 {probe.PlayerSpeed:F0}";
             for (var i = 0; i < 3; i++)
             {
                 var value = i == 0 ? data.Attack : i == 1 ? data.Vitality : data.Swiftness;
@@ -175,14 +231,19 @@ namespace CinderCourt.View
             }
             RefreshMotionLabel();
 
-            // --- equipment -------------------------------------------------------
+            // v1.3 M2: tier narrative + real rank effect + buy delta, all from
+            // the same probe properties (weapon→PlayerDamage, lantern→
+            // LanternRegenPerSecond, cloak→PlayerMaxHealth). The rank line's
+            // percentage is a single frozen constant scaled by rank — the only
+            // spot the view touches a sim constant directly, never composed.
             for (var i = 0; i < 3; i++)
             {
                 var tier = i == 0 ? data.Weapon : i == 1 ? data.Lantern : data.Cloak;
                 _equipValues[i].text = $"T{tier}/T{EquipCap}";
+                _equipDerived[i].text = EquipRankLine(i, tier);
                 var maxed = tier >= EquipCap;
                 var cost = maxed ? 0 : EquipCosts[tier];
-                _equipButtonLabels[i].text = maxed ? "만렙" : $"구매 ({cost} 유물)";
+                _equipButtonLabels[i].text = maxed ? "만렙" : BuyLine(in data, i, cost);
                 var can = !maxed && data.Relics >= cost;
                 _equipButtons[i].interactable = can;
                 _equipGroups[i].alpha = can ? 1f : 0.45f;
@@ -208,6 +269,88 @@ namespace CinderCourt.View
             if (_motionLabel == null) return;
             _motionLabel.text = ViewPrefs.ReducedMotion ? "모션: 약함" : "모션: 보통";
             _motionLabel.color = ViewPrefs.ReducedMotion ? Gold : Cyan;
+        }
+        // ------------------------------------------------- v1.3 meta helpers --
+
+        /// <summary>
+        /// Inert probe config carrying the lobby's meta at an offset: the four
+        /// derived-stat properties (§5/§6) are pure functions of MetaStats/
+        /// EquipTiers, so a stack-allocated HackConfig IS the mirror — the view
+        /// never re-composes 58×(1+…) itself. Deltas = probe(x+1) − probe(x);
+        /// the properties clamp internally, so a cap probe simply flattens
+        /// (the UI shows 숙련 instead of a delta at the cap).
+        /// </summary>
+        static HackConfig Probe(in CampaignData data, int attackPlus, int vitalityPlus, int swiftnessPlus)
+            => new HackConfig
+            {
+                MetaStats = MetaStats.Of(
+                    data.Attack + attackPlus, data.Vitality + vitalityPlus, data.Swiftness + swiftnessPlus),
+                EquipTiers = EquipTiers.Of(data.Weapon, data.Lantern, data.Cloak),
+            };
+
+        /// <summary>
+        /// M2 rank line: "판결인 T5 • 공격 +30%". The percentage is the frozen
+        /// per-rank constant scaled by rank — read, not composed (the composed
+        /// truth lives in the probe properties above).
+        /// </summary>
+        static string EquipRankLine(int slot, int tier)
+        {
+            var name = EquipTierNames[slot][tier];
+            switch (slot)
+            {
+                case 0: return $"{name} • 공격 +{CampaignSpec.WeaponDamagePerRank * tier * 100f:F0}%";
+                case 1: return $"{name} • 재생 +{CampaignSpec.LanternRegenPerRank * tier * 100f:F0}%";
+                default: return $"{name} • 체력 +{CampaignSpec.CloakHealthPerRank * tier:F0}";
+            }
+        }
+
+        /// <summary>
+        /// M2 buy line: "유물 7 → 공격 +4.5" — the REAL next-tier delta from the
+        /// probe properties (equip contribution composes with allocated stats,
+        /// so the number is what the player will actually gain).
+        /// </summary>
+        static string BuyLine(in CampaignData data, int slot, int cost)
+        {
+            var current = Probe(in data, 0, 0, 0);
+            var next = current;
+            switch (slot)
+            {
+                case 0: next.EquipTiers.Weapon++; break;
+                case 1: next.EquipTiers.Lantern++; break;
+                default: next.EquipTiers.Cloak++; break;
+            }
+            switch (slot)
+            {
+                case 0: return $"유물 {cost} → 공격 +{next.PlayerDamage - current.PlayerDamage:F1}";
+                case 1: return $"유물 {cost} → 재생 +{next.LanternRegenPerSecond - current.LanternRegenPerSecond:F2}";
+                default: return $"유물 {cost} → 체력 +{next.PlayerMaxHealth - current.PlayerMaxHealth:F0}";
+            }
+        }
+
+        /// <summary>M3b: is the verdict pact armed for a stage this session?
+        /// Read by GameDirector when routing a sortie. Session-only state —
+        /// never persisted (meta-fun-pass-spec §세이브 스키마).</summary>
+        public bool IsPactArmed(string stageId)
+            => _pactArmed.TryGetValue(stageId, out var armed) && armed;
+
+        void TogglePact(int index)
+        {
+            var id = StageCatalog.Entries[index].Id;
+            var armed = !IsPactArmed(id);
+            _pactArmed[id] = armed;
+            SyncPactVisual(index, armed);
+        }
+
+        /// <summary>Armed = ember accent (risk grammar) on the stateful flat
+        /// fill; off = the plain roster/tab idle look.</summary>
+        void SyncPactVisual(int index, bool armed)
+        {
+            // "•" (U+2022) — NanumBarunGothic lacks U+2713; bullet is already in the subset.
+            _pactLabels[index].text = armed ? "서약 •" : "서약";
+            _pactLabels[index].color = armed ? Ember : InkDim;
+            _pactBackgrounds[index].color = armed
+                ? new Color(Ember.r, Ember.g, Ember.b, 0.22f)
+                : ButtonBack;
         }
 
 
@@ -459,6 +602,7 @@ namespace CinderCourt.View
                 var sub = Label(card.transform, 34, -44, 220, 16,
                     $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
+                _stageSubLabels[i] = sub;
                 _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
@@ -467,6 +611,24 @@ namespace CinderCourt.View
                     () => _callbacks.OnSortie?.Invoke(entry.Id));
                 button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
                 _stageButtons[i] = button.GetComponent<Button>();
+
+                // v1.3 M3b: 서약 toggle — left of 강하, same audited 28 u height
+                // (card grammar; 28 u ≥ the 강하 button's own touch-floor
+                // audit at phone scale). Flat fill (plated:false): armed state
+                // drives Image.color, the stateful-button grammar tabs/roster
+                // use. Hidden until the stage is cleared (Refresh), so the
+                // reward text it would cover is gone by the time it appears
+                // (cleared cards drop the redeemed '보상:' tail).
+                var pactIndex = i;
+                var pact = TextButton(card.transform, new Vector2(1, 0), new Vector2(-104, 6),
+                    new Vector2(84, 28), "서약", 12,
+                    () => TogglePact(pactIndex), plated: false);
+                pact.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _pactButtons[i] = pact;
+                _pactBackgrounds[i] = pact.GetComponent<Image>();
+                _pactLabels[i] = pact.GetComponentInChildren<Text>();
+                pact.SetActive(false);   // revealed by Refresh on clear
+
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
             }
         }
@@ -523,8 +685,10 @@ namespace CinderCourt.View
                     new Vector2(16, -36 - i * 72), new Vector2(368, 64), new Color(1f, 1f, 1f, 0.04f));
                 RowIcon(row.transform, "stat-" + StatIds[i]);
                 Label(row.transform, 52, -8, 120, 24, StatNames[i], 17, TextAnchor.MiddleLeft);
-                var effect = Label(row.transform, 52, -34, 140, 18, StatEffects[i], 11, TextAnchor.MiddleLeft);
-                effect.color = InkDim;
+                // v1.3 M1: the static "+3%/pt" line becomes the live derived
+                // line ("공격력 75.4 (+2.2)") — content owned by Refresh.
+                _statDerived[i] = Label(row.transform, 52, -34, 200, 18, "", 11, TextAnchor.MiddleLeft);
+                _statDerived[i].color = Gold;
                 _statValues[i] = Label(row.transform, 170, 0, 90, 64, "0/10", 17, TextAnchor.MiddleCenter);
                 _statValues[i].color = Cyan;
 
@@ -541,6 +705,11 @@ namespace CinderCourt.View
             var hint = Label(content.transform, 16, -258, 360, 36,
                 "공격 +3%/pt • 체력 +8HP/pt • 이속 +2%/pt (캡 10)\n던전 강하에만 적용된다.", 11, TextAnchor.UpperLeft);
             hint.color = InkDim;
+
+            // v1.3 M1: honest bottom summary — the three effective values,
+            // no invented aggregate score (spec: 허수 지표 금지).
+            _growthSummary = Label(content.transform, 16, -300, 360, 22, "", 12, TextAnchor.MiddleLeft);
+            _growthSummary.color = Gold;
 
             var motionButton = TextButton(content.transform, new Vector2(0, 1),
                 new Vector2(16, -344), new Vector2(368, 92), "모션: 보통", 15,
@@ -566,8 +735,10 @@ namespace CinderCourt.View
                     new Vector2(16, -36 - i * 72), new Vector2(368, 64), new Color(1f, 1f, 1f, 0.04f));
                 RowIcon(row.transform, "equip-" + EquipIds[i]);
                 Label(row.transform, 52, -8, 120, 24, EquipNames[i], 17, TextAnchor.MiddleLeft);
-                var effect = Label(row.transform, 52, -34, 140, 18, EquipEffects[i], 11, TextAnchor.MiddleLeft);
-                effect.color = InkDim;
+                // v1.3 M2: tier narrative + real rank effect ("판결인 T5 •
+                // 공격 +30%") — content owned by Refresh.
+                _equipDerived[i] = Label(row.transform, 52, -34, 200, 18, "", 11, TextAnchor.MiddleLeft);
+                _equipDerived[i].color = Gold;
                 _equipValues[i] = Label(row.transform, 150, 0, 90, 64, "T0/T5", 16, TextAnchor.MiddleCenter);
                 _equipValues[i].color = Cyan;
 
@@ -609,6 +780,24 @@ namespace CinderCourt.View
                 _rosterBackgrounds[slot] = button.GetComponent<Image>();
                 _rosterButtons[slot] = button.GetComponent<Button>();
                 _rosterLabels[slot] = button.GetComponentInChildren<Text>();
+
+                // v1.3 M4: one-line identity epithet under the name (stage-
+                // epithet grammar). Name keeps the top band so the state
+                // colors (Refresh) stay legible; epithet is static text —
+                // built once, never touched again. Slot 0 (없음) has none.
+                if (slot > 0)
+                {
+                    _rosterLabels[slot].rectTransform.offsetMin = new Vector2(0f, 14f);
+                    var epithet = Label(button.transform, 0, 0, 180, 16,
+                        CompanionEpithets[slot - 1], 9, TextAnchor.MiddleCenter);
+                    epithet.color = InkDim;
+                    var epithetRect = epithet.rectTransform;
+                    epithetRect.anchorMin = new Vector2(0f, 0f);
+                    epithetRect.anchorMax = new Vector2(1f, 0f);
+                    epithetRect.pivot = new Vector2(0.5f, 0f);
+                    epithetRect.anchoredPosition = new Vector2(0f, 4f);
+                    epithetRect.sizeDelta = new Vector2(0f, 14f);
+                }
             }
 
             var note = Label(content.transform, 16, -224, 360, 36,

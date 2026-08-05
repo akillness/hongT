@@ -33,6 +33,16 @@
 // The invariant rows below are byte-untouched from the pre-v1.2 recordings; do
 // NOT re-pin them to make a red run green — investigate instead.
 //
+// REVISION v1.3 (2026-08-05, meta fun pass) — NO new rows, NO moved rows.
+// The Verdict Pact (design/meta-fun-pass-spec.md M3) is opt-in VIEW routing:
+// GameDirector composes a pact run as HackConfig + StageCatalog.PactFor(id)
+// hazards, exactly like the v1.2 catalog overrides. Default (non-pact) runs
+// ride the same tables as before, so every row below must stay byte-green.
+// Pact runs get no goldens by design — the pact tables themselves are pinned
+// content-exactly by StageCatalogTests (catalog contract), their telegraph
+// budget by CampaignSimTests.Telegraph_PactCensusUnderBudget, and their
+// determinism by CampaignSimTests.PactSluice_SameConfigSameInputs_IdenticalDigests_AndBotSurvivable.
+//
 // Ints assert exactly; floats are compared through their shortest round-trip
 // ("R") form, which is bit-exact within the Unity runtime — the sim is a
 // fixed-step deterministic core and any drift is a defect, not noise.
