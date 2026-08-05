@@ -1,4 +1,4 @@
-# Deployed release verification — texture-cap + console/VFX builds (2026-08-04)
+# Deployed release verification — 2026-08-04 texture-cap → 2026-08-05 spec-complete builds
 
 Target: <https://akillness.github.io/hongT/> · gh-pages `d4c7392` · cache version
 `61a0b09946ca5642` · data 26,549,778 B (−49.3 % vs prior) · wasm 9,117,062 B.
@@ -18,6 +18,17 @@ captured on every route; **all routes: 0 errors, 0 warnings**.
 | 7 | 동료 명령 콘솔 (콘솔+VFX 빌드 `18b0fc1a992f9312`) | 1440×900 | 강하 → Enter 콘솔 → `nova` 제출 | 명령 힌트·0.2x 슬로모, "잿불 노바 시전" 피드백, 기름 100→55, 적 4→3, 점수 100, 노바 번 데칼 | `…-console-nova.png` |
 | 8 | 모바일 프롤로그 회귀 (콘솔+VFX 빌드) | 390×844 DPR 2 | 출정 탭, 전투 진입 | 체력 100, 웨이브 1, 적 3, 모바일 HUD 정상 | `…-console-mobile-lobby.png`, `…-console-mobile-combat.png` |
 | 9 | 모바일 캠페인 1단계 (콘솔+VFX 빌드) | 390×844 DPR 2 | 시드 → 강하 | "Cinder Span — 웨이브 1/5", "가로 화면을 권장합니다" 토스트, Q/E/R/F+SHIFT 스킬바, 적 4 | `…-console-mobile-dungeon.png` |
+| 10 | Ember Gallery 드레싱+V2 fill (스펙 빌드) | 1440×900 | 시드 → 강하 | T-a 드레싱 9종 렌더, 벤트 3기 상이 위상 fill | `…dressing-ember-gallery.png`, `deployed-v2-vent-fill.png` |
+| 11 | 원소 파티클 V3 (스펙 빌드) | 1440×900 | R 노바 / F 에이기스 | 노바 링+엠버 파편, 에이기스 시안 플래시+방패 40 | `deployed-v3-nova-debris.png`, `deployed-v3-aegis-flash.png` |
+| 12 | Lane K 키 등록 (글리프 수정 빌드) | 1440×900 | 콘솔 `key <dummy>` | "이 기기에만 난독화 저장" 토스트 전 글자 렌더 | `deployed-lanek-key-toast.png` |
+| 13 | Lane P 프롭 (T5 시드) | 1440×900 | Ember Gallery 강하 | 엠버 블레이드+진홍 클록+시안 랜턴 3점 동시 | `deployed-lanep-props.png` |
+| 14 | Lane T-b 분할 파츠 | 1440×900 | Abyss Chancel 강하 | 유적 밴드 48파츠 소스, slab/apron 불변 | `deployed-tb-abyss-parts.png` |
+| 15 | Lane V1 시전 글로우 | 1440×900 | Q 볼트 / F 에이기스 | 보라/시안 손 글로우 (0.12s 윈도 캡처) | `/tmp` 검증 후 릴리즈 노트 기록 |
+| 16 | Lane V4 포스트 성능 | 1440×900 | rAF 720+480프레임 실측 | 포스트 OFF p95 10.0ms → ON p95 10.0ms (예산 16.7) | 릴리즈 노트 수치 |
+| 17 | 최종 빌드 Witness Well (`2442aaa76e15f544`) | 1440×900 | 전 스테이지 해금 시드 → 강하 | 드레싱 감시자 8종+아치, 제단·기둥 해저드, T4 프롭 | `finalqa-witness-well.png` |
+| 18 | 최종 빌드 Ash Verdict | 1440×900 | 강하 | 재판정 매스+코너 기념물 드레싱, 제단+분출구 3, V1 글로우 가시 | `finalqa-ash-verdict.png` |
+| 19 | 최종 빌드 아레나 회귀 | 1440×900 | D+Space 교전 | 원작 아레나 백드롭 불변, Q/E 스킬바 | `finalqa-arena.png` |
+| 20 | 최종 빌드 모바일 회귀 | 390×844 DPR 2 | 출정 → 전투 | 프롤로그 정상, PostFxGate로 포스트 미적용 경로 | `finalqa-mobile-combat.png` |
 
 Second deploy cycle (gh-pages `6ddd724`): source `7256cb5` (companion command
 console + AOE/skill VFX pass), EditMode 146/146
