@@ -12,8 +12,12 @@ namespace CinderCourt.View
 
         const float BaseFov = 32f;
         const float ReferenceAspect = 1.5f;
-        // Prologue top-down frame: arena half-height * 1.15 (v0.2 verified).
-        const float PrologueOrthoSize = 2.7f * 1.15f;
+        // Prologue side view: a 2.5D beat-em-up frame (26° pitch, south-facing)
+        // replaces the old 90° top-down. Ortho height must cover the arena's
+        // world depth (5.4 u) projected at 26° plus actor height ≈ 3.6.
+        const float PrologueOrthoSize = 3.6f;
+        const float ProloguePitch = 26f;
+        const float PrologueDistance = 12f;
         static readonly Vector3 ArenaCenter = ViewWorld.ToWorld(768f, 604f);
 
         Camera _camera;
@@ -79,11 +83,12 @@ namespace CinderCourt.View
                     _camera.fieldOfView = 36f;
                     break;
                 case Profile.Prologue:
-                    // Vertical top-down orthographic — reads as a 2D defense game.
+                    // Side view (user request): reads like a 2D fighter plane
+                    // while sim depth (sim Y) stays visible as slight vertical
+                    // parallax — WASD/joystick keep their existing meaning.
                     _camera.orthographic = true;
                     _camera.orthographicSize = PrologueOrthoSize;
-                    _camera.transform.position = ArenaCenter + new Vector3(0f, 14f, 0f);
-                    _camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    PlaceOrbit(ProloguePitch, PrologueDistance, ArenaCenter);
                     ApplyAspect(true);
                     break;
                 case Profile.PrologueReveal:
@@ -169,24 +174,24 @@ namespace CinderCourt.View
 
                 case Profile.Prologue:
                     ApplyAspect(false);   // resize/rotate during play (spec #9)
-                    ApplyShakeAround(
-                        ArenaCenter + new Vector3(0f, 14f, 0f),
-                        Quaternion.Euler(90f, 0f, 0f));
+                    PlaceOrbit(ProloguePitch, PrologueDistance, ArenaCenter);
+                    ApplyShakeOffset();
                     break;
+
 
                 case Profile.PrologueReveal:
                 {
-                    // 2.2 s sweep: 90° top-down -> 55° perspective (the "2.5D reveal").
-                    // Start distance matches the ortho frame exactly:
-                    // orthoSize / tan(FOV/2) = 3.105 / tan(21°) ≈ 8.1 — no size pop.
+                    // 2.2 s sweep: 26° side view -> 55° dungeon perspective.
+                    // Start distance matches the side-view ortho frame:
+                    // orthoSize / tan(FOV/2) = 3.6 / tan(21°) ≈ 9.4 — no pop.
                     // Both endpoints scale by _aspectWiden so the sweep stays
                     // pop-free against the widened ortho frame (start) and the
                     // widened dungeon orbit (end) on narrow aspects.
                     ApplyAspect(false);
                     _revealT = Mathf.Clamp01(_profileTime / 2.2f);
                     var eased = 1f - Mathf.Pow(1f - _revealT, 3f);
-                    var pitch = Mathf.Lerp(90f, 55f, eased);
-                    var distance = Mathf.Lerp(8.1f, 17f, eased) * _aspectWiden;
+                    var pitch = Mathf.Lerp(ProloguePitch, 55f, eased);
+                    var distance = Mathf.Lerp(9.4f, 17f, eased) * _aspectWiden;
                     PlaceOrbit(pitch, distance, ArenaCenter);
                     break;
                 }
