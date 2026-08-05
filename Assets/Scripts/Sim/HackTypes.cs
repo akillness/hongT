@@ -310,6 +310,14 @@ namespace CinderCourt.Sim
         public const float LevelRegenBonus = 0.3f;
 
         // --- §3 elites and extraction ---
+        /// <summary>B-1 (AMENDMENT #4): dungeon-only boss HP factor, on top of
+        /// the frozen SimConfig.BossHealthMul. Shares UpdateBossPhase's
+        /// _dungeon gate, so boss length and boss phases always apply to the
+        /// same runs. Arena and plain-campaign bosses are unaffected.
+        /// Sized by measurement, not taste: see the sweep in
+        /// _workspace/current/design/boss-phase-metric-definition.md §6.</summary>
+        public const float DungeonBossHealthMul = 6f;
+
         public const int EliteSpawnModulus = 7;
         public const float EliteHealthMul = 3f;
         public const float EliteDamageMul = 1.5f;
@@ -333,11 +341,60 @@ namespace CinderCourt.Sim
         public const float VitalityHealthPerPoint = 8f;
         public const float SwiftnessSpeedPerPoint = 0.02f;
 
-        // --- §7 boss phase 2 ---
-        public const float BossPhase2HealthFraction = 0.5f;
-        public const float BossPhase2SpeedMul = 1.25f;
+        // --- §7 boss phases (AMENDMENT #4 — boss-phase-metric-definition) -----
+        // Three phases on HP thresholds. The stat vector is stored as TIME
+        // values in seconds, so "the numeric sum gets smaller" IS the
+        // strengthening. Summing the three stored arrays below:
+        //   P1 0.80+1.37+5.00 = 7.17
+        //   P2 0.80+1.16+4.00 = 5.96
+        //   P3 0.80+0.99+3.25 = 5.04
+        // Monotonically decreasing. (The research's fuller Phase Time Budget
+        // adds a fourth closing-distance term T_reach = max(0, D_ref-range)/
+        // speed, giving 11.26 -> 9.10 -> 7.61; that term is derived from live
+        // positions, not stored here, so these constants carry the three
+        // schedulable values only.)
+        //
+        // Thresholds are 50/20, NOT an even split: 50% already carries a
+        // speech-bubble contract (SIM_SPEC_HACKSLASH §7), and pulling the
+        // second boundary in to 20% lengthens the hardest phase instead of
+        // compressing it.
+        //
+        // Telegraph is HELD at 0.80 s across all phases. Shrinking it to 0.60
+        // buys 3.2% of the total difficulty delta while cutting the reaction
+        // margin from 1.36x to 1.15x over human visual reaction (~250 ms) plus
+        // input latency — the worst trade in the table.
+        //
+        // Boss base speed is x0.7 (SIM_SPEC §Bosses), so even P3's x1.45 lands
+        // at 0.7*1.45 = 1.015 — merely ordinary-enemy pace, not a chase the
+        // player cannot escape.
+        public const float BossPhase2HealthFraction = 0.50f;   // P1 -> P2
+        public const float BossPhase3HealthFraction = 0.20f;   // P2 -> P3
+
+        /// <summary>Per-phase time budget, indexed 0/1/2 for P1/P2/P3.
+        /// Smaller = stronger; the sum decreases monotonically.</summary>
+        public static readonly float[] BossAttackInterval = { 1.37f, 1.16f, 0.99f };
+        public static readonly float[] BossTelegraph = { 0.80f, 0.80f, 0.80f };
+        public static readonly float[] BossSkillCooldown = { 5.00f, 4.00f, 3.25f };
+
+        /// <summary>Multiplier vectors, indexed 0/1/2. Deliberately NOT all
+        /// raised per phase — simultaneous growth multiplies difficulty and
+        /// reads as "suddenly unwinnable".</summary>
+        public static readonly float[] BossSpeedMul = { 1.00f, 1.25f, 1.45f };
+        public static readonly float[] BossRangeMul = { 1.00f, 1.10f, 1.20f };
+
+        /// <summary>Contact damage keeps the amendment-2 curve.</summary>
         public const float BossPhase2DamageMul = 1.25f;
+        public const float BossPhase3DamageMul = 1.45f;
         public const int MonarchPhase2Escorts = 3;
+
+        /// <summary>Phase index (0/1/2) for a health fraction. Pure so the
+        /// boundary can be pinned without stepping a sim.</summary>
+        public static int BossPhaseIndexFor(float healthFraction)
+        {
+            if (healthFraction <= BossPhase3HealthFraction) return 2;
+            if (healthFraction <= BossPhase2HealthFraction) return 1;
+            return 0;
+        }
 
         public static int ClampStat(int points)
         {

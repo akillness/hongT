@@ -1529,10 +1529,16 @@ namespace CinderCourt.View
                 if (bossPhase != _lastBossPhase)
                 {
                     _lastBossPhase = bossPhase;
-                    _bossPhasePip.text = bossPhase >= 2 ? "PHASE II" : "PHASE I";
-                    _bossFill.color = bossPhase >= 2
-                        ? new Color(0.95f, 0.3f, 0.32f)
-                        : new Color(1f, 0.55f, 0.26f);
+                    // S8-a: three phases now exist, so the pip must name all
+                    // three — a P3 boss that still reads "PHASE II" hides the
+                    // biggest difficulty signal in the fight.
+                    _bossPhasePip.text = bossPhase >= 3 ? "PHASE III"
+                        : bossPhase >= 2 ? "PHASE II" : "PHASE I";
+                    _bossFill.color = bossPhase >= 3
+                        ? new Color(1f, 0.24f, 0.55f)      // P3: violet-red, distinct at a glance
+                        : bossPhase >= 2
+                            ? new Color(0.95f, 0.3f, 0.32f)
+                            : new Color(1f, 0.55f, 0.26f);
                     _bossPhasePunchTimer = ViewPrefs.TimeEffectsAllowed ? 0.1f : 0f;
                 }
             }

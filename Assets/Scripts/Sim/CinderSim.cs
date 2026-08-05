@@ -191,6 +191,7 @@ namespace CinderCourt.Sim
         private float _bossHp, _bossMaxHp;
         private int _bossPhase;
         private bool _bossPhase2Done;
+        private bool _bossPhase3Done;
 
         /// <summary>Arena run — the frozen SIM_SPEC path. Behaviour must never change.</summary>
         public CinderSim()
@@ -1183,9 +1184,23 @@ namespace CinderCourt.Sim
             DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale);
         }
 
+        /// <summary>0-based index into the per-phase stat vectors.</summary>
+        private int BossPhaseVectorIndex()
+        {
+            // 0-based index into the per-phase stat vectors. _bossPhase is
+            // 1-based and reads 0 before the boss spawns, so both ends clamp
+            // into P1..P3. Shared by speed, reach, and damage so the three can
+            // never disagree about which phase the boss is in.
+            int index = _bossPhase > 0 ? _bossPhase - 1 : 0;
+            return index >= HackSpec.BossSpeedMul.Length
+                ? HackSpec.BossSpeedMul.Length - 1
+                : index;
+        }
+
         /// <summary>
-        /// §7: the stage boss flips to phase 2 once, at half health — faster, harder
-        /// contact, and the monarch calls in three escorts on the way through.
+        /// §7 (AMENDMENT #4): the stage boss steps through three phases on HP
+        /// thresholds (50% / 20%) — faster, longer reach, harder contact, and
+        /// the monarch calls in three escorts on the way through.
         /// </summary>
         private void UpdateBossPhase()
         {
@@ -1210,7 +1225,17 @@ namespace CinderCourt.Sim
             _bossHp = _enemies[boss].State.Health;
             _bossMaxHp = _enemies[boss].State.MaxHealth;
 
-            if (!_bossPhase2Done && _bossHp <= _bossMaxHp * HackSpec.BossPhase2HealthFraction)
+            // S8-a: three phases on HP thresholds (70% / 40%). Latched per
+            // boundary so a boss healed above a threshold cannot re-fire the
+            // transition. BossPhase2 is still the only phase event on the
+            // frozen SimEvents surface, so it fires on EVERY boundary — the
+            // View reads _bossPhase for WHICH phase, the event only says
+            // "a transition happened" (adding an event = snapshot contract
+            // change, deliberately deferred).
+            float fraction = _bossMaxHp > 0f ? _bossHp / _bossMaxHp : 1f;
+            int phaseIndex = HackSpec.BossPhaseIndexFor(fraction);
+
+            if (phaseIndex >= 1 && !_bossPhase2Done)
             {
                 _bossPhase2Done = true;
                 _events |= SimEvents.BossPhase2;
@@ -1220,8 +1245,15 @@ namespace CinderCourt.Sim
                     _pendingSpawns += HackSpec.MonarchPhase2Escorts;
                 }
             }
+            if (phaseIndex >= 2 && !_bossPhase3Done)
+            {
+                _bossPhase3Done = true;
+                _events |= SimEvents.BossPhase2;
+            }
 
-            _bossPhase = _bossPhase2Done ? 2 : 1;
+            // Snapshot phase stays 1-based (1/2/3) — the View's existing
+            // "phase 2" checks keep meaning what they meant.
+            _bossPhase = phaseIndex + 1;
         }
 
         private void UpdateSkills(float deltaTime)
@@ -1688,6 +1720,11 @@ namespace CinderCourt.Sim
             float contactX = _player.X - enemy.State.X;
             float contactY = (_player.Y - enemy.State.Y) * SimConfig.IsoY;
             float contactRange = SimConfig.EnemyAttackRange + SimConfig.EnemyContactBonus;
+            if (enemy.State.IsBoss)
+            {
+                // S8-a: reach grows with the phase vector (1.00/1.10/1.20).
+                contactRange *= HackSpec.BossRangeMul[BossPhaseVectorIndex()];
+            }
             if (contactX * contactX + contactY * contactY <= contactRange * contactRange)
             {
                 enemy.DidDamage = true;
@@ -1701,10 +1738,14 @@ namespace CinderCourt.Sim
                     // §3: elites hit 1.5x harder than the wave baseline.
                     damage *= HackSpec.EliteDamageMul;
                 }
-                if (_bossPhase >= 2 && enemy.State.IsBoss)
+                if (enemy.State.IsBoss && _bossPhase >= 2)
                 {
-                    // §7: phase 2 raises the boss contact damage by a quarter.
-                    damage *= HackSpec.BossPhase2DamageMul;
+                    // S8-a: P2 x1.25, P3 x1.45 — the amended curve, not a
+                    // single phase-2 step (a P3 boss hitting at the P2 number
+                    // would contradict the constants this amendment ships).
+                    damage *= _bossPhase >= 3
+                        ? HackSpec.BossPhase3DamageMul
+                        : HackSpec.BossPhase2DamageMul;
                 }
                 DamagePlayer(damage);
             }
@@ -1727,10 +1768,12 @@ namespace CinderCourt.Sim
                 EnemySpeedBase + _wave * EnemySpeedPerWave + enemyId % 3 * EnemySpeedIdStep);
             if (isBoss)
             {
-                // §7: phase 2 is a quarter faster on top of the frozen boss modifier.
-                return _bossPhase2Done
-                    ? speed * SimConfig.BossSpeedMul * HackSpec.BossPhase2SpeedMul
-                    : speed * SimConfig.BossSpeedMul;
+                // S8-a: speed reads the per-phase vector (1.00/1.25/1.45) on
+                // top of the frozen boss modifier. _bossPhase is 1-based, so
+                // clamp into the 0-based vector; a boss that has not spawned
+                // yet reports phase 0 and must resolve to P1.
+                return speed * SimConfig.BossSpeedMul
+                    * HackSpec.BossSpeedMul[BossPhaseVectorIndex()];
             }
             return speed;
         }
@@ -1979,6 +2022,16 @@ namespace CinderCourt.Sim
             if (boss)
             {
                 health *= SimConfig.BossHealthMul;
+                if (_dungeon)
+                {
+                    // B-1 (AMENDMENT #4): the dungeon boss died in 1.3-2.8 s,
+                    // far too short for three phases to read. Gated on
+                    // _dungeon — the SAME gate as UpdateBossPhase (L653) — so
+                    // HP and phases can never apply to different runs. Arena
+                    // and plain-campaign bosses are untouched: neither has
+                    // phases, so neither needs the extra length.
+                    health *= HackSpec.DungeonBossHealthMul;
+                }
             }
             else if (elite)
             {
@@ -2158,7 +2211,7 @@ namespace CinderCourt.Sim
             _bossMaxHp = 0f;
             _bossPhase = 0;
             _bossPhase2Done = false;
-
+            _bossPhase3Done = false;
             for (int index = 0; index < _skillCooldowns.Length; index += 1)
             {
                 _skillCooldowns[index] = 0f;

@@ -2184,10 +2184,90 @@ namespace CinderCourt.Tests
             }
         }
 
-        // --- §7 boss phase 2 ------------------------------------------------------
+        // --- §7 boss phases (AMENDMENT #4: three phases at 50% / 20%) --------------
+
+        /// <summary>The boundary function is pure, so it is pinned exhaustively
+        /// here rather than sampled through a sim run. Off-by-one at a
+        /// threshold silently moves the whole difficulty curve.</summary>
+        [TestCase(1.00f, 0)]
+        [TestCase(0.51f, 0)]
+        [TestCase(0.50f, 1)]   // inclusive: exactly half health IS phase 2
+        [TestCase(0.21f, 1)]
+        [TestCase(0.20f, 2)]   // inclusive: exactly a fifth IS phase 3
+        [TestCase(0.00f, 2)]
+        public void BossPhaseIndex_PinsBothBoundaries(float fraction, int expected)
+        {
+            Assert.That(HackSpec.BossPhaseIndexFor(fraction), Is.EqualTo(expected),
+                $"health fraction {fraction} must resolve to phase index {expected}");
+        }
+
+        /// <summary>The amendment's core claim: the stored time vector shrinks
+        /// every phase. If a future edit raises one of these, the phases stop
+        /// meaning "stronger" and this fails loudly.</summary>
+        [Test]
+        public void BossPhaseTimeBudget_DecreasesMonotonically()
+        {
+            float previous = float.MaxValue;
+            for (int phase = 0; phase < 3; phase += 1)
+            {
+                float budget = HackSpec.BossTelegraph[phase]
+                    + HackSpec.BossAttackInterval[phase]
+                    + HackSpec.BossSkillCooldown[phase];
+                Assert.That(budget, Is.LessThan(previous),
+                    $"phase {phase + 1} budget {budget} must be shorter than the phase before");
+                previous = budget;
+            }
+
+            // Telegraph is deliberately NOT part of the shrink — it is the
+            // player's reaction window and holding it is what keeps the
+            // acceleration fair.
+            Assert.That(HackSpec.BossTelegraph[2], Is.EqualTo(HackSpec.BossTelegraph[0]),
+                "telegraph must stay constant across phases");
+        }
+
+        /// <summary>The whole point of the phases is that a player can SEE
+        /// them. A phase reads only if it fits at least one full
+        /// telegraph->attack cycle; below that the boss changes state and dies
+        /// before anything is legible. Measured with the max-stat pilot, i.e.
+        /// the fastest kill in the game — every weaker build gets longer
+        /// phases, so this is the floor case.</summary>
+        [Test]
+        public void EveryBossPhase_LastsLongEnoughToRead()
+        {
+            var config = Dungeon(attack: 10, vitality: 10, swiftness: 10, weapon: 5, lantern: 5, cloak: 5);
+            var sim = new CinderSim(in config);
+
+            int bossTick = -1, p2Tick = -1, p3Tick = -1, endTick = -1, lastPhase = 0;
+            for (int tick = 0; tick < 60 * 900; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if ((sim.Events & SimEvents.BossSpawned) != 0) bossTick = tick;
+                if (sim.BossPhase != lastPhase)
+                {
+                    if (sim.BossPhase == 2) p2Tick = tick;
+                    if (sim.BossPhase == 3) p3Tick = tick;
+                    lastPhase = sim.BossPhase;
+                }
+                if ((sim.Events & SimEvents.StageCleared) != 0) { endTick = tick; break; }
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+
+            Assert.That(endTick, Is.GreaterThan(0), "the max-stat pilot must clear the dungeon boss");
+            Assert.That(p2Tick, Is.GreaterThan(0), "phase 2 must be reached");
+            Assert.That(p3Tick, Is.GreaterThan(0), "phase 3 must be reached");
+
+            float readFloor = HackSpec.BossTelegraph[0] + HackSpec.BossAttackInterval[0];
+            float p1 = (p2Tick - bossTick) / 60f;
+            float p2 = (p3Tick - p2Tick) / 60f;
+            float p3 = (endTick - p3Tick) / 60f;
+
+            Assert.That(p1, Is.GreaterThan(readFloor), $"phase 1 lasted {p1:F2}s, under the {readFloor:F2}s read floor");
+            Assert.That(p2, Is.GreaterThan(readFloor), $"phase 2 lasted {p2:F2}s, under the {readFloor:F2}s read floor");
+            Assert.That(p3, Is.GreaterThan(readFloor), $"phase 3 lasted {p3:F2}s, under the {readFloor:F2}s read floor");
+        }
 
         [Test]
-        public void BossPhase2_TriggersOnceAtHalfHealth()
+        public void BossPhases_FireOnceEachAtTheirThresholds()
         {
             var config = Dungeon(attack: 10, vitality: 10, swiftness: 10, weapon: 5, lantern: 5, cloak: 5);
             var sim = new CinderSim(in config);
@@ -2196,6 +2276,9 @@ namespace CinderCourt.Tests
             int phaseBefore = -1;
             float healthAtTrigger = -1f;
             float maxAtTrigger = -1f;
+            int phase3Before = -1;
+            float health3AtTrigger = -1f;
+            float max3AtTrigger = -1f;
             bool bossSeen = false;
             bool cleared = false;
             for (int tick = 0; tick < 60 * 400; tick += 1)
@@ -2208,10 +2291,21 @@ namespace CinderCourt.Tests
                 }
                 if ((sim.Events & SimEvents.BossPhase2) != 0)
                 {
+                    // One event serves every boundary (the frozen SimEvents
+                    // surface has no third flag), so the count is 2 now.
                     triggers += 1;
-                    phaseBefore = previousPhase;
-                    healthAtTrigger = sim.BossHp;
-                    maxAtTrigger = sim.BossMaxHp;
+                    if (triggers == 1)
+                    {
+                        phaseBefore = previousPhase;
+                        healthAtTrigger = sim.BossHp;
+                        maxAtTrigger = sim.BossMaxHp;
+                    }
+                    else
+                    {
+                        phase3Before = previousPhase;
+                        health3AtTrigger = sim.BossHp;
+                        max3AtTrigger = sim.BossMaxHp;
+                    }
                 }
                 if ((sim.Events & SimEvents.StageCleared) != 0)
                 {
@@ -2226,12 +2320,15 @@ namespace CinderCourt.Tests
 
             Assert.IsTrue(bossSeen, "the run must reach the stage boss");
             Assert.IsTrue(cleared, "the max-stat pilot must clear cinder-span");
-            Assert.That(triggers, Is.EqualTo(1), "phase 2 fires exactly once");
+            Assert.That(triggers, Is.EqualTo(2), "one transition per boundary, no repeats");
             Assert.That(phaseBefore, Is.EqualTo(1), "the boss was in phase 1 the tick before");
             Assert.That(healthAtTrigger,
                 Is.LessThanOrEqualTo(maxAtTrigger * HackSpec.BossPhase2HealthFraction));
             Assert.That(maxAtTrigger, Is.GreaterThan(0f));
-            Assert.That(sim.BossPhase, Is.EqualTo(2), "the stage ends on the phase the boss died in");
+            Assert.That(phase3Before, Is.EqualTo(2), "the boss was in phase 2 the tick before");
+            Assert.That(health3AtTrigger,
+                Is.LessThanOrEqualTo(max3AtTrigger * HackSpec.BossPhase3HealthFraction));
+            Assert.That(sim.BossPhase, Is.EqualTo(3), "the stage ends on the phase the boss died in");
         }
 
         [Test]
