@@ -33,26 +33,32 @@ namespace CinderCourt.Tests
         }
 
         [Test]
-        public void Entries_AreSixOrderedUniqueLogicalStages()
+        // Gate: R8/G7 — nine ordered logical stages; cycle-2 appends cinder-sluice/
+        // ember-bastion/ash-march (own sim anchors, prereq chain through ash-verdict).
+        public void Entries_AreNineOrderedUniqueLogicalStages()
         {
             var entries = StageCatalog.Entries;
             var ids = new[]
             {
                 "cinder-span", "ember-gallery", "abyss-chancel",
                 "witness-well", "echo-throne", "ash-verdict",
+                "cinder-sluice", "ember-bastion", "ash-march",
             };
             var anchors = new[]
             {
                 "cinder-span", "cinder-span", "abyss-chancel",
                 "abyss-chancel", "echo-throne", "echo-throne",
+                "cinder-sluice", "ember-bastion", "ash-march",
             };
             var prereqs = new[]
             {
                 null, "cinder-span", "ember-gallery", "abyss-chancel", "witness-well", "echo-throne",
+                "ash-verdict", "cinder-sluice", "ember-bastion",
             };
             var rewards = new[]
             {
                 "ember-cohort", null, "shade-echo", null, "possessed-echo", null,
+                null, null, "scout-echo",
             };
 
 
@@ -102,7 +108,7 @@ namespace CinderCourt.Tests
                 rewardIndices[index] = CampaignStages.IndexOf(entry.SimAnchorId) % CampaignSpec.EquipSlotCount;
             }
 
-            CollectionAssert.AreEqual(new[] { 0, 0, 1, 1, 2, 2 }, rewardIndices);
+            CollectionAssert.AreEqual(new[] { 0, 0, 1, 1, 2, 2, 0, 1, 2 }, rewardIndices);
         }
 
         [Test]
@@ -128,10 +134,13 @@ namespace CinderCourt.Tests
         [Test]
         public void Entries_ReferenceOnlyExistingSharedTerrainResources()
         {
+            // Cycle-2 stages reuse shipped prefabs: sluice=abyss-chancel,
+            // bastion=cinder-span, march=echo-throne (no new terrain assets).
             var expectedTerrain = new[]
             {
                 "cinder-span", "abyss-chancel", "abyss-chancel",
                 "echo-throne", "echo-throne", "echo-throne",
+                "abyss-chancel", "cinder-span", "echo-throne",
             };
 
             for (var index = 0; index < StageCatalog.Entries.Count; index += 1)
@@ -168,6 +177,48 @@ namespace CinderCourt.Tests
                 HazardConfig.Vent(1030f, 480f, 0.6f),
             });
         }
+
+        // Gate: R4/G2 — the three new catalog entries are pure anchors (no override;
+        // placement lives in the frozen CampaignStages tables) and their anchor
+        // tables obey the same non-overlap/pillar-clearance contract as composites.
+        [Test]
+        public void NewStageAnchors_CarryNoOverrideAndClearRadialHazards()
+        {
+            foreach (var id in new[] { "cinder-sluice", "ember-bastion", "ash-march" })
+            {
+                Assert.That(StageCatalog.TryGet(id, out var entry), Is.True, id);
+                Assert.That(entry.SimAnchorId, Is.EqualTo(id), id + " must anchor its own sim stage");
+                Assert.That(entry.HazardOverride, Is.Null,
+                    id + " placement is owned by the frozen CampaignStages table");
+
+                Assert.That(CampaignStages.TryGet(id, 0, 0, 0, out var config), Is.True, id);
+                var hazards = config.Hazards;
+                for (var left = 0; left < hazards.Length; left += 1)
+                {
+                    for (var right = left + 1; right < hazards.Length; right += 1)
+                    {
+                        var a = hazards[left];
+                        var b = hazards[right];
+                        // Band hazards (current/wall) have no meaningful radial
+                        // footprint; radial pairs must not overlap.
+                        if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
+                        var x = a.X - b.X;
+                        var y = a.Y - b.Y;
+                        var distance = (float)Math.Sqrt(x * x + y * y);
+                        Assert.That(distance, Is.GreaterThan(a.Radius + b.Radius),
+                            id + " radial hazards must not overlap");
+                        if (a.Kind == HazardKind.ObsidianPillar && b.Kind == HazardKind.ObsidianPillar)
+                        {
+                            Assert.That(distance, Is.GreaterThanOrEqualTo(a.Radius + b.Radius + 2f * CampaignSpec.PlayerPushRadius),
+                                id + " pillars need two player push radii of separation");
+                        }
+                    }
+                }
+            }
+        }
+
+        static bool IsBand(HazardKind kind)
+            => kind == HazardKind.TideCurrent || kind == HazardKind.AshWall;
 
         [Test]
         public void Load_LegacyClearedIdsMapToAnchorBits()
@@ -237,6 +288,60 @@ namespace CinderCourt.Tests
             legacyData.PrologueDone = true;
             Assert.That(StageCatalog.IsUnlocked(legacyData, stageThree), Is.True,
                 "a directly cleared legacy anchor must remain re-enterable without a newly inserted prerequisite bit");
+        }
+
+        // Gate: R8 — the 0x3F bug class: a six-bit clear mask silently drops bits
+        // 6-8, orphaning cycle-2 first-clears. MarkCleared on catalog index 8
+        // (ash-march) must survive a CampaignStore Save->Load round trip.
+        [Test]
+        public void MarkCleared_Index8_SurvivesSaveLoadRoundTrip()
+        {
+            Assert.That(StageCatalog.TryGet("ash-march", out var ashMarch), Is.True);
+            Assert.That(ashMarch.CatalogIndex, Is.EqualTo(8), "ash-march owns the top catalog bit");
+
+            var data = new CampaignData { PrologueDone = true };
+            StageCatalog.MarkCleared(ref data, ashMarch, out var firstClear);
+            Assert.That(firstClear, Is.True);
+            Assert.That(data.ClearedMask, Is.EqualTo(1 << 8), "bit 8 must survive the valid-mask AND");
+
+            CampaignStore.Save(in data);
+            var loaded = CampaignStore.Load();
+            Assert.That(loaded.ClearedMask, Is.EqualTo(1 << 8),
+                "bit 8 must survive persistence (mask width regression)");
+            Assert.That(StageCatalog.IsCleared(loaded, ashMarch), Is.True);
+
+            // Garbage bits above the catalog width must still be scrubbed on load.
+            var noisy = loaded;
+            noisy.ClearedMask = (1 << 8) | (1 << 9) | (1 << 12);
+            CampaignStore.Save(in noisy);
+            var scrubbed = CampaignStore.Load();
+            Assert.That(scrubbed.ClearedMask, Is.EqualTo(1 << 8),
+                "bits past the 9-entry catalog never round trip");
+        }
+
+        // Gate: R8 — a legacy six-bit save (pre-cycle-2 blob) loads identically:
+        // same six bits in, same six bits out, new stages simply read uncleared.
+        [Test]
+        public void Load_LegacySixBitMask_LoadsIdentically()
+        {
+            PlayerPrefs.SetString(CampaignKey,
+                "{\"clearedMask\":63,\"equipment\":{\"weapon\":1,\"lantern\":1,\"cloak\":1}}");
+            PlayerPrefs.Save();
+
+            var data = CampaignStore.Load();
+            Assert.That(data.ClearedMask, Is.EqualTo(0x3F), "all six legacy bits preserved");
+            foreach (var id in new[] { "cinder-sluice", "ember-bastion", "ash-march" })
+            {
+                Assert.That(StageCatalog.TryGet(id, out var entry), Is.True);
+                Assert.That(StageCatalog.IsCleared(data, entry), Is.False,
+                    id + " must read uncleared from a legacy six-bit save");
+            }
+
+            // The legacy chain head for cycle-2: ash-verdict cleared -> sluice unlocks.
+            data.PrologueDone = true;
+            Assert.That(StageCatalog.TryGet("cinder-sluice", out var sluice), Is.True);
+            Assert.That(StageCatalog.IsUnlocked(data, sluice), Is.True,
+                "a fully-cleared legacy save must already unlock cinder-sluice");
         }
 
         private static void AssertCompositeHazards(string id, HazardConfig[] expected)

@@ -58,13 +58,25 @@ relic +250 점수, 수명 12 s, 자력 78. 아이소 거리 `hypot(dx, dy*1.42)`
 
 - Unity 소스(`Assets/`, `Packages/`, `ProjectSettings/`, `tools/`, `docs/`)는
   일반 소스 트리로 편집한다. `_workspace/current/`는 **증거·레인 아티팩트
-  전용**(intake/design/engineering/qa/ops — 리포트, 측정, 생성 계획)이며,
-  이전 사이클은 `_workspace/archive/<run-id>/`로 `git mv` 후 읽기 전용.
+  전용**(intake/design/engineering/qa/ops/pm/production — 리포트, 측정, 협상
+  기록, 태스크 매니페스트)이며, 이전 사이클은 `_workspace/archive/<run-id>/`로
+  `git mv` 후 읽기 전용. 단 `engineering/icons/`·`engineering/reskin/`은
+  라이브 도구(tools/) 출력 경로라 아카이브하지 않는다.
 - `[OBSERVED]` / `[INFERENCE]` / `[TARGET]` 표기를 유지한다. 측정 없는 주장
   금지, 정확한 저장소 상대 경로 인용.
 - 검증 명령: EditMode 테스트 `Unity -batchmode -runTests -testPlatform
   EditMode`, WebGL 빌드 `-executeMethod CinderCourt.EditorTools.BuildScript.
   BuildWebGL`, 로컬 서빙 `python3 -m http.server`.
+- 로컬 툴체인(머신 필수 — cycle-2에서 전부 재발견함, 반복 금지):
+  ① Unity 6000.5.6f1 + WebGL 모듈(/Applications/Unity/Hub/Editor,
+  `tools/unity_batch.sh`가 기본 경로로 인식) ② git-lfs(`git lfs pull` —
+  FBX/폰트가 포인터면 휴머노이드·프롭·폰트 테스트가 오해를 부르는 실패)
+  ③ `~/Library/Fonts/NanumBarunGothic.otf`(`tools/gen_hud_font.sh` 소스 —
+  공식 zip 판만 U+2026 포함, 한글 UI 문자열 추가 시 재생성 필수).
+- 다이제스트 회귀는 **런타임 내 비교만 유효**: 스탠드얼론 dotnet 다이제스트와
+  Unity 다이제스트는 float 하위비트가 다르다(정수 필드는 동일). 배포 진실은
+  Unity 골든(DungeonGoldenDigestTests) — 스탠드얼론은 pre/post 추가성 증명
+  전용이다.
 
 ## 5. Concurrent-session Git safety (원작 이식, 무수정)
 

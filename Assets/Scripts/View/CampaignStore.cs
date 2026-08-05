@@ -10,7 +10,7 @@ namespace CinderCourt.View
     /// <summary>Full lobby meta state, one struct, all fields explicit.</summary>
     public struct CampaignData
     {
-        // v3 clear progression (six catalog stages, bits 0-5).
+        // v3 clear progression (nine catalog stages, bits 0-8).
         public int ClearedMask;
         public int Weapon, Lantern, Cloak;          // equipment tiers T0-T5
 
@@ -42,10 +42,16 @@ namespace CinderCourt.View
             var hasClearedMask = raw.IndexOf("\"clearedMask\":", System.StringComparison.Ordinal) >= 0;
             if (hasClearedMask)
             {
-                data.ClearedMask = ExtractInt(raw, "\"clearedMask\":") & 0x3F;
+                // Mask with the live catalog width (bits 0-8 for the 9-entry
+                // catalog) so persisted future/garbage bits never leak in.
+                data.ClearedMask = ExtractInt(raw, "\"clearedMask\":") & StageCatalog.ValidClearMask;
             }
             else
             {
+                // Legacy v0.1 blobs predate clearedMask and store cleared ids.
+                // Only the original 3 anchor ids ever existed in v0.1 (bits
+                // 0/2/4); later logical stages — including the cycle-2 ids on
+                // bits 6-8 — cannot appear here. Do not extend this mapping.
                 // Legacy ids may also appear in roster; scope this scan to cleared only.
                 var cleared = Section(raw, "\"cleared\":[", ']');
                 if (cleared.Contains("\"cinder-span\"")) data.ClearedMask |= 1 << 0;
@@ -72,7 +78,7 @@ namespace CinderCourt.View
         public static void Save(in CampaignData data)
         {
             Builder.Length = 0;
-            Builder.Append("{\"clearedMask\":").Append(data.ClearedMask & 0x3F)
+            Builder.Append("{\"clearedMask\":").Append(data.ClearedMask & StageCatalog.ValidClearMask)
                 .Append(",\"equipment\":{\"weapon\":").Append(data.Weapon)
                 .Append(",\"lantern\":").Append(data.Lantern)
                 .Append(",\"cloak\":").Append(data.Cloak)

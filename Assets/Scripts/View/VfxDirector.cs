@@ -82,13 +82,56 @@ namespace CinderCourt.View
         struct HazardView
         {
             public Transform Root;
-            public Renderer Ring;       // vent telegraph / altar glow
+            public Renderer Ring;       // vent telegraph / altar glow / pylon aura
             public Material RingMaterial;
             public float PrevCycleT;    // eruption wrap detection (#17)
-            public Transform FillDisc;  // V2: imminence fill (vent only)
+            public Transform FillDisc;  // vent: V2 imminence fill / pylon: persistent scorch
             public Material FillMaterial;
+            // --- cycle-2 kinds (docs/SIM_SPEC_DUNGEONS.md) -------------------
+            // Slots are per-kind disjoint, mirroring how Ring doubles for
+            // vent/altar: current band / pylon body / wall lethal overlay …
+            public Transform Body;
+            public Material BodyMaterial;
+            // … current chevron row / pylon ember band / wall front curtain …
+            public Transform Aux;
+            public Material AuxMaterial;
+            // … current band edges / wall boundary line.
+            public Transform Edge;
+            public Material EdgeMaterial;
+            public float PushSign;      // current flow direction (anchor lookup)
+            public bool Down;           // pylon destroyed — one-shot fired
         }
         HazardView[] _hazardViews;
+        // Chevron repeat pitch inside the tide-current flow row (world units).
+        // The scroll offset wraps at this pitch so the row reads endless.
+        const float ChevronSpacingWorld = 1.3f;
+        // Ash-wall visuals span the arena height (sim 540 px -> world units).
+        const float WallSpanWorld = SimConfig.ArenaHalfHeight * 2f * ViewWorld.Scale;
+
+        /// <summary>
+        /// Flow direction (+1/-1) for a tide current at a sim position.
+        /// HazardState does not publish PushX, so resolve it once at build
+        /// time from the frozen anchor tables (positions are the identity —
+        /// every shipped current placement is unique). Ranks are irrelevant
+        /// to hazards; zeros keep the lookup allocation-light and pure.
+        /// </summary>
+        static float CurrentPushSign(float x, float y)
+        {
+            var ids = CampaignStages.Ids;
+            for (var s = 0; s < ids.Count; s++)
+            {
+                if (!CampaignStages.TryGet(ids[s], 0, 0, 0, out var config)) continue;
+                var hazards = config.Hazards;
+                if (hazards == null) continue;
+                for (var h = 0; h < hazards.Length; h++)
+                {
+                    if (hazards[h].Kind != HazardKind.TideCurrent) continue;
+                    if (hazards[h].X != x || hazards[h].Y != y) continue;
+                    return hazards[h].PushX < 0f ? -1f : 1f;
+                }
+            }
+            return 1f;   // unknown placement (e.g. future override) — default +x
+        }
 
         void Awake()
         {
@@ -308,6 +351,42 @@ namespace CinderCourt.View
                 _corpseRing.enabled = false;
                 _channelBeam.enabled = false;
             }
+            // Ember pylon destroyed (cycle-2, docs/SIM_SPEC_DUNGEONS.md §Gimmick
+            // 2). The event has no pylon identity — find the freshly-dead pylon
+            // (Hp <= 0, view not yet torn down) in the published hazard list.
+            if ((events & SimEvents.PylonDown) != 0 && _hazardViews != null
+                && sim is ICampaignSnapshot campaign)
+            {
+                var hazards = campaign.Hazards;
+                for (var i = 0; i < hazards.Count && i < _hazardViews.Length; i++)
+                {
+                    var h = hazards[i];
+                    if (h.Kind != HazardKind.EmberPylon) continue;
+                    if (h.Hp > 0f || _hazardViews[i].Down) continue;
+                    TearDownPylon(i, h.X, h.Y);
+                }
+            }
+        }
+
+        /// <summary>
+        /// One-shot pylon destruction: pooled burst + debris, body/aura off,
+        /// scorch ring on. Idempotent via HazardView.Down — reachable from
+        /// both the PylonDown event and the SyncHazards Hp-edge fallback.
+        /// </summary>
+        void TearDownPylon(int index, float simX, float simY)
+        {
+            ref var view = ref _hazardViews[index];
+            if (view.Down) return;
+            view.Down = true;
+            SpawnBurst(simX, simY, new Color(1f, 0.55f, 0.2f, 0.9f), 1.1f, 0.5f);
+            if (_novaDebris != null)
+            {
+                _novaDebris.transform.position = ViewWorld.ToWorld(simX, simY, 0.5f);
+                _novaDebris.Emit(ViewPrefs.ReducedMotion ? 8 : 18);
+            }
+            if (view.Body != null) view.Body.gameObject.SetActive(false);  // body + band
+            if (view.Ring != null) view.Ring.enabled = false;              // aura gone
+            if (view.FillDisc != null) view.FillDisc.gameObject.SetActive(true); // scorch stays
         }
 
         /// <summary>
@@ -746,6 +825,112 @@ namespace CinderCourt.View
                         break;
                     }
                     // ObsidianPillar is static.
+                    case HazardKind.TideCurrent:
+                    {
+                        // Band bed: brighter while the push window is live.
+                        var bed = view.BodyMaterial.color;
+                        bed.a = hazard.Active ? 0.30f : 0.10f;
+                        view.BodyMaterial.color = bed;
+
+                        // Edge lines: telegraph = blink (reduced-motion keeps
+                        // them steady — persistent zone markers never strobe).
+                        var edge = view.EdgeMaterial.color;
+                        if (hazard.Telegraphing && !ViewPrefs.ReducedMotion)
+                            edge.a = 0.25f + 0.55f * Mathf.PingPong(Time.time * 7f, 1f);
+                        else if (hazard.Telegraphing || hazard.Active)
+                            edge.a = 0.7f;
+                        else
+                            edge.a = 0.25f;
+                        view.EdgeMaterial.color = edge;
+
+                        // Chevron row: static direction arrows under reduced
+                        // motion; scrolling at the sim push speed while active.
+                        var chevron = view.AuxMaterial.color;
+                        chevron.a = hazard.Active ? 0.85f : 0.35f;
+                        view.AuxMaterial.color = chevron;
+                        if (!ViewPrefs.ReducedMotion && hazard.Active)
+                        {
+                            // Row repeats every ChevronSpacing — a modular
+                            // container shift reads as an endless stream.
+                            var scroll = Mathf.Repeat(
+                                Time.time * CampaignSpec.CurrentPush * ViewWorld.Scale,
+                                ChevronSpacingWorld);
+                            // The container is yaw-flipped for -x flow, so the
+                            // world shift needs the sign applied outside it.
+                            var local = view.Aux.localPosition;
+                            local.x = scroll * view.PushSign;
+                            view.Aux.localPosition = local;
+                        }
+                        else
+                        {
+                            var local = view.Aux.localPosition;
+                            local.x = 0f;
+                            view.Aux.localPosition = local;
+                        }
+                        break;
+                    }
+                    case HazardKind.EmberPylon:
+                    {
+                        var down = hazard.Hp <= 0f;
+                        if (down && !view.Down)
+                        {
+                            // Fallback for a dropped event frame — OnEvents
+                            // (PylonDown) is the primary one-shot path; this
+                            // Hp edge keeps the state idempotent either way.
+                            TearDownPylon(i, hazard.X, hazard.Y);
+                        }
+                        if (down) break;
+
+                        // Ember band dims with remaining Hp (240..0) so shield
+                        // strength reads at a glance; aura ring stays put as
+                        // the persistent zone marker (reduced-motion safe).
+                        var fraction = Mathf.Clamp01(hazard.Hp / CampaignSpec.PylonHp);
+                        var band = view.AuxMaterial.color;
+                        band.a = Mathf.Lerp(0.25f, 1f, fraction);
+                        view.AuxMaterial.color = band;
+                        break;
+                    }
+                    case HazardKind.AshWall:
+                    {
+                        var live = hazard.FrontX > CampaignSpec.WallEdgeX;
+
+                        // Telegraph line at the fixed left edge x=248. Blink is
+                        // the modulated part; under reduced motion the marker
+                        // stays steady (persistent zone marker contract).
+                        var edge = view.EdgeMaterial.color;
+                        if (hazard.Telegraphing && !ViewPrefs.ReducedMotion)
+                            edge.a = 0.25f + 0.6f * Mathf.PingPong(Time.time * 7f, 1f);
+                        else if (hazard.Telegraphing || live)
+                            edge.a = 0.8f;
+                        else
+                            edge.a = 0.22f;
+                        view.EdgeMaterial.color = edge;
+
+                        // Dark overlay covers the lethal band x 248..FrontX;
+                        // the curtain rides the leading edge. Reduced motion:
+                        // boundary line only — overlay/curtain stay hidden.
+                        var showBand = live && !ViewPrefs.ReducedMotion;
+                        if (view.Body.gameObject.activeSelf != showBand)
+                            view.Body.gameObject.SetActive(showBand);
+                        if (view.Aux.gameObject.activeSelf != showBand)
+                            view.Aux.gameObject.SetActive(showBand);
+                        if (showBand)
+                        {
+                            var depthWorld = (hazard.FrontX - CampaignSpec.WallEdgeX) * ViewWorld.Scale;
+                            view.Body.localScale = new Vector3(depthWorld, WallSpanWorld, 1f);
+                            view.Body.localPosition = new Vector3(depthWorld * 0.5f, 0.03f, 0f);
+                            view.Aux.localPosition = new Vector3(depthWorld, 0.8f, 0f);
+                        }
+                        else if (live && ViewPrefs.ReducedMotion)
+                        {
+                            // The boundary line doubles as the front marker.
+                            var depthWorld = (hazard.FrontX - CampaignSpec.WallEdgeX) * ViewWorld.Scale;
+                            view.Edge.localPosition = new Vector3(depthWorld, 0.04f, 0f);
+                        }
+                        if (!live && view.Edge.localPosition.x != 0f)
+                            view.Edge.localPosition = new Vector3(0f, 0.04f, 0f);
+                        break;
+                    }
                 }
             }
         }
@@ -823,6 +1008,193 @@ namespace CinderCourt.View
                     gem.transform.localRotation = Quaternion.Euler(45f, 0f, 45f);
                     gem.GetComponent<Renderer>().sharedMaterial =
                         ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f), false);
+                    break;
+                }
+                case HazardKind.TideCurrent:
+                {
+                    // Flat rectangular flow band (1040x140 sim). The sim judge
+                    // is axis-aligned (NOT iso-weighted — the only rect
+                    // hazard), so the bed skips the usual /IsoY squash.
+                    var bandW = CampaignSpec.CurrentHalfW * 2f * ViewWorld.Scale;
+                    var bandH = CampaignSpec.CurrentHalfH * 2f * ViewWorld.Scale;
+                    var bed = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Destroy(bed.GetComponent<Collider>());
+                    bed.transform.SetParent(root.transform, false);
+                    bed.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    bed.transform.localPosition = new Vector3(0f, 0.015f, 0f);
+                    bed.transform.localScale = new Vector3(bandW, bandH, 1f);
+                    bed.GetComponent<Renderer>().shadowCastingMode =
+                        UnityEngine.Rendering.ShadowCastingMode.Off;
+                    view.Body = bed.transform;
+                    view.BodyMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.247f, 0.659f, 0.784f, 0.10f), true);   // stage accent
+                    bed.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
+
+                    // Long edge lines — the telegraph blink surface. Both
+                    // share ONE material so the sync pass mutates one color.
+                    var edges = new GameObject("Edges");
+                    edges.transform.SetParent(root.transform, false);
+                    view.Edge = edges.transform;
+                    view.EdgeMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.42f, 0.85f, 0.95f, 0.25f), true);
+                    for (var side = -1; side <= 1; side += 2)
+                    {
+                        var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        Destroy(line.GetComponent<Collider>());
+                        line.transform.SetParent(edges.transform, false);
+                        line.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        line.transform.localPosition =
+                            new Vector3(0f, 0.02f, side * bandH * 0.5f);
+                        line.transform.localScale = new Vector3(bandW, 0.045f, 1f);
+                        var lineRenderer = line.GetComponent<Renderer>();
+                        lineRenderer.shadowCastingMode =
+                            UnityEngine.Rendering.ShadowCastingMode.Off;
+                        lineRenderer.sharedMaterial = view.EdgeMaterial;
+                    }
+
+                    // Chevron row (direction + scroll carrier). One material
+                    // for the whole row; the container yaw-flips for -x flow
+                    // and the sync pass slides it by localPosition only.
+                    view.PushSign = CurrentPushSign(hazard.X, hazard.Y);
+                    var flow = new GameObject("Flow");
+                    flow.transform.SetParent(root.transform, false);
+                    if (view.PushSign < 0f)
+                        flow.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                    view.Aux = flow.transform;
+                    view.AuxMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.62f, 0.93f, 1f, 0.35f), true);
+                    // 8 chevrons cover bandW - spacing; with the +0..spacing
+                    // scroll offset the row always stays INSIDE the judged
+                    // band (edge lines mark the true boundary — decoration
+                    // must never widen the read).
+                    for (var c = 0; c < 8; c++)
+                    {
+                        var cx = -bandW * 0.5f + c * ChevronSpacingWorld;
+                        for (var seg = -1; seg <= 1; seg += 2)
+                        {
+                            var dash = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                            Destroy(dash.GetComponent<Collider>());
+                            dash.transform.SetParent(flow.transform, false);
+                            dash.transform.localRotation =
+                                Quaternion.Euler(90f, seg * 40f, 0f);
+                            dash.transform.localPosition =
+                                new Vector3(cx, 0.025f, seg * 0.09f);
+                            dash.transform.localScale = new Vector3(0.34f, 0.05f, 1f);
+                            var dashRenderer = dash.GetComponent<Renderer>();
+                            dashRenderer.shadowCastingMode =
+                                UnityEngine.Rendering.ShadowCastingMode.Off;
+                            dashRenderer.sharedMaterial = view.AuxMaterial;
+                        }
+                    }
+                    break;
+                }
+                case HazardKind.EmberPylon:
+                {
+                    // Unlit obsidian body, pillar grammar — but destructible:
+                    // the ember band advertises "hit me" and dims with Hp.
+                    var r = hazard.Radius * ViewWorld.Scale;
+                    var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(body.GetComponent<Collider>());
+                    body.transform.SetParent(root.transform, false);
+                    body.transform.localScale = new Vector3(r * 2f, 0.9f, r * 2f);
+                    body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                    view.Body = body.transform;
+                    view.BodyMaterial = ViewWorld.MakeUnlit(new Color(0.16f, 0.08f, 0.06f), false);
+                    body.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
+
+                    // Ember-orange band riding the upper body — child of the
+                    // body so the destroyed state hides both in one SetActive.
+                    var band = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(band.GetComponent<Collider>());
+                    band.transform.SetParent(body.transform, false);
+                    band.transform.localScale = new Vector3(1.12f, 0.09f, 1.12f);
+                    band.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+                    view.Aux = band.transform;
+                    view.AuxMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.45f, 0.1f, 1f), true);
+                    band.GetComponent<Renderer>().sharedMaterial = view.AuxMaterial;
+
+                    // Aura disc, radius 220 (CampaignSpec.PylonAuraRadius) —
+                    // iso-scaled ellipse like the vent/altar rings. Persistent
+                    // zone marker: never pulses (reduced-motion contract).
+                    var aura = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(aura.GetComponent<Collider>());
+                    aura.transform.SetParent(root.transform, false);
+                    var auraR = CampaignSpec.PylonAuraRadius * ViewWorld.Scale;
+                    aura.transform.localScale = new Vector3(
+                        auraR * 2f, 0.008f, auraR * 2f / SimConfig.IsoY);
+                    view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.5f, 0.2f, 0.10f), true);
+                    view.Ring = aura.GetComponent<Renderer>();
+                    view.Ring.sharedMaterial = view.RingMaterial;
+
+                    // Scorch disc — hidden until PylonDown, then it is all
+                    // that remains (permanent destruction, no respawn).
+                    var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    Destroy(scorch.GetComponent<Collider>());
+                    scorch.transform.SetParent(root.transform, false);
+                    scorch.transform.localScale = new Vector3(
+                        r * 2.6f, 0.006f, r * 2.6f / SimConfig.IsoY);
+                    view.FillDisc = scorch.transform;
+                    view.FillMaterial = ViewWorld.MakeUnlit(new Color(0.08f, 0.05f, 0.04f, 0.55f), true);
+                    scorch.GetComponent<Renderer>().sharedMaterial = view.FillMaterial;
+                    scorch.SetActive(false);
+                    break;
+                }
+                case HazardKind.AshWall:
+                {
+                    // Root sits at the fixed left edge (x=248, y=ArenaY). The
+                    // lethal band is y-full in the sim; visuals span the
+                    // arena height (WallSpanWorld) — decoration, not judge.
+                    // Boundary line at x=248: the telegraph blink surface and
+                    // the ONLY visual under reduced motion.
+                    var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Destroy(line.GetComponent<Collider>());
+                    line.transform.SetParent(root.transform, false);
+                    line.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    line.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+                    line.transform.localScale = new Vector3(0.06f, WallSpanWorld, 1f);
+                    view.Edge = line.transform;
+                    view.EdgeMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.85f, 0.80f, 0.75f, 0.22f), true);
+                    var lineRenderer = line.GetComponent<Renderer>();
+                    lineRenderer.shadowCastingMode =
+                        UnityEngine.Rendering.ShadowCastingMode.Off;
+                    lineRenderer.sharedMaterial = view.EdgeMaterial;
+
+                    // Dark overlay for the swallowed band x 248..FrontX —
+                    // scaled from the left edge every frame while advancing.
+                    var overlay = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Destroy(overlay.GetComponent<Collider>());
+                    overlay.transform.SetParent(root.transform, false);
+                    overlay.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                    view.Body = overlay.transform;
+                    view.BodyMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.05f, 0.04f, 0.04f, 0.45f), true);
+                    var overlayRenderer = overlay.GetComponent<Renderer>();
+                    overlayRenderer.shadowCastingMode =
+                        UnityEngine.Rendering.ShadowCastingMode.Off;
+                    overlayRenderer.sharedMaterial = view.BodyMaterial;
+                    overlay.SetActive(false);
+
+                    // Vertical curtain sheet riding the leading edge — the
+                    // "particle curtain" on the proven quad path (no new
+                    // particle systems, no lights; spec §V3 budget).
+                    var curtain = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    Destroy(curtain.GetComponent<Collider>());
+                    curtain.transform.SetParent(root.transform, false);
+                    // Yaw -90: quad normal lands on +x, toward the advancing
+                    // side the (yaw-0, south) dungeon camera sees — +90 would
+                    // be backface-culled by the single-sided unlit quad.
+                    curtain.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                    curtain.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+                    curtain.transform.localScale = new Vector3(WallSpanWorld, 1.6f, 1f);
+                    view.Aux = curtain.transform;
+                    view.AuxMaterial = ViewWorld.MakeUnlit(
+                        new Color(0.72f, 0.69f, 0.64f, 0.35f), true);
+                    var curtainRenderer = curtain.GetComponent<Renderer>();
+                    curtainRenderer.shadowCastingMode =
+                        UnityEngine.Rendering.ShadowCastingMode.Off;
+                    curtainRenderer.sharedMaterial = view.AuxMaterial;
+                    curtain.SetActive(false);
                     break;
                 }
             }

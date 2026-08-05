@@ -15,7 +15,12 @@ namespace CinderCourt.Tests
     [TestFixture]
     public sealed class StageDressingTests
     {
-        static readonly string[] DressedStages = { "ember-gallery", "witness-well", "ash-verdict" };
+        // Gate: G8 — cycle-2 adds dressed tables for the three new anchor stages.
+        static readonly string[] DressedStages =
+        {
+            "ember-gallery", "witness-well", "ash-verdict",
+            "cinder-sluice", "ember-bastion", "ash-march",
+        };
 
         static GameObject LoadLibrary()
         {
@@ -29,9 +34,13 @@ namespace CinderCourt.Tests
         {
             Assert.That(StageCatalog.TryGet(stageId, out var entry), Is.True,
                 $"unknown stage id {stageId}");
-            Assert.That(entry.HazardOverride, Is.Not.Null,
-                $"{stageId} must carry a hazard override (combo stage)");
-            return entry.HazardOverride;
+            if (entry.HazardOverride != null) return entry.HazardOverride;
+            // Cycle-2 anchors carry no override — clearance is checked against the
+            // frozen CampaignStages placement table they actually run with.
+            Assert.That(entry.SimAnchorId, Is.EqualTo(entry.Id),
+                $"{stageId} without an override must be its own sim anchor");
+            Assert.That(CampaignStages.TryGet(stageId, 0, 0, 0, out var config), Is.True, stageId);
+            return config.Hazards;
         }
 
         [Test]

@@ -388,11 +388,47 @@ namespace CinderCourt.View
             prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
-            // Six logical stages share the same compact card grammar.
+            // Cycle-2: nine logical stages no longer fit the fixed panel at
+            // the 70 u card pitch (9*70+174 > 620), and compressing the pitch
+            // would sink the 강하 button below the 44 CSS px touch floor
+            // (HudLayoutTests contract). The list scrolls instead: pitch,
+            // card height and every touch target keep their audited sizes.
+            var stageViewport = new GameObject("StageScroll");
+            stageViewport.transform.SetParent(panel.transform, false);
+            var viewportImage = stageViewport.AddComponent<Image>();
+            viewportImage.color = Color.clear;      // drag surface, invisible
+            viewportImage.raycastTarget = true;      // ScrollRect needs the hits
+            stageViewport.AddComponent<RectMask2D>();
+            var viewportRect = stageViewport.GetComponent<RectTransform>();
+            viewportRect.anchorMin = new Vector2(0f, 0f);
+            viewportRect.anchorMax = new Vector2(1f, 1f);
+            viewportRect.pivot = new Vector2(0.5f, 1f);
+            viewportRect.offsetMin = new Vector2(0f, 12f);
+            viewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
+
+            var stageContent = new GameObject("StageContent");
+            stageContent.transform.SetParent(stageViewport.transform, false);
+            var contentRect = stageContent.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            // 9 cards at the 70 u pitch + trailing margin.
+            contentRect.sizeDelta = new Vector2(0f, StageCatalog.Entries.Count * 70f + 8f);
+
+            var scroll = stageViewport.AddComponent<ScrollRect>();
+            scroll.content = contentRect;
+            scroll.viewport = viewportRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            // Nine logical stages share the same compact card grammar.
             for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
                 var entry = StageCatalog.Entries[i];
-                var card = Card(panel.transform, -174 - i * 70, 68);
+                var card = Card(stageContent.transform, -6 - i * 70, 68);
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
                 var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)

@@ -470,6 +470,10 @@ namespace CinderCourt.View
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
             _data.Points += firstClear ? 3 : 2;
             _data.Relics += sim.Relics;
+            // Cycle-2 first-clear relic bonus (negotiation-record entry 1,
+            // signed designer+pm): view-side grant, sim untouched. One-time —
+            // gated on firstClear like the companion reward below.
+            if (firstClear) _data.Relics += FirstClearRelicBonus(entry.Id);
 
             // Equipment ranks earned in-run become the new baseline (§6 path a).
             var campaign = sim as ICampaignSnapshot;
@@ -489,6 +493,23 @@ namespace CinderCourt.View
 
             var hack = sim as IHackSnapshot;
             if (hack != null) MergeRoster(hack.RosterMask);
+        }
+
+        /// <summary>
+        /// One-time relic grant per stage id (negotiation-record entry 1:
+        /// +6/+8/+10 sluice/bastion/march, first clear only; agreed cap
+        /// rationale: 합산 +24 = T4 비용 2.2배 억제). Original six stages
+        /// grant 0 — their economy predates the entry and stays untouched.
+        /// </summary>
+        static int FirstClearRelicBonus(string stageId)
+        {
+            switch (stageId)
+            {
+                case "cinder-sluice": return 6;
+                case "ember-bastion": return 8;
+                case "ash-march": return 10;
+                default: return 0;
+            }
         }
 
         void MergeRoster(int rosterMask)

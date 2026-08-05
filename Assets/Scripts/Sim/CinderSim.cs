@@ -69,9 +69,13 @@ namespace CinderCourt.Sim
         /// <summary>Mutable per-hazard bookkeeping (config stays immutable/shared).</summary>
         private struct HazardRuntime
         {
-            public int Cycle;      // last completed ember-vent cycle index
-            public float Hold;     // relic-altar dwell seconds
-            public float Cooldown; // relic-altar cooldown seconds
+            public int Cycle;          // last completed vent cycle / current activation / wall cycle
+            public float Hold;         // relic-altar dwell seconds
+            public float Cooldown;     // relic-altar cooldown seconds
+            // --- amendment #5 (docs/SIM_SPEC_DUNGEONS.md) ---
+            public float Hp;           // ember-pylon remaining hp (0 = destroyed)
+            public int Tick;           // last completed ash-wall damage tick index
+            public int LastHitAttack;  // ember-pylon one-hit-per-attackId guard
         }
 
         private static readonly HazardConfig[] NoHazards = new HazardConfig[0];
@@ -530,7 +534,8 @@ namespace CinderCourt.Sim
         /// </summary>
         public bool BeginEmberRest(int roomIndex, int rewardSeed)
         {
-            if (!_dungeon || !_stageCleared || _emberRestOpen || roomIndex < 1 || roomIndex > 5)
+            if (!_dungeon || !_stageCleared || _emberRestOpen
+                || roomIndex < 1 || roomIndex > CampaignSpec.MaxEmberRestRoomIndex)
             {
                 return false;
             }
@@ -1321,6 +1326,7 @@ namespace CinderCourt.Sim
                 _player.Moving = false;
             }
 
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, deltaTime);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             if (_dungeon)
@@ -1376,6 +1382,11 @@ namespace CinderCourt.Sim
                     DamageEnemy(ref enemy, _playerDamage);
                 }
             }
+
+            if (_campaign)
+            {
+                StrikePylons(_playerDamage); // amendment #5: same swing, same attackId guard
+            }
         }
 
         /// <summary>
@@ -1389,6 +1400,7 @@ namespace CinderCourt.Sim
             _player.X += _dashDirX * speed * step;
             _player.Y += _dashDirY * speed * SimConfig.YMoveScale * step;
             ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, step);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
             _player.Moving = true;
             _player.ActionTime += deltaTime;
@@ -1492,6 +1504,11 @@ namespace CinderCourt.Sim
                     Knockback(ref enemy, HackSpec.ComboKnockbackDistance, HackSpec.ComboKnockbackTime);
                 }
                 DamageEnemy(ref enemy, damage);
+            }
+
+            if (_campaign)
+            {
+                landed |= StrikePylons(damage); // amendment #5: pylon-only hits still land
             }
 
             if (landed && finisher && !_comboLanded)
@@ -1692,6 +1709,7 @@ namespace CinderCourt.Sim
                 }
             }
 
+            ApplyCurrents(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp, deltaTime);
             ApplyPillars(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
 
             if (MathF.Abs(deltaX) > EnemyFacingDeadzone)
@@ -1785,6 +1803,8 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // Amendment #5: live pylon aura shields enemies inside it (×0.60, non-stacking).
+            amount *= PylonAuraMultiplier(enemy.State.X, enemy.State.Y);
             enemy.State.Health = MathF.Max(0f, enemy.State.Health - amount);
             _events |= SimEvents.EnemyHit;
 
@@ -2096,6 +2116,13 @@ namespace CinderCourt.Sim
             for (int index = 0; index < _hazardRuntime.Length; index += 1)
             {
                 _hazardRuntime[index] = default;
+                // Amendment #5: pylons start alive; one-hit guard starts unclaimed.
+                if (_hazards[index].Kind == HazardKind.EmberPylon)
+                {
+                    _hazardRuntime[index].Hp = _hazards[index].Hp;
+                }
+                _hazardRuntime[index].LastHitAttack = -1;
+                _hazardRuntime[index].Tick = -1;
             }
 
             if (_hack)
@@ -2283,7 +2310,9 @@ namespace CinderCourt.Sim
 
         /// <summary>
         /// Ember vents pulse on the cycle boundary and relic altars count dwell time.
-        /// Both run on stage time, so they keep ticking through the wave intermission.
+        /// Amendment #5: tide-currents raise their activation cue, ash-walls raise a
+        /// telegraph cue and apply band damage on the global 0.6 s tick grid. All run
+        /// on stage time, so they keep ticking through the wave intermission.
         /// </summary>
         private void UpdateHazards(float deltaTime)
         {
@@ -2309,6 +2338,66 @@ namespace CinderCourt.Sim
                         DamagePlayer(CampaignSpec.VentDamage);
                     }
                     continue;
+                }
+
+                if (hazard.Kind == HazardKind.TideCurrent)
+                {
+                    // One HazardPulse per activation boundary (t crosses telegraph end).
+                    float shifted = _stageTime + hazard.Phase - CampaignSpec.CurrentTelegraph;
+                    int activation = shifted < 0f
+                        ? 0
+                        : 1 + (int)MathF.Floor(shifted / CampaignSpec.CurrentPeriod);
+                    if (activation > runtime.Cycle)
+                    {
+                        runtime.Cycle = activation;
+                        _events |= SimEvents.HazardPulse;
+                    }
+                    continue;
+                }
+
+                if (hazard.Kind == HazardKind.AshWall)
+                {
+                    // One HazardPulse per telegraph entry (t crosses WallRest).
+                    float shifted = _stageTime + hazard.Phase - CampaignSpec.WallRest;
+                    int cycle = shifted < 0f
+                        ? 0
+                        : 1 + (int)MathF.Floor(shifted / CampaignSpec.WallPeriod);
+                    if (cycle > runtime.Cycle)
+                    {
+                        runtime.Cycle = cycle;
+                        _events |= SimEvents.HazardPulse;
+                    }
+
+                    // Damage rides the global 0.6 s tick grid; the band is symmetric.
+                    int tick = (int)MathF.Floor((_stageTime + hazard.Phase) / CampaignSpec.WallTickPeriod);
+                    if (tick <= runtime.Tick)
+                    {
+                        continue;
+                    }
+                    runtime.Tick = tick;
+                    float front = WallFrontX(hazard.Phase, _stageTime);
+                    if (front <= CampaignSpec.WallEdgeX)
+                    {
+                        continue;
+                    }
+                    if (_player.X < front)
+                    {
+                        DamagePlayer(CampaignSpec.WallTickDamage);
+                    }
+                    for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
+                    {
+                        ref Enemy enemy = ref _enemies[enemyIndex];
+                        if (!enemy.State.Dead && enemy.State.X < front)
+                        {
+                            DamageEnemy(ref enemy, CampaignSpec.WallTickDamage);
+                        }
+                    }
+                    continue;
+                }
+
+                if (hazard.Kind == HazardKind.EmberPylon)
+                {
+                    continue; // passive: struck via StrikePylons, aura via PylonAuraMultiplier
                 }
 
                 if (hazard.Kind != HazardKind.RelicAltar)
@@ -2379,6 +2468,129 @@ namespace CinderCourt.Sim
             }
         }
 
+        // --- Amendment #5 helpers (docs/SIM_SPEC_DUNGEONS.md) ------------------
+
+        /// <summary>Ash-wall leading edge at <paramref name="stageTime"/> (EdgeX = idle).</summary>
+        private static float WallFrontX(float phase, float stageTime)
+        {
+            float t = (stageTime + phase) % CampaignSpec.WallPeriod;
+            float advanceStart = CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+            float holdStart = advanceStart + CampaignSpec.WallAdvance;
+            float recedeStart = holdStart + CampaignSpec.WallHold;
+            if (t < advanceStart)
+            {
+                return CampaignSpec.WallEdgeX;
+            }
+            if (t < holdStart)
+            {
+                return CampaignSpec.WallEdgeX + (t - advanceStart) * CampaignSpec.WallSpeed;
+            }
+            if (t < recedeStart)
+            {
+                return CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax;
+            }
+            return CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax
+                - (t - recedeStart) * CampaignSpec.WallSpeed;
+        }
+
+        /// <summary>Tide-current push window test at <paramref name="stageTime"/>.</summary>
+        private static bool CurrentActiveAt(float phase, float stageTime)
+        {
+            float t = (stageTime + phase) % CampaignSpec.CurrentPeriod;
+            return t >= CampaignSpec.CurrentTelegraph
+                && t < CampaignSpec.CurrentTelegraph + CampaignSpec.CurrentActive;
+        }
+
+        /// <summary>
+        /// Active tide-currents push any actor inside their rect band (symmetric —
+        /// player and enemies alike). Runs after the actor's own move + clamp and
+        /// before pillar push-out; re-clamps when it moved the actor. Reads the
+        /// previous tick's <see cref="_stageTime"/> by contract (1-tick latency).
+        /// </summary>
+        private void ApplyCurrents(ref float x, ref float y, float clampMargin, float deltaTime)
+        {
+            bool pushed = false;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.TideCurrent
+                    || !CurrentActiveAt(hazard.Phase, _stageTime))
+                {
+                    continue;
+                }
+                if (MathF.Abs(x - hazard.X) > hazard.HalfW || MathF.Abs(y - hazard.Y) > hazard.HalfH)
+                {
+                    continue;
+                }
+                x += hazard.PushX * deltaTime;
+                y += hazard.PushY * deltaTime;
+                pushed = true;
+            }
+            if (pushed)
+            {
+                ClampToArena(ref x, ref y, clampMargin);
+            }
+        }
+
+        /// <summary>
+        /// One basic-attack/combo swing against every live pylon in range. Same
+        /// range/arc/one-hit-per-attackId rules as enemies, body radius widens the
+        /// reach. Skills never strike pylons (§Gimmick 2). Returns true if any hit.
+        /// </summary>
+        private bool StrikePylons(float damage)
+        {
+            bool landed = false;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.EmberPylon)
+                {
+                    continue;
+                }
+                ref HazardRuntime runtime = ref _hazardRuntime[index];
+                if (runtime.Hp <= 0f || runtime.LastHitAttack == _player.AttackId)
+                {
+                    continue;
+                }
+                float deltaX = hazard.X - _player.X;
+                float deltaY = (hazard.Y - _player.Y) * SimConfig.IsoY;
+                float reach = SimConfig.PlayerAttackRange + hazard.Radius;
+                if (deltaX * _player.Facing < SimConfig.FacingArcTolerance
+                    || deltaX * deltaX + deltaY * deltaY > reach * reach)
+                {
+                    continue;
+                }
+                runtime.LastHitAttack = _player.AttackId;
+                runtime.Hp = MathF.Max(0f, runtime.Hp - damage);
+                landed = true;
+                _events |= SimEvents.EnemyHit;
+                if (runtime.Hp <= 0f)
+                {
+                    _events |= SimEvents.PylonDown;
+                }
+            }
+            return landed;
+        }
+
+        /// <summary>
+        /// ×0.60 on damage TAKEN by an enemy inside any live pylon aura; stacking
+        /// is non-cumulative (§Gimmick 2). 1 when no pylon applies.
+        /// </summary>
+        private float PylonAuraMultiplier(float enemyX, float enemyY)
+        {
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind == HazardKind.EmberPylon
+                    && _hazardRuntime[index].Hp > 0f
+                    && IsoWithin(hazard.X, hazard.Y, enemyX, enemyY, CampaignSpec.PylonAuraRadius))
+                {
+                    return CampaignSpec.PylonAuraDamageTakenMult;
+                }
+            }
+            return 1f;
+        }
+
         /// <summary>Iso-weighted containment test (docs/SIM_SPEC.md distance rule).</summary>
         private static bool IsoWithin(float centerX, float centerY, float x, float y, float radius)
         {
@@ -2439,6 +2651,26 @@ namespace CinderCourt.Sim
                 else if (hazard.Kind == HazardKind.RelicAltar)
                 {
                     state.CooldownT = _hazardRuntime[index].Cooldown;
+                }
+                else if (hazard.Kind == HazardKind.TideCurrent)
+                {
+                    float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.CurrentPeriod;
+                    state.CycleT = cycleT;
+                    state.Telegraphing = cycleT < CampaignSpec.CurrentTelegraph;
+                    state.Active = CurrentActiveAt(hazard.Phase, _stageTime);
+                }
+                else if (hazard.Kind == HazardKind.AshWall)
+                {
+                    float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.WallPeriod;
+                    state.CycleT = cycleT;
+                    state.Telegraphing = cycleT >= CampaignSpec.WallRest
+                        && cycleT < CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+                    state.FrontX = WallFrontX(hazard.Phase, _stageTime);
+                    state.Active = state.FrontX > CampaignSpec.WallEdgeX;
+                }
+                else if (hazard.Kind == HazardKind.EmberPylon)
+                {
+                    state.Hp = _hazardRuntime[index].Hp;
                 }
                 _hazardView[index] = state;
             }

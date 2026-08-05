@@ -1886,13 +1886,17 @@ namespace CinderCourt.Tests
         }
 
         [Test]
+        // Gate: G7/D1 — amendment #5 widens Ember Rest rooms 1..5 -> 1..8
+        // (CampaignSpec.MaxEmberRestRoomIndex); offers stay valid + seed-stable
+        // across reopen for every new room, and the new boundary 9 rejects.
         public void EmberRest_ExtendedRoomsAreAvailableAndRepeatTheirOffersDeterministically()
         {
             var sim = ClearedCinderSpan();
             IRunPreparationSnapshot rest = sim;
-            Assert.That(sim.BeginEmberRest(6, 173), Is.False, "room six remains outside the 1..5 contract");
+            Assert.That(sim.BeginEmberRest(9, 173), Is.False,
+                "room nine remains outside the widened 1..8 contract");
 
-            for (int roomIndex = 4; roomIndex <= 5; roomIndex += 1)
+            for (int roomIndex = 4; roomIndex <= CampaignSpec.MaxEmberRestRoomIndex; roomIndex += 1)
             {
                 int rewardSeed = 173 + roomIndex;
                 Assert.That(sim.BeginEmberRest(roomIndex, rewardSeed), Is.True, $"room {roomIndex} must be available");

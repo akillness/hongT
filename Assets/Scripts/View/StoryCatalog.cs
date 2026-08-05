@@ -19,6 +19,13 @@ namespace CinderCourt.View
         public const string CinderWarden = "CINDER WARDEN";
         public const string VeilTactician = "VEIL TACTICIAN";
         public const string GateSovereign = "GATE SOVEREIGN";
+        // Cycle-2 executor-wing bosses (dungeon-roster-spec §비트). Same
+        // English-caps grammar; SpeechBubbleView has no color rule for these
+        // prefixes yet, so they render in the ambient watcher color until a
+        // bubble-side key is added.
+        public const string SluiceKeeper = "SLUICE KEEPER";
+        public const string BastionSentinel = "BASTION SENTINEL";
+        public const string AshMagistrate = "ASH MAGISTRATE";
 
         /// <summary>
         /// Looks up the line for a stage/beat pair. Lines are verbatim from the
@@ -158,6 +165,75 @@ namespace CinderCourt.View
                         case Completion:
                             speaker = DuskWarden;
                             text = "판결은 끝났다. 이제 등불은 네 손에서 다른 길을 밝힌다.";
+                            return true;
+                    }
+                    break;
+
+                // --- cycle-2 executor wing (additive — dungeon-roster-spec §비트).
+                // Table format is "화자: 대사"; the speaker rides the speaker
+                // field, the text below is the line after the colon, verbatim.
+                case "cinder-sluice":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "판결문은 잿물이 되어 수문 아래로 흐른다.";
+                            return true;
+                        case BossEntry:
+                            speaker = SluiceKeeper;
+                            text = "기록은 흘려보내야 한다.";
+                            return true;
+                        case BossPhase2:
+                            speaker = SluiceKeeper;
+                            text = "역류는… 허락되지 않는다!";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "말소된 이름 하나가 물살을 거슬러 떠올랐다.";
+                            return true;
+                    }
+                    break;
+
+                case "ember-bastion":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "위증자들이 방벽 뒤에서 숨죽인다.";
+                            return true;
+                        case BossEntry:
+                            speaker = BastionSentinel;
+                            text = "증언은 방패다. 뚫어 보아라.";
+                            return true;
+                        case BossPhase2:
+                            speaker = BastionSentinel;
+                            text = "방벽이 무너져도 위증은 남는다!";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "방벽이 꺼지자 위증의 불씨가 사그라들었다.";
+                            return true;
+                    }
+                    break;
+
+                case "ash-march":
+                    switch (beatKind)
+                    {
+                        case StageStart:
+                            speaker = Watcher;
+                            text = "재의 장벽이 행진한다 — 판결은 멈추지 않는다.";
+                            return true;
+                        case BossEntry:
+                            speaker = AshMagistrate;
+                            text = "형은 이미 집행되고 있다.";
+                            return true;
+                        case BossPhase2:
+                            speaker = AshMagistrate;
+                            text = "재 앞에서 모든 걸음은 무의미하다!";
+                            return true;
+                        case Completion:
+                            speaker = DuskWarden;
+                            text = "행진이 멎었다. 랜턴이 마지막 기록을 비춘다.";
                             return true;
                     }
                     break;

@@ -71,8 +71,6 @@ namespace CinderCourt.View
     /// </summary>
     public static class StageCatalog
     {
-        const int ValidClearMask = 0x3F;
-
         static readonly HazardConfig[] EmberGalleryHazards =
         {
             HazardConfig.Vent(560f, 480f, 0f),
@@ -135,7 +133,35 @@ namespace CinderCourt.View
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.87f, 0.78f, 0.41f), 1.18f, "Gate Sovereign"),
                 "ash-verdict", null),
+            // --- cycle-2 dungeon expansion (docs/SIM_SPEC_DUNGEONS.md) -------
+            // New SIM anchors (not overrides): each id matches its frozen
+            // CampaignStages anchor, so HazardOverride stays null.
+            new StageEntry(6, "cinder-sluice", "Cinder Sluice", "CINDER SLUICE", "재의 수문",
+                "skill-dash", "cinder-sluice", null, "ash-verdict", "abyss-chancel",
+                new Color(0.247f, 0.659f, 0.784f),                       // #3FA8C8
+                new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
+                    new Color(0.247f, 0.659f, 0.784f), 1.2f, "Sluice Keeper"),
+                "cinder-sluice", null),
+            new StageEntry(7, "ember-bastion", "Ember Bastion", "EMBER BASTION", "불씨 요새",
+                "skill-ward", "ember-bastion", null, "cinder-sluice", "cinder-span",
+                new Color(0.910f, 0.541f, 0.180f),                       // #E88A2E
+                new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
+                    new Color(0.910f, 0.541f, 0.180f), 1.22f, "Bastion Sentinel"),
+                "ember-bastion", null),
+            new StageEntry(8, "ash-march", "Ash March", "ASH MARCH", "재의 행진",
+                "skill-strike", "ash-march", null, "ember-bastion", "echo-throne",
+                new Color(0.722f, 0.690f, 0.643f),                       // #B8B0A4
+                new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
+                    new Color(0.722f, 0.690f, 0.643f), 1.25f, "Ash Magistrate"),
+                "ash-march", "scout-echo"),
         };
+
+        // Derived from the catalog length (9 entries -> 0x1FF) so adding a
+        // stage can never silently truncate persisted clear bits again — the
+        // 0x3F literal this replaces was written for the six-stage catalog.
+        // MUST be declared after AllEntries: static initializers run in
+        // declaration order, and this one reads AllEntries.Length.
+        internal static readonly int ValidClearMask = (1 << AllEntries.Length) - 1;
 
         // ------------------------------------------------------------ dressing --
         // Spec: deep-interview-vfx-terrain-command-hardening §Lane T-a.
@@ -220,6 +246,55 @@ namespace CinderCourt.View
             new DressingPlacement("terrain-cinder-span-prop-022",     768f, 975f, 180f, 14f),
         };
 
+        // Cycle-2 tables verify against the frozen SIM ANCHOR hazards
+        // (CampaignStages — the new stages carry no HazardOverride):
+        //   cinder-sluice: current(768,470)/(768,740) r0 + pillar(768,604) r40
+        //   ember-bastion: pylon(560,500)/(980,700) r30 + pillar(640,650)/
+        //                  (900,560) r40 + vent(768,604) r90
+        //   ash-march:     wall(x 248..608 band) + altar(1100,604) r70 +
+        //                  vent(980,480) r90
+        static readonly DressingPlacement[] CinderSluiceDressing =
+        {
+            // Channel walls flanking the two current lanes; gate mass up top.
+            new DressingPlacement("terrain-cinder-span-feature-010",  200f, 420f,  90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-011",  190f, 700f,  90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-012", 1340f, 430f, -90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-013", 1345f, 720f, -90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-006",  768f, 190f,   0f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-001",     500f, 260f,  15f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-002",    1010f, 255f, -20f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-003",     620f, 945f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-004",     950f, 950f, 160f, 12f),
+        };
+
+        static readonly DressingPlacement[] EmberBastionDressing =
+        {
+            // Rampart battlements ringing the fort on every closed edge.
+            new DressingPlacement("terrain-cinder-span-feature-020",  470f, 250f,   0f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-021",  770f, 215f,   0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-022", 1070f, 250f,   0f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-023",  205f, 500f,  35f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-024", 1335f, 620f, -35f, 15f),
+            new DressingPlacement("terrain-cinder-span-prop-020",     380f, 940f,  10f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-021",     900f, 955f, 340f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-022",    1240f, 930f, 200f, 12f),
+        };
+
+        static readonly DressingPlacement[] AshMarchDressing =
+        {
+            // Procession columns along top/right/bottom. Every placement keeps
+            // SimX >= 658 — the ash wall sweeps the x 248..608 band (y-full),
+            // so left-edge dressing would sit visually inside the crush lane.
+            new DressingPlacement("terrain-cinder-span-feature-001",  700f, 230f,   0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-002",  900f, 215f,  15f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-003", 1120f, 240f, -15f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-004", 1350f, 400f, -40f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-015", 1360f, 780f, 220f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-010",     760f, 940f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-011",    1000f, 955f, 170f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-012",    1240f, 945f, 190f, 12f),
+        };
+
         /// <summary>
         /// Dressing table for a logical stage; null when the stage's own terrain
         /// prefab already carries its authored dressing (cinder-span) or none is
@@ -232,6 +307,9 @@ namespace CinderCourt.View
                 case "ember-gallery": return EmberGalleryDressing;
                 case "witness-well": return WitnessWellDressing;
                 case "ash-verdict": return AshVerdictDressing;
+                case "cinder-sluice": return CinderSluiceDressing;
+                case "ember-bastion": return EmberBastionDressing;
+                case "ash-march": return AshMarchDressing;
                 default: return null;
             }
         }

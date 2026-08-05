@@ -102,6 +102,8 @@ namespace CinderCourt.Sim
         ExtractionComplete = 1 << 19,
         BossPhase2 = 1 << 20,
         ComboFinisher = 1 << 21,
+        // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
+        PylonDown = 1 << 22,
     }
 
     public struct RunDigest
