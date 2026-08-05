@@ -32,10 +32,15 @@ const { chromium } = require(path.join(ROOT, "..", "..", "..", "Abyssal-Surge", 
 
 const URL = "https://akillness.github.io/hongT/";
 const W = 1440, H = 900;
-const CINDER_SPAN = { x: 1273, y: 321 }; // stage-1 강하 (verified by smoke)
+// Ember Gallery card (stage 2): dressed combo stage — colonnade ridge, three
+// vents with imminence fill, pillar. Coordinate verified by deployed smokes.
+const EMBER_GALLERY = { x: 1271, y: 398 };
+// Returning veteran seed: cinder-span cleared (unlocks ember-gallery) and
+// T4 equipment — the fine-band socket props (ember blade, cyan lantern,
+// crimson cloak) and their bloom read on camera.
 const SEED = JSON.stringify({
-  clearedMask: 0,
-  equipment: { weapon: 0, lantern: 0, cloak: 0 },
+  clearedMask: 1,
+  equipment: { weapon: 4, lantern: 4, cloak: 4 },
   stats: { attack: 0, vitality: 0, swiftness: 0, points: 0 },
   relics: 0, roster: [], active: "", prologueDone: true,
 });
@@ -81,14 +86,15 @@ async function main() {
   await page.waitForTimeout(5200);
   beat("lobby-done");
 
-  // 2) Descend into Cinder Span (campaign stage 1).
-  await page.mouse.click(CINDER_SPAN.x, CINDER_SPAN.y);
-  beat("cinder-span");
+  // 2) Descend into Ember Gallery (dressed stage: T-a set dressing, V2 vent
+  //    fill, split-terrain grammar; T4 props on the warden; V4 bloom).
+  await page.mouse.click(EMBER_GALLERY.x, EMBER_GALLERY.y);
+  beat("ember-gallery");
   await page.waitForTimeout(1500);
   // step off the spawn vents immediately
-  await page.keyboard.down("KeyW"); await page.keyboard.down("KeyD");
+  await page.keyboard.down("KeyS"); await page.keyboard.down("KeyD");
   await page.waitForTimeout(650);
-  await page.keyboard.up("KeyW"); await page.keyboard.up("KeyD");
+  await page.keyboard.up("KeyS"); await page.keyboard.up("KeyD");
 
   // Combat helpers -----------------------------------------------------------
   let flip = false;

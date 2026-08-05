@@ -11,10 +11,10 @@
 
 | # | 제출물 | 제출 형태 | 이 저장소의 산출물 | 상태 |
 |---|---|---|---|---|
-| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 146/146 통과 |
-| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (55.0 s, 1440×900) | 배포 빌드 재캡처 완료 (로비→캠페인 1단계→명령 콘솔→웨이브 2→재강하) · **업로드 필요** |
-| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (146/146 반영) |
-| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 + 명령 콘솔 포함) | 마크다운·PDF 재생성 완료 (146/146 반영) |
+| 1 | 플레이 가능한 빌드 및 소스 코드 | GitHub Pages + 전체 소스 | <https://akillness.github.io/hongT/> · <https://github.com/akillness/hongT> | Unity 6000.5.6f1 WebGL 빌드 통과 · EditMode 166/166 통과 |
+| 2 | 플레이 동영상 | YouTube 링크 (30~60초) | `assets/video/nan2026-cinder-court-unity-play.mp4` (55.0 s, 1440×900) | 배포 빌드 재캡처 완료 (로비→Ember Gallery 드레싱/프롭/블룸→명령 콘솔) · **업로드 필요** |
+| 3 | 게임 소개 및 설명 문서 | PDF | [`01-game-overview.md`](01-game-overview.md) → [`pdf/01-game-overview.pdf`](pdf/01-game-overview.pdf) | 마크다운·PDF 재생성 완료 (166/166 반영) |
+| 4 | AI 활용 기술 문서 | PDF | [`02-ai-tech.md`](02-ai-tech.md) → [`pdf/02-ai-tech.pdf`](pdf/02-ai-tech.pdf) (0-bis Unity 증보 + 명령 콘솔 포함) | 마크다운·PDF 재생성 완료 (166/166 반영) |
 | 5 | 팀원 롤 기술서 | PDF | [`03-team-roles.md`](03-team-roles.md) → [`pdf/03-team-roles.pdf`](pdf/03-team-roles.pdf) | 마크다운·PDF 재생성 완료 |
 
 ## 페이지 구성 (제출물 1)

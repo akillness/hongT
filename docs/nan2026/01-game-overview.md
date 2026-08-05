@@ -144,7 +144,7 @@ python3 -m http.server 4173 --directory build-webgl
 ## 3.3 검증 실행
 
 ```bash
-bash tools/unity_batch.sh tests   # EditMode 테스트 146/146 통과, 실패 0
+bash tools/unity_batch.sh tests   # EditMode 테스트 166/166 통과, 실패 0
 ```
 Unity 6000.5.6f1 WebGL 빌드도 통과했습니다.
 
@@ -160,13 +160,14 @@ Unity 6000.5.6f1 WebGL 빌드도 통과했습니다.
 
 영상은 **배포된 GitHub Pages 빌드를 실제 브라우저에서 실제 키·마우스 입력으로
 플레이한 화면을 그대로 녹화**한 것입니다 (`tools/video/capture-unity-play.mjs`,
-Playwright 녹화 + CDP 입력, 프롤로그 클리어 저장 시드 후 복귀 플레이어 시점).
-프레임 합성·보간·재생성이 없으며, 로비(성장/장비/군단 탭·6단계 출정 카드) →
-캠페인 1단계 Cinder Span 강하 → 근접 전투·레벨업 → **동료 명령 콘솔**(Enter,
-`shield`/`nova` 명령 → Void Aegis·잿불 노바 시전) → 웨이브 2 (점수 1,100·유물
-2) → 함락 → 재강하까지 실제 게임 루프가 담겨 있습니다. headless 캡처 환경은
-한글 IME 조합이 불가해 콘솔 명령은 파서의 영문 별칭을 사용했습니다 — 화면
-피드백("잿불 노바 시전" 등)은 한국어 그대로입니다.
+Playwright 녹화 + CDP 입력, 1단계 클리어·T4 장비 저장 시드 후 복귀 플레이어
+시점). 프레임 합성·보간·재생성이 없으며, 로비(성장/장비/군단 탭·6단계 출정
+카드) → **캠페인 2단계 Ember Gallery 강하**(드레싱 유적·벤트 3기 임박도 fill·
+T4 본 소켓 장비 프롭·블룸 포스트) → 근접 전투 → **동료 명령 콘솔**(Enter,
+`shield`/`nova` 명령 → Void Aegis·잿불 노바 시전 + 원소 파티클) → 전투
+지속까지 실제 게임 루프가 담겨 있습니다. headless 캡처 환경은 한글 IME 조합이
+불가해 콘솔 명령은 파서의 영문 별칭을 사용했습니다 — 화면 피드백("잿불 노바
+시전" 등)은 한국어 그대로입니다.
 
 ---
 

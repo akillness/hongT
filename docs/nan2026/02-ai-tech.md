@@ -16,11 +16,12 @@ lang: ko
 | 3D 캐릭터 재스키닝 | Blender 5.1 headless + 에이전트 워크플로 | 8종 휴머노이드 FBX (본히트 자동 웨이트) |
 | 모션 | Mixamo 벤치 FBX → Unity Humanoid 리타겟 | 11액션 공유 라이브러리 |
 | 사운드 | **ElevenLabs sound-generation API** | SFX 8종 + 로어 앰비언트 + BGM 루프 (`docs/provenance/audio.json`) |
-| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 146/146 통과, 실패 0 |
-| 플레이 영상 | Playwright 녹화 + CDP 실입력 하니스 | 배포 빌드 실플레이 55 s (로비→프롤로그→웨이브 2→재강하) |
+| 게임 코드·검증 | 오케스트레이터(Claude) + gjc 위임 레인 | 결정론 심·캠페인·View·애니메이션 게이트; EditMode 166/166 통과, 실패 0 |
+| 플레이 영상 | Playwright 녹화 + CDP 실입력 하니스 | 배포 빌드 실플레이 55 s (로비→Ember Gallery→명령 콘솔) |
 | **동료 명령 콘솔** | 로컬 키워드 파서 (기본) + **선택적 Gemini 2.0 Flash** 자유문장 폴백 | 던전 내 자연어 명령 → 닫힌 의도 집합 → 결정론 SimInput 래치 (분류 테스트 20종) |
 | UI 아이콘 세트 | god-tibo-imagen (gpt-5.4) + 마젠타 키 매팅 | 스킬 7·장비 3·스탯 3·픽업 3·앱 1·버튼 9-slice 플레이트 (256px 스프라이트, `Assets/Resources/Icons/`) |
 | 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX 변환 → URP Unlit 리맵 | 3개 지형 앵커를 공유하는 6단계 캠페인 바닥·소품·피처 프리팹 (`Assets/Resources/Terrain/`) |
+| 시각 오버홀 (딥인터뷰 스펙 8레인) | Socratic 딥인터뷰 → 스펙 동결 → 레인별 게이트 배포 | 스테이지 드레싱 테이블(무 RNG)·융합 터레인 연결성 분할 48파츠·벤트 임박도 fill·원소 파티클 4계열·시전 글로우·본 소켓 장비 프롭 6종(retained 원작 메시 재가공)·URP 블룸/비네트(실측 p95 10ms 게이트)·Gemini 키 난독화 저장 |
 | 브랜드 범퍼 | Remotion 4 프로그래매틱 렌더 | `hongt-brand-bumper.mp4` (1280×720, 9.4 s) |
 
 **모션 애니메이션 재가공과 런타임 안전 계약.** 원작 3D 파이프라인의 절차적
