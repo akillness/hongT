@@ -2,6 +2,7 @@
 // Arena regression is owned by CinderSimTests.cs (20 tests) — untouched.
 using System;
 using CinderCourt.Sim;
+using CinderCourt.View;
 using NUnit.Framework;
 
 namespace CinderCourt.Tests
@@ -387,7 +388,8 @@ namespace CinderCourt.Tests
             return default;
         }
 
-        // Gate: R4/G2 — stage table + v1.1 placement tables per SIM_SPEC_DUNGEONS §Stages/§배치.
+        // Gate: R4/G2 — stage table + placement tables per SIM_SPEC_DUNGEONS §Stages/§배치
+        // (sluice/bastion v1.1; march v1.2 — REVISION v1.2 adds the finale pylon).
         [Test]
         public void StageTable_MatchesDungeonAmendment()
         {
@@ -462,11 +464,13 @@ namespace CinderCourt.Tests
             Assert.AreEqual(768f, bastion[5].X); Assert.AreEqual(604f, bastion[5].Y);
             Assert.AreEqual(0.6f, bastion[5].Phase);
 
-            // ash-march v1.1: wall(left,0) · wall(right,11.5) · altar(768,604) ·
-            // vent(560,760,0.6) · vent(980,450,1.8) — closing jaws at half-period
-            // offset, altar moved to the centre as the corridor reward.
+            // ash-march v1.2: wall(left,0) · wall(right,11.5) · altar(768,604) ·
+            // pylon(768,520) · vent(560,760,0.6) · vent(980,450,1.8) — closing jaws at
+            // half-period offset; the finale pylon guards the corridor altar (aura 280
+            // covers it at iso 119: wall rhythm + shield war + altar risk converge,
+            // campaign-fun-pass-spec.md §8).
             var march = Stage(CampaignStages.AshMarch).Hazards;
-            Assert.AreEqual(5, march.Length);
+            Assert.AreEqual(6, march.Length);
             Assert.AreEqual(HazardKind.AshWall, march[0].Kind);
             Assert.AreEqual(CampaignSpec.WallEdgeX, march[0].X);
             Assert.AreEqual(0f, march[0].Phase);
@@ -477,12 +481,16 @@ namespace CinderCourt.Tests
             Assert.AreEqual(-1f, march[1].PushX, "PushX −1 = right-edge encoding (spec v1.1)");
             Assert.AreEqual(HazardKind.RelicAltar, march[2].Kind);
             Assert.AreEqual(768f, march[2].X); Assert.AreEqual(604f, march[2].Y);
-            Assert.AreEqual(HazardKind.EmberVent, march[3].Kind);
-            Assert.AreEqual(560f, march[3].X); Assert.AreEqual(760f, march[3].Y);
-            Assert.AreEqual(0.6f, march[3].Phase);
+            Assert.AreEqual(HazardKind.EmberPylon, march[3].Kind, "v1.2 finale pylon");
+            Assert.AreEqual(768f, march[3].X); Assert.AreEqual(520f, march[3].Y);
+            Assert.AreEqual(CampaignSpec.PylonHp, march[3].Hp);
+            Assert.AreEqual(CampaignSpec.PylonBodyRadius, march[3].Radius);
             Assert.AreEqual(HazardKind.EmberVent, march[4].Kind);
-            Assert.AreEqual(980f, march[4].X); Assert.AreEqual(450f, march[4].Y);
-            Assert.AreEqual(1.8f, march[4].Phase);
+            Assert.AreEqual(560f, march[4].X); Assert.AreEqual(760f, march[4].Y);
+            Assert.AreEqual(0.6f, march[4].Phase);
+            Assert.AreEqual(HazardKind.EmberVent, march[5].Kind);
+            Assert.AreEqual(980f, march[5].X); Assert.AreEqual(450f, march[5].Y);
+            Assert.AreEqual(1.8f, march[5].Phase);
         }
 
         // Gate: G2 — v1.1 tide-current: bands y 360-580/630-850 (halfH 110), push 200,
@@ -870,16 +878,19 @@ namespace CinderCourt.Tests
             return -1f;
         }
 
-        // Gate: G2 — ash-wall v1.1 kinematics + tick discipline (§Gimmick 3):
-        // cycle 23.0 s = rest 4.5 / telegraph 1.5 / advance 7 / hold 3 / recede 7,
-        // speed 80; LEFT band grows from x 248, RIGHT wall (phase 11.5) mirrors from
-        // x 1288; exact-10 drops ride the 0.6 s global grid; walls alone kill with
-        // full credit.
+        // Gate: G2 — ash-wall kinematics + tick discipline (§Gimmick 3, march table
+        // v1.2): cycle 23.0 s = rest 4.5 / telegraph 1.5 / advance 7 / hold 3 /
+        // recede 7, speed 80; LEFT band grows from x 248, RIGHT wall (phase 11.5)
+        // mirrors from x 1288; exact-10 drops ride the 0.6 s global grid; walls
+        // alone kill with full credit.
         [Test]
         public void AshWall_TimetableAndTicks()
         {
-            // (1) timetable — kiter keeps the sim alive (a parked-idle bot dies to
-            // melee saturation, freezing the hazard clock with it). Both walls are
+            // (1) timetable — corridor-mid bot keeps the sim alive (v1.2: the finale
+            // pylon shields the centre pack ×0.40, and the plain kiter now dies at
+            // t≈16.2 fighting shielded enemies — probed; the corridor bot one-shots
+            // arrivals mid-corridor and provably survives past t=23). Wall clocks run
+            // on stage time, so the samples are bot-independent. Both walls are
             // sampled at t = 4.5 / 7 / 13.5 / 20 s (ticks 270/420/810/1200).
             var config = Stage(CampaignStages.AshMarch, 5, 5, 5);
             var sim = new CinderSim(in config);
@@ -887,8 +898,8 @@ namespace CinderCourt.Tests
             var rightSamples = new System.Collections.Generic.Dictionary<int, float>();
             for (var t = 1; t <= 1200; t++)
             {
-                Assert.AreNotEqual(SimMode.GameOver, sim.Mode, "5/5/5 kiter must survive to t=20");
-                sim.Tick(BotInput(sim));
+                Assert.AreNotEqual(SimMode.GameOver, sim.Mode, "5/5/5 corridor bot must survive to t=20");
+                sim.Tick(CorridorMidInput(sim));
                 if (t == 270 || t == 420 || t == 810 || t == 1200)
                 {
                     leftSamples[t] = FindHazard(
@@ -1173,18 +1184,31 @@ namespace CinderCourt.Tests
         }
 
         // Gate: D3 — simultaneous-telegraph census (qa band 5): ≤3 concurrent, ≤2
-        // same-kind. v1.1 LCM windows: sluice LCM(6,2.4)=12 s (kiter), bastion
+        // same-kind. Anchor windows (v1.1): sluice LCM(6,2.4)=12 s (kiter), bastion
         // vent-only 2.4 s (sampled 3 s, kiter), march LCM(23,2.4)=276 s — swept
         // analytically over the full LCM with a byte-exact mirror of the published
         // telegraph windows, after the mirror is cross-checked tick-for-tick against
         // the live sim for one whole 23 s wall period (a corridor-mid bot provably
-        // survives that; no bot is guaranteed 4.6 min under the v1.1 walls).
+        // survives that; no bot is guaranteed 4.6 min under the walls).
+        // v1.2 fun-pass catalog overrides (campaign-fun-pass-spec.md 사전 산술):
+        // gallery vent-ring LCM 2.4 s (sampled 3 s — same-kind pairs overlap 0.2 s on
+        // the 0.6 s ring: max 2) · well LCM 2.4 s (altars never telegraph: max 1) ·
+        // throne LCM(6,2.4)=12 s (current tel [0,0.8) meets vent tel: max 2) ·
+        // verdict LCM 2.4 s (pylon never telegraphs: max 1). All ≤3 / ≤2. Probed
+        // maxima: 2/1/2/1 (gallery/well/throne/verdict), kiter survives every window.
         [Test]
         public void Telegraph_CensusUnderBudget()
         {
             AssertTelegraphCensus(CampaignStages.CinderSluice, 60 * 12, BotInput);
             AssertTelegraphCensus(CampaignStages.EmberBastion, 60 * 3, BotInput);
             AssertTelegraphCensus(CampaignStages.AshMarch, 60 * 23, CorridorMidInput);
+
+            // v1.2 logical stages — catalog override tables, hack lane (the lane that
+            // ships them via GameDirector.StartDungeon).
+            AssertTelegraphCensus(CatalogStage555("ember-gallery"), "ember-gallery", 60 * 3, BotInput);
+            AssertTelegraphCensus(CatalogStage555("witness-well"), "witness-well", 60 * 3, BotInput);
+            AssertTelegraphCensus(CatalogStage555("echo-throne"), "echo-throne", 60 * 12, BotInput);
+            AssertTelegraphCensus(CatalogStage555("ash-verdict"), "ash-verdict", 60 * 3, BotInput);
 
             // march full-LCM analytic sweep (mirror validated tick-exactly above).
             var march = Stage(CampaignStages.AshMarch);
@@ -1215,13 +1239,25 @@ namespace CinderCourt.Tests
 
         static void AssertTelegraphCensus(string stageId, int ticks, CensusBot bot)
         {
+            var config = Stage(stageId, 5, 5, 5);
+            AssertTelegraphCensus(new CinderSim(in config), config.Hazards, stageId, ticks, bot);
+        }
+
+        // v1.2 overload — logical catalog stage on the hack lane (override applied
+        // exactly like GameDirector.StartDungeon; see CatalogStage555).
+        static void AssertTelegraphCensus(HackConfig config, string stageId, int ticks, CensusBot bot)
+        {
+            AssertTelegraphCensus(new CinderSim(in config), config.Hazards, stageId, ticks, bot);
+        }
+
+        static void AssertTelegraphCensus(
+            CinderSim sim, HazardConfig[] table, string stageId, int ticks, CensusBot bot)
+        {
             // Hazard clocks run on stage time (they tick through intermissions), so a
             // surviving bot samples the full window deterministically. The analytic
             // mirror must agree with every published Telegraphing flag — that is what
             // licenses the mirror-only 276 s march sweep (same float accumulation:
             // stageClock += FixedStep, bit-identical to the sim's stage clock).
-            var config = Stage(stageId, 5, 5, 5);
-            var sim = new CinderSim(in config);
             var maxTotal = 0;
             var maxSameKind = 0;
             var stageClock = 0f;
@@ -1237,7 +1273,7 @@ namespace CinderCourt.Tests
                 perKind.Clear();
                 for (var i = 0; i < hazards.Count; i++)
                 {
-                    Assert.AreEqual(hazards[i].Telegraphing, MirrorTelegraph(config.Hazards[i], stageClock),
+                    Assert.AreEqual(hazards[i].Telegraphing, MirrorTelegraph(table[i], stageClock),
                         $"{stageId}: telegraph mirror must match the sim at tick {t + 1}");
                     if (!hazards[i].Telegraphing) continue;
                     total++;
@@ -1384,6 +1420,408 @@ namespace CinderCourt.Tests
             for (var t = 0; t < 1800 && sim.Mode != SimMode.GameOver; t++)
                 sim.Tick(CorridorMidInput(sim));
             return (sim.Digest, sim.Player.X, sim.Player.Y);
+        }
+
+        // --- cycle-2 v1.2 campaign fun pass (docs/SIM_SPEC_DUNGEONS.md REVISION
+        // v1.2 + _workspace/current/design/campaign-fun-pass-spec.md) ------------
+        // Every logical stage = one dominant gimmick (preview→mastery lineage).
+        // Stages 1/3/4/5 ship as StageCatalog HazardOverride tables (view data,
+        // hack lane); stage 8 (ash-march) is the one SIM anchor change (finale
+        // pylon 768,520). These tests pin the OVERRIDE tables exactly as
+        // GameDirector.StartDungeon runs them: TryDungeon(anchor) + catalog
+        // HazardOverride replacing the anchor placement.
+
+        /// <summary>A logical catalog stage on the hack lane, like GameDirector.StartDungeon.</summary>
+        static HackConfig CatalogStage(string catalogId, int weapon, int lantern, int cloak)
+        {
+            Assert.IsTrue(StageCatalog.TryGet(catalogId, out var entry), $"unknown catalog id {catalogId}");
+            Assert.IsTrue(
+                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), null, 0, out var config),
+                $"unknown anchor {entry.SimAnchorId}");
+            if (entry.HazardOverride != null) config.Hazards = entry.HazardOverride;
+            return config;
+        }
+
+        static HackConfig CatalogStage555(string catalogId) => CatalogStage(catalogId, 5, 5, 5);
+
+        // Gate: G2/D3 (v1.2) — echo-throne "왕좌의 조류" current preview: the weak
+        // band (push +120, phase 0.3, halfH 110) covers the central altar; an idle
+        // player parked in-band is displaced ONLY across active-interior ticks
+        // ([0.8,4.0)+6k local = [0.5,3.7)+6k stage time), never during
+        // telegraph/idle — and the push provably interrupts the altar channel:
+        // spawn (768,646) is inside altar r70 (iso 59.6), the hold starts
+        // immediately, but the active push ejects the player from r70 at t≈0.82 s
+        // (probed exit tick 49) BEFORE the 1.2 s hold completes → no blessing in
+        // the whole first cycle. Boundary-position channel interruption is
+        // flaky-by-geometry (the deadzone bot can out-walk the 120 px/s push at
+        // 218 px/s), so per the fun-pass assignment this asserts displacement>0
+        // during active + hold interruption instead — both deterministic.
+        [Test]
+        public void EchoThrone_CurrentPreview_PushesAndInterruptsChannel()
+        {
+            var config = CatalogStage("echo-throne", 0, 0, 5);
+            var current = default(HazardConfig);
+            var found = false;
+            foreach (var hazard in config.Hazards)
+            {
+                if (hazard.Kind != HazardKind.TideCurrent) continue;
+                current = hazard;
+                found = true;
+            }
+            Assert.IsTrue(found, "echo-throne v1.2 must carry the throne tide current");
+            Assert.AreEqual(768f, current.X); Assert.AreEqual(604f, current.Y);
+            Assert.AreEqual(120f, current.PushX, "spec: 약류 push +120");
+            Assert.AreEqual(0.3f, current.Phase);
+            Assert.AreEqual(CampaignSpec.CurrentHalfH, current.HalfH,
+                "halfH 110 → band y 494..714 covers the altar (design intent)");
+
+            var sim = new CinderSim(in config);
+            var pushedActive = 0;
+            var pushedOutside = 0;
+            var blessings = 0;
+            var exitTick = -1;
+            var xPrev = sim.Player.X;
+            var prevStageClock = 0f;   // stage clock BEFORE this tick's UpdateHazards
+            var stageClock = 0f;
+            for (var t = 1; t <= 240; t++)   // one full current cycle (4 s > 0.5+3.2)
+            {
+                sim.Tick(Idle);
+                if ((sim.Events & SimEvents.AltarBlessing) != 0) blessings++;
+                // ApplyCurrents reads the PREVIOUS tick's stage clock (1-tick latency
+                // is contract). Mirror the sim's float accumulation byte-for-byte
+                // (stageClock += FixedStep) — integer-division arithmetic drifts off
+                // the sim clock near window boundaries (census mirror precedent).
+                prevStageClock = stageClock;
+                stageClock += SimConfig.FixedStep;
+                var local = (prevStageClock + current.Phase) % CampaignSpec.CurrentPeriod;
+                var activePrev = local >= CampaignSpec.CurrentTelegraph
+                    && local < CampaignSpec.CurrentTelegraph + CampaignSpec.CurrentActive;
+                if (sim.Player.X > xPrev + 1e-6f)
+                {
+                    if (activePrev) pushedActive++;
+                    else pushedOutside++;
+                }
+                xPrev = sim.Player.X;
+                float dx = sim.Player.X - 768f, dy = (sim.Player.Y - 604f) * SimConfig.IsoY;
+                if (exitTick < 0 && dx * dx + dy * dy > CampaignSpec.AltarRadius * CampaignSpec.AltarRadius)
+                    exitTick = t;
+            }
+            Assert.GreaterOrEqual(pushedActive, 150, "active window must displace the parked player (+x)");
+            Assert.AreEqual(0, pushedOutside, "zero drift outside the active push window");
+            Assert.IsTrue(exitTick > 0 && exitTick < 72,
+                $"push must eject the player from altar r70 before the 1.2 s hold completes (exit tick {exitTick})");
+            Assert.AreEqual(0, blessings,
+                "the interrupted channel must NOT bless during the first current cycle");
+        }
+
+        // Gate: G2 (v1.2) — the throne altar channel is completable inside the
+        // current rest window (local [4.0,6.0), push-free through the following
+        // telegraph until [6.8): 2.8 s ≥ 1.2 s hold — the spec's timing puzzle).
+        // Bot parks OUT of band (y 790 > band edge 714) through the first active
+        // window, walks in when the rest window opens (stage t 3.7 s), holds the
+        // altar: blessing fires (probed tick 346 = local 4.07+2.0-0.3) with the
+        // current provably inactive and the player inside r70.
+        [Test]
+        public void EchoThrone_AltarChannel_CompletesInRestWindow()
+        {
+            var config = CatalogStage("echo-throne", 0, 0, 5);
+            var sim = new CinderSim(in config);
+            var blessTick = -1;
+            var activeAtBless = false;
+            var insideAtBless = false;
+            for (var t = 1; t <= 480 && blessTick < 0; t++)
+            {
+                var input = t <= 222   // stage t 3.7 s: rest window opens (0.3 phase)
+                    ? HoldPosition(sim, 768f, 790f)    // south of band edge y 714
+                    : HoldPosition(sim, 768f, 604f);   // walk onto the altar
+                sim.Tick(in input);
+                if ((sim.Events & SimEvents.AltarBlessing) == 0) continue;
+                blessTick = t;
+                var hazards = ((ICampaignSnapshot)sim).Hazards;
+                for (var i = 0; i < hazards.Count; i++)
+                    if (hazards[i].Kind == HazardKind.TideCurrent)
+                        activeAtBless = hazards[i].Active;
+                float dx = sim.Player.X - 768f, dy = (sim.Player.Y - 604f) * SimConfig.IsoY;
+                insideAtBless = dx * dx + dy * dy <= CampaignSpec.AltarRadius * CampaignSpec.AltarRadius;
+            }
+            Assert.Greater(blessTick, 222, "blessing must land after the rest-window walk-in");
+            Assert.LessOrEqual(blessTick, 408, "blessing must land before the next push window (6.8 s)");
+            Assert.IsFalse(activeAtBless, "the completing channel must ride the push-free window");
+            Assert.IsTrue(insideAtBless, "the blessing must land while holding altar r70");
+        }
+
+        // Gate: G2/D3 (v1.2) — ember-gallery "불씨 윤무" vent ring: 4 vents,
+        // clockwise phase lattice 0/0.6/1.2/1.8 on the 2.4 s period around the
+        // central pillar. Pulse order over one period is fixed: phase 1.8 wraps
+        // first (0.6 s), then 1.2 (1.2 s), 0.6 (1.8 s), 0 (2.4 s) — i.e. table
+        // indices 3→2→1→0, one pulse every 0.6 s, exactly 8 over two periods,
+        // never two ring vents on the same tick. Census: ≤2 same-kind concurrent
+        // telegraphs (adjacent ring phases overlap 0.2 s of the 0.8 s window).
+        [Test]
+        public void EmberGallery_VentRing_PulsesInPhaseOrder()
+        {
+            var config = CatalogStage("ember-gallery", 0, 0, 5);
+            Assert.AreEqual(5, config.Hazards.Length, "gallery v1.2: 4 ring vents + centre pillar");
+            var ringPhases = new[] { 0f, 0.6f, 1.2f, 1.8f };
+            for (var i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(HazardKind.EmberVent, config.Hazards[i].Kind, $"gallery[{i}]");
+                Assert.AreEqual(ringPhases[i], config.Hazards[i].Phase, $"gallery[{i}] ring phase");
+            }
+            Assert.AreEqual(HazardKind.ObsidianPillar, config.Hazards[4].Kind, "gallery[4] centre pillar");
+
+            // Pulse EVENT ticks are the runtime truth; snapshot fmod-wrap and the
+            // event floor can disagree by one tick at a cycle boundary, and the
+            // exact boundary tick differs between dotnet and Unity float
+            // accumulation (~ULP). So assert the LATTICE PATTERN, not tick ids:
+            // 4 pulses per 2.4 s period, spaced 36±1 ticks apart.
+            var sim = new CinderSim(in config);
+            var pulseTicks = new System.Collections.Generic.List<int>();
+            for (var t = 1; t <= 289; t++)   // two full periods + boundary slack
+            {
+                sim.Tick(Idle);
+                if ((sim.Events & SimEvents.HazardPulse) != 0)
+                {
+                    pulseTicks.Add(t);
+                }
+            }
+            Assert.IsTrue(pulseTicks.Count >= 8, $"two periods × 4 ring vents (saw {pulseTicks.Count})");
+            for (var p = 1; p < pulseTicks.Count && p < 8; p++)
+            {
+                var gap = pulseTicks[p] - pulseTicks[p - 1];
+                Assert.IsTrue(gap >= 35 && gap <= 37,
+                    $"ring pulses ride the 0.6 s lattice ±1 tick (gap {gap} at pulse {p})");
+            }
+            // Order pin: the snapshot wrap sequence is the phase lattice
+            // 1.8→1.2→0.6→0 (vent indices 3→2→1→0). Wrap detection is exact on
+            // any runtime; only its alignment with the event tick is not.
+            var wrapOrder = new System.Collections.Generic.List<int>();
+            var sim2 = new CinderSim(in config);
+            var prevCycleT = new float[4];
+            var initialized = false;
+            for (var t = 1; t <= 289 && wrapOrder.Count < 8; t++)
+            {
+                sim2.Tick(Idle);
+                var hazards = ((ICampaignSnapshot)sim2).Hazards;
+                for (var i = 0; i < 4; i++)
+                {
+                    var cycleT = hazards[i].CycleT;
+                    if (initialized && cycleT < prevCycleT[i] && wrapOrder.Count < 8)
+                    {
+                        wrapOrder.Add(i);
+                    }
+                    prevCycleT[i] = cycleT;
+                }
+                initialized = true;
+            }
+            Assert.AreEqual(8, wrapOrder.Count, "two periods × 4 ring wraps");
+            for (var p = 0; p < wrapOrder.Count; p++)
+            {
+                Assert.AreEqual(new[] { 3, 2, 1, 0 }[p % 4], wrapOrder[p],
+                    "ring pulse order is the fixed phase lattice 1.8→1.2→0.6→0");
+            }
+        }
+
+        // Gate: G2 (v1.2) — ash-verdict "판결의 방벽" pylon preview: pylon
+        // (960,540) aura 280 covers the central altar (iso 212.4), so an enemy
+        // fought AT the altar is shielded ×0.40 until the pylon falls — then the
+        // same gated strike lands raw damage. Campaign lane (basic-attack
+        // arithmetic is exact there: weapon-5 swing 75.4), catalog override table
+        // applied like the classic-successor route (GameDirectorCampaignRouteTests
+        // pattern). Deterministic single-sim arc, no lockstep twin needed.
+        [Test]
+        public void AshVerdict_PylonAura_ShieldsAltarUntilPylonDown()
+        {
+            Assert.IsTrue(StageCatalog.TryGet("ash-verdict", out var entry));
+            Assert.IsNotNull(entry.HazardOverride, "ash-verdict v1.2 ships an override table");
+            var config = Stage(entry.SimAnchorId, weapon: 5, cloak: 5);
+            config.Hazards = entry.HazardOverride;
+
+            // Geometry pin first: the altar centre must sit inside the aura
+            // (iso 212.4 ≤ 280). The triangle bound alone (altar-park ≤12 px +
+            // strike gate 100 → enemy ≤ iso 112 of centre → ≤ 324.4 of the pylon)
+            // does NOT prove in-aura, so the shield claim also asserts the
+            // MEASURED pylon distance of the actually-struck enemy below.
+            float pylonDx = 960f - 768f, pylonDy = (540f - 604f) * SimConfig.IsoY;
+            var pylonAltarIso = MathF.Sqrt(pylonDx * pylonDx + pylonDy * pylonDy);
+            Assert.Less(pylonAltarIso, CampaignSpec.PylonAuraRadius,
+                "verdict pylon aura must cover the altar centre (iso 212.4 ≤ 280)");
+
+            var sim = new CinderSim(in config);
+            var shieldedDelta = -1f;
+            var unshieldedDelta = -1f;
+            var shieldedEnemyPylonIso = -1f;
+            var pylonDowns = 0;
+            var stage = 0;   // 0 gate-strike shielded → 1 kill pylon → 2 gate-strike raw
+            for (var t = 1; t <= 60 * 30 && sim.Mode != SimMode.GameOver; t++)
+            {
+                SimInput input = default;
+                var targetIdx = -1;
+                if (stage == 1)
+                {
+                    // Walk to the pylon and swing until PylonDown (4×75.4 ≥ 300).
+                    float dx = 960f - sim.Player.X, dy = 540f - sim.Player.Y;
+                    if (dx * dx + dy * dy > 130f * 130f)
+                    {
+                        var len = MathF.Max(0.001f, MathF.Sqrt(dx * dx + dy * dy));
+                        input.MoveX = dx / len; input.MoveY = dy / len;
+                    }
+                    else if (sim.Player.Facing != 1) input.MoveX = 1f;
+                    else input.AttackQueued = true;
+                }
+                else
+                {
+                    input = AltarGateStrikeInput(sim, out targetIdx);
+                }
+                float[] before = null;
+                var count = sim.Enemies.Count;
+                if (input.AttackQueued && stage != 1)
+                {
+                    before = new float[count];
+                    for (var i = 0; i < count; i++) before[i] = sim.Enemies[i].Health;
+                }
+                sim.Tick(in input);
+                if ((sim.Events & SimEvents.PylonDown) != 0)
+                {
+                    pylonDowns++;
+                    if (stage == 1) stage = 2;
+                }
+                if (before == null || sim.Enemies.Count != count || targetIdx < 0) continue;
+                var delta = before[targetIdx] - sim.Enemies[targetIdx].Health;
+                if (delta <= 20f) continue;   // wall/stray ticks are <=10; swings are ≥30.16
+                if (stage == 0)
+                {
+                    shieldedDelta = delta;
+                    var enemy = sim.Enemies[targetIdx];
+                    float ex = enemy.X - 960f, ey = (enemy.Y - 540f) * SimConfig.IsoY;
+                    shieldedEnemyPylonIso = MathF.Sqrt(ex * ex + ey * ey);
+                    stage = 1;
+                }
+                else if (stage == 2)
+                {
+                    unshieldedDelta = delta;
+                    break;
+                }
+            }
+            Assert.AreEqual(config.PlayerDamage * CampaignSpec.PylonAuraDamageTakenMult,
+                shieldedDelta, 1e-3f,
+                "enemy struck at the altar must take exactly ×0.40 while the pylon lives");
+            Assert.Less(shieldedEnemyPylonIso, CampaignSpec.PylonAuraRadius,
+                "the shielded strike must land inside the published aura");
+            Assert.AreEqual(1, pylonDowns, "the arc must destroy the verdict pylon exactly once");
+            Assert.Greater(unshieldedDelta, config.PlayerDamage * CampaignSpec.PylonAuraDamageTakenMult + 1f,
+                "after PylonDown the same gated strike must land unshielded damage");
+            Assert.LessOrEqual(unshieldedDelta, config.PlayerDamage + 1e-3f,
+                "unshielded delta is bounded by the raw swing (kill-clamped when lethal)");
+        }
+
+        // Gate: G2 (v1.2) — ash-march finale convergence: the anchor pylon
+        // (768,520) aura covers the corridor altar (iso 119.3 ≤ 280), so wall
+        // ticks on in-aura in-band enemies drop exactly 10×0.40=4 while raw
+        // out-of-aura enemies drop 10 (the shield-war/wall-rhythm/altar-risk
+        // braid the spec names). And the pylon BODY (r30) never blocks movement:
+        // a player can stand on the altar and walk straight through 768,520.
+        [Test]
+        public void AshMarch_FinalePylon_ShieldsAltarWithoutBlockingCorridor()
+        {
+            // (a) shielded wall-tick gradient — idle park at the altar, never
+            // attack: enemy health drops come only from wall ticks (right-wall
+            // hold covers x>728 during stage t [1.5,4.5)). Wave-1 arrivals inside
+            // aura 280 of the pylon drop 4/tick; farther in-band enemies drop 10.
+            var config = Stage(CampaignStages.AshMarch, cloak: 5);
+            var sim = new CinderSim(in config);
+            var shieldedDrops = 0;
+            var rawDrops = 0;
+            var previousHealth = new System.Collections.Generic.Dictionary<int, float>();
+            for (var t = 1; t <= 270; t++)
+            {
+                sim.Tick(HoldPosition(sim, 768f, 604f));
+                for (var i = 0; i < sim.Enemies.Count; i++)
+                {
+                    var enemy = sim.Enemies[i];
+                    if (previousHealth.TryGetValue(enemy.Id, out var was) && !enemy.Dead)
+                    {
+                        var drop = was - enemy.Health;
+                        if (drop > 0.001f)
+                        {
+                            float dx = enemy.X - 768f, dy = (enemy.Y - 520f) * SimConfig.IsoY;
+                            var inAura = dx * dx + dy * dy
+                                <= CampaignSpec.PylonAuraRadius * CampaignSpec.PylonAuraRadius;
+                            if (inAura)
+                            {
+                                Assert.AreEqual(
+                                    CampaignSpec.WallTickDamage * CampaignSpec.PylonAuraDamageTakenMult,
+                                    drop, 1e-3f,
+                                    "wall tick on an in-aura enemy must be shielded ×0.40");
+                                shieldedDrops++;
+                            }
+                            else
+                            {
+                                Assert.AreEqual(CampaignSpec.WallTickDamage, drop, 1e-3f,
+                                    "wall tick outside the aura stays raw 10");
+                                rawDrops++;
+                            }
+                        }
+                    }
+                    previousHealth[enemy.Id] = enemy.Health;
+                }
+            }
+            Assert.GreaterOrEqual(shieldedDrops, 3, "the finale pylon must shield altar-side wall ticks");
+            Assert.GreaterOrEqual(rawDrops, 3, "deep-band enemies outside the aura still take raw ticks");
+
+            // (b) corridor invariant — the pylon body never blocks: stand ON the
+            // altar under the pylon aura, then walk straight through (768,520).
+            Assert.AreEqual(768f, sim.Player.X, 2f, "player must stand at x 768 (altar) under the pylon");
+            Assert.AreEqual(604f, sim.Player.Y, 14f, "player must hold the altar y band");
+            var through = new CinderSim(in config);
+            WalkOnto(through, 768f, 604f, 60 * 4);
+            WalkOnto(through, 768f, 470f, 60 * 4);   // path crosses pylon centre (768,520)
+            Assert.AreEqual(768f, through.Player.X, 2f, "corridor x must stay walkable through the pylon");
+            Assert.Less(through.Player.Y, 520f, "the player must pass THROUGH the pylon body row");
+        }
+
+        /// <summary>
+        /// Park on the altar (768,604) and swing only when the nearest live enemy
+        /// is inside iso 100 and in the facing arc — the struck enemy is then
+        /// provably near the altar (contact ring ≈ iso 70). Returns the intended
+        /// target index, -1 when this tick cannot be a clean gated strike.
+        /// </summary>
+        static SimInput AltarGateStrikeInput(CinderSim sim, out int targetIdx)
+        {
+            targetIdx = -1;
+            var input = default(SimInput);
+            float px = sim.Player.X, py = sim.Player.Y;
+            float dx = 768f - px, dy = 604f - py;
+            if (dx * dx + dy * dy > 12f * 12f)
+            {
+                var len = MathF.Max(0.001f, MathF.Sqrt(dx * dx + dy * dy));
+                input.MoveX = dx / len;
+                input.MoveY = dy / len;
+                return input;
+            }
+            var bestD2 = float.MaxValue;
+            var bestDx = 0f;
+            for (var i = 0; i < sim.Enemies.Count; i++)
+            {
+                var enemy = sim.Enemies[i];
+                if (enemy.Dead) continue;
+                float ex = enemy.X - px, ey = (enemy.Y - py) * SimConfig.IsoY;
+                var d2 = ex * ex + ey * ey;
+                if (d2 < bestD2) { bestD2 = d2; bestDx = ex; targetIdx = i; }
+            }
+            if (bestD2 >= 100f * 100f)
+            {
+                targetIdx = -1;   // nothing near the altar yet — wait
+                return input;
+            }
+            if (bestDx * sim.Player.Facing < 0f)
+            {
+                input.MoveX = bestDx > 0f ? 1f : -1f;   // turn toward the target
+                targetIdx = -1;
+                return input;
+            }
+            input.AttackQueued = true;
+            return input;
         }
     }
 }

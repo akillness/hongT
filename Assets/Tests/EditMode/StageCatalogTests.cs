@@ -153,34 +153,48 @@ namespace CinderCourt.Tests
         }
 
         [Test]
+        // Gate: R4/G2 (v1.2 fun pass) — the four override tables ship the spec's
+        // verbatim placements (campaign-fun-pass-spec.md §세부 배치): gallery vent
+        // ring, well dual altars, throne current preview (override was NULL until
+        // v1.2), verdict pylon preview. Kind/coords/phase/push/band fields all pin.
         public void CompositeHazards_MatchPlacementAndClearanceContracts()
         {
             AssertCompositeHazards("ember-gallery", new[]
             {
                 HazardConfig.Vent(560f, 480f, 0f),
+                HazardConfig.Vent(980f, 480f, 0.6f),
                 HazardConfig.Vent(980f, 720f, 1.2f),
-                HazardConfig.Vent(1100f, 450f, 0.6f),
+                HazardConfig.Vent(560f, 720f, 1.8f),
                 HazardConfig.Pillar(768f, 604f),
             });
             AssertCompositeHazards("witness-well", new[]
             {
+                HazardConfig.Altar(560f, 500f),
+                HazardConfig.Altar(980f, 700f),
+                HazardConfig.Pillar(768f, 604f),
+                HazardConfig.Vent(560f, 700f, 0.3f),
+                HazardConfig.Vent(980f, 500f, 1.5f),
+            });
+            AssertCompositeHazards("echo-throne", new[]
+            {
                 HazardConfig.Altar(768f, 604f),
-                HazardConfig.Pillar(640f, 500f),
-                HazardConfig.Pillar(900f, 700f),
+                HazardConfig.Vent(500f, 700f, 0f),
                 HazardConfig.Vent(1030f, 480f, 1.2f),
+                HazardConfig.Current(768f, 604f, 120f, 0.3f),
             });
             AssertCompositeHazards("ash-verdict", new[]
             {
                 HazardConfig.Altar(768f, 604f),
+                HazardConfig.Pylon(960f, 540f),
                 HazardConfig.Vent(560f, 480f, 0f),
                 HazardConfig.Vent(980f, 720f, 1.2f),
-                HazardConfig.Vent(1030f, 480f, 0.6f),
             });
         }
 
         // Gate: R4/G2 — the three new catalog entries are pure anchors (no override;
         // placement lives in the frozen CampaignStages tables) and their anchor
-        // tables obey the same non-overlap/pillar-clearance contract as composites.
+        // tables obey the same non-overlap/pillar-clearance contract as composites
+        // (with the v1.2 guarded-altar exemption — see AssertRadialClearance).
         [Test]
         public void NewStageAnchors_CarryNoOverrideAndClearRadialHazards()
         {
@@ -192,28 +206,7 @@ namespace CinderCourt.Tests
                     id + " placement is owned by the frozen CampaignStages table");
 
                 Assert.That(CampaignStages.TryGet(id, 0, 0, 0, out var config), Is.True, id);
-                var hazards = config.Hazards;
-                for (var left = 0; left < hazards.Length; left += 1)
-                {
-                    for (var right = left + 1; right < hazards.Length; right += 1)
-                    {
-                        var a = hazards[left];
-                        var b = hazards[right];
-                        // Band hazards (current/wall) have no meaningful radial
-                        // footprint; radial pairs must not overlap.
-                        if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
-                        var x = a.X - b.X;
-                        var y = a.Y - b.Y;
-                        var distance = (float)Math.Sqrt(x * x + y * y);
-                        Assert.That(distance, Is.GreaterThan(a.Radius + b.Radius),
-                            id + " radial hazards must not overlap");
-                        if (a.Kind == HazardKind.ObsidianPillar && b.Kind == HazardKind.ObsidianPillar)
-                        {
-                            Assert.That(distance, Is.GreaterThanOrEqualTo(a.Radius + b.Radius + 2f * CampaignSpec.PlayerPushRadius),
-                                id + " pillars need two player push radii of separation");
-                        }
-                    }
-                }
+                AssertRadialClearance(id, config.Hazards);
             }
         }
 
@@ -359,18 +352,42 @@ namespace CinderCourt.Tests
                 Assert.That(actual.Y, Is.EqualTo(wanted.Y), id + " hazard " + index + " Y");
                 Assert.That(actual.Radius, Is.EqualTo(wanted.Radius), id + " hazard " + index + " radius");
                 Assert.That(actual.Phase, Is.EqualTo(wanted.Phase), id + " hazard " + index + " phase");
+                // v1.2: bands and pylons carry live fields beyond kind/x/y/phase —
+                // pin them all (the throne current's push IS the stage identity).
+                Assert.That(actual.PushX, Is.EqualTo(wanted.PushX), id + " hazard " + index + " pushX");
+                Assert.That(actual.PushY, Is.EqualTo(wanted.PushY), id + " hazard " + index + " pushY");
+                Assert.That(actual.HalfW, Is.EqualTo(wanted.HalfW), id + " hazard " + index + " halfW");
+                Assert.That(actual.HalfH, Is.EqualTo(wanted.HalfH), id + " hazard " + index + " halfH");
+                Assert.That(actual.Hp, Is.EqualTo(wanted.Hp), id + " hazard " + index + " hp");
             }
 
-            for (var left = 0; left < entry.HazardOverride.Length; left += 1)
+            AssertRadialClearance(id, entry.HazardOverride);
+        }
+
+        /// <summary>
+        /// Radial non-overlap for a placement table. Band kinds (current/wall) have
+        /// no radial footprint and are exempt (the throne current is co-located with
+        /// its altar BY DESIGN — the tide covers the channel). One more documented
+        /// v1.2 exemption: altar↔pylon pairs may overlap — the "guarded altar" motif
+        /// (verdict 960,540 vs altar r70 clears anyway; march 768,520 sits 84 px from
+        /// the corridor altar: pylon bodies never block movement and altars are pure
+        /// channel discs, so the overlap is mechanically inert and intended).
+        /// </summary>
+        private static void AssertRadialClearance(string id, HazardConfig[] hazards)
+        {
+            for (var left = 0; left < hazards.Length; left += 1)
             {
-                for (var right = left + 1; right < entry.HazardOverride.Length; right += 1)
+                for (var right = left + 1; right < hazards.Length; right += 1)
                 {
-                    var a = entry.HazardOverride[left];
-                    var b = entry.HazardOverride[right];
+                    var a = hazards[left];
+                    var b = hazards[right];
+                    if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
+                    if (IsGuardedAltarPair(a.Kind, b.Kind)) continue;
                     var x = a.X - b.X;
                     var y = a.Y - b.Y;
                     var distance = (float)Math.Sqrt(x * x + y * y);
-                    Assert.That(distance, Is.GreaterThan(a.Radius + b.Radius), id + " hazards must not overlap");
+                    Assert.That(distance, Is.GreaterThan(a.Radius + b.Radius),
+                        id + " radial hazards must not overlap");
                     if (a.Kind == HazardKind.ObsidianPillar && b.Kind == HazardKind.ObsidianPillar)
                     {
                         Assert.That(distance, Is.GreaterThanOrEqualTo(a.Radius + b.Radius + 2f * CampaignSpec.PlayerPushRadius),
@@ -379,5 +396,9 @@ namespace CinderCourt.Tests
                 }
             }
         }
+
+        private static bool IsGuardedAltarPair(HazardKind a, HazardKind b)
+            => (a == HazardKind.RelicAltar && b == HazardKind.EmberPylon)
+            || (a == HazardKind.EmberPylon && b == HazardKind.RelicAltar);
     }
 }

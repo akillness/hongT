@@ -186,3 +186,122 @@ Calibration probes: `/tmp/simgate/RetuneProbe.cs` (+ `/tmp/simgate/retune/`).
   Everything else must be green as-is.
 - **ViewRetune**: none of my asserts constrain view code; corridor-vent /
   spawn-shield geometry pins are sim-space only.
+
+## v1.2 fun pass
+
+2026-08-05 · TestFunPass · cycle-2 "campaign fun pass" — every logical stage
+gets a dominant-gimmick identity. Numeric truth: `docs/SIM_SPEC_DUNGEONS.md`
+REVISION v1.2 + `design/campaign-fun-pass-spec.md`. Scope:
+`Assets/Tests/EditMode/` only (CampaignSimTests, DungeonGoldenDigestTests,
+StageCatalogTests, StageDressingTests). Nothing staged, no sim/view sources
+touched. StageCatalog v1.2 tables verified in-place after ViewFunPass landed
+them (byte-equal to the spec factory calls; epithet ctor param touches no test
+— no test constructs StageEntry directly, grep-verified).
+
+### Verification (standalone dotnet 8 + NUnitLite 3.14, real repo sources incl. StageCatalog)
+
+```
+Overall result: Failed — Test Count: 108, Passed: 101, Failed: 7
+  CampaignSimTests          26/26   (5 new v1.2 [Test]s)
+  DungeonGoldenDigestTests   0/7    (ALL 7 fails = documented dotnet↔Unity float drift — see below)
+  HackSimTests              54/54
+  StageCatalogTests         11/11
+  StageDressingTests         5/5    (NOW runs on the harness — Transform.Find stub added)
+  V12RowsProbe               5/5    (harness-only per-row fixture, not in repo)
+```
+
+The 7 golden "failures" are all X/Y float-field drift with **byte-identical int
+fields** — the exact polarity the file header documents (Unity literals fail
+under dotnet; dotnet literals pass). Because each golden test stops at its
+first failing row, the harness-only `V12RowsProbe` fixture
+(`/tmp/testlane-nunit/V12RowsProbe.cs`) re-asserts every v1.2 row separately:
+echo-throne / ash-verdict / ash-march dotnet rows byte-pass; gallery/well int
+prefixes pass and their full dotnet rows are byte-identical to each other
+(trajectory identity, see below). Under Unity the polarity flips: the 5
+pre-existing golden tests + gallery/well literals must pass as-is; only the
+dotnet-recorded rows (throne/verdict/march + sluice/bastion re-pin rows) may
+one-shot fail on floats.
+
+### Golden split (the v1.2 contract change, spec §잔여 불변)
+
+- **MUST NOT MOVE** (invariant safety net): arena-hack · arena-frozen ·
+  prologue · cinder-span · abyss-chancel · cinder-sluice · ember-bastion ·
+  classic 3. Rows byte-untouched; now living in
+  `Golden_InvariantLogicalStages_AreUnchanged` (cinder-span/abyss-chancel),
+  `Golden_NewDungeonStages_MatchFirstRecording` (sluice/bastion) and the three
+  unchanged single-row tests. File header documents: movement here is a REAL
+  regression, never re-pin to green.
+- **EXPECTED MOVERS** → new `Golden_FunPassStages_MatchV12Recording`:
+  - `ember-gallery|3150|3|14|1|136|(running)|719.403564|831.701843` (Unity
+    literal KEPT — dotnet v1.1 vs v1.2 rows byte-equal: the kiter never meets
+    the ring vents, trajectory unchanged, so the proven Unity floats stand)
+  - `witness-well|3150|3|14|1|136|(running)|719.403564|831.701843` (moved:
+    3400/2-relic → 3150/1-relic — altars left the kiter's path; trajectory now
+    byte-identical to gallery's, pinned with gallery's Unity floats)
+  - `echo-throne|4100|4|16|2|142|(running)|1253.0039|604.5185` (dotnet v1.2 —
+    the current sweeps the kiter east: 4200→4100, relics 4→2)
+  - `ash-verdict|3400|3|14|2|136|(running)|587.2855|702.79987` (dotnet v1.2)
+  - `ash-march|3450|4|15|1|8|(running)|938.5367|602.01154` (dotnet v1.2 —
+    **FRAGILE: hp 8.** If Unity float drift kills the kiter before tick 1800
+    the INT fields move too; re-pin the whole row — still the shipped v1.2
+    product, not a regression. Protocol in the test comment.)
+
+### CampaignSimTests — v1.2 deltas (gate comments on every [Test])
+
+| Test | Gate | v1.2 change |
+|---|---|---|
+| `StageTable_MatchesDungeonAmendment` | R4/G2 | march anchor = 6 hazards: + pylon(768,520) hp/radius pinned at index 3, vents shifted to 4/5 |
+| `AshWall_TimetableAndTicks` | G2 | leg-1 bot kiter→CorridorMidInput (v1.2 pylon shields the centre pack ×0.40; plain kiter dies t≈16.2 — probed 973). Wall clocks ride stage time ⇒ samples bot-independent; legs 2/3 unchanged |
+| `Telegraph_CensusUnderBudget` | D3 | + 4 catalog stages via new `AssertTelegraphCensus(HackConfig,…)` overload (hack lane, override applied like GameDirector): gallery 3 s · well 3 s · throne LCM(6,2.4)=12 s · verdict 3 s. Probed maxima 2/1/2/1 total, same-kind ≤2 (gallery ring pairs overlap 0.2 s). Mirror cross-check mismatches: 0 |
+| `EchoThrone_CurrentPreview_PushesAndInterruptsChannel` (NEW) | G2/D3 | throne current (768,604,+120,0.3) pins; idle park displaced ONLY on active-interior ticks (≥150; 0 outside — classifier mirrors the sim float clock, 1-tick latency honoured); push ejects from altar r70 at tick 49 < 72 (hold 1.2 s) ⇒ 0 blessings in cycle 1. Boundary-position interruption is flaky-by-geometry (bot walk 218 > push 120) — per assignment, displacement+interruption asserted instead, documented in the gate comment |
+| `EchoThrone_AltarChannel_CompletesInRestWindow` (NEW) | G2 | out-of-band park (y 790) through the push window, walk-in at stage 3.7 s: blessing tick 346 ∈ (222,408], current inactive at bless, player inside r70 — the 2.8 s push-free window ≥ 1.2 s hold timing puzzle |
+| `EmberGallery_VentRing_PulsesInPhaseOrder` (NEW) | G2/D3 | table pin (4 ring vents 0/0.6/1.2/1.8 + centre pillar); pulse order strictly 3→2→1→0 (phase 1.8 wraps first), one vent per tick, 8 pulses / 2 periods, gaps 35-37 ticks (float lattice), HazardPulse raised on every wrap |
+| `AshVerdict_PylonAura_ShieldsAltarUntilPylonDown` (NEW) | G2 | geometry pin 212.4 ≤ 280; single-sim arc on the campaign lane (catalog table injected like the classic-successor route): gated strike at the altar = exactly 75.4×0.40=30.16 on a MEASURED in-aura enemy → walk out, 4 swings, PylonDown once → same gated strike lands >30.16+1 (kill-clamped ≤75.4). No lockstep twin needed |
+| `AshMarch_FinalePylon_ShieldsAltarWithoutBlockingCorridor` (NEW) | G2 | (a) never-attack altar park: every wall tick on an in-aura enemy = exactly 4 (10×0.40), every out-of-aura = exactly 10 (probed 6/7 drops) — the wall-rhythm/shield-war/altar-risk braid; (b) player stands at (768,604±) under the pylon and walks straight THROUGH (768,520): body r30 never blocks (corridor invariant) |
+
+`AshWall_RightWallHoldAndCorridorInvariant`, `NewStages_*`, stage-0/1 guards
+(`CinderSpan_KitingBot_ClearsStage` — cinder-span anchor untouched, not
+parameterized on changed stages) all pass unmodified.
+
+### StageCatalogTests
+
+- `CompositeHazards_MatchPlacementAndClearanceContracts`: v1.2 tables for all
+  FOUR overrides (echo-throne override NULL→table — the null-assert lived in
+  `NewStageAnchors…`, which never listed echo-throne; no other null pin
+  existed). Field pins extended to PushX/PushY/HalfW/HalfH/Hp (the throne
+  current's +120 push IS the stage identity).
+- Radial clearance refactored into `AssertRadialClearance` (shared by
+  composites + anchors) with two documented exemptions: band kinds
+  (current/wall — the throne current is co-located with its altar BY DESIGN)
+  and the v1.2 **guarded-altar pair** (altar↔pylon may overlap: verdict clears
+  anyway at 202.4; march 768,520↔768,604 = 84 < 100 — pylon bodies never
+  block, altars are pure channel discs, overlap mechanically inert).
+- 11/11 green on the harness.
+
+### StageDressingTests
+
+- Code unchanged (HazardsFor already reads live overrides); header documents
+  the v1.2 re-verification. Worst margins (Euclidean beyond radius+50):
+  gallery +97.7 · well +117.1 · verdict +80.2 · march pylon +217.9 — matches
+  ViewFunPass's independent computation, zero dressing rows moved.
+- Now ALSO runs on the standalone harness (added `Transform.Find` stub +
+  csproj row): 5/5 green against the LIVE v1.2 tables — the clearance
+  contract is no longer Unity-only.
+
+### Handoffs
+
+- **Main lane (Unity EditMode)**: expect one-shot float fails ONLY in
+  `Golden_FunPassStages_MatchV12Recording` (throne/verdict/march rows) and
+  possibly `Golden_NewDungeonStages_MatchFirstRecording` (sluice/bastion rows
+  were already Unity-re-pinned — should pass). Re-pin floats from assert
+  messages, record in qa/gate-measurements.md. **ash-march row: if INT fields
+  move (hp-8 fragility) re-pin the whole row and note it — it's the shipped
+  v1.2 product.** Everything else must be green as-is; invariant-row movement
+  is a real regression.
+- **ViewFunPass**: dressing margins independently confirmed (+97.7/+117.1/
+  +80.2/+217.9); zero moved rows verified on the harness. Epithet ctor param
+  required no test change.
+- Harness artifacts: `/tmp/testlane-nunit/` (TestResult.xml 108-test run,
+  V12RowsProbe.cs) · `/tmp/funpass-probe/` (calibration probes A-K: kiter
+  death t=973, corridor survival, throne interrupt tick 49 / bless tick 346,
+  ring pulse order, census maxima, shield gradient 4-vs-10, verdict arc).

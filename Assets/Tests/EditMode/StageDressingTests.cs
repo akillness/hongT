@@ -4,6 +4,17 @@
 //  - every placement sits OUTSIDE the combat plane rectangle;
 //  - every placement clears every hazard of its stage by radius + 50;
 //  - tables are static data — same content on every call (determinism).
+//
+// v1.2 fun pass (2026-08-05): HazardsFor already reads the LIVE catalog
+// override tables, so Placements_ClearEveryStageHazard re-verifies the new
+// gallery/well/verdict placements and the march anchor pylon automatically.
+// Arithmetic re-check against the v1.2 tables (worst pair per stage, Euclidean
+// margin beyond radius+50): gallery vent(560,720)↔prop-003(620,950) +97.7 ·
+// well vent(980,500)↔prop-012(1040,250) +117.1 · verdict vent(980,720)↔
+// prop-021(990,940) +80.2 · march pylon(768,520)↔feature-001(700,230) +217.9
+// — all clear; ViewFunPass moved zero rows (margins confirmed both ways).
+// echo-throne still ships no dressing table (T-b split pending), so its new
+// override is outside DressedStages by construction.
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;

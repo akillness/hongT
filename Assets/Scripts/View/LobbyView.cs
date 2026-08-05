@@ -449,8 +449,15 @@ namespace CinderCourt.View
                 var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
                     ? "동행 없음"
                     : CompanionNameFor(entry.CompanionReward);
+                // Fun-pass v1.2: gimmick epithet leads the reward line (spec
+                // "기존 보상 라인 문법에 기믹 별칭 추가"). Merged instead of a new
+                // row: the 68 u card has no vertical slack between the reward
+                // band (-44..-60) and the 강하 button (bottom 6..34), and a new
+                // row would break the audited pitch/44 px touch floor. The
+                // hazard glyph at (12,-44) already sits directly left of this
+                // label, so it doubles as the epithet's gimmick marker.
                 var sub = Label(card.transform, 34, -44, 220, 16,
-                    $"보상: {rewardText}", 10, TextAnchor.MiddleLeft);
+                    $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
                 _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);

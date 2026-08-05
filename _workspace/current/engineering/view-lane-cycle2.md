@@ -262,3 +262,108 @@ failure mode"). 상태: 코드 작성 완료, 미커밋, Unity 미실행(메인 
   오프셋 창) ② bastion 오라 진입/이탈 시 시안 on/off + 파일런 파괴 프레임
   드롭 ③ RM 토글 시 벽 경계라인만 + 셰브론 정적 ④ elite(1.35 스케일)가
   오라 안에서 시안으로 전환되는지.
+
+## v1.2 fun pass
+
+작성: view-lane engineer (stage identity data + lobby epithets, run-id
+cycle-2 fun-pass). 근거: design/campaign-fun-pass-spec.md +
+docs/SIM_SPEC_DUNGEONS.md REVISION v1.2. 상태: 코드 작성 완료, 미커밋,
+Unity 미실행(메인 레인이 게이트 실행). 사전 `git status --short`: View
+파일 clean(타 세션 M은 .vscode/slnx/Packages/wasm/Sim/docs — 전부 미접촉).
+
+### 1. StageCatalog.cs — v1.2 해저드 테이블 + Epithet
+
+- **테이블 3종 교체 + 1종 신설** (스펙 §세부 배치 verbatim, 기계 대조 PASS):
+  - EmberGalleryHazards: vent 4기 시계방향 위상 링(560/980×480/720,
+    0/0.6/1.2/1.8s) + 중앙 pillar — "불씨 윤무" vent 숙달.
+  - WitnessWellHazards: altar 대각쌍(560,500/980,700) + 중앙 pillar +
+    제단 옆 vent 2기(위상 0.3/1.5) — "쌍 제단" altar 도입.
+  - **EchoThroneHazards(신설)**: anchor 3기(altar 768,604 + vent 500,700/
+    1030,480) + 약류 Current(768,604,+120,0.3) — "왕좌의 조류" current
+    예고. entry 4의 HazardOverride null → EchoThroneHazards 연결
+    (GameDirector.StartDungeon이 non-null 오버라이드를 이미 적용 — 코드
+    무수정, 데이터만).
+  - AshVerdictHazards: altar(768,604) + **pylon(960,540)** + vent 2기 —
+    "판결의 방벽" pylon 예고.
+- **StageEntry.Epithet 신설**(뷰 소유 struct): readonly string, ctor 15번째
+  (마지막) 인자. 9개 생성자 호출 전부 갱신 — 별칭은 스펙 §9스테이지 아크
+  "정체성(카드 표기)" 열 그대로: 분출구 입문 / 불씨 윤무 / 흑요석 미로 /
+  쌍 제단 / 왕좌의 조류 / 판결의 방벽 / 해류 숙달 / 방벽 숙달 / 집행 수렴.
+- 드레싱 블록 주석의 anchor 내용 서술이 pre-v1.1 stale(구 ash-march
+  altar 1100,604 등) → v1.2 실제 테이블로 갱신(주석만, 배치 무변경).
+
+### 2. LobbyView.cs — 카드 별칭 라인
+
+- **선택: 신규 행 대신 보상 라인 병합** — `"{Epithet} • 보상: {reward}"`
+  (기존 34,-44 220×16 10pt Gold 라벨, • 구분자는 프롤로그 서브라인에서
+  기존 사용). 사유: 68u 카드에서 보상 밴드(-44..-60)와 강하 버튼(하단
+  6..34) 사이 수직 여유 0 — 신규 행은 피치 증가(스크롤 콘텐츠 재계산) 또는
+  44px 터치 플로어 침해. 스펙 문구 자체가 "기존 보상 라인 문법에 기믹 별칭
+  추가"라 병합이 스펙 직역. (12,-44)의 해저드 글리프 아이콘이 라벨 바로
+  왼쪽 — 별칭의 기믹 마커 겸용(과제의 "기믹 글리프 재사용").
+- 최장 문자열 "분출구 입문 • 보상: 불씨 초계병" ≈ 19자@10pt ≈ 180px
+  < 220px rect (버튼 좌단 x272보다 안쪽). 카드 높이/피치/스크롤 콘텐츠
+  높이/터치 타깃 전부 무변경.
+
+### 3. worldview.md — 기믹 계보 (G1)
+
+- '## 기믹 계보 (v1.2)' 신설: 9행 표(스테이지 → 별칭 → 법정 기능 의미).
+  별칭 전부 법정 기능의 물화로 서술(수문=말소, 방벽주=위증 보호, 장벽=집행
+  — 기존 명명 규약 조항 어휘). 카드 문자열의 유일 출처 선언 + 추적성 조항.
+
+### 드레싱 클리어런스 재검증 (기계, Euclidean vs radius+50 — 테스트 동일 메트릭)
+
+변경 스테이지 3 + anchor 스테이지 3 전 배치 × 신 해저드 전수. **위반 0 —
+배치 이동 불필요.** 스테이지별 worst-case 마진(가장 타이트한 배치↔해저드 쌍):
+
+| 스테이지 | worst 배치 | vs 해저드 | dist | 문턱 | 마진 |
+|---|---|---|---|---|---|
+| ember-gallery | prop-003(620,950) | Vent(560,720) | 237.7 | 140 | **+97.7** |
+| witness-well | prop-012(1040,250) | Vent(980,500) | 257.1 | 140 | **+117.1** |
+| ash-verdict | prop-021(990,940) | Vent(980,720) | 220.2 | 140 | **+80.2** |
+| cinder-sluice | feature-011(190,700) | Vent(500,604) | 324.5 | 140 | +184.5 |
+| ember-bastion | feature-021(770,215) | Pylon(768,430) | 215.0 | 80 | +135.0 |
+| ash-march | feature-002(900,215) | Vent(980,450) | 248.2 | 140 | +108.2 |
+
+- ash-march 신규 pylon(768,520): 최근접 배치 feature-001(700,230) dist
+  ≈298 ≫ 80 — v1.2 anchor 추가분도 클리어.
+- echo-throne: DressingFor 스위치에 케이스 없음 → null 확인(드레싱 없음,
+  T-b split 대기 주석 그대로) — 오버라이드 신설과 무관하게 클리어런스
+  검증 대상 아님.
+- StageDressingTests.HazardsFor는 오버라이드 우선이라 테스트도 자동으로
+  신 테이블 기준 검증(테스트 수정 불요 — 이 계약 확인함).
+
+### 신규 한글 글리프 (폰트 재생성 필요 — 메인 레인)
+
+View 어셈블리 렌더 문자열 리터럴 diff(HEAD 대비, 주석 제외 스캐너):
+
+    렴 숙 쌍 윤 흑  (5자)
+
+shipped Assets/Resources/Fonts/HudKorean.otf cmap(456 codepoints) 대조:
+**5자 전부 미포함** — tools/gen_hud_font.sh 재생성 없이는 로비 카드
+별칭이 tofu. (별칭의 나머지 문자는 전부 기존 리터럴/폰트에 존재.)
+
+### TestLane 인계 (IRC 통지함)
+
+- StageEntry ctor 15인자(epithet 추가) — 직접 생성하는 테스트는 인자 추가.
+- echo-throne: HazardOverride null → non-null. StageCatalogTests
+  §NewStageAnchors(6/7/8만 순회)는 무영향, §전수 루프의 "override null이면
+  Id==SimAnchorId" 단언도 무영향(역방향 함의 아님).
+- **AssertCompositeHazards 페어와이즈 주의**: echo-throne v2는 Altar(768,604)
+  r70과 Current(768,604) r0가 동일 좌표 — dist 0 > 70 단언은 실패.
+  밴드 해저드(current/wall)는 §NewStageAnchors처럼 radial 페어에서 제외
+  필요(스펙 의도: 제단이 조류 안 = 타이밍 퍼즐).
+- 골든: 1/3/4/5 행 이동 예상(+8 ash-march는 심 앵커發), 0/2/6/7 불변 필수.
+
+### 검증 (에디터 없이)
+
+- Roslyn 구문 파스(SDK 8.0.129 bincore, LanguageVersion.CSharp9):
+  StageCatalog.cs / LobbyView.cs 모두 SYNTAX OK, 에러 0.
+- ctor arity 기계 검사: StageEntry 15 파라미터, 9개 호출 전부 15인자.
+- 테이블 내용 기계 대조: 4테이블 × 스펙 §세부 배치 — 전부 MATCH
+  (팩토리/좌표/위상/푸시 verbatim), echo-throne 연결 확인, 별칭 9종
+  마지막 인자 확인.
+- 컴파일/EditMode/플레이: **미수행** — 메인 레인 게이트 소유. 에디터
+  체크리스트: ① 컴파일 ② StageCatalog/StageDressing/골든 테스트
+  ③ gen_hud_font.sh 재생성 후 별칭 5글리프 렌더 ④ 로비 카드 보상 라인
+  길이 육안(최장 cinder-span 행).

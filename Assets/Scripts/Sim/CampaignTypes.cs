@@ -310,6 +310,7 @@ namespace CinderCourt.Sim
             HazardConfig.Wall(0f),
             HazardConfig.Wall(11.5f, fromRight: true),  // v1.1: closing jaws, half-period offset
             HazardConfig.Altar(768f, 604f),             // v1.1: corridor reward, periodically engulfed
+            HazardConfig.Pylon(768f, 520f),             // v1.2 finale: bastion guards the corridor altar
             HazardConfig.Vent(560f, 760f, 0.6f),
             HazardConfig.Vent(980f, 450f, 1.8f),
         };

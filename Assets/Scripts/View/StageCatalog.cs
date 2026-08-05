@@ -41,12 +41,18 @@ namespace CinderCourt.View
         public readonly BossPresentation Boss;
         public readonly string StoryKey;
         public readonly string CompanionReward;
+        /// <summary>
+        /// One-line gimmick identity shown on the lobby card (fun-pass v1.2):
+        /// the stage's dominant gimmick in the preview→mastery lineage, phrased
+        /// per worldview.md '기믹 계보' (court function made physical).
+        /// </summary>
+        public readonly string Epithet;
 
         public StageEntry(
             int catalogIndex, string id, string displayName, string kicker, string title,
             string hazardIcon, string simAnchorId, HazardConfig[] hazardOverride,
             string prereqId, string terrainId, Color accentColor, BossPresentation boss,
-            string storyKey, string companionReward)
+            string storyKey, string companionReward, string epithet)
         {
             CatalogIndex = catalogIndex;
             Id = id;
@@ -62,6 +68,7 @@ namespace CinderCourt.View
             Boss = boss;
             StoryKey = storyKey;
             CompanionReward = companionReward;
+            Epithet = epithet;
         }
     }
 
@@ -71,28 +78,53 @@ namespace CinderCourt.View
     /// </summary>
     public static class StageCatalog
     {
+        // ------------------------------------------------ fun-pass v1.2 tables --
+        // campaign-fun-pass-spec.md: every stage = one dominant gimmick, ramped
+        // preview→mastery. Placements are the spec's verbatim sim coordinates;
+        // simultaneous-telegraph budget (≤3 total, ≤2 same-kind) pre-computed in
+        // the spec and frozen by the TestLane LCM census.
+
+        // Stage 1 "불씨 윤무" — vent mastery: clockwise phase ring (0/0.6/1.2/1.8 s
+        // on the 2.4 s vent period) around a central pillar.
         static readonly HazardConfig[] EmberGalleryHazards =
         {
             HazardConfig.Vent(560f, 480f, 0f),
+            HazardConfig.Vent(980f, 480f, 0.6f),
             HazardConfig.Vent(980f, 720f, 1.2f),
-            HazardConfig.Vent(1100f, 450f, 0.6f),
+            HazardConfig.Vent(560f, 720f, 1.8f),
             HazardConfig.Pillar(768f, 604f),
         };
 
+        // Stage 3 "쌍 제단" — altar introduction with risk: diagonal altar pair,
+        // each guarded by an offset-phase vent (channel while dodging the rhythm).
         static readonly HazardConfig[] WitnessWellHazards =
         {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Pillar(640f, 500f),
-            HazardConfig.Pillar(900f, 700f),
-            HazardConfig.Vent(1030f, 480f, 1.2f),
+            HazardConfig.Altar(560f, 500f),
+            HazardConfig.Altar(980f, 700f),
+            HazardConfig.Pillar(768f, 604f),
+            HazardConfig.Vent(560f, 700f, 0.3f),
+            HazardConfig.Vent(980f, 500f, 1.5f),
         };
 
+        // Stage 4 "왕좌의 조류" — current preview: one weak band (+120 push) over
+        // the central altar; the 1.2 s hold must ride the 2.8 s current rest window.
+        static readonly HazardConfig[] EchoThroneHazards =
+        {
+            HazardConfig.Altar(768f, 604f),
+            HazardConfig.Vent(500f, 700f, 0f),
+            HazardConfig.Vent(1030f, 480f, 1.2f),
+            HazardConfig.Current(768f, 604f, 120f, 0.3f),
+        };
+
+        // Stage 5 "판결의 방벽" — pylon preview: one pylon guarding the altar
+        // approach (aura 280 covers the centre — kill it first or channel shielded
+        // enemies).
         static readonly HazardConfig[] AshVerdictHazards =
         {
             HazardConfig.Altar(768f, 604f),
+            HazardConfig.Pylon(960f, 540f),
             HazardConfig.Vent(560f, 480f, 0f),
             HazardConfig.Vent(980f, 720f, 1.2f),
-            HazardConfig.Vent(1030f, 480f, 0.6f),
         };
 
         static readonly StageEntry[] AllEntries =
@@ -102,37 +134,37 @@ namespace CinderCourt.View
                 new Color(0.95f, 0.35f, 0.17f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.9f, 0.3f, 0.45f), 1f, "Cinder Warden"),
-                "cinder-span", "ember-cohort"),
+                "cinder-span", "ember-cohort", "분출구 입문"),
             new StageEntry(1, "ember-gallery", "Ember Gallery", "EMBER GALLERY", "불씨 회랑",
                 "skill-nova", "cinder-span", EmberGalleryHazards, "cinder-span", "abyss-chancel",
                 new Color(0.95f, 0.43f, 0.20f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.95f, 0.45f, 0.16f), 1.08f, "Cinder Warden"),
-                "ember-gallery", null),
+                "ember-gallery", null, "불씨 윤무"),
             new StageEntry(2, "abyss-chancel", "Abyss Chancel", "ABYSS CHANCEL", "서약의 성당",
                 "skill-aegis", "abyss-chancel", null, "ember-gallery", "abyss-chancel",
                 new Color(0.56f, 0.40f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.56f, 0.40f, 1f), 1.1f, "Veil Tactician"),
-                "abyss-chancel", "shade-echo"),
+                "abyss-chancel", "shade-echo", "흑요석 미로"),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
-                "witness-well", null),
+                "witness-well", null, "쌍 제단"),
             new StageEntry(4, "echo-throne", "Echo Throne", "ECHO THRONE", "메아리 왕좌",
-                "skill-pulse", "echo-throne", null, "witness-well", "echo-throne",
+                "skill-pulse", "echo-throne", EchoThroneHazards, "witness-well", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.75f, 0.3f, 0.9f), 1.15f, "Gate Sovereign"),
-                "echo-throne", "possessed-echo"),
+                "echo-throne", "possessed-echo", "왕좌의 조류"),
             new StageEntry(5, "ash-verdict", "Ash Verdict", "ASH VERDICT", "재의 판결",
                 "skill-pulse", "echo-throne", AshVerdictHazards, "echo-throne", "echo-throne",
                 new Color(0.87f, 0.78f, 0.41f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.87f, 0.78f, 0.41f), 1.18f, "Gate Sovereign"),
-                "ash-verdict", null),
+                "ash-verdict", null, "판결의 방벽"),
             // --- cycle-2 dungeon expansion (docs/SIM_SPEC_DUNGEONS.md) -------
             // New SIM anchors (not overrides): each id matches its frozen
             // CampaignStages anchor, so HazardOverride stays null.
@@ -141,19 +173,19 @@ namespace CinderCourt.View
                 new Color(0.247f, 0.659f, 0.784f),                       // #3FA8C8
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.247f, 0.659f, 0.784f), 1.2f, "Sluice Keeper"),
-                "cinder-sluice", null),
+                "cinder-sluice", null, "해류 숙달"),
             new StageEntry(7, "ember-bastion", "Ember Bastion", "EMBER BASTION", "불씨 요새",
                 "skill-ward", "ember-bastion", null, "cinder-sluice", "cinder-span",
                 new Color(0.910f, 0.541f, 0.180f),                       // #E88A2E
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.910f, 0.541f, 0.180f), 1.22f, "Bastion Sentinel"),
-                "ember-bastion", null),
+                "ember-bastion", null, "방벽 숙달"),
             new StageEntry(8, "ash-march", "Ash March", "ASH MARCH", "재의 행진",
                 "skill-strike", "ash-march", null, "ember-bastion", "echo-throne",
                 new Color(0.722f, 0.690f, 0.643f),                       // #B8B0A4
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.722f, 0.690f, 0.643f), 1.25f, "Ash Magistrate"),
-                "ash-march", "scout-echo"),
+                "ash-march", "scout-echo", "집행 수렴"),
         };
 
         // Derived from the catalog length (9 entries -> 0x1FF) so adding a
@@ -247,12 +279,13 @@ namespace CinderCourt.View
         };
 
         // Cycle-2 tables verify against the frozen SIM ANCHOR hazards
-        // (CampaignStages — the new stages carry no HazardOverride):
-        //   cinder-sluice: current(768,470)/(768,740) r0 + pillar(768,604) r40
-        //   ember-bastion: pylon(560,500)/(980,700) r30 + pillar(640,650)/
-        //                  (900,560) r40 + vent(768,604) r90
-        //   ash-march:     wall(x 248..608 band) + altar(1100,604) r70 +
-        //                  vent(980,480) r90
+        // (CampaignStages — the new stages carry no HazardOverride; v1.2 state):
+        //   cinder-sluice: current(768,470)/(768,740) r0 + vent(500,604)/
+        //                  (1030,604) r90 + pillar(768,604) r40
+        //   ember-bastion: pylon(560,500)/(980,700)/(768,430) r30 + pillar
+        //                  (640,650)/(900,560) r40 + vent(768,604) r90
+        //   ash-march:     wall(both edges, r0 point test) + altar(768,604) r70
+        //                  + pylon(768,520) r30 + vent(560,760)/(980,450) r90
         static readonly DressingPlacement[] CinderSluiceDressing =
         {
             // Channel walls flanking the two current lanes; gate mass up top.

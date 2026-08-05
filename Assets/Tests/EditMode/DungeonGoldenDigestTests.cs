@@ -18,6 +18,21 @@
 // from the v1.1 sim on the DOTNET harness — see that test's comment for the
 // main-lane Unity re-pin protocol.
 //
+// REVISION v1.2 (2026-08-05, campaign fun pass) — THE GOLDEN SPLIT:
+// docs/SIM_SPEC_DUNGEONS.md REVISION v1.2 changed the placement contract on
+// purpose (user-requested stage-identity pass), so the golden set now has two
+// legally different halves:
+//   MUST NOT MOVE (invariant safety net — movement here is a real regression):
+//     arena-hack · arena-frozen · prologue · cinder-span · abyss-chancel ·
+//     cinder-sluice · ember-bastion · classic 3 (cinder-span/abyss-chancel/
+//     echo-throne on the CinderSim(in CampaignConfig) lane — classic anchors
+//     ignore catalog overrides by construction).
+//   EXPECTED TO MOVE (v1.2 products, re-pinned in Golden_FunPassStages_*):
+//     ember-gallery · witness-well · echo-throne · ash-verdict (catalog
+//     override tables) · ash-march (anchor pylon 768,520).
+// The invariant rows below are byte-untouched from the pre-v1.2 recordings; do
+// NOT re-pin them to make a red run green — investigate instead.
+//
 // Ints assert exactly; floats are compared through their shortest round-trip
 // ("R") form, which is bit-exact within the Unity runtime — the sim is a
 // fixed-step deterministic core and any drift is a defect, not noise.
@@ -118,26 +133,62 @@ namespace CinderCourt.Tests
                 RunKiter(new CinderSim(in config)));
         }
 
-        // ---- R1: the six pre-cycle-2 logical stages --------------------------
+        // ---- R1: the pre-cycle-2 logical stages that v1.2 leaves alone --------
 
-        // Gate: R1 — six logical catalog stages @2/1/3, HazardOverride applied like
-        // GameDirector.StartDungeon; digests must stay byte-identical to pre-cycle-2.
+        // Gate: R1 — invariant logical catalog stages @2/1/3, HazardOverride applied
+        // like GameDirector.StartDungeon; digests must stay byte-identical to
+        // pre-cycle-2 (cinder-span/abyss-chancel are override-null anchors; the four
+        // fun-pass stages moved to Golden_FunPassStages_MatchV12Recording).
         [Test]
-        public void Golden_SixLogicalStages_AreUnchanged()
+        public void Golden_InvariantLogicalStages_AreUnchanged()
         {
             var rows = new[]
             {
                 "cinder-span|4200|3|15|4|142|(running)|588.852356|763.74",
-                "ember-gallery|3150|3|14|1|136|(running)|719.403564|831.701843",
                 "abyss-chancel|3150|3|14|1|136|(running)|719.3025|831.649231",
-                "witness-well|3400|3|14|2|136|(running)|459.748383|696.531555",
-                "echo-throne|4200|3|15|4|142|(running)|588.852356|763.74",
-                "ash-verdict|4200|3|15|4|142|(running)|588.852356|763.74",
             };
             foreach (var expected in rows)
             {
                 var id = expected.Substring(0, expected.IndexOf('|'));
                 var config = LogicalStage(id);
+                AssertRow(expected, RunKiter(new CinderSim(in config)));
+            }
+        }
+
+        // ---- v1.2: the fun-pass stages (EXPECTED movers) ----------------------
+
+        // Gate: G2/D5 (v1.2) — the five stages the fun pass legally moved, exactly
+        // as GameDirector runs them (catalog override on the anchor lane; ash-march
+        // is its own anchor). Rows recorded on the standalone dotnet 8 harness
+        // against the v1.2 tables (2026-08-05). Ints are runtime-transferable;
+        // trailing X/Y floats carry the known ~4 ULP dotnet↔Unity drift, so the
+        // FIRST Unity EditMode run may fail here — MAIN LANE: re-pin the float
+        // fields from the assert failure message and record the divergence in
+        // qa/gate-measurements.md. Two caveats from the recording run:
+        //  · ember-gallery/witness-well: BOTH rows are byte-identical to the OLD
+        //    Unity ember-gallery recording — the kiter never enters any ring vent
+        //    or off-centre altar, so the v1.2 trajectory equals v1.1's (verified
+        //    dotnet v1.1 vs v1.2 byte-equal). The Unity floats below are therefore
+        //    the PROVEN v1.1 Unity literals, expected to pass unchanged.
+        //  · ash-march ends at hp 8 — the run survives by a hair. If Unity float
+        //    drift kills the kiter before tick 1800, the INT fields move too:
+        //    re-pin the whole row (that outcome is still the shipped v1.2 product,
+        //    not a regression) and note it in qa/gate-measurements.md.
+        [Test]
+        public void Golden_FunPassStages_MatchV12Recording()
+        {
+            var rows = new[]
+            {
+                "ember-gallery|3150|3|14|1|136|(running)|719.403564|831.701843",
+                "witness-well|3150|3|14|1|136|(running)|719.403564|831.701843",
+                "echo-throne|4100|4|16|2|142|(running)|1253.00366|604.5186",
+                "ash-verdict|3400|3|14|2|136|(running)|587.285767|702.8",
+                "ash-march|3450|4|15|1|8|(running)|938.5364|602.0115",
+            };
+            foreach (var expected in rows)
+            {
+                var id = expected.Substring(0, expected.IndexOf('|'));
+                var config = id == "ash-march" ? Dungeon213(id) : LogicalStage(id);
                 AssertRow(expected, RunKiter(new CinderSim(in config)));
             }
         }
@@ -162,18 +213,18 @@ namespace CinderCourt.Tests
             }
         }
 
-        // ---- D5: the three cycle-2 stages --------------------------------------
+        // ---- D5: the cycle-2 anchors v1.2 leaves alone --------------------------
 
-        // Gate: D5 — v1.1 retune goldens for the three new anchors @2/1/3 (REVISION
-        // v1.1, docs/SIM_SPEC_DUNGEONS.md — placements/push/hp/wall cycle all moved,
-        // so these three rows legitimately changed; the 12 rows above must NOT).
+        // Gate: D5 — v1.1 retune goldens for the sluice/bastion anchors @2/1/3
+        // (REVISION v1.1). v1.2 moved ash-march (finale pylon) OUT of this test —
+        // its row now lives in Golden_FunPassStages_MatchV12Recording; these two
+        // must stay byte-identical (invariant safety net, spec v1.2 잔여 불변).
         // The rows below were recorded on the standalone dotnet 8 harness against
         // the v1.1 sim sources (2026-08-05). Ints are runtime-transferable; the
         // trailing floats carry the known dotnet↔Unity low-order drift (~4 ULP), so
         // the FIRST Unity EditMode run may fail exactly here — MAIN LANE: re-pin the
         // float fields from the assert failure message (it prints the full actual
-        // row) and record the divergence in qa/gate-measurements.md. v1.0 note "ash-
-        // march equals echo-throne" is obsolete: the v1.1 walls reshape the kiter run.
+        // row) and record the divergence in qa/gate-measurements.md.
         [Test]
         public void Golden_NewDungeonStages_MatchFirstRecording()
         {
@@ -181,7 +232,6 @@ namespace CinderCourt.Tests
             {
                 "cinder-sluice|1400|3|9|0|124|(running)|974.984436|630.3433",
                 "ember-bastion|2500|3|11|2|112|(running)|883.605652|695.339539",
-                "ash-march|3600|4|16|0|142|(running)|479.221863|639.420654",
             };
             foreach (var expected in rows)
             {
