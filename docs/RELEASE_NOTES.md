@@ -1,5 +1,40 @@
 # Release Notes
 
+## GitHub Pages 배포 — V2 벤트 fill · V3 원소 파티클 · Lane K 키 난독화 · 2026-08-05
+
+### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §V2/§V3/§K)
+- **V2 벤트 임박도 fill** (교차 세션 레인 `3a15a87`+`de34dc3`): 텔레그래프 링
+  내부 디스크가 CycleT/VentPeriod에 비례해 0→반경으로 차오름 — "언제
+  터지는가"가 한눈에 읽힘. 벤트당 1회 생성, 프레임당 할당 0.
+- **V3 원소별 파티클 임팩트** (동 레인): 사전 생성 풀링 ParticleSystem 4종
+  (볼트 보라 잔광 / 파동 녹색 리플 / 노바 엠버 파편 / 에이기스 시안 흡수),
+  `Emit(count)` 전용, maxParticles 96, reduced-motion 시 count 절반. 검증된
+  MakeUnlit 시드 경로 사용(URP Particles 셰이더는 빌드 내 참조 0으로 변형
+  스트리핑 — per-particle 그라디언트는 사양 수정으로 면제). 링/스파크 문법
+  증강, 대체 아님. 초기 미검증 URP Particles 시드 자산은 정리(`849dcbc`).
+- **Lane K 키 저장 난독화** (`f017d3e`): `KeyVault` — 기기 파생 키(AES-CBC,
+  `deviceUniqueIdentifier`+salt SHA-256) 위 `enc1:` 마킹 저장. 레거시 평문은
+  로드 시 제자리 마이그레이션, 복호 실패(기기/브라우저 변경·변조)는 자동
+  삭제 후 재입력 안내 — 기능 잠김 없음. UI 문구는 정직 계약대로
+  "이 기기에만 난독화 저장" (암호화/안전 표현 금지). KeyVaultTests 8종.
+- **HudKorean 글리프 갱신**: 새 토스트 글자(난독화 등)가 서브셋 폰트에
+  없어 라이브에서 탈락 — `tools/gen_hud_font.sh` 재생성(436 glyphs, FULL
+  coverage) 후 재배포로 해소.
+
+### 게이트·배포
+- EditMode **159/159 통과** (`unity-logs/test-results-095439.xml`).
+- gh-pages `6d83ad8` → 글리프 수정 `b7431d0`, 최종 캐시 버전
+  `e6ab57862f88d16b` 라이브 확인.
+
+### 배포 후 스모크 (라이브, 1440×900, 오류 0)
+- V2: Ember Gallery 벤트 3개가 서로 다른 위상의 fill 상태로 렌더
+  (`deployed-v2-vent-fill.png`).
+- V3: R 노바 직후 링+파편, F 에이기스 시전 시 시안 흡수 플래시 + 방패 40
+  (`deployed-v3-nova-debris.png`, `deployed-v3-aegis-flash.png`).
+- Lane K: 콘솔 `key <dummy>` 등록 → "Gemini 키 저장됨 (이 기기에만 난독화
+  저장) — 자유 문장 명령 활성화" 토스트 전체 글자 정상 렌더
+  (`deployed-lanek-key-toast.png`).
+
 ## GitHub Pages 배포 — 조합 스테이지 드레싱 (Lane T-a) · 2026-08-05
 
 ### 변경
