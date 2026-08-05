@@ -7,6 +7,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: abyss_chancel_terrain_albedo_cleaned
+    second: {fileID: 2100000, guid: a0750142c21a44c328400e8d025745dd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: mat-abyss-chancel-apron
     second: {fileID: 2100000, guid: bbb91b24a958149619a3b941bb4b3895, type: 2}
   - first:

@@ -24,6 +24,14 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--floor", required=True)
     parser.add_argument("--extra", action="append", default=[])
+    # T-b (deep-interview §Lane T-b): fused single-mesh candidate GLB to split
+    # into connectivity islands, registered INDEPENDENTLY (own bbox) because
+    # candidate packs are authored in their own normalized space, not the
+    # floor's renderer-world space.
+    parser.add_argument("--parts", default=None)
+    parser.add_argument("--parts-prefix", default="part")
+    parser.add_argument("--parts-keep", type=int, default=48)
+    parser.add_argument("--parts-min-tris", type=int, default=150)
     parser.add_argument("--out", required=True)
     return parser.parse_args(argv)
 
@@ -74,7 +82,71 @@ def main():
     for extra in args.extra:
         all_objects += import_glb(extra)
 
-    roots = [o for o in all_objects if o.parent is None or o.parent not in all_objects]
+    # --- T-b: connectivity split of a fused candidate mesh ------------------
+    # Authoring-time separation (§3 contract: never split at runtime). The
+    # candidate cloud gets its OWN registration: X span fit to the arena
+    # frame, XY centered, then each kept island grounded (per-island min-z
+    # -> 0) so nothing floats where its authored terraces were removed.
+    part_objects = []
+    if args.parts:
+        fused = import_glb(args.parts)
+        meshes = [o for o in fused if o.type == "MESH"]
+        if not meshes:
+            raise SystemExit("FATAL: --parts GLB has no mesh")
+        bpy.ops.object.select_all(action="DESELECT")
+        for m in meshes:
+            m.select_set(True)
+        bpy.context.view_layer.objects.active = meshes[0]
+        bpy.ops.mesh.separate(type="LOOSE")
+        islands = [o for o in bpy.data.objects
+                   if o.type == "MESH" and o not in all_objects]
+        # Register the whole cloud once so relative layout survives.
+        plo, phi = world_bounds(islands)
+        pspan_x = phi.x - plo.x
+        if pspan_x <= 0:
+            raise SystemExit("FATAL: degenerate parts span")
+        pscale = TARGET_X_SPAN / pspan_x
+        pcenter = (plo + phi) * 0.5
+        ptransform = (
+            Matrix.Scale(pscale, 4)
+            @ Matrix.Translation(Vector((-pcenter.x, -pcenter.y, 0.0)))
+        )
+        for island in islands:
+            island.matrix_world = ptransform @ island.matrix_world
+        # Deterministic keep-list: triangle count desc, then world position.
+        def island_key(o):
+            o.data.calc_loop_triangles()
+            ilo, ihi = world_bounds([o])
+            return (-len(o.data.loop_triangles), round(ilo.x, 3), round(ilo.y, 3))
+        islands.sort(key=island_key)
+        kept = []
+        for island in islands:
+            island.data.calc_loop_triangles()
+            if len(kept) < args.parts_keep and \
+               len(island.data.loop_triangles) >= args.parts_min_tris:
+                kept.append(island)
+            else:
+                bpy.data.objects.remove(island, do_unlink=True)
+        stage = args.out.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        for index, island in enumerate(kept):
+            ilo, ihi = world_bounds([island])
+            # Ground each island: min-z -> floor top (0). Its authored terrace
+            # was part of the removed candidate floor - floating reads broken.
+            island.matrix_world = (
+                Matrix.Translation(Vector((0.0, 0.0, -ilo.z))) @ island.matrix_world
+            )
+            island.name = f"{stage}-{args.parts_prefix}-{index + 1:03d}"
+            part_objects.append(island)
+        all_objects += part_objects
+
+    roots = [o for o in floor_objects
+             if o.parent is None or o.parent not in floor_objects]
+    for extra_obj in all_objects:
+        if extra_obj in part_objects or extra_obj in floor_objects:
+            continue
+        if extra_obj.parent is None or extra_obj.parent not in all_objects:
+            roots.append(extra_obj)
+
     for root in roots:
         root.matrix_world = transform @ root.matrix_world
 

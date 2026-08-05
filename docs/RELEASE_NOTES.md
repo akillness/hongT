@@ -1,5 +1,31 @@
 # Release Notes
 
+## GitHub Pages 배포 — Lane T-b 융합 터레인 연결성 분할 · 2026-08-05
+
+### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §Lane T-b)
+- **abyss-chancel 융합 GLB 분할**: retained `textured-cleaned.glb`(1노드
+  1메시)를 `convert_terrain.py --parts` 신설 경로로 연결성 기반 362개 섬
+  분리 → 결정론 정렬(트라이 수 내림차순, 위치 타이브레이크) → ≥150 tri
+  상위 48개 유지·명명(`terrain-abyss-chancel-part-NNN`) → 독립 등록(자체
+  bbox, X 스팬 17 적합) + 섬별 접지(min-z→0) → 기존 TerrainImportPipeline
+  경로로 임포트. **저작 시점 분리**(§3 계약), delete 자산 불사용.
+- 프리팹 실측: slab 4 + apron 1 불변, part 48 신규. 분할 산출 알베도의
+  DefaultTexturePlatform 2048 유입은 텍스처 상한 계약(≤1024)으로 즉시 보정
+  — 상한 게이트가 실제로 회귀를 잡음.
+- **echo-throne은 의도적 미분할**: 후보 자산이 전부 2D 빌보드(8×8 평면
+  1섬)라 55° 카메라에서 종잇장 — §S4 비목표 확정, 테스트로 고정.
+- `git tag -f pre-terrain-split-20260805` 사전 태깅(파괴적 자산 작업 계약).
+
+### 게이트·배포
+- EditMode **166/166 통과** — 신규 `TerrainPartsTests` 2종(48파츠+바닥
+  불변, echo-throne 빌보드 비목표) (`unity-logs/test-results-104008.xml`).
+- gh-pages `ad40851`, 캐시 버전 `d8d55ea7d9b6df7c` 라이브 확인.
+
+### 배포 후 스모크 (라이브, 1440×900, 오류 0)
+- Abyss Chancel 강하: 분할 파츠 유적 밴드(질감 있는 붕괴 콜로네이드)가
+  상단 비전투 지대에 렌더, 기둥 해저드 3종·전투 판정 불변
+  (`_workspace/current/engineering/deployed-tb-abyss-parts.png`).
+
 ## GitHub Pages 배포 — Lane P 본 소켓 장비 프롭 · 2026-08-05
 
 ### 변경 (spec `deep-interview-vfx-terrain-command-hardening` §Lane P)
