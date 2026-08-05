@@ -614,6 +614,11 @@ namespace CinderCourt.View
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
                 if (_waveWarnings[i].Ring != null) _waveWarnings[i].Ring.enabled = false;
             if (_boltStreak != null) _boltStreak.enabled = false;
+            // §3.6: the idle arrow must not survive into the lobby; reset the
+            // idle accumulator too so the next run starts from a clean 0.
+            if (_threatArrow != null) _threatArrow.enabled = false;
+            _playerIdleTime = 0f;
+            _prevPlayerX = float.NaN;
             // V3 systems: drop live particles so run-end never leaks a 0.7 s
             // ember shower onto the lobby diorama.
             if (_boltSparks != null) _boltSparks.Clear();
@@ -824,6 +829,16 @@ namespace CinderCourt.View
             return view;
         }
 
+        // --- §3.6 idle threat arrow -------------------------------------------
+        // Spec says "InputAdapter 이동 벡터 0 감지", but VfxDirector holds no
+        // InputAdapter reference and the sim position IS the authoritative
+        // idle signal (a blocked input still moves nothing). Deriving idle
+        // from the snapshot keeps this View-only and avoids a new dependency.
+        LineRenderer _threatArrow;
+        Material _threatArrowMaterial;
+        float _playerIdleTime;
+        float _prevPlayerX = float.NaN, _prevPlayerY;
+        const float ThreatArrowDelay = 0.4f;   // spec §3.6
         public void SyncWard(in PlayerState player)
         {
             // Player world position cache — absorption target for #13 and any
@@ -844,6 +859,75 @@ namespace CinderCourt.View
             {
                 _wardShell.GetComponent<Renderer>().enabled = true;
             }
+        }
+
+        /// <summary>§3.6 (#9): after 0.4 s of no player movement, point a short
+        /// arrow at the nearest living enemy. Idle is derived from the sim's
+        /// own position delta — the authoritative signal, and View-only.
+        /// Hidden the instant the player moves or no enemy is alive.</summary>
+        public void SyncThreatArrow(in PlayerState player, IReadOnlyList<EnemyState> enemies)
+        {
+            var moved = float.IsNaN(_prevPlayerX)
+                || Mathf.Abs(player.X - _prevPlayerX) > 0.5f
+                || Mathf.Abs(player.Y - _prevPlayerY) > 0.5f;
+            _prevPlayerX = player.X;
+            _prevPlayerY = player.Y;
+            _playerIdleTime = moved ? 0f : _playerIdleTime + Time.deltaTime;
+
+            if (_playerIdleTime < ThreatArrowDelay)
+            {
+                if (_threatArrow != null && _threatArrow.enabled) _threatArrow.enabled = false;
+                return;
+            }
+
+            // Nearest living enemy, iso-weighted like every other distance
+            // check in this file (SimConfig.IsoY).
+            var bestSq = float.MaxValue;
+            float targetX = 0f, targetY = 0f;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy.Dead) continue;
+                var dx = enemy.X - player.X;
+                var dy = (enemy.Y - player.Y) * SimConfig.IsoY;
+                var distSq = dx * dx + dy * dy;
+                if (distSq >= bestSq) continue;
+                bestSq = distSq;
+                targetX = enemy.X;
+                targetY = enemy.Y;
+            }
+            if (bestSq == float.MaxValue)
+            {
+                if (_threatArrow != null && _threatArrow.enabled) _threatArrow.enabled = false;
+                return;
+            }
+
+            if (_threatArrow == null)
+            {
+                var host = new GameObject("ThreatArrow");
+                host.transform.SetParent(transform, false);
+                _threatArrow = host.AddComponent<LineRenderer>();
+                _threatArrow.positionCount = 2;
+                _threatArrow.useWorldSpace = true;
+                _threatArrow.startWidth = 0.07f;
+                _threatArrow.endWidth = 0.02f;   // taper reads as a pointer
+                _threatArrowMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.83f, 0.45f, 0.7f), true);
+                _threatArrow.sharedMaterial = _threatArrowMaterial;
+                _threatArrow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            // Short stub near the player, not a full line to the enemy —
+            // it must read as a direction hint, never as a targeting laser.
+            var origin = ViewWorld.ToWorld(player.X, player.Y, 0.15f);
+            var toward = ViewWorld.ToWorld(targetX, targetY, 0.15f);
+            var direction = (toward - origin).normalized;
+            _threatArrow.SetPosition(0, origin + direction * 0.55f);
+            _threatArrow.SetPosition(1, origin + direction * 1.15f);
+            // Fade in over the first 0.3 s past the delay so it never pops.
+            var ramp = Mathf.Clamp01((_playerIdleTime - ThreatArrowDelay) / 0.3f);
+            var color = _threatArrowMaterial.color;
+            color.a = 0.7f * ramp * ViewPrefs.MotionScale;
+            _threatArrowMaterial.color = color;
+            _threatArrow.enabled = true;
         }
 
         // Icon ids by PickupKind (EmberShard, OilFlask, RelicMote, EquipShard).

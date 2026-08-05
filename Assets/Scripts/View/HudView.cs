@@ -2040,6 +2040,9 @@ namespace CinderCourt.View
                 _healthFill.fillAmount = sim.Player.Health / Mathf.Max(1f, _maxHealthSeen);
                 _healthText.text = $"체력 {health}";
             }
+            // #15 low-health heartbeat is already driven by SyncJuice (sub-35
+            // HP pulse, MotionScale-scaled, zero-overdraw idle) — no second
+            // threshold here; one source of truth for the survival signal.
             var charge = Mathf.FloorToInt(sim.Charge);
             if (charge != _lastCharge)
             {

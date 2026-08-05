@@ -23,6 +23,14 @@ namespace CinderCourt.EditorTools
         // tools/blender/reskin_character.py; Mecanim auto-maps them.
 
         // action -> (bench fbx base name, loop)
+        //
+        // ORDER IS A CONTRACT. BuildController uses the ARRAY INDEX as the
+        // animator's "action" condition value, so rows 0..10 MUST stay aligned
+        // with the ActorAction enum (a frozen sim type). Rows past 10 are
+        // View-only substates the sim never emits: the View resolves them from
+        // state it already owns (combo index), which is how #9/#4 land without
+        // amending the frozen contract. Append only; never reorder.
+        // ClipTableTests pins the alignment.
         static readonly (string action, string file, bool loop)[] Clips =
         {
             ("idle", "Unarmed Idle", true),
@@ -36,7 +44,17 @@ namespace CinderCourt.EditorTools
             ("defence", "Body Block", false),
             ("die", "Dying", false),
             ("show", "Mutant Roaring", false),
+            // --- View-only substates (index > ActorAction range) ---
+            ("attack2", "Hook Punch", false),                        // #9 combo 2nd
+            ("attack3", "Standing Melee Combo Attack Ver. 2", false), // #9 combo 3rd
+            ("cast", "Standing 2H Magic Attack 01", false),           // #4 skill cast
         };
+
+        /// <summary>Index of the first View-only substate — everything below is
+        /// an <see cref="ActorAction"/> the sim can emit.</summary>
+        internal const int SimActionCount = 11;
+        internal static string ActionNameAt(int index) => Clips[index].action;
+        internal static int ClipCount => Clips.Length;
 
         [MenuItem("CinderCourt/Import All Characters And Clips")]
         public static void ImportAll()

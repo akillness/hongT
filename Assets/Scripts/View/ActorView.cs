@@ -40,6 +40,13 @@ namespace CinderCourt.View
         float _prevSimX = float.NaN, _prevSimY = float.NaN;
         float _equipGlow;                     // §P2 rank glow (player only)
         int _comboTier = -1;                  // §C1 trail tier cache
+        int _lastActionValue = -1;            // §M resolved animator value
+        // §M View-only animator substates. These continue past the ActorAction
+        // enum on purpose: the sim never emits them, the View resolves them.
+        // They MUST match the row order in CharacterImportPipeline.Clips, which
+        // ClipTableTests pins.
+        const int Attack2Value = 11, Attack3Value = 12, CastValue = 13;
+        float _castPoseTime;                  // §M/#4 cast pose window
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
 
@@ -276,15 +283,38 @@ namespace CinderCourt.View
         }
 
         /// <summary>§C1: combo-tier weapon trail — hits 1/2 ember (1x/1.5x width),
-        /// finisher gold (2x). Pure decoration; hit windows stay sim-owned.</summary>
+        /// finisher gold (2x). Pure decoration; hit windows stay sim-owned.
+        /// §M/#9: the tier ALSO selects the per-swing attack pose, so it is
+        /// recorded even when this actor has no trail — gating the bookkeeping
+        /// on the trail would silently disable combo poses on any rig that
+        /// never called EnableSwingTrail.</summary>
         public void SetComboTier(int tier)
         {
-            if (_swingTrail == null || tier == _comboTier) return;
+            if (tier == _comboTier) return;
             _comboTier = tier;
+            if (_swingTrail == null) return;   // pose recorded; styling is trail-only
             var c = tier >= 2 ? EliteGold : new Color(0.953f, 0.349f, 0.173f);
             _swingTrail.startWidth = 0.06f * (tier <= 0 ? 1f : tier == 1 ? 1.5f : 2f);
             _swingTrail.startColor = new Color(c.r, c.g, c.b, 0.85f);
             _swingTrail.endColor = new Color(c.r, c.g, c.b, 0f);
+        }
+
+        /// <summary>§M pose selection, pure so it can be pinned exhaustively.
+        /// The sim emits one <see cref="ActorAction.Attack"/> per swing and has
+        /// no cast action at all (ActorAction is a frozen sim type), so the View
+        /// resolves both from state it already owns and continues the animator's
+        /// integer past the enum: 11/12/13 = attack2/attack3/cast.
+        ///
+        /// Priority is deliberate. A combo swing outranks a cast window, and the
+        /// cast pose speaks ONLY for an idle body: a reaction the sim asserted
+        /// (hit, dodge, block, death) or locomotion must never be masked by
+        /// decoration.</summary>
+        internal static int ResolveActionValue(ActorAction action, int comboTier, bool castPoseLive)
+        {
+            if (action == ActorAction.Attack && comboTier > 0)
+                return comboTier == 1 ? Attack2Value : Attack3Value;
+            if (castPoseLive && action == ActorAction.Idle) return CastValue;
+            return (int)action;
         }
 
         /// <summary>
@@ -352,6 +382,11 @@ namespace CinderCourt.View
             var c = color; c.a = 0.85f;
             _castGlowMaterial.color = c;
             _castGlow.gameObject.SetActive(true);
+            // §M/#4 cast pose: the sim has no cast action (ActorAction frozen),
+            // so the View holds a short pose window off the same cast event that
+            // drives the glow. Deliberately a touch longer than the glow so the
+            // body reads as "casting" rather than twitching.
+            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
         }
 
         void UpdateCastGlow(float deltaTime)
@@ -438,9 +473,14 @@ namespace CinderCourt.View
             _dead = false;
             transform.localScale = Vector3.one * (_baseScale * scale);
 
-            if (action != _lastAction && _animator != null && _animator.isActiveAndEnabled)
+            // §M/#9 + #4: pose selection is pure — extracted so it can be pinned
+            // exhaustively instead of inferred from screenshots.
+            if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
+            var actionValue = ResolveActionValue(action, _comboTier, _castPoseTime > 0f);
+            if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
-                _animator.SetInteger(ActionParam, (int)action);
+                _animator.SetInteger(ActionParam, actionValue);
+                _lastActionValue = actionValue;
                 _lastAction = action;
             }
 
@@ -535,6 +575,8 @@ namespace CinderCourt.View
             _flashDuration = 0.13f;
             _equipGlow = 0f;
             _comboTier = -1;
+            _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
+            _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;
             ClearEquipProps();   // §Lane P: pooled actors never keep props

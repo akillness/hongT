@@ -397,6 +397,11 @@ namespace CinderCourt.View
             var playerHealth = _sim.Player.Health;
             var playerDamage = _lastPlayerHealth - playerHealth;
             _lastPlayerHealth = playerHealth;
+            // §M/#9: the combo tier MUST be current before SyncPlayer resolves
+            // the attack pose. ActorView only re-issues the animator value when
+            // it CHANGES, so a tier that arrives after the swing starts would
+            // lock the wrong variant for the entire swing, not just one frame.
+            if (_isDungeon) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
             _playerView.SyncPlayer(_sim.Player);
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
@@ -467,6 +472,9 @@ namespace CinderCourt.View
 
             if (Vfx != null) Vfx.SyncPickups(_sim.Pickups);
             if (Vfx != null) Vfx.SyncWard(_sim.Player);
+            // §3.6 (#9): idle threat hint — arrow appears after 0.4 s of no
+            // player movement, points at the nearest living enemy.
+            if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
 
             if (_isDungeon)
@@ -483,14 +491,14 @@ namespace CinderCourt.View
                         hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
-                // §P2 rank glow + §C1 combo trail tier. ComboIndex IS the
-                // current swing during Attack (sim advances it at swing end),
-                // and preloads the next tier between swings — both correct.
+                // §P2 rank glow. ComboIndex IS the current swing during Attack
+                // (sim advances it at swing end) and preloads the next tier
+                // between swings — both correct. SetComboTier itself is hoisted
+                // above SyncPlayer (§M/#9) because it now selects the pose too.
                 _playerView.SetEquipRanks(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
                 // §Lane P: socket props follow the same live ranks (idempotent
                 // per band — a mid-run rank-up swaps the prop immediately).
                 _playerView.AttachEquipProps(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
-                _playerView.SetComboTier(hack.ComboIndex);
                 if (_companionView != null)
                 {
                     var preparation = _sim as IRunPreparationSnapshot;
