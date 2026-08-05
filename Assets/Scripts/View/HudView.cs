@@ -1145,6 +1145,12 @@ namespace CinderCourt.View
         Text _consoleToast;
         float _consoleToastTimer;
         bool _consoleBusy;               // one in-flight Gemini call max
+        // New-Input-System-only project (activeInputHandler:1): legacy uGUI
+        // InputField reads the OLD Input.inputString/IMGUI stream, which is
+        // dead here — so typing never reached the field (only Enter/ESC worked,
+        // read straight off Keyboard.current). Feed Keyboard.onTextInput by
+        // hand instead (Unity input-system docs: read-keyboard-text-input).
+        System.Action<char> _consoleTextHandler;
         /// <summary>GameView caps timeScale at 0.2 while this is true — typing
         /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
         /// reduced-motion players get the same breathing room.</summary>
@@ -1215,20 +1221,53 @@ namespace CinderCourt.View
             if (Input != null) Input.TextInputActive = true;
             _consoleField.text = string.Empty;
             _consoleField.ActivateInputField();
+            // New-input-only project: the uGUI InputField can't pull text from
+            // the dead legacy Input stream, so we mirror Keyboard.onTextInput
+            // into the field ourselves (printable chars + backspace).
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null)
+            {
+                _consoleTextHandler = OnConsoleTextInput;
+                keyboard.onTextInput += _consoleTextHandler;
+            }
             if (!GeminiCommandClient.HasKey)
                 ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 · 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
         }
+
+        void OnConsoleTextInput(char c)
+        {
+            if (!CommandConsoleOpen || _consoleField == null) return;
+            // Enter/ESC are handled separately in UpdateCommandConsole; ignore
+            // their control chars and the tab so the field stays clean.
+            if (c == '\n' || c == '\r' || c == '\t' || c == (char)27) return;
+            if (c == '\b' || c == (char)127)
+            {
+                var t = _consoleField.text;
+                if (t.Length > 0) _consoleField.text = t.Substring(0, t.Length - 1);
+                return;
+            }
+            if (!char.IsControl(c)) _consoleField.text += c;
+        }
+
 
         void CloseCommandConsole(bool submit)
         {
             if (_consoleRoot == null) return;
             var raw = _consoleField.text;
             _consoleField.DeactivateInputField();
+            // Detach the manual text feed so it never leaks onto other surfaces.
+            if (_consoleTextHandler != null)
+            {
+                var keyboard = UnityEngine.InputSystem.Keyboard.current;
+                if (keyboard != null) keyboard.onTextInput -= _consoleTextHandler;
+                _consoleTextHandler = null;
+            }
             _consoleRoot.SetActive(false);
             CommandConsoleOpen = false;
             if (Input != null) Input.TextInputActive = false;
             if (submit && !string.IsNullOrWhiteSpace(raw)) SubmitCommand(raw.Trim());
         }
+
 
         void SubmitCommand(string raw)
         {
