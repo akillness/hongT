@@ -87,6 +87,26 @@ namespace CinderCourt.View
         const float DeathNumberPunchDuration = 0.24f;
         static readonly Color EnemyDamageColor = new Color(1f, 0.5f, 0.3f);
         static readonly Color FinisherDamageColor = new Color(0.87f, 0.78f, 0.41f);
+        // §K3: the element color of the most recent cast, held briefly so the
+        // damage it causes flashes that element on the struck mesh. 0.4 s is
+        // the spec window; it outlives one frame because a cast's damage can
+        // land over several ticks (pulse ticks, nova's spread resolution).
+        const float ElementTintWindow = 0.4f;
+        Color _elementTint;
+        float _elementTintTime;
+
+        /// <summary>§K3/V1 single source of truth for element color. Cast events
+        /// are mutually exclusive per tick in practice; if two ever coincide the
+        /// first in kit order wins, deterministically.</summary>
+        internal static bool TryElementColor(SimEvents events, out Color color)
+        {
+            if ((events & SimEvents.BoltCast) != 0) { color = new Color(0.75f, 0.55f, 1f); return true; }   // void violet
+            if ((events & SimEvents.PulseCast) != 0) { color = new Color(0.35f, 0.9f, 0.55f); return true; } // grave green
+            if ((events & SimEvents.NovaCast) != 0) { color = new Color(0.95f, 0.35f, 0.17f); return true; } // ember
+            if ((events & SimEvents.WardCast) != 0) { color = new Color(0.45f, 0.85f, 1f); return true; }    // cyan aegis/ward
+            color = default;
+            return false;
+        }
 
         void Awake()
         {
@@ -346,16 +366,13 @@ namespace CinderCourt.View
                 _playerView.FlashEquip();
             // §Lane V1: cast-sync hand glow — element-matched convergence at
             // every cast event. Decoration reading sim events, never gating.
-            if (_playerView != null)
+            // §K3: the SAME element color drives the struck mesh's hit flash,
+            // so the hand and the victim always agree on what element landed.
+            if (TryElementColor(events, out var element))
             {
-                if ((events & SimEvents.BoltCast) != 0)
-                    _playerView.FlashCastGlow(new Color(0.75f, 0.55f, 1f));     // void violet
-                if ((events & SimEvents.PulseCast) != 0)
-                    _playerView.FlashCastGlow(new Color(0.35f, 0.9f, 0.55f));   // grave green
-                if ((events & SimEvents.NovaCast) != 0)
-                    _playerView.FlashCastGlow(new Color(0.95f, 0.35f, 0.17f));  // ember
-                if ((events & SimEvents.WardCast) != 0)
-                    _playerView.FlashCastGlow(new Color(0.45f, 0.85f, 1f));     // cyan aegis/ward
+                if (_playerView != null) _playerView.FlashCastGlow(element);
+                _elementTint = element;
+                _elementTintTime = ElementTintWindow;
             }
 
             if ((events & (SimEvents.GameOver | SimEvents.StageCleared)) != 0 && !_digestWritten)
@@ -384,6 +401,11 @@ namespace CinderCourt.View
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
 
+            // §K3: decay the element window once per frame, then hand the live
+            // color (or default = clear) to every enemy before it syncs, so a
+            // mesh struck inside the window flashes WHAT hit it.
+            if (_elementTintTime > 0f) _elementTintTime -= Time.deltaTime;
+            var liveTint = _elementTintTime > 0f ? _elementTint : default;
             var enemies = _sim.Enemies;
             // Mark-and-sweep: sync live ids, recycle views whose id vanished.
             for (var i = 0; i < enemies.Count; i++)
@@ -401,6 +423,7 @@ namespace CinderCourt.View
                 // SyncEnemy reports the health delta since last frame — the
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
+                view.SetElementTint(liveTint);
                 var damage = view.SyncEnemy(in state);
                 if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
                     && state.Visual == stage.Boss.Visual)
@@ -594,7 +617,15 @@ namespace CinderCourt.View
             // ActorView.ResetForPool clears the old MPB before this rented actor
             // can change logical stages. Reapply after SyncEnemy because its
             // flash path can otherwise clear the catalog tint.
+            // Scale is an absolute SET in ActorView every frame, so this multiply
+            // stays unconditional — skipping it would pop the boss to base size.
             view.transform.localScale *= stage.Boss.Scale;
+            // §K3: the catalog tint YIELDS while a flash owns the block. Without
+            // this the boss is the one enemy that can never show a hit color,
+            // element or otherwise. ActorView restores its resting block on the
+            // frame the flash ends and this re-tints in the same frame (it runs
+            // after SyncEnemy), so the handoff costs no visible frame.
+            if (view.FlashLive) return;
             if (!_bossRenderers.TryGetValue(view, out var renderers))
             {
                 renderers = view.GetComponentsInChildren<Renderer>();

@@ -32,6 +32,7 @@ namespace CinderCourt.View
         static readonly Color EliteGold = new Color(1f, 0.78f, 0.25f);
         float _lastHealth = float.MaxValue;   // enemy health-delta cache (spec #5)
         float _deathPop;                      // kill pop timer (spec #4)
+        Color _elementTint;                   // §K3 skill-element hit color (a=0 off)
         bool _eliteTint;                      // gold pulse marker (spec #14)
         Color _flashColor = PlayerFlashColor;
         TrailRenderer _swingTrail;            // player-only (spec #8)
@@ -130,12 +131,24 @@ namespace CinderCourt.View
                 damage = _lastHealth - state.Health;
             _lastHealth = state.Health;
             var hit = damage > 0f && !state.Dead;
-            if (hit) _flashColor = EnemyFlashColor;
+            // §K3: a skill's element owns the hit color while its window is
+            // live (GameView sets it), so the mesh itself reports WHAT hit it.
+            if (hit) _flashColor = _elementTint.a > 0f ? _elementTint : EnemyFlashColor;
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.MaxHealth > 0f ? state.Health / state.MaxHealth : 0f,
                   state.Scale, state.Dead, state.FadeTime, hit);
             return damage;
         }
+
+        /// <summary>§K3: sets the color a skill's damage flashes on this mesh
+        /// (alpha 0 clears back to the default ember hit tone).</summary>
+        public void SetElementTint(Color tint) => _elementTint = tint;
+
+        /// <summary>True while a hit/pickup flash owns this actor's MPB. The
+        /// boss catalog tint is reapplied every frame AFTER SyncEnemy, so it
+        /// must yield during the flash or a boss can never show a hit color
+        /// (§K3: the element flash matters most on the boss).</summary>
+        internal bool FlashLive => _flashTime > 0f;
 
         float _companionLastX;
 
@@ -403,6 +416,12 @@ namespace CinderCourt.View
                 {
                     _dead = true;
                     _deathPop = 0.09f;   // kill pop (spec #4)
+                    // Death returns below WITHOUT reaching the flash decay, so a
+                    // flash live on the killing blow would never expire. Release
+                    // it here: FlashLive must not stay true through the fade, or
+                    // the boss catalog tint (which yields to it, §K3) is
+                    // suppressed for the whole death animation.
+                    _flashTime = 0f;
                     if (_animator != null && _animator.isActiveAndEnabled)
                         _animator.SetInteger(ActionParam, (int)ActorAction.Die);
                 }
@@ -425,10 +444,18 @@ namespace CinderCourt.View
                 _lastAction = action;
             }
 
+            // A flash gets its FULL duration: the frame that arms it must not
+            // immediately spend a delta against it. On a long frame (100 ms vs
+            // the 130 ms flash) the old arm-then-decay order burned most of the
+            // first frame, making a hit read as a faint smear — and it made
+            // FlashLive depend on frame length right after a hit.
+            var flashOwnedBlock = _flashTime > 0f;
             if (hitFlash) { _flashTime = 0.13f; _flashDuration = 0.13f; }
-            if (_flashTime > 0f)
+            else if (flashOwnedBlock) _flashTime -= Time.deltaTime;
+            // Enter whenever the flash owns the block THIS frame - including the
+            // frame it expires on, which still has to restore the resting state.
+            if (hitFlash || flashOwnedBlock)
             {
-                _flashTime -= Time.deltaTime;
                 if (_flashTime > 0f)
                 {
                     var pulse = Mathf.Clamp01(_flashTime / _flashDuration);
@@ -508,6 +535,7 @@ namespace CinderCourt.View
             _flashDuration = 0.13f;
             _equipGlow = 0f;
             _comboTier = -1;
+            _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;
             ClearEquipProps();   // §Lane P: pooled actors never keep props
             if (_castGlow != null) _castGlow.gameObject.SetActive(false);   // §V1
