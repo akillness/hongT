@@ -47,6 +47,7 @@ namespace CinderCourt.View
         // ClipTableTests pins.
         const int Attack2Value = 11, Attack3Value = 12, CastValue = 13;
         float _castPoseTime;                  // §M/#4 cast pose window
+        float _knockbackTime;                 // §M launch reaction window
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
 
@@ -141,6 +142,21 @@ namespace CinderCourt.View
             // §K3: a skill's element owns the hit color while its window is
             // live (GameView sets it), so the mesh itself reports WHAT hit it.
             if (hit) _flashColor = _elementTint.a > 0f ? _elementTint : EnemyFlashColor;
+            // §M knockback: the sim launches 120 px over 0.18 s (~667 px/s) but
+            // publishes no flag, so a hit frame that ALSO moves far faster than
+            // a chase is the launch signal. Gate on VELOCITY, not step size:
+            // GameView batch-runs ticks on slow frames, so at 20 fps a plain
+            // chase step is 128 px/s * 50 ms = 6.4 px and a fixed px gate would
+            // fire BigHit on every hit exactly when the game is already
+            // struggling. 300 px/s sits between chase (<=128) and launch (~667)
+            // at any frame rate.
+            if (hit && !float.IsNaN(_prevSimX) && Time.deltaTime > 0f)
+            {
+                var stepX = state.X - _prevSimX;
+                var stepY = state.Y - _prevSimY;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                if (speed > 300f) _knockbackTime = HackSpec.ComboKnockbackTime;
+            }
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.MaxHealth > 0f ? state.Health / state.MaxHealth : 0f,
                   state.Scale, state.Dead, state.FadeTime, hit);
@@ -308,9 +324,18 @@ namespace CinderCourt.View
         /// Priority is deliberate. A combo swing outranks a cast window, and the
         /// cast pose speaks ONLY for an idle body: a reaction the sim asserted
         /// (hit, dodge, block, death) or locomotion must never be masked by
-        /// decoration.</summary>
-        internal static int ResolveActionValue(ActorAction action, int comboTier, bool castPoseLive)
+        /// decoration.
+        ///
+        /// §M knockback: the sim applies 120 px over 0.18 s on combo finishers
+        /// and nova (HackSpec.ComboKnockbackDistance/AshNovaKnockback) but never
+        /// sets BigHit, so the authored clip was dead while its driver was live.
+        /// A live knockback outranks everything except death — being launched is
+        /// the strongest thing happening to that body.</summary>
+        internal static int ResolveActionValue(
+            ActorAction action, int comboTier, bool castPoseLive, bool knockbackLive = false)
         {
+            if (action == ActorAction.Die) return (int)ActorAction.Die;
+            if (knockbackLive) return (int)ActorAction.BigHit;
             if (action == ActorAction.Attack && comboTier > 0)
                 return comboTier == 1 ? Attack2Value : Attack3Value;
             if (castPoseLive && action == ActorAction.Idle) return CastValue;
@@ -476,7 +501,9 @@ namespace CinderCourt.View
             // §M/#9 + #4: pose selection is pure — extracted so it can be pinned
             // exhaustively instead of inferred from screenshots.
             if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
-            var actionValue = ResolveActionValue(action, _comboTier, _castPoseTime > 0f);
+            if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
+            var actionValue = ResolveActionValue(
+                action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f);
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.SetInteger(ActionParam, actionValue);
@@ -576,6 +603,7 @@ namespace CinderCourt.View
             _equipGlow = 0f;
             _comboTier = -1;
             _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
+            _knockbackTime = 0f;      // §M: nor a launch reaction
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;

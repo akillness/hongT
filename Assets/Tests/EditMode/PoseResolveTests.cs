@@ -199,6 +199,63 @@ namespace CinderCourt.Tests
         }
 
         [Test]
+        public void Knockback_OutranksEveryPoseExceptDeath()
+        {
+            // The sim launches 120 px over 0.18 s but publishes no flag, so the
+            // View infers it from velocity. Being launched is the strongest
+            // thing happening to that body: it must win over swings, casts and
+            // locomotion, or a mid-combo enemy keeps swinging while sliding
+            // backwards through the air.
+            foreach (ActorAction action in Enum.GetValues(typeof(ActorAction)))
+            {
+                if (action == ActorAction.Die) continue;
+                foreach (var tier in new[] { -1, 0, 1, 2 })
+                {
+                    var resolved = ActorView.ResolveActionValue(
+                        action, tier, castPoseLive: true, knockbackLive: true);
+
+                    Assert.That(resolved, Is.EqualTo((int)ActorAction.BigHit),
+                        $"ActorAction.{action} at tier {tier} resolved {resolved} during a live " +
+                        $"knockback, not BigHit ({(int)ActorAction.BigHit}) — the launch " +
+                        "reaction is the whole point of detecting the launch");
+                }
+            }
+        }
+
+        [Test]
+        public void Death_OutranksKnockback()
+        {
+            // A killing blow knocks back AND kills in the same tick, so both
+            // windows are live together. Death must win: the corpse fade reads
+            // the Die clip, and a launched-but-dead actor that plays BigHit
+            // never transitions into it.
+            var resolved = ActorView.ResolveActionValue(
+                ActorAction.Die, comboTier: 2, castPoseLive: true, knockbackLive: true);
+
+            Assert.That(resolved, Is.EqualTo((int)ActorAction.Die),
+                $"a dying actor resolved {resolved} while knocked back, not " +
+                $"Die ({(int)ActorAction.Die}) — killing blows apply knockback, so this pair " +
+                "is the common case, not an edge case");
+        }
+
+        [Test]
+        public void KnockbackDefaultsOff_SoExistingCallSitesAreUnchanged()
+        {
+            // The parameter is optional to keep the 3-arg call sites compiling.
+            // That default must mean "no knockback", never "knockback".
+            foreach (ActorAction action in Enum.GetValues(typeof(ActorAction)))
+            {
+                var threeArg = ActorView.ResolveActionValue(action, comboTier: 0, castPoseLive: false);
+                var explicitOff = ActorView.ResolveActionValue(
+                    action, comboTier: 0, castPoseLive: false, knockbackLive: false);
+
+                Assert.That(threeArg, Is.EqualTo(explicitOff),
+                    $"ActorAction.{action}: the 3-arg overload resolved {threeArg} but " +
+                    $"knockbackLive:false resolved {explicitOff} — the default flipped meaning");
+            }
+        }
+
+        [Test]
         public void EveryResolvablePose_OccupiesItsOwnAnimatorValue()
         {
             var owner = new Dictionary<int, string>();
