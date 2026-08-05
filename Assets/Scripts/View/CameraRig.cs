@@ -47,6 +47,10 @@ namespace CinderCourt.View
         // Prologue reveal interpolation state.
         float _revealT;
 
+        // Scene-authored fog band, captured at Awake and restored whenever a
+        // non-dungeon profile takes over.
+        float _bakedFogStart = 19f;
+        float _bakedFogEnd = 22.5f;
         public Profile Current => _profile;
 
         void Awake()
@@ -59,6 +63,10 @@ namespace CinderCourt.View
             if (_camera == null) return;
             _basePosition = _camera.transform.position;
             _baseRotation = _camera.transform.rotation;
+            // Snapshot the scene's authored fog band before any dungeon run
+            // overwrites it — this is what non-dungeon profiles restore to.
+            _bakedFogStart = RenderSettings.fogStartDistance;
+            _bakedFogEnd = RenderSettings.fogEndDistance;
             ApplyAspect(true);
         }
 
@@ -77,6 +85,16 @@ namespace CinderCourt.View
             _focusTimer = 0f;   // stale boss focus must not survive a run exit
             _focusDuration = 1f;
             _focusTarget = Vector3.zero;
+            // The dungeon branch drives RenderSettings fog every frame, and
+            // RenderSettings is GLOBAL — without this, Lobby and Arena inherit
+            // whatever band the last dungeon run left (up to 23/26.5 after a
+            // boss wave), which un-dissolves their apron rims. Restore the
+            // baked scene values on every non-dungeon profile.
+            if (profile != Profile.Dungeon)
+            {
+                RenderSettings.fogStartDistance = _bakedFogStart;
+                RenderSettings.fogEndDistance = _bakedFogEnd;
+            }
             if (_camera == null) return;
             switch (profile)
             {
