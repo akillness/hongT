@@ -46,10 +46,23 @@ golden-digests-cycle2.md 헤더에 명문화 — 하니스 재구축 금지.
 ## 교차 세션
 
 - GUI Unity 에디터(Hub 경유) 세션이 프로젝트 락 점유 → 사용자 확인 후 종료.
-  에디터가 재생성한 파일(.vscode, slnx, manifest.json unity-mcp 추가,
-  URP GlobalSettings)은 **이 세션 산출물 아님** — 커밋 제외, 소유 세션 존중.
+  에디터가 재생성한 파일(.vscode/settings.json, HongT.slnx, Packages/
+  manifest.json의 unity-mcp 항목, packages-lock, burst wasm)은 **이 세션
+  산출물 아님** — 커밋 제외. 리베이스를 위해 일시 stash했다가 사이클 종료
+  시점에 **워킹트리로 전부 복원 완료**(stash 비움, `git status`에 미커밋
+  변경으로 남아 있음 — 소유 세션이 커밋 여부 결정).
 - CharacterRosterAnimationTests.cs: 이번 사이클 LFS 복구 후 통과 — conflicts.md
   잔여 리스크 해소.
+- **origin/main 19커밋 선행 발견**(타 세션: S8-a 보스 3페이즈, 위협 화살표,
+  테스트 +40): `dungen` 브랜치를 origin/main(3e2e3a1)에 리베이스. 충돌은
+  .meta GUID 3건뿐 — main GUID 채택(타 워크트리 Library 캐시 정합).
+  리베이스 후 재게이트: **EditMode 223/223** (183+40, 양 세션 테스트 전부
+  초록 — 골든 15행 생존, S8-a와 기믹 상호 간섭 없음), 빌드 57.05MB errors 0
+  (warnings 2건은 main 세션 코드 소유 — LobbyView:125 CS0618,
+  HudView:119 CS0414).
+- push 차단: 이 머신 자격증명(leeseockmin)에 akillness/hongT 쓰기 권한 없음
+  (403). SSH 키도 부재. **로컬 `dungen` 브랜치에 커밋 완료 — push는 권한
+  있는 자격증명으로 수행 필요** (사람 판단 항목).
 
 ## 미해결 리스크 / 이월
 
