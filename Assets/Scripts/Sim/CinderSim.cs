@@ -2375,19 +2375,21 @@ namespace CinderCourt.Sim
                         continue;
                     }
                     runtime.Tick = tick;
-                    float front = WallFrontX(hazard.Phase, _stageTime);
-                    if (front <= CampaignSpec.WallEdgeX)
+                    float depth = WallDepthAt(hazard.Phase, _stageTime);
+                    if (depth <= 0f)
                     {
                         continue;
                     }
-                    if (_player.X < front)
+                    // Edge encoding (spec v1.1): PushX +1 = left wall, −1 = right wall.
+                    bool fromRight = hazard.PushX < 0f;
+                    if (WallCovers(fromRight, depth, _player.X))
                     {
                         DamagePlayer(CampaignSpec.WallTickDamage);
                     }
                     for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
                     {
                         ref Enemy enemy = ref _enemies[enemyIndex];
-                        if (!enemy.State.Dead && enemy.State.X < front)
+                        if (!enemy.State.Dead && WallCovers(fromRight, depth, enemy.State.X))
                         {
                             DamageEnemy(ref enemy, CampaignSpec.WallTickDamage);
                         }
@@ -2470,8 +2472,8 @@ namespace CinderCourt.Sim
 
         // --- Amendment #5 helpers (docs/SIM_SPEC_DUNGEONS.md) ------------------
 
-        /// <summary>Ash-wall leading edge at <paramref name="stageTime"/> (EdgeX = idle).</summary>
-        private static float WallFrontX(float phase, float stageTime)
+        /// <summary>Ash-wall encroachment depth at <paramref name="stageTime"/> (0 = idle).</summary>
+        private static float WallDepthAt(float phase, float stageTime)
         {
             float t = (stageTime + phase) % CampaignSpec.WallPeriod;
             float advanceStart = CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
@@ -2479,19 +2481,30 @@ namespace CinderCourt.Sim
             float recedeStart = holdStart + CampaignSpec.WallHold;
             if (t < advanceStart)
             {
-                return CampaignSpec.WallEdgeX;
+                return 0f;
             }
             if (t < holdStart)
             {
-                return CampaignSpec.WallEdgeX + (t - advanceStart) * CampaignSpec.WallSpeed;
+                return (t - advanceStart) * CampaignSpec.WallSpeed;
             }
             if (t < recedeStart)
             {
-                return CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax;
+                return CampaignSpec.WallDepthMax;
             }
-            return CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax
-                - (t - recedeStart) * CampaignSpec.WallSpeed;
+            return CampaignSpec.WallDepthMax - (t - recedeStart) * CampaignSpec.WallSpeed;
         }
+
+        /// <summary>Band test for a wall's edge orientation (spec v1.1).</summary>
+        private static bool WallCovers(bool fromRight, float depth, float x)
+            => fromRight
+                ? x > CampaignSpec.WallEdgeRightX - depth
+                : x < CampaignSpec.WallEdgeX + depth;
+
+        /// <summary>Leading edge published to the view (edge X when idle).</summary>
+        private static float WallFrontAt(bool fromRight, float depth)
+            => fromRight
+                ? CampaignSpec.WallEdgeRightX - depth
+                : CampaignSpec.WallEdgeX + depth;
 
         /// <summary>Tide-current push window test at <paramref name="stageTime"/>.</summary>
         private static bool CurrentActiveAt(float phase, float stageTime)
@@ -2665,8 +2678,9 @@ namespace CinderCourt.Sim
                     state.CycleT = cycleT;
                     state.Telegraphing = cycleT >= CampaignSpec.WallRest
                         && cycleT < CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
-                    state.FrontX = WallFrontX(hazard.Phase, _stageTime);
-                    state.Active = state.FrontX > CampaignSpec.WallEdgeX;
+                    float depth = WallDepthAt(hazard.Phase, _stageTime);
+                    state.FrontX = WallFrontAt(hazard.PushX < 0f, depth);
+                    state.Active = depth > 0f;
                 }
                 else if (hazard.Kind == HazardKind.EmberPylon)
                 {

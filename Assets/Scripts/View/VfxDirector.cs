@@ -828,25 +828,28 @@ namespace CinderCourt.View
                     case HazardKind.TideCurrent:
                     {
                         // Band bed: brighter while the push window is live.
+                        // v1.1 retune: raised floor/active alphas — the band
+                        // must read as terrain even while idle-telegraphing
+                        // (contrast is the failure mode, qa benchmark band 6).
                         var bed = view.BodyMaterial.color;
-                        bed.a = hazard.Active ? 0.30f : 0.10f;
+                        bed.a = hazard.Active ? 0.45f : 0.22f;
                         view.BodyMaterial.color = bed;
 
                         // Edge lines: telegraph = blink (reduced-motion keeps
                         // them steady — persistent zone markers never strobe).
                         var edge = view.EdgeMaterial.color;
                         if (hazard.Telegraphing && !ViewPrefs.ReducedMotion)
-                            edge.a = 0.25f + 0.55f * Mathf.PingPong(Time.time * 7f, 1f);
+                            edge.a = 0.35f + 0.55f * Mathf.PingPong(Time.time * 7f, 1f);
                         else if (hazard.Telegraphing || hazard.Active)
-                            edge.a = 0.7f;
+                            edge.a = 0.8f;
                         else
-                            edge.a = 0.25f;
+                            edge.a = 0.35f;
                         view.EdgeMaterial.color = edge;
 
                         // Chevron row: static direction arrows under reduced
                         // motion; scrolling at the sim push speed while active.
                         var chevron = view.AuxMaterial.color;
-                        chevron.a = hazard.Active ? 0.85f : 0.35f;
+                        chevron.a = hazard.Active ? 1f : 0.55f;
                         view.AuxMaterial.color = chevron;
                         if (!ViewPrefs.ReducedMotion && hazard.Active)
                         {
@@ -881,7 +884,7 @@ namespace CinderCourt.View
                         }
                         if (down) break;
 
-                        // Ember band dims with remaining Hp (240..0) so shield
+                        // Ember band dims with remaining Hp (PylonHp..0) so shield
                         // strength reads at a glance; aura ring stays put as
                         // the persistent zone marker (reduced-motion safe).
                         var fraction = Mathf.Clamp01(hazard.Hp / CampaignSpec.PylonHp);
@@ -892,23 +895,33 @@ namespace CinderCourt.View
                     }
                     case HazardKind.AshWall:
                     {
-                        var live = hazard.FrontX > CampaignSpec.WallEdgeX;
+                        // Side-agnostic liveness straight from the sim (depth
+                        // > 0). The old FrontX > WallEdgeX read was left-wall
+                        // only — a right wall IDLES at FrontX 1288 (> 248).
+                        var live = hazard.Active;
 
-                        // Telegraph line at the fixed left edge x=248. Blink is
-                        // the modulated part; under reduced motion the marker
+                        // Signed world offset of the leading edge from this
+                        // wall's home edge (root = hazard.X: 248 left / 1288
+                        // right). Positive grows right, negative grows left —
+                        // one expression serves both sides (v1.1 retune).
+                        var frontWorld = (hazard.FrontX - hazard.X) * ViewWorld.Scale;
+
+                        // Telegraph line at the home edge. Blink is the
+                        // modulated part; under reduced motion the marker
                         // stays steady (persistent zone marker contract).
                         var edge = view.EdgeMaterial.color;
                         if (hazard.Telegraphing && !ViewPrefs.ReducedMotion)
-                            edge.a = 0.25f + 0.6f * Mathf.PingPong(Time.time * 7f, 1f);
+                            edge.a = 0.3f + 0.6f * Mathf.PingPong(Time.time * 7f, 1f);
                         else if (hazard.Telegraphing || live)
-                            edge.a = 0.8f;
+                            edge.a = 0.9f;
                         else
-                            edge.a = 0.22f;
+                            edge.a = 0.3f;
                         view.EdgeMaterial.color = edge;
 
-                        // Dark overlay covers the lethal band x 248..FrontX;
-                        // the curtain rides the leading edge. Reduced motion:
-                        // boundary line only — overlay/curtain stay hidden.
+                        // Charcoal overlay covers the swallowed band between
+                        // the home edge and FrontX; the ember curtain rides
+                        // the leading edge. Reduced motion: boundary line
+                        // only — overlay/curtain stay hidden.
                         var showBand = live && !ViewPrefs.ReducedMotion;
                         if (view.Body.gameObject.activeSelf != showBand)
                             view.Body.gameObject.SetActive(showBand);
@@ -916,16 +929,15 @@ namespace CinderCourt.View
                             view.Aux.gameObject.SetActive(showBand);
                         if (showBand)
                         {
-                            var depthWorld = (hazard.FrontX - CampaignSpec.WallEdgeX) * ViewWorld.Scale;
-                            view.Body.localScale = new Vector3(depthWorld, WallSpanWorld, 1f);
-                            view.Body.localPosition = new Vector3(depthWorld * 0.5f, 0.03f, 0f);
-                            view.Aux.localPosition = new Vector3(depthWorld, 0.8f, 0f);
+                            view.Body.localScale = new Vector3(
+                                Mathf.Abs(frontWorld), WallSpanWorld, 1f);
+                            view.Body.localPosition = new Vector3(frontWorld * 0.5f, 0.03f, 0f);
+                            view.Aux.localPosition = new Vector3(frontWorld, 0.8f, 0f);
                         }
                         else if (live && ViewPrefs.ReducedMotion)
                         {
                             // The boundary line doubles as the front marker.
-                            var depthWorld = (hazard.FrontX - CampaignSpec.WallEdgeX) * ViewWorld.Scale;
-                            view.Edge.localPosition = new Vector3(depthWorld, 0.04f, 0f);
+                            view.Edge.localPosition = new Vector3(frontWorld, 0.04f, 0f);
                         }
                         if (!live && view.Edge.localPosition.x != 0f)
                             view.Edge.localPosition = new Vector3(0f, 0.04f, 0f);
@@ -1027,7 +1039,7 @@ namespace CinderCourt.View
                         UnityEngine.Rendering.ShadowCastingMode.Off;
                     view.Body = bed.transform;
                     view.BodyMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.247f, 0.659f, 0.784f, 0.10f), true);   // stage accent
+                        new Color(0.247f, 0.659f, 0.784f, 0.22f), true);   // stage accent, v1.1 raised floor
                     bed.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
 
                     // Long edge lines — the telegraph blink surface. Both
@@ -1036,7 +1048,7 @@ namespace CinderCourt.View
                     edges.transform.SetParent(root.transform, false);
                     view.Edge = edges.transform;
                     view.EdgeMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.42f, 0.85f, 0.95f, 0.25f), true);
+                        new Color(0.42f, 0.85f, 0.95f, 0.35f), true);
                     for (var side = -1; side <= 1; side += 2)
                     {
                         var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -1061,8 +1073,10 @@ namespace CinderCourt.View
                     if (view.PushSign < 0f)
                         flow.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
                     view.Aux = flow.transform;
+                    // v1.1 retune: near-white chevrons — direction must read
+                    // against the ash-grey floor even between push windows.
                     view.AuxMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.62f, 0.93f, 1f, 0.35f), true);
+                        new Color(0.85f, 0.97f, 1f, 0.55f), true);
                     // 8 chevrons cover bandW - spacing; with the +0..spacing
                     // scroll offset the row always stays INSIDE the judged
                     // band (edge lines mark the true boundary — decoration
@@ -1113,7 +1127,8 @@ namespace CinderCourt.View
                     view.AuxMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.45f, 0.1f, 1f), true);
                     band.GetComponent<Renderer>().sharedMaterial = view.AuxMaterial;
 
-                    // Aura disc, radius 220 (CampaignSpec.PylonAuraRadius) —
+                    // Aura disc, radius CampaignSpec.PylonAuraRadius (280
+                    // v1.1 — was 220) —
                     // iso-scaled ellipse like the vent/altar rings. Persistent
                     // zone marker: never pulses (reduced-motion contract).
                     var aura = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -1141,11 +1156,20 @@ namespace CinderCourt.View
                 }
                 case HazardKind.AshWall:
                 {
-                    // Root sits at the fixed left edge (x=248, y=ArenaY). The
-                    // lethal band is y-full in the sim; visuals span the
-                    // arena height (WallSpanWorld) — decoration, not judge.
-                    // Boundary line at x=248: the telegraph blink surface and
-                    // the ONLY visual under reduced motion.
+                    // Root sits at this wall's HOME edge (config X: 248 left
+                    // / 1288 right, y=ArenaY). The lethal band is y-full in
+                    // the sim; visuals span the arena height (WallSpanWorld)
+                    // — decoration, not judge. HazardState carries no PushX,
+                    // so the side is inferred from the anchor X — build-time
+                    // lookup grammar, same reasoning as CurrentPushSign.
+                    var fromRight = hazard.X
+                        > (CampaignSpec.WallEdgeX + CampaignSpec.WallEdgeRightX) * 0.5f;
+
+                    // Boundary line at the home edge: the telegraph blink
+                    // surface and the ONLY visual under reduced motion.
+                    // Ember-orange (v1.1 retune): the old pale-ash line sat
+                    // grey-on-grey against the echo-throne floor — contrast
+                    // is the failure mode (qa benchmark band 6).
                     var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Destroy(line.GetComponent<Collider>());
                     line.transform.SetParent(root.transform, false);
@@ -1154,21 +1178,24 @@ namespace CinderCourt.View
                     line.transform.localScale = new Vector3(0.06f, WallSpanWorld, 1f);
                     view.Edge = line.transform;
                     view.EdgeMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.85f, 0.80f, 0.75f, 0.22f), true);
+                        new Color(1f, 0.55f, 0.18f, 0.30f), true);
                     var lineRenderer = line.GetComponent<Renderer>();
                     lineRenderer.shadowCastingMode =
                         UnityEngine.Rendering.ShadowCastingMode.Off;
                     lineRenderer.sharedMaterial = view.EdgeMaterial;
 
-                    // Dark overlay for the swallowed band x 248..FrontX —
-                    // scaled from the left edge every frame while advancing.
+                    // Dark warm-charcoal overlay for the swallowed band
+                    // between the home edge and FrontX — scaled every frame
+                    // while advancing. Warm-shifted and denser (v1.1) so it
+                    // separates from the ash-grey floor: NOT pure
+                    // dark-on-grey.
                     var overlay = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Destroy(overlay.GetComponent<Collider>());
                     overlay.transform.SetParent(root.transform, false);
                     overlay.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                     view.Body = overlay.transform;
                     view.BodyMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.05f, 0.04f, 0.04f, 0.45f), true);
+                        new Color(0.10f, 0.06f, 0.05f, 0.62f), true);
                     var overlayRenderer = overlay.GetComponent<Renderer>();
                     overlayRenderer.shadowCastingMode =
                         UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -1177,19 +1204,25 @@ namespace CinderCourt.View
 
                     // Vertical curtain sheet riding the leading edge — the
                     // "particle curtain" on the proven quad path (no new
-                    // particle systems, no lights; spec §V3 budget).
+                    // particle systems, no lights; spec §V3 budget). Ember
+                    // glow (v1.1): the advancing front is the kill read.
                     var curtain = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     Destroy(curtain.GetComponent<Collider>());
                     curtain.transform.SetParent(root.transform, false);
-                    // Yaw -90: quad normal lands on +x, toward the advancing
-                    // side the (yaw-0, south) dungeon camera sees — +90 would
-                    // be backface-culled by the single-sided unlit quad.
-                    curtain.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+                    // Left wall, yaw -90: quad normal lands on +x, toward the
+                    // arena side the (yaw-0, south, pitched-down) dungeon
+                    // camera occupies. Right wall mirrors to yaw +90 (normal
+                    // -x): the camera tracks the player, whom the wall pushes
+                    // toward the arena side of either home edge, so the
+                    // camera x stays on the front-face side. The wrong sign
+                    // is backface-culled by the single-sided unlit quad.
+                    curtain.transform.localRotation =
+                        Quaternion.Euler(0f, fromRight ? 90f : -90f, 0f);
                     curtain.transform.localPosition = new Vector3(0f, 0.8f, 0f);
                     curtain.transform.localScale = new Vector3(WallSpanWorld, 1.6f, 1f);
                     view.Aux = curtain.transform;
                     view.AuxMaterial = ViewWorld.MakeUnlit(
-                        new Color(0.72f, 0.69f, 0.64f, 0.35f), true);
+                        new Color(1f, 0.45f, 0.15f, 0.55f), true);
                     var curtainRenderer = curtain.GetComponent<Renderer>();
                     curtainRenderer.shadowCastingMode =
                         UnityEngine.Rendering.ShadowCastingMode.Off;

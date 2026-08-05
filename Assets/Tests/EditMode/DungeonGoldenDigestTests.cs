@@ -12,6 +12,12 @@
 // truth. If these drift, re-pin from the assert failure message (it prints the
 // full actual row) and record the divergence in qa/gate-measurements.md.
 //
+// REVISION v1.1 (2026-08-05, Stage-2 gimmick retune): the 12 pre-existing rows
+// are UNTOUCHED Unity recordings and must stay byte-identical (R1-R3). The 3
+// new-stage rows in Golden_NewDungeonStages_MatchFirstRecording were re-pinned
+// from the v1.1 sim on the DOTNET harness — see that test's comment for the
+// main-lane Unity re-pin protocol.
+//
 // Ints assert exactly; floats are compared through their shortest round-trip
 // ("R") form, which is bit-exact within the Unity runtime — the sim is a
 // fixed-step deterministic core and any drift is a defect, not noise.
@@ -158,18 +164,24 @@ namespace CinderCourt.Tests
 
         // ---- D5: the three cycle-2 stages --------------------------------------
 
-        // Gate: D5 — first-recorded goldens for the three new anchors @2/1/3. The
-        // ash-march row legitimately equals echo-throne's: within 30 s the kiter never
-        // enters the wall band and the shared numeric fields match; wall behaviour is
-        // pinned separately by CampaignSimTests.AshWall_TimetableAndTicks.
+        // Gate: D5 — v1.1 retune goldens for the three new anchors @2/1/3 (REVISION
+        // v1.1, docs/SIM_SPEC_DUNGEONS.md — placements/push/hp/wall cycle all moved,
+        // so these three rows legitimately changed; the 12 rows above must NOT).
+        // The rows below were recorded on the standalone dotnet 8 harness against
+        // the v1.1 sim sources (2026-08-05). Ints are runtime-transferable; the
+        // trailing floats carry the known dotnet↔Unity low-order drift (~4 ULP), so
+        // the FIRST Unity EditMode run may fail exactly here — MAIN LANE: re-pin the
+        // float fields from the assert failure message (it prints the full actual
+        // row) and record the divergence in qa/gate-measurements.md. v1.0 note "ash-
+        // march equals echo-throne" is obsolete: the v1.1 walls reshape the kiter run.
         [Test]
         public void Golden_NewDungeonStages_MatchFirstRecording()
         {
             var rows = new[]
             {
-                "cinder-sluice|4200|4|15|4|142|(running)|979.537354|631.2189",
-                "ember-bastion|3150|3|14|1|142|(running)|1217.31824|620.4512",
-                "ash-march|4200|3|15|4|142|(running)|588.852356|763.74",
+                "cinder-sluice|1400|3|9|0|124|(running)|974.984436|630.3433",
+                "ember-bastion|2500|3|11|2|112|(running)|883.605652|695.339539",
+                "ash-march|3600|4|16|0|142|(running)|479.221863|639.420654",
             };
             foreach (var expected in rows)
             {

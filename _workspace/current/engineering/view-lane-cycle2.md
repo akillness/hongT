@@ -155,3 +155,110 @@ HEAD에 이미 들어간 앞선 cycle-2 문자열 소산). 로비 폰트 테스�
 - 컴파일/EditMode 테스트/빌드: **미수행** (계약 — 이 머신에 Unity 없음).
   다음 에디터 세션 체크리스트: ① 컴파일 ② StageCatalog/Dressing/HudLayout
   테스트 ③ HudKorean 글리프 15자 커버리지 ④ WebGL 커튼/밴드 렌더 확인.
+
+## v1.1 retune pass
+
+작성: view-lane engineer (gimmick readability pass, run-id cycle-2 stage-2
+retune). 근거: docs/SIM_SPEC_DUNGEONS.md v1.1 REVISION,
+design/gimmick-retune-spec.md, qa/benchmark-notes band 6("contrast is the
+failure mode"). 상태: 코드 작성 완료, 미커밋, Unity 미실행(메인 레인이
+게이트 실행). 사전 `git status --short`: View 3파일 전부 clean(타 세션
+수정 없음 — .vscode/slnx/manifest는 타 세션 소유라 미접촉).
+
+### 1. VfxDirector — AshWall edge-aware (좌/우 벽 2슬롯)
+
+- **빌드**: side는 HazardState.X 앵커로 추론(`fromRight = X > (248+1288)/2`
+  — HazardState는 PushX 미발행, CurrentPushSign과 같은 빌드-시 앵커 문법.
+  등호 비교 대신 중점 비교: float 안전 + 미래 오버라이드 내성). 루트는
+  이미 hazard.X 기준이라 우측 벽 루트는 자동으로 x=1288.
+- **커튼 yaw**: 좌 −90(노멀 +x) 유지, 우 +90(노멀 −x). 백페이스 검증:
+  쿼드 노멀 −z에 R_y(+90) 적용 → (−1,0,0). Dungeon 카메라는 yaw 0 남쪽
+  pitch-down이고 x는 플레이어 추종 — 벽은 플레이어를 항상 자기 홈 에지의
+  **아레나 쪽**으로 밀어내므로(WallPush 부호) 카메라 x는 양쪽 커튼의
+  front-face 쪽에 유지됨.
+- **sync 일반화**: `frontWorld = (FrontX − hazard.X) × Scale` 부호 있는
+  오프셋 하나로 양쪽 처리(좌 +성장, 우 −성장). 오버레이 스케일
+  `|frontWorld|`, 중심 `frontWorld/2`, 커튼/RM 에지라인 `frontWorld` —
+  분기 없음. **live 판정을 `FrontX > WallEdgeX`에서 `hazard.Active`로
+  교체**: 구 판정은 우측 벽에서 상시 참(idle FrontX 1288 > 248) →
+  오버레이가 휴지기에도 1040px 전체를 덮는 치명 오독. Active는 sim이
+  발행하는 depth>0 그대로(§Gimmick 3 v1.1).
+- **2슬롯 독립성 검증**: ash-march는 Wall(0)+Wall(11.5,right) 2개 —
+  _hazardViews는 인덱스별 struct, 재질은 MakeUnlit이 호출마다 `new
+  Material`(ViewWorld.cs 확인, 캐시 없음), GameObject도 빌드마다 신규.
+  공유 상태 없음. per-frame 신규 할당 0 유지(color/localPos/localScale
+  변이만).
+
+### 2. VfxDirector — 가독성 리튠 (band 6 대비 실패 모드)
+
+- **벽 경계라인**: 회백(0.85,0.80,0.75)→**ember-orange(1,0.55,0.18)**,
+  알파 idle 0.22→0.30 / live 0.8→0.9 / blink 바닥 0.25→0.30. 텔레그래프
+  블링크는 기존대로 경계라인 담당(RM이면 정적 — 계약 유지).
+- **벽 오버레이**: 순수 흑(0.05,0.04,0.04,0.45)→**warm-charcoal
+  (0.10,0.06,0.05,0.62)** — ash-grey 바닥 위 "dark-on-grey" 금지 요건.
+- **벽 커튼**: 회백 시트→**ember glow(1,0.45,0.15,0.55)** — 전진 전선이
+  킬 리드이므로 가장 밝은 요소로 승격.
+- **조류 밴드(terrain-read 요건)**: 베드 알파 idle 0.10→0.22 / active
+  0.30→0.45, 에지 idle 0.25→0.35(blink 바닥 동반 상승), 셰브론
+  (0.62,0.93,1,0.35)→**near-white(0.85,0.97,1)** + 알파 idle 0.35→0.55 /
+  active 0.85→1.0. 활성 시 더 밝음+스크롤, RM 정적 — 기존 상태 문법
+  그대로, 대비만 상향. 빌드 초기 알파도 idle 값과 일치시켜 첫 프레임 팝
+  제거.
+
+### 3. GameView/ActorView — 파일런 실드 시안 틴트 (R2 "−60% must be VISIBLE")
+
+- GameView.SyncViews: 적 루프에서 `CoveredByLivePylon(hazards, x, y)` —
+  sim 판정(CinderSim.EnemyDamageTakenMult: Hp>0 && IsoWithin ≤
+  PylonAuraRadius) **문자 그대로 미러**(iso-가중 거리², 상수 참조라 280
+  자동 추종). Publish가 이미 할당한 IReadOnlyList 순회, 비파일런 kind는
+  O(1) skip, 아레나 경로는 hazards 0개 — per-frame 할당 0.
+- ActorView: `SetShieldTint(bool)` + MPB 래더 신규 rung — **우선순위
+  flash > shield cyan > elite gold > rank glow**. 실드가 elite를 이기는
+  근거: −60%는 라이브 전술 사실(지금 때려도 되나), elite는 영구 마커라
+  커버리지 종료 프레임에 즉시 복귀. ShieldCyan(0.45,1,1.15) — B>1로
+  additive 근사(rim은 신규 재질 필요 → MPB BaseColor 단일 재질 문법
+  준수). 정적 틴트라 RM-safe by construction(펄스 없음).
+- 마지막 커버 파일런 사망 → 다음 프레임 판정 false → `_shieldApplied`
+  falling-edge 래치가 블록 1회 복원(MPB는 덮어쓸 때까지 잔존하므로 래치
+  없이는 시안 고착). ResetForPool에 두 플래그 초기화 추가(풀 오염 방지).
+- ApplyBossPresentation: `FlashLive || ShieldLive` yield — 카탈로그 보스
+  틴트가 SyncEnemy 뒤에 매 프레임 재도장이라 가드 없으면 보스(오라로
+  유도할 1순위 타깃)만 실드 리드가 안 보이는 구멍.
+
+### 4. 파일런 오라 반경 sanity check
+
+- 코드 경로는 이미 `CampaignSpec.PylonAuraRadius` 상수 참조(하드코드
+  없음) → 280 자동 반영. **주석만 stale**(“radius 220”, “Hp 240..0”) —
+  상수명 기준으로 갱신.
+
+### Deviations
+
+1. **ActorView.cs 수정(타깃 2파일 외)**: 과제 명시 tint 문법("elite gold
+   pulse 적용 방식과 동일")의 실체가 ActorView MPB 래더. GameView 단독
+   구현(보스 프레젠테이션 방식 렌더러 캐시 복제)은 SyncEnemy 내부 플래시
+   경로와 같은-프레임 쓰기 순서 경합 + Renderer[] 캐시 중복을 낳음 —
+   래더에 rung 추가가 유일하게 경합 없는 지점. ActorView는 non-goal
+   목록(sim/StageCatalog/StoryCatalog/LobbyView/GameDirector/tests)에
+   없음.
+2. **벽 live 판정 교체**(FrontX>WallEdgeX → hazard.Active): 과제 지시
+   범위(“edge-aware로”)의 필연 귀결 — 구 판정은 우측 벽에서 의미 자체가
+   깨짐(위 §1). sim 발행 필드만 사용, sim 미수정.
+3. **실드 "rim" 미구현**: 지시문이 "additive cyan rim/tint, NO new
+   materials"— rim 패스는 신규 재질/셰이더 없이는 불가(단일 재질 MPB
+   경로). tint로 구현하고 B 채널 >1로 additive 인상 근사.
+
+### 검증 (에디터 없이)
+
+- 3파일 구분자 균형(문자열/주석 인식 스캐너): VfxDirector 119{}/631()/74[]
+  · GameView 67/316/30 · ActorView 51/235/23 — 전부 균형.
+- **Roslyn 구문 파스 게이트**(dotnet 8 번들 Microsoft.CodeAnalysis.CSharp,
+  LanguageVersion.CSharp9): 3파일 전부 SYNTAX OK, 진단 에러 0.
+- 커튼 백페이스 기하: R_y(−90)·(0,0,−1)=(+1,0,0) 좌 / R_y(+90)·(0,0,−1)=
+  (−1,0,0) 우 — 카메라 x(플레이어 추종, 벽이 아레나 쪽으로 push) 기준
+  양쪽 front-face 확인.
+- View 전역 grep: WallEdgeX/FrontX/AshWall 잔존 좌측-전제 코드 0건.
+- 컴파일/EditMode/플레이 확인: **미수행** — 메인 레인 게이트 소유.
+  에디터 체크리스트: ① ash-march 우측 벽 커튼 가시성(23s 주기 중 11.5s
+  오프셋 창) ② bastion 오라 진입/이탈 시 시안 on/off + 파일런 파괴 프레임
+  드롭 ③ RM 토글 시 벽 경계라인만 + 셰브론 정적 ④ elite(1.35 스케일)가
+  오라 안에서 시안으로 전환되는지.

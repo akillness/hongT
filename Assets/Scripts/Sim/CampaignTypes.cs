@@ -89,13 +89,18 @@ namespace CinderCourt.Sim
             Hp = CampaignSpec.PylonHp,
         };
 
-        /// <summary>Ash-wall timetable crush band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 3).</summary>
-        public static HazardConfig Wall(float phase) => new HazardConfig
+        /// <summary>
+        /// Ash-wall timetable crush band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 3 v1.1).
+        /// Edge encoding rides the existing PushX field: +1 advances from the left
+        /// edge (x 248) rightward, −1 advances from the right edge (x 1288) leftward.
+        /// </summary>
+        public static HazardConfig Wall(float phase, bool fromRight = false) => new HazardConfig
         {
             Kind = HazardKind.AshWall,
-            X = CampaignSpec.WallEdgeX,
+            X = fromRight ? CampaignSpec.WallEdgeRightX : CampaignSpec.WallEdgeX,
             Y = SimConfig.ArenaY,
             Phase = phase,
+            PushX = fromRight ? -1f : 1f,
         };
     }
 
@@ -197,33 +202,36 @@ namespace CinderCourt.Sim
 
         public const string StageClearReason = "stage-clear";
 
-        // --- amendment #5 (docs/SIM_SPEC_DUNGEONS.md) -----------------------
+        // --- amendment #5 v1.1 (docs/SIM_SPEC_DUNGEONS.md REVISION v1.1) ----
+        // Retune rationale: gimmicks must bite the combat convergence point
+        // (768,604) — see design/gimmick-retune-spec.md.
 
         /// <summary>Tide-current push band (§Gimmick 1). Rect test, NOT iso-weighted.</summary>
         public const float CurrentHalfW = 520f;
-        public const float CurrentHalfH = 70f;
+        public const float CurrentHalfH = 110f;   // bands y 360-580/630-850: safe corridor 50px
         public const float CurrentPeriod = 6f;
         public const float CurrentTelegraph = 0.8f;
-        public const float CurrentActive = 2.4f;
-        public const float CurrentPush = 140f;
+        public const float CurrentActive = 3.2f;  // threat duty 53%
+        public const float CurrentPush = 200f;    // vs player 218 — upstream walking ~pinned
 
         /// <summary>Ember-pylon enemy shield (§Gimmick 2).</summary>
         public const float PylonBodyRadius = 30f;
-        public const float PylonAuraRadius = 220f;
-        public const float PylonHp = 240f;
-        public const float PylonAuraDamageTakenMult = 0.60f;
+        public const float PylonAuraRadius = 280f;  // covers spawn point from all 3 pylons
+        public const float PylonHp = 300f;
+        public const float PylonAuraDamageTakenMult = 0.40f;  // -60%: unmissable shield
 
-        /// <summary>Ash-wall timetable (§Gimmick 3). Cycle 22.5 s.</summary>
+        /// <summary>Ash-wall timetable (§Gimmick 3). Cycle 23.0 s, both edges cross centre.</summary>
         public const float WallEdgeX = 248f;
-        public const float WallDepthMax = 360f;
-        public const float WallRest = 9f;
+        public const float WallEdgeRightX = 1288f;
+        public const float WallDepthMax = 560f;   // left max x808 / right max x728 — past centre 768
+        public const float WallRest = 4.5f;
         public const float WallTelegraph = 1.5f;
-        public const float WallAdvance = 4.5f;
+        public const float WallAdvance = 7f;
         public const float WallHold = 3f;
-        public const float WallRecede = 4.5f;
+        public const float WallRecede = 7f;
         public const float WallPeriod = WallRest + WallTelegraph + WallAdvance + WallHold + WallRecede;
         public const float WallSpeed = 80f;
-        public const float WallTickDamage = 8f;
+        public const float WallTickDamage = 10f;
         public const float WallTickPeriod = 0.6f;
 
         /// <summary>Ember Rest room index upper bound (§Ember Rest 확장).</summary>
@@ -282,6 +290,8 @@ namespace CinderCourt.Sim
         {
             HazardConfig.Current(768f, 470f, CampaignSpec.CurrentPush, 0f),
             HazardConfig.Current(768f, 740f, -CampaignSpec.CurrentPush, 3f),
+            HazardConfig.Vent(500f, 604f, 0.9f),   // v1.1: bomb the only safe corridor
+            HazardConfig.Vent(1030f, 604f, 2.1f),
             HazardConfig.Pillar(768f, 604f),
         };
 
@@ -289,6 +299,7 @@ namespace CinderCourt.Sim
         {
             HazardConfig.Pylon(560f, 500f),
             HazardConfig.Pylon(980f, 700f),
+            HazardConfig.Pylon(768f, 430f),        // v1.1: third pylon — aura covers spawn
             HazardConfig.Pillar(640f, 650f),
             HazardConfig.Pillar(900f, 560f),
             HazardConfig.Vent(768f, 604f, 0.6f),
@@ -297,8 +308,10 @@ namespace CinderCourt.Sim
         private static readonly HazardConfig[] AshMarchHazards =
         {
             HazardConfig.Wall(0f),
-            HazardConfig.Altar(1100f, 604f),
-            HazardConfig.Vent(980f, 480f, 1.2f),
+            HazardConfig.Wall(11.5f, fromRight: true),  // v1.1: closing jaws, half-period offset
+            HazardConfig.Altar(768f, 604f),             // v1.1: corridor reward, periodically engulfed
+            HazardConfig.Vent(560f, 760f, 0.6f),
+            HazardConfig.Vent(980f, 450f, 1.8f),
         };
 
         /// <summary>Stage ids in campaign order.</summary>

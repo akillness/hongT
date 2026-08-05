@@ -40,3 +40,20 @@
   LCM 센서스 테스트(D3)가 기계 고정 예정.
 - EditMode 전체 초록 + WebGL 빌드 ≤120MB: Unity 6000.5.6f1 로컬 설치 완료
   (WebGLSupport 확인) — 게이트 실행 대기.
+
+## v1.1 리튠 재게이트 (2026-08-05)
+
+- EditMode: **225/225** [OBSERVED, unity-logs/test-results-220506.xml] —
+  v1.1 상수/배치/듀얼 벽/오라 0.40/센서스/골든 전부 포함.
+- WebGL 빌드: `result=Succeeded size=57024061 errors=0` [OBSERVED,
+  unity-logs/build-220518.log] (warnings 2건은 main 세션 코드 소유 — 기존).
+- 골든 재고정: 신규 3행 Unity 재기록 — **정수 필드는 dotnet과 Unity 완전
+  일치**(1400/3/9/0/124 · 2500/3/11/2/112 · 3600/4/16/0/142), float만 교체
+  (기록된 ~ULP 드리프트 패턴 그대로). 기존 12행 무변경.
+- 브라우저 육안 [OBSERVED, qa/retune-*.webp 3장]: sluice 밴드가 스폰을 물고
+  회랑 vent 착탄, march 양측 경계선(엠버)+우벽 침식 오버레이, 벽 틱 피해
+  비네트. 헤드리스 스크린샷 스톨 1회는 오토파일럿 interval 과부하로 추정
+  [INFERENCE] — 실기기 프로파일은 G6 최종(Stage 3) 항목.
+- 텔레그래프 센서스(테스트 고정): sluice 최대 2 · bastion 1 · march 2 (≤3).
+- 벽 단일 히트 10 ≤ 30%×100 · 회랑 불변식 gap ≥ 600px(테스트 고정,
+  실측 599.99994 — float, 계약 의미 내).

@@ -412,6 +412,10 @@ namespace CinderCourt.View
             if (_elementTintTime > 0f) _elementTintTime -= Time.deltaTime;
             var liveTint = _elementTintTime > 0f ? _elementTint : default;
             var enemies = _sim.Enemies;
+            // Retune R2 ("-60% must be VISIBLE"): pylon shield coverage is
+            // judged per enemy per frame against the published hazard list —
+            // cheap loop, list is already allocated by the sim's Publish.
+            var hazards = _sim.Hazards;
             // Mark-and-sweep: sync live ids, recycle views whose id vanished.
             for (var i = 0; i < enemies.Count; i++)
             {
@@ -428,6 +432,11 @@ namespace CinderCourt.View
                 // SyncEnemy reports the health delta since last frame — the
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
+                // Retune R2: cyan shield tint while ANY live pylon covers this
+                // enemy — same iso metric as the sim judge, so the visual and
+                // the damage mult can never disagree. The tint drops the frame
+                // after the last covering pylon dies (re-judged every frame).
+                view.SetShieldTint(CoveredByLivePylon(hazards, state.X, state.Y));
                 view.SetElementTint(liveTint);
                 var damage = view.SyncEnemy(in state);
                 if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
@@ -633,7 +642,10 @@ namespace CinderCourt.View
             // element or otherwise. ActorView restores its resting block on the
             // frame the flash ends and this re-tints in the same frame (it runs
             // after SyncEnemy), so the handoff costs no visible frame.
-            if (view.FlashLive) return;
+            // Retune R2: the shield read outranks the catalog tint too — the
+            // boss is a prime target to route INTO an aura, and a permanent
+            // catalog re-tint after SyncEnemy would silently erase the cyan.
+            if (view.FlashLive || view.ShieldLive) return;
             if (!_bossRenderers.TryGetValue(view, out var renderers))
             {
                 renderers = view.GetComponentsInChildren<Renderer>();
@@ -643,6 +655,29 @@ namespace CinderCourt.View
             _bossPresentationBlock.SetColor(BaseColorId, stage.Boss.Tint);
             for (var i = 0; i < renderers.Length; i++)
                 renderers[i].SetPropertyBlock(_bossPresentationBlock);
+        }
+
+        /// <summary>
+        /// True when a living Ember Pylon's aura covers the sim position —
+        /// mirrors CinderSim.EnemyDamageTakenMult (Hp &gt; 0 + iso-weighted
+        /// distance &lt;= CampaignSpec.PylonAuraRadius) so the shield tint and
+        /// the -60% judge stay one truth. Non-pylon kinds skip in O(1); the
+        /// arena path publishes zero hazards so this is dungeon-only cost.
+        /// </summary>
+        static bool CoveredByLivePylon(
+            IReadOnlyList<HazardState> hazards, float x, float y)
+        {
+            for (var i = 0; i < hazards.Count; i++)
+            {
+                var hazard = hazards[i];
+                if (hazard.Kind != HazardKind.EmberPylon || hazard.Hp <= 0f) continue;
+                var deltaX = x - hazard.X;
+                var deltaY = (y - hazard.Y) * SimConfig.IsoY;
+                if (deltaX * deltaX + deltaY * deltaY
+                    <= CampaignSpec.PylonAuraRadius * CampaignSpec.PylonAuraRadius)
+                    return true;
+            }
+            return false;
         }
 
         ActorView Rent(EnemyVisual visual)
