@@ -113,3 +113,16 @@ restoring `if (Input.anyKeyDown)` made exactly that test fail with the
 WebGL player behaviour. This run covers the Editor (Mono/Metal) path only; the
 browser VideoPlayer path and the ≤120 MB build budget still need
 `tools/unity_batch.sh webgl` plus a served run.
+
+## [OBSERVED] Superseded — reel re-cut to 5 frames (2026-08-06)
+
+The 234-frame / 7.8 s figure above measured the 6-frame cut. Beat 6
+(`frames/frame06.png`) was rejected on review — the render read as a piece of
+fruit rather than the lantern-bearing Warden — and was removed, so
+`Assets/StreamingAssets/Video/cinder-court-intro.mp4` is now
+`duration=6.600000, size=1432004, h264 1280x720 @ 30/1` (ffprobe).
+Title-lockup rasterisation re-checked on the new final hold: near-white pixels
+(r>200, g>195, b>180, saturation<40) inside the 1280x200 title band at y=225 are
+7051 at t=5.5 s versus 1 at t=2.0 s. The Editor play-mode findings above are
+otherwise unaffected (no code path changed; `IntroVideoView` only had its
+duration comment corrected).

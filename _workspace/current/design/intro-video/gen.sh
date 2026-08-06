@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Generate the 6 brand-intro frames with god-tibo-imagen.
+# Generate the brand-intro frames with god-tibo-imagen.
+#
+# NOTE: frame 6 (the "brand hold") was cut after review — the render read as a
+# piece of fruit, not the Warden. This script still knows how to produce it, but
+# assemble.sh only consumes frames 1-5; re-adding frame06.png does NOT put it
+# back in the reel unless you also add it to FRAMES in assemble.sh.
 #
 # Provider notes (both observed, not assumed):
 #  - default `private-codex` backend returns HTTP 429 (image quota exhausted

@@ -19,12 +19,16 @@ then assemble with `ffmpeg` (Ken-Burns + crossfade) into an H.264 mp4.
 - 6-stage abyssal-court campaign; obsidian pillars, ember vents, molten cinders.
 - Palette: moody teal shadow + ember/amber glow, volumetric fog, painterly key art.
 
-## Beat sheet (6 frames, ~1.3s each ≈ 8s video)
+## Beat sheet (5 frames, 1.8s each with 0.6s cross-fades = 6.6s video)
 1. **Ember spark** — a single ember ignites in pitch black; faint obsidian floor.
 2. **Lantern reveal** — the ember becomes a glowing lantern held aloft; sparks drift.
 3. **Warden rises** — Dusk Warden silhouette stands, lantern lighting the court.
 4. **Abyssal court** — wide reveal of obsidian pillars and the vast cinder court.
 5. **Cinders surge** — molten cinders swirl upward, court alive with ember light.
-6. **Brand hold** — heroic composition, negative space top-center for title lockup.
+6. ~~**Brand hold** — heroic composition, negative space top-center for title lockup.~~
+   **CUT.** The generated render (`frames/frame06.png`, 1254x1024-ish square) read as a
+   piece of fruit rather than the lantern-bearing Warden, so the beat was dropped
+   instead of regenerated. The burned-in title lockup now lands over beat 5.
 
-All frames: 1536x1024, no baked text (Unity draws Korean title + credits overlay).
+All frames: 1536x1024 (frame05 came back 1672x941), no baked text in the stills —
+ffmpeg burns the title lockup in, and Unity draws the credits overlay.

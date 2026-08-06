@@ -25,7 +25,7 @@ namespace CinderCourt.View
         const float FadeOutSeconds = 0.6f;
         const float PrepareTimeout = 4f;    // give up if the browser will not decode
         const float PlayStartTimeout = 2f;  // Play() issued but playback never began
-        const float MaxPlaySeconds = 20f;   // hard watchdog, clip is ~9 s
+        const float MaxPlaySeconds = 20f;   // hard watchdog, clip is ~6.6 s
         const int SortingOrder = 520;       // above CutsceneView (500)
         const int TextureWidth = 1280;
         const int TextureHeight = 720;
