@@ -1346,12 +1346,21 @@ namespace CinderCourt.Tests
 
         // Gate: D3 — mutate ONE hazard datum per new stage via a HackConfig.Hazards
         // override copy: the digest MUST change (placement is live data, not baked).
-        // v1.1 recipes (re-probed — the v1.0 pylon/vent recipes went blind: aura 280
-        // now covers the centre script's whole reach so a +50 pylon shift changes no
-        // multiplier, and both march vents sit inside wall bands no anchored fighter
-        // survives):
+        // The recipes are PROBED, not guessed: a mutation the bot never observes
+        // proves nothing, so each one is re-swept whenever bot behaviour moves.
+        // v1.1 re-probe: the v1.0 pylon/vent recipes went blind (aura 280 now
+        // covers the centre script's whole reach, so a +50 pylon shift changes no
+        // multiplier; both march vents sit inside wall bands no anchored fighter
+        // survives).
+        // v1.4 re-probe (origin/main merge — the input-depth hold-charge landing
+        // moved the script's fight, docs/SIM_SPEC_HACKSLASH §3): "first pillar"
+        // went blind. Swept all 6 bastion hazards x 6 mutations: the (640,650)
+        // pillar sits off the script's oscillation, the (900,560) one is on it
+        // (x+50 -> score 2450->3050, kills 10->12 as the blocker clears). Target
+        // it by COORDINATE so the recipe cannot silently drift to a blind pillar
+        // again if the table is reordered.
         //  · sluice — current phase +0.6 shifts the push windows under the script;
-        //  · bastion — pillar x +50 moves a hard blocker on the wander path;
+        //  · bastion — the x=900 pillar +50: a hard blocker ON the wander path;
         //  · march — wall phase +0.3 (off the 0.6 s grid) moves both fronts under a
         //    corridor-mid bot whose park position IS the published front midpoint.
         [Test]
@@ -1372,8 +1381,10 @@ namespace CinderCourt.Tests
                 hazards =>
                 {
                     for (var i = 0; i < hazards.Length; i++)
-                        if (hazards[i].Kind == HazardKind.ObsidianPillar) { hazards[i].X += 50f; return; }
-                    Assert.Fail("no pillar on ember-bastion");
+                        if (hazards[i].Kind == HazardKind.ObsidianPillar && hazards[i].X == 900f)
+                        { hazards[i].X += 50f; return; }
+                    Assert.Fail("ember-bastion lost its x=900 pillar — re-probe the recipe "
+                        + "(a mutation the bot cannot observe proves nothing)");
                 },
                 RunCentreScript);
 

@@ -1,17 +1,17 @@
 # Golden digest rows — Unity runtime recording
 
-arena-hack|3700|4|15|2|82|(running)|1035.27368|717.8638
-arena-frozen|3700|4|15|2|82|(running)|1035.27368|717.8638
-prologue|1650|2|9|1|36|(running)|930.125|435.398376
-cinder-span|4200|3|15|4|142|(running)|588.852356|763.74
-ember-gallery|3150|3|14|1|136|(running)|719.403564|831.701843
-abyss-chancel|3150|3|14|1|136|(running)|719.3025|831.649231
-witness-well|3150|3|14|1|136|(running)|719.403564|831.701843
-echo-throne|4100|4|16|2|142|(running)|1253.00366|604.5186
-ash-verdict|3400|3|14|2|136|(running)|587.285767|702.8
-cinder-sluice|1400|3|9|0|124|(running)|974.984436|630.3433
-ember-bastion|2500|3|11|2|112|(running)|883.605652|695.339539
-ash-march|3450|4|15|1|8|(running)|938.5364|602.0115
-classic-cinder-span|3700|4|15|2|99|(running)|1035.27368|717.8638
+arena-hack|3700|4|15|2|82|(running)|1035.27319|717.864
+arena-frozen|3700|4|15|2|82|(running)|1035.27319|717.864
+prologue|1650|2|9|1|36|(running)|930.1258|435.3988
+cinder-span|3700|4|15|2|142|(running)|931.322|525.9695
+ember-gallery|3100|3|13|2|136|(running)|466.405334|754.7759
+abyss-chancel|2000|3|11|0|136|(running)|805.781433|783.829041
+witness-well|3100|3|13|2|136|(running)|466.405334|754.7759
+echo-throne|2250|3|11|1|136|(running)|1210.65125|708.4477
+ash-verdict|3700|4|15|2|142|(running)|906.255249|489.832947
+cinder-sluice|2600|3|13|0|136|(running)|961.427063|611.6681
+ember-bastion|1950|3|10|1|136|(running)|1032.24353|524.6603
+ash-march|3700|4|15|2|52|(running)|908.362732|625.6049
+classic-cinder-span|3700|4|15|2|99|(running)|1035.27319|717.864
 classic-abyss-chancel|3700|4|15|2|115|(running)|1035.92444|717.524963
-classic-echo-throne|3700|4|15|2|106|(running)|1035.27368|717.8638
+classic-echo-throne|3700|4|15|2|106|(running)|1035.27319|717.864

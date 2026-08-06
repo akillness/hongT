@@ -310,18 +310,27 @@ namespace CinderCourt.Tests
             Assert.That(StageCatalog.IsCleared(in afterPact, in cinderSpan), Is.True,
                 "a pact run must leave progression exactly where the plain clear left it");
 
-            // negotiation-record entry 5 asked QA to confirm a pact run pays at
-            // most 2.2x a normal run. Both payouts above are real clears of the
-            // same stage by the same pilot, so the ratio is measured, not assumed.
-            // The line below lands in the run's XML so the gate doc can cite a
-            // reproducible number instead of a screenshot.
+            // negotiation-record entry 5 asks that a pact run pay at most 2.2x a
+            // normal one. What THIS test can prove is the payout RULE: the pact
+            // multiplies the same run's own haul by exactly 2 (asserted above),
+            // so per-haul the ratio is 2.00x — inside the band by construction.
+            //
+            // What it cannot prove is the entry's other half. The two clears are
+            // separate runs, so their in-run HAULS differ (relic drops key off
+            // which enemy ids die), and one sample each is not an average. The
+            // raw cross-run totals are therefore REPORTED, not gated: gating them
+            // would fail on haul noise and say nothing about the multiplier.
+            // Deciding the average needs a sampling study — logged as QA work in
+            // qa/gate-measurements.md, not faked here with n=1.
             TestContext.WriteLine(
-                $"[entry-5 band] cinder-span normal payout {plainPayout} relics, "
-                + $"pact payout {pactPayout} relics, ratio {(double)pactPayout / plainPayout:F2}x");
-            Assert.That(plainPayout, Is.GreaterThan(0),
-                "the baseline payout must be non-zero for the ratio band to mean anything");
-            Assert.That(pactPayout * 10, Is.LessThanOrEqualTo(plainPayout * 22),
-                $"negotiation entry 5 band: pact {pactPayout} vs normal {plainPayout} exceeds 2.2x");
+                $"[entry-5] payout rule: pact banks {pactPayout} on a haul of {pactHaul} "
+                + $"= {(double)pactPayout / pactHaul:F2}x its own haul (band <= 2.2x). "
+                + $"Cross-run sample (n=1, NOT a gate): normal payout {plainPayout} "
+                + $"on haul {plainHaul}, pact payout {pactPayout} on haul {pactHaul}.");
+            Assert.That(pactHaul, Is.GreaterThan(0),
+                "the pact run must actually collect relics for the payout rule to mean anything");
+            Assert.That(pactPayout * 10, Is.LessThanOrEqualTo(pactHaul * 22),
+                $"entry 5 band: pact banked {pactPayout} on a haul of {pactHaul} — over 2.2x its own haul");
         }
 
         private static void AssertCampaignClearRoute(CampaignRoute route, bool defer)
