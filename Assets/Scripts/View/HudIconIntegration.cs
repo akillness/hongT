@@ -116,12 +116,18 @@ public static class HudIconIntegration
             _ => _warmMaterial
         };
 
-        // Try to load from regenerated directory first
+        // Try to load from regenerated directory first, then the curated
+        // "generated" batch (icon redesign follow-up), then the flat fallback.
         var sprite = TryLoadSprite($"Icons/regenerated/{iconKey}");
+        if (sprite == null)
+        {
+            sprite = TryLoadSprite($"Icons/generated/{iconKey}");
+        }
         if (sprite == null)
         {
             sprite = TryLoadSprite($"Icons/{iconKey}");
         }
+
 
         if (sprite == null)
         {

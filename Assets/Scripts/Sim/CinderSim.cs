@@ -184,17 +184,26 @@ namespace CinderCourt.Sim
         private int _rosterMask;
         private Corpse[] _corpses = new Corpse[8];
         private int _corpseCount;
-        private float _companionX, _companionY;
-        private float _companionTimer;
-        private float _companionShow;
-        private int _companionFacing;
+        // AMENDMENT #6 (D6.1-D6.5): 0..3 companion slots. slot 0 reproduces the
+        // frozen §4 follower exactly (fan-out 0, ember-cohort/fallback tuple), so a
+        // zero/single-companion run stays digest-identical. Arrays are length 3 and
+        // only the first _companionCount entries are live.
+        private const int MaxCompanions = 3;
+        private readonly float[] _companionX = new float[MaxCompanions];
+        private readonly float[] _companionY = new float[MaxCompanions];
+        private readonly float[] _companionTimer = new float[MaxCompanions];
+        private readonly float[] _companionShow = new float[MaxCompanions];
+        private readonly int[] _companionFacing = new int[MaxCompanions];
         private CompanionBehavior _companionBehavior;
+        private readonly int _companionCount;
         private readonly float _boltDamage;
         private readonly float _pulseTickDamage;
         private readonly float _ashNovaDamage;
-        private readonly float _companionAttackInterval;
-        private readonly float _companionAttackRange;
-        private readonly float _companionDamageScale;
+        // Per-slot D6.3 combat tuple. slot 0 carries the §4/ember-cohort values and any
+        // GuardianResonance modifier; further slots carry their own archetype tuple.
+        private readonly float[] _companionAttackInterval = new float[MaxCompanions];
+        private readonly float[] _companionAttackRange = new float[MaxCompanions];
+        private readonly float[] _companionDamageScale = new float[MaxCompanions];
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
         private int _emberRestSeed;
@@ -220,9 +229,10 @@ namespace CinderCourt.Sim
             _boltDamage = HackSpec.BoltDamage;
             _pulseTickDamage = HackSpec.PulseTickDamage;
             _ashNovaDamage = HackSpec.AshNovaDamage;
-            _companionAttackInterval = HackSpec.CompanionAttackInterval;
-            _companionAttackRange = HackSpec.CompanionAttackRange;
-            _companionDamageScale = HackSpec.CompanionDamageScale;
+            // Initialize companion slot 0 to frozen §4 spec (single-companion backward compat)
+            _companionAttackInterval[0] = HackSpec.CompanionAttackInterval;
+            _companionAttackRange[0] = HackSpec.CompanionAttackRange;
+            _companionDamageScale[0] = HackSpec.CompanionDamageScale;
             _hazards = NoHazards;
             _hazardRuntime = NoHazardRuntime;
             _hazardView = new List<HazardState>(0);
@@ -245,9 +255,10 @@ namespace CinderCourt.Sim
             _boltDamage = HackSpec.BoltDamage;
             _pulseTickDamage = HackSpec.PulseTickDamage;
             _ashNovaDamage = HackSpec.AshNovaDamage;
-            _companionAttackInterval = HackSpec.CompanionAttackInterval;
-            _companionAttackRange = HackSpec.CompanionAttackRange;
-            _companionDamageScale = HackSpec.CompanionDamageScale;
+            // Initialize companion slot 0 to frozen §4 spec (campaign compat)
+            _companionAttackInterval[0] = HackSpec.CompanionAttackInterval;
+            _companionAttackRange[0] = HackSpec.CompanionAttackRange;
+            _companionDamageScale[0] = HackSpec.CompanionDamageScale;
             _hazards = config.Hazards ?? NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -293,11 +304,30 @@ namespace CinderCourt.Sim
             _boltDamage = boltDamage;
             _pulseTickDamage = pulseTickDamage;
             _ashNovaDamage = ashNovaDamage;
-            _companionAttackInterval = companionAttackInterval;
-            _companionAttackRange = companionAttackRange;
-            _companionDamageScale = companionDamageScale;
+            // AMENDMENT #6 (D6.2-D6.4): resolve 0..3 companion slots from the frozen
+            // CompanionId + CompanionIds pair. Every slot resolves its own D6.3
+            // per-archetype base tuple, then folds in the same GuardianResonance modifier.
+            // For a legacy ember-cohort/fallback slot the archetype tuple IS the §4 base,
+            // so this reproduces ApplyPreparation's resonance bit-for-bit and a
+            // zero/single-companion ember-cohort run stays digest-identical.
+            string[] slots = _dungeon ? configured.CompanionSlots() : System.Array.Empty<string>();
+            _companionCount = slots.Length;
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                HackSpec.CompanionStats(
+                    HackSpec.CompanionArchetype(slots[slot]),
+                    out float cadence,
+                    out float range,
+                    out float damageScale);
+                ApplyGuardianResonance(
+                    in config.PreparationOffer, ref cadence, ref range, ref damageScale);
+                _companionAttackInterval[slot] = cadence;
+                _companionAttackRange[slot] = range;
+                _companionDamageScale[slot] = damageScale;
+            }
             _config = _dungeon ? configured.ToCampaignConfig() : default;
-            _companionActive = _dungeon && !string.IsNullOrEmpty(configured.CompanionId);
+            _companionActive = _companionCount > 0;
+
             _hazards = _dungeon ? (_config.Hazards ?? NoHazards) : NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -362,24 +392,49 @@ namespace CinderCourt.Sim
                     }
                     break;
                 case PreparationOfferKind.GuardianResonance:
-                    switch (offer.Variant)
-                    {
-                        case 1:
-                            companionAttackInterval = MathF.Max(
-                                0.5f,
-                                HackSpec.CompanionAttackInterval * (1f - 0.10f * offer.Magnitude));
-                            break;
-                        case 2:
-                            companionAttackRange = HackSpec.CompanionAttackRange + 20f * offer.Magnitude;
-                            break;
-                        case 3:
-                            companionDamageScale = HackSpec.CompanionDamageScale
-                                * (1f + 0.10f * offer.Magnitude);
-                            break;
-                    }
+                    ApplyGuardianResonance(
+                        in offer,
+                        ref companionAttackInterval,
+                        ref companionAttackRange,
+                        ref companionDamageScale);
                     break;
             }
         }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.3): the Amendment #4 GuardianResonance modifier, factored out so
+        /// it can be applied to every companion slot after its per-archetype base. Preserves
+        /// the frozen clamps (0.5 s cadence floor). Variants: 1 = faster cadence,
+        /// 2 = longer range, 3 = higher damage scale; magnitude 1..2.
+        /// </summary>
+        private static void ApplyGuardianResonance(
+            in PreparationOffer offer,
+            ref float companionAttackInterval,
+            ref float companionAttackRange,
+            ref float companionDamageScale)
+        {
+            if (offer.Kind != PreparationOfferKind.GuardianResonance
+                || offer.Variant < 1 || offer.Variant > 3
+                || offer.Magnitude < 1 || offer.Magnitude > 2)
+            {
+                return;
+            }
+
+            switch (offer.Variant)
+            {
+                case 1:
+                    companionAttackInterval = MathF.Max(
+                        0.5f, companionAttackInterval * (1f - 0.10f * offer.Magnitude));
+                    break;
+                case 2:
+                    companionAttackRange += 20f * offer.Magnitude;
+                    break;
+                case 3:
+                    companionDamageScale *= 1f + 0.10f * offer.Magnitude;
+                    break;
+            }
+        }
+
 
         // --- ISimSnapshot ----------------------------------------------------
         public SimMode Mode => _mode;
@@ -433,9 +488,9 @@ namespace CinderCourt.Sim
         public int ElitesAlive => _elitesAlive;
         public float ExtractionProgress => _extractionProgress;
         public float ExtractionTarget => _extractionTarget;
-        public float CompanionX => _companionX;
-        public float CompanionY => _companionY;
-        public bool CompanionAttacking => _companionShow > 0f;
+        public float CompanionX => _companionX[0];
+        public float CompanionY => _companionY[0];
+        public bool CompanionAttacking => _companionShow[0] > 0f;
         public CompanionBehavior CompanionBehavior => _companionBehavior;
         public float BossHp => _bossHp;
         public float BossMaxHp => _bossMaxHp;
@@ -450,7 +505,29 @@ namespace CinderCourt.Sim
         public PreparationOffer SelectedPreparation => _selectedPreparation;
         /// <summary>Ember Rest offer supplied to this dungeon run at construction.</summary>
         public PreparationOffer AppliedPreparationInput => _appliedPreparationInput;
-        public int CompanionFacing => _companionFacing;
+        public int CompanionFacing => _companionFacing[0];
+        // AMENDMENT #6 (D6.5): multi-slot snapshot surface. Scalars above alias slot 0,
+        // so a zero/single-companion run reads identically to the pre-amendment contract.
+        public int CompanionCount => _companionCount;
+        public float CompanionXAt(int slot) => _companionX[ClampCompanionSlot(slot)];
+        public float CompanionYAt(int slot) => _companionY[ClampCompanionSlot(slot)];
+        public bool CompanionAttackingAt(int slot) => _companionShow[ClampCompanionSlot(slot)] > 0f;
+        public CompanionBehavior CompanionBehaviorAt(int slot) => _companionBehavior;
+        public int CompanionFacingAt(int slot) => _companionFacing[ClampCompanionSlot(slot)];
+
+        private int ClampCompanionSlot(int slot)
+        {
+            if (_companionCount <= 0)
+            {
+                return 0;
+            }
+            if (slot < 0)
+            {
+                return 0;
+            }
+            return slot >= _companionCount ? 0 : slot;
+        }
+
 
         // --- input depth §5 (IGrowthChoiceSnapshot, additive) -----------------
         public bool GrowthOfferOpen => _growthOfferOpen;
@@ -1264,56 +1341,71 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// §4: the companion trails the player by 80 px and, every 1.1 s, hits the
-        /// nearest enemy inside 200 px for 60% of the player's damage. It cannot be
-        /// targeted, so it has no health and never appears in the enemy contact loop.
+        /// §4 + AMENDMENT #6 (D6.3/D6.4): each active companion slot trails the player
+        /// by 80 px (plus its D6.4 lateral fan-out) and, on its own per-archetype cadence,
+        /// hits the nearest enemy inside its range for a per-archetype share of the player's
+        /// damage. Slot 0 uses fan-out 0 and — for a legacy ember-cohort/fallback run — the
+        /// frozen §4 tuple, so a zero/single-companion run stays digest-identical. Companions
+        /// cannot be targeted, so they have no health and never appear in the enemy contact loop.
+        /// The shared <see cref="_companionBehavior"/> makes global hold/recall drive every slot.
         /// </summary>
         private void UpdateCompanion(float deltaTime)
         {
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                UpdateCompanionSlot(slot, deltaTime);
+            }
+        }
+
+        private void UpdateCompanionSlot(int slot, float deltaTime)
+        {
+            // D6.4: lateral fan-out perpendicular to the player's facing. Slot 0 = 0 (frozen §4).
+            float fanout = HackSpec.CompanionSlotFanout[slot];
             if (_companionBehavior == CompanionBehavior.Follow)
             {
                 float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-                float targetY = _player.Y;
-                float deltaX = targetX - _companionX;
-                float deltaY = targetY - _companionY;
+                float targetY = _player.Y + fanout;
+                float deltaX = targetX - _companionX[slot];
+                float deltaY = targetY - _companionY[slot];
                 float distance = Hypot(deltaX, deltaY);
                 if (distance > MoveEpsilon)
                 {
                     float stepX = deltaX / distance * _playerSpeed * deltaTime;
                     float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
-                    _companionX += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
-                    _companionY += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+                    _companionX[slot] += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
+                    _companionY[slot] += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
                 }
             }
 
-            _companionShow = MathF.Max(0f, _companionShow - deltaTime);
-            _companionTimer = MathF.Max(0f, _companionTimer - deltaTime);
-            if (_companionTimer > 0f)
+            _companionShow[slot] = MathF.Max(0f, _companionShow[slot] - deltaTime);
+            _companionTimer[slot] = MathF.Max(0f, _companionTimer[slot] - deltaTime);
+            if (_companionTimer[slot] > 0f)
             {
-                if (_companionShow <= 0f)
+                if (_companionShow[slot] <= 0f)
                 {
-                    _companionFacing = _player.Facing;
+                    _companionFacing[slot] = _player.Facing;
                 }
                 return;
             }
 
-            int target = NearestEnemyIndex(_companionX, _companionY, _companionAttackRange);
+            int target = NearestEnemyIndex(_companionX[slot], _companionY[slot], _companionAttackRange[slot]);
             if (target < 0)
             {
-                _companionFacing = _player.Facing;
+                _companionFacing[slot] = _player.Facing;
                 return;
             }
 
-            float targetDeltaX = _enemies[target].State.X - _companionX;
+            float targetDeltaX = _enemies[target].State.X - _companionX[slot];
             if (MathF.Abs(targetDeltaX) > MoveEpsilon)
             {
-                _companionFacing = targetDeltaX > 0f ? 1 : -1;
+                _companionFacing[slot] = targetDeltaX > 0f ? 1 : -1;
             }
 
-            _companionTimer = _companionAttackInterval;
-            _companionShow = HackSpec.CompanionAttackDisplay;
-            DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale);
+            _companionTimer[slot] = _companionAttackInterval[slot];
+            _companionShow[slot] = HackSpec.CompanionAttackDisplay;
+            DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale[slot]);
         }
+
 
         /// <summary>0-based index into the per-phase stat vectors.</summary>
         private int BossPhaseVectorIndex()
@@ -2536,8 +2628,12 @@ namespace CinderCourt.Sim
             _extractionBonus = 0f;
             _rosterMask = _hack ? _hackConfig.RosterMask : 0;
             _corpseCount = 0;
-            _companionTimer = _companionAttackInterval;
-            _companionShow = 0f;
+            // Initialize all companion slots to defaults.
+            for (int i = 0; i < MaxCompanions; i++)
+            {
+                _companionTimer[i] = _companionAttackInterval[i];
+                _companionShow[i] = 0f;
+            }
             _companionBehavior = CompanionBehavior.Follow;
             _emberRestOpen = false;
             _emberRestRoomIndex = 0;
@@ -2557,13 +2653,18 @@ namespace CinderCourt.Sim
             }
         }
 
-        /// <summary>Park the companion at its follow offset (§4). No-op when disabled.</summary>
+        /// <summary>Park each active companion at its follow offset + D6.4 lateral fan-out (§4).
+        /// No-op when no slots are active. Slot 0 uses fan-out 0, reproducing the frozen §4 follower.</summary>
         private void ResetCompanion()
         {
-            _companionX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-            _companionY = _player.Y;
-            _companionFacing = _player.Facing;
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                _companionX[slot] = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+                _companionY[slot] = _player.Y + HackSpec.CompanionSlotFanout[slot];
+                _companionFacing[slot] = _player.Facing;
+            }
         }
+
 
         private void RaiseRank(int slot)
         {

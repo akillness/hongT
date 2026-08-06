@@ -71,6 +71,13 @@ namespace CinderCourt.Sim
         public EquipTiers EquipTiers;
         /// <summary>Non-null enables the 1-slot companion (§4).</summary>
         public string CompanionId;
+        /// <summary>
+        /// AMENDMENT #6 (D6.2): 0..3 active companion ids, slot order preserved.
+        /// Append-only next to the frozen <see cref="CompanionId"/>. When null/empty
+        /// a non-empty <see cref="CompanionId"/> is promoted to a 1-element list; when
+        /// both are set this list wins. Normalize through <see cref="CompanionSlots"/>.
+        /// </summary>
+        public string[] CompanionIds;
         /// <summary>Dungeon gimmick placement; defaults to the stage table.</summary>
         public HazardConfig[] Hazards;
         /// <summary>
@@ -127,6 +134,74 @@ namespace CinderCourt.Sim
             };
             return true;
         }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.2): multi-slot dungeon overload. <paramref name="companionIds"/>
+        /// carries 0..3 companions in slot order; it is stored verbatim and normalized by
+        /// the sim through <see cref="CompanionSlots"/>. The single-id overload above stays
+        /// the frozen path, so every existing caller is byte-identical.
+        /// </summary>
+        public static bool TryDungeon(
+            string stageId,
+            MetaStats metaStats,
+            EquipTiers equipTiers,
+            string[] companionIds,
+            int rosterMask,
+            out HackConfig config)
+        {
+            if (!CampaignStages.TryGet(stageId, equipTiers.Weapon, equipTiers.Lantern, equipTiers.Cloak, out var stage))
+            {
+                config = default;
+                return false;
+            }
+
+            config = new HackConfig
+            {
+                Mode = GameMode.Dungeon,
+                StageId = stage.StageId,
+                MetaStats = metaStats,
+                EquipTiers = equipTiers,
+                CompanionId = companionIds != null && companionIds.Length > 0 ? companionIds[0] : null,
+                CompanionIds = companionIds,
+                Hazards = stage.Hazards,
+                RosterMask = rosterMask,
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.2): resolve the frozen <see cref="CompanionId"/> +
+        /// <see cref="CompanionIds"/> pair into the active slot list. Rule: if
+        /// <see cref="CompanionIds"/> has entries it wins (and <see cref="CompanionId"/>
+        /// is ignored), otherwise a non-empty <see cref="CompanionId"/> promotes to a
+        /// 1-element list. Null/empty/whitespace ids are dropped, duplicates are removed
+        /// keeping first occurrence, and the result is capped at 3 in slot order.
+        /// </summary>
+        public string[] CompanionSlots() => NormalizeCompanionSlots(CompanionId, CompanionIds);
+
+        internal static string[] NormalizeCompanionSlots(string companionId, string[] companionIds)
+        {
+            string[] source = companionIds != null && companionIds.Length > 0
+                ? companionIds
+                : (string.IsNullOrWhiteSpace(companionId) ? System.Array.Empty<string>() : new[] { companionId });
+            if (source.Length == 0)
+            {
+                return System.Array.Empty<string>();
+            }
+
+            var slots = new List<string>(3);
+            for (int index = 0; index < source.Length && slots.Count < 3; index += 1)
+            {
+                string id = source[index];
+                if (string.IsNullOrWhiteSpace(id) || slots.Contains(id))
+                {
+                    continue;
+                }
+                slots.Add(id);
+            }
+            return slots.Count == 0 ? System.Array.Empty<string>() : slots.ToArray();
+        }
+
 
         /// <summary>
         /// The campaign config this run rides on. Waves, boss visual and equipment
@@ -205,6 +280,20 @@ namespace CinderCourt.Sim
         float CompanionY { get; }
         bool CompanionAttacking { get; }
         CompanionBehavior CompanionBehavior { get; }
+        /// <summary>AMENDMENT #6 (D6.5): number of active companion slots, 0..3.
+        /// A zero/single-companion run reports 0/1 and its scalar members above
+        /// alias slot 0 exactly.</summary>
+        int CompanionCount { get; }
+        /// <summary>D6.5: slot i follower x. Out-of-range i returns slot 0 (or 0 when empty).</summary>
+        float CompanionXAt(int slot);
+        /// <summary>D6.5: slot i follower y.</summary>
+        float CompanionYAt(int slot);
+        /// <summary>D6.5: slot i visible-attack flag.</summary>
+        bool CompanionAttackingAt(int slot);
+        /// <summary>D6.5: slot i locomotion behavior.</summary>
+        CompanionBehavior CompanionBehaviorAt(int slot);
+        /// <summary>D6.5: slot i target-facing (+1/-1).</summary>
+        int CompanionFacingAt(int slot);
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }
@@ -380,6 +469,61 @@ namespace CinderCourt.Sim
         public const float CompanionAttackRange = 200f;
         public const float CompanionDamageScale = 0.6f;
         public const float CompanionAttackDisplay = 0.25f;
+
+        // --- §4 companion multi-slot (AMENDMENT #6 — docs/SIM_SPEC_HACKSLASH.md D6.3/D6.4) ---
+        /// <summary>D6.4: lateral fan-out per slot, perpendicular to facing.
+        /// slot 0 = 0 (identical to the frozen §4 follower), slot 1 = +64, slot 2 = -64.</summary>
+        public static readonly float[] CompanionSlotFanout = { 0f, 64f, -64f };
+
+        /// <summary>D6.3 per-archetype combat tuple: cadence (s), attack range (px),
+        /// player-damage scale. Keyed by the companion's underlying <see cref="EnemyVisual"/>.
+        /// ember-cohort is pinned to the §4 tuple so the pre-amendment single-companion
+        /// run stays digest-identical (approved AMENDMENT #6 correction).</summary>
+        public static void CompanionStats(
+            EnemyVisual visual,
+            out float cadence,
+            out float range,
+            out float damageScale)
+        {
+            switch (visual)
+            {
+                case EnemyVisual.Scout:      // scout-echo (skirmisher)
+                    cadence = 0.85f; range = 240f; damageScale = 0.50f; return;
+                case EnemyVisual.Shade:      // shade-echo (caster)
+                    cadence = 1.30f; range = 260f; damageScale = 0.65f; return;
+                case EnemyVisual.Possessed:  // possessed-echo (heavy)
+                    cadence = 1.45f; range = 150f; damageScale = 0.80f; return;
+                case EnemyVisual.EmberCohort: // ember-cohort — pinned to §4 fallback
+                default:
+                    cadence = CompanionAttackInterval;
+                    range = CompanionAttackRange;
+                    damageScale = CompanionDamageScale;
+                    return;
+            }
+        }
+
+        /// <summary>AMENDMENT #6: map a companion id (its <c>&lt;visual&gt;-echo</c> or bare
+        /// prefab id) to the underlying <see cref="EnemyVisual"/> archetype for D6.3 stats.
+        /// Unknown ids fall back to <see cref="EnemyVisual.EmberCohort"/> (= §4 tuple).</summary>
+        public static EnemyVisual CompanionArchetype(string companionId)
+        {
+            if (string.IsNullOrEmpty(companionId))
+            {
+                return EnemyVisual.EmberCohort;
+            }
+            string baseId = companionId.EndsWith("-echo")
+                ? companionId.Substring(0, companionId.Length - "-echo".Length)
+                : companionId;
+            switch (baseId)
+            {
+                case "scout": return EnemyVisual.Scout;
+                case "shade": return EnemyVisual.Shade;
+                case "possessed": return EnemyVisual.Possessed;
+                case "ember-cohort":
+                default: return EnemyVisual.EmberCohort;
+            }
+        }
+
 
         // --- §5 meta stats ---
         public const int MaxStatPoints = 10;
