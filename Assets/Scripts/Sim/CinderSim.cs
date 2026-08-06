@@ -212,6 +212,17 @@ namespace CinderCourt.Sim
         private readonly float[] _companionLockTimer = new float[MaxCompanions];
         private readonly float[] _companionReturnGrace = new float[MaxCompanions];
         private readonly bool[] _companionEngaged = new bool[MaxCompanions];
+        // AMENDMENT #8 (A8.2-A8.5): per-slot signature skill. The SPEC is resolved once at
+        // construction because it is a constant of the archetype; only the cooldown and the
+        // display flash are state. No RNG: the cooldown is fixed-step accumulation compared
+        // against compile-time constants, so §13 still holds.
+        private readonly CompanionSkillSpec[] _companionSkill = new CompanionSkillSpec[MaxCompanions];
+        private readonly float[] _companionSkillCooldown = new float[MaxCompanions];
+        private readonly float[] _companionSkillFlash = new float[MaxCompanions];
+        /// <summary>Target-selection scratch for ONE cast, sized by the A8.2 hard cap so a
+        /// cast never allocates. Holds enemy INDICES and is only ever live inside
+        /// <see cref="CastCompanionSkill"/>, which does not compact the enemy array.</summary>
+        private readonly int[] _companionSkillHits = new int[HackSpec.CompanionSkillTargetCap];
 
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
@@ -323,11 +334,16 @@ namespace CinderCourt.Sim
             _companionCount = slots.Length;
             for (int slot = 0; slot < _companionCount; slot += 1)
             {
+                EnemyVisual archetype = HackSpec.CompanionArchetype(slots[slot]);
                 HackSpec.CompanionStats(
-                    HackSpec.CompanionArchetype(slots[slot]),
+                    archetype,
                     out float cadence,
                     out float range,
                     out float damageScale);
+                // AMENDMENT #8: same archetype key as D6.3, so a slot's skill and its combat
+                // tuple can never disagree about which companion this is. GuardianResonance
+                // is deliberately NOT folded in — A8.6 keeps skills out of preparation scaling.
+                _companionSkill[slot] = HackSpec.CompanionSkill(archetype);
                 ApplyGuardianResonance(
                     in config.PreparationOffer, ref cadence, ref range, ref damageScale);
                 _companionAttackInterval[slot] = cadence;
@@ -527,6 +543,13 @@ namespace CinderCourt.Sim
         // CompanionBehavior above so a command can never be read back as a derived state.
         public bool CompanionEngagedAt(int slot) => _companionEngaged[ClampCompanionSlot(slot)];
         public int CompanionTargetIdAt(int slot) => _companionTargetId[ClampCompanionSlot(slot)];
+        // AMENDMENT #8 (A8.5). A run with no companions reports the default skill (None, 0, false).
+        public CompanionSkillId CompanionSkillIdAt(int slot) =>
+            _companionCount <= 0 ? CompanionSkillId.None : _companionSkill[ClampCompanionSlot(slot)].Id;
+        public float CompanionSkillCooldownAt(int slot) =>
+            _companionCount <= 0 ? 0f : _companionSkillCooldown[ClampCompanionSlot(slot)];
+        public bool CompanionSkillCastingAt(int slot) =>
+            _companionCount > 0 && _companionSkillFlash[ClampCompanionSlot(slot)] > 0f;
 
         private int ClampCompanionSlot(int slot)
         {
@@ -762,7 +785,7 @@ namespace CinderCourt.Sim
             if (_companionActive && _mode != SimMode.GameOver)
             {
                 UpdateCompanionBehavior(in input);
-                UpdateCompanion(dt);
+                UpdateCompanion(dt, input.CompanionSkillQueued);
             }
             UpdateEnemies(dt);
             if (_dungeon && _mode != SimMode.GameOver)
@@ -1053,12 +1076,29 @@ namespace CinderCourt.Sim
         /// <summary>Lowest-index living enemy inside the iso radius, or -1.</summary>
         private int NearestEnemyIndex(float x, float y, float radius)
         {
+            // Zero exclusions runs exactly the frozen comparison sequence below.
+            return NearestEnemyIndexExcluding(x, y, radius, null, 0);
+        }
+
+        /// <summary>
+        /// <see cref="NearestEnemyIndex"/> with the first <paramref name="excludeCount"/>
+        /// entries of <paramref name="exclude"/> (enemy INDICES) skipped — AMENDMENT #8 needs
+        /// the 2nd..Nth nearest for a multi-target cast. Indices are valid only within one
+        /// cast, which never compacts the enemy array.
+        /// </summary>
+        private int NearestEnemyIndexExcluding(
+            float x, float y, float radius, int[] exclude, int excludeCount)
+        {
             int best = -1;
             float bestSquared = 0f;
             for (int index = 0; index < _enemyCount; index += 1)
             {
                 ref Enemy enemy = ref _enemies[index];
                 if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                if (IsExcluded(exclude, excludeCount, index))
                 {
                     continue;
                 }
@@ -1078,11 +1118,34 @@ namespace CinderCourt.Sim
             return best;
         }
 
+        private static bool IsExcluded(int[] exclude, int excludeCount, int index)
+        {
+            for (int slot = 0; slot < excludeCount; slot += 1)
+            {
+                if (exclude[slot] == index)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Push an enemy straight away from the player over <paramref name="time"/>.</summary>
         private void Knockback(ref Enemy enemy, float distance, float time)
         {
-            float deltaX = enemy.State.X - _player.X;
-            float deltaY = enemy.State.Y - _player.Y;
+            KnockbackFrom(ref enemy, _player.X, _player.Y, distance, time);
+        }
+
+        /// <summary>
+        /// <see cref="Knockback"/> from an arbitrary source point — AMENDMENT #8's shockwave
+        /// shoves away from the COMPANION, not the player. Passing the player's position
+        /// reproduces the frozen push exactly, including the degenerate-overlap fallback.
+        /// </summary>
+        private void KnockbackFrom(
+            ref Enemy enemy, float sourceX, float sourceY, float distance, float time)
+        {
+            float deltaX = enemy.State.X - sourceX;
+            float deltaY = enemy.State.Y - sourceY;
             float length = Hypot(deltaX, deltaY);
             if (length <= MoveEpsilon)
             {
@@ -1362,15 +1425,15 @@ namespace CinderCourt.Sim
         /// cannot be targeted, so they have no health and never appear in the enemy contact loop.
         /// The shared <see cref="_companionBehavior"/> makes global hold/recall drive every slot.
         /// </summary>
-        private void UpdateCompanion(float deltaTime)
+        private void UpdateCompanion(float deltaTime, bool skillQueued)
         {
             for (int slot = 0; slot < _companionCount; slot += 1)
             {
-                UpdateCompanionSlot(slot, deltaTime);
+                UpdateCompanionSlot(slot, deltaTime, skillQueued);
             }
         }
 
-        private void UpdateCompanionSlot(int slot, float deltaTime)
+        private void UpdateCompanionSlot(int slot, float deltaTime, bool skillQueued)
         {
             // D6.4: lateral fan-out perpendicular to the player's facing. Slot 0 = 0 (frozen §4).
             float fanout = HackSpec.CompanionSlotFanout[slot];
@@ -1436,6 +1499,13 @@ namespace CinderCourt.Sim
             }
 
             _companionEngaged[slot] = engaged;
+
+            // AMENDMENT #8 (A8.4): the signature skill resolves AFTER this tick's movement and
+            // BEFORE the §4 swing. Both orderings matter and both are gated by tests: moving
+            // first means the skill fires from where the companion actually is (same geometry
+            // the swing uses), and firing before the swing means the cadence timer below can
+            // never swallow a cast that was legally ready this tick.
+            UpdateCompanionSkill(slot, deltaTime, skillQueued);
 
             _companionShow[slot] = MathF.Max(0f, _companionShow[slot] - deltaTime);
             _companionTimer[slot] = MathF.Max(0f, _companionTimer[slot] - deltaTime);
@@ -1527,6 +1597,105 @@ namespace CinderCourt.Sim
             }
 
             return index;
+        }
+
+        /// <summary>
+        /// AMENDMENT #8 (A8.3): tick the cooldown, then cast when it is ready and enough
+        /// enemies stand inside the skill radius. Auto-fire needs the archetype's
+        /// <see cref="CompanionSkillSpec.MinAutoTargets"/>; a commanded cast needs only one,
+        /// which is the entire difference between the two paths. A slot still on cooldown
+        /// ignores the command — it is never buffered, matching the Amendment #3 rule that a
+        /// redundant companion command is a no-op.
+        /// A HELD slot may cast: Amendment #3 only suspends locomotion, never the slot's
+        /// offensive behavior.
+        /// </summary>
+        private void UpdateCompanionSkill(int slot, float deltaTime, bool skillQueued)
+        {
+            _companionSkillFlash[slot] = MathF.Max(0f, _companionSkillFlash[slot] - deltaTime);
+            _companionSkillCooldown[slot] = MathF.Max(0f, _companionSkillCooldown[slot] - deltaTime);
+            if (_companionSkillCooldown[slot] > 0f)
+            {
+                return;
+            }
+
+            CompanionSkillSpec skill = _companionSkill[slot];
+            if (skill.Id == CompanionSkillId.None || skill.MaxTargets <= 0)
+            {
+                return;
+            }
+
+            int required = skillQueued ? 1 : skill.MinAutoTargets;
+            if (CountLivingEnemiesWithin(
+                    _companionX[slot], _companionY[slot], skill.Radius, required) < required)
+            {
+                return;
+            }
+
+            CastCompanionSkill(slot, in skill);
+        }
+
+        /// <summary>
+        /// A8.2: strike the up-to-MaxTargets nearest living enemies inside the radius,
+        /// nearest first, measured from the COMPANION. Selection reuses the frozen
+        /// <see cref="NearestEnemyIndex"/> comparison (lowest index wins a tie) with the
+        /// already-struck indices excluded, so the hit set is a pure function of geometry.
+        /// Damage is NEUTRAL — A8.6 keeps companion skills out of the §2.4 element cycle,
+        /// exactly like the companion's ordinary swing.
+        /// </summary>
+        private void CastCompanionSkill(int slot, in CompanionSkillSpec skill)
+        {
+            _companionSkillCooldown[slot] = skill.Cooldown;
+            _companionSkillFlash[slot] = HackSpec.CompanionSkillFlashSeconds;
+            _events |= SimEvents.CompanionSkillCast;
+
+            float damage = _playerDamage * skill.DamageScale;
+            float originX = _companionX[slot];
+            float originY = _companionY[slot];
+            int cap = skill.MaxTargets < HackSpec.CompanionSkillTargetCap
+                ? skill.MaxTargets
+                : HackSpec.CompanionSkillTargetCap;
+            int struck = 0;
+            while (struck < cap)
+            {
+                int index = NearestEnemyIndexExcluding(
+                    originX, originY, skill.Radius, _companionSkillHits, struck);
+                if (index < 0)
+                {
+                    break;
+                }
+
+                _companionSkillHits[struck] = index;
+                struck += 1;
+                if (skill.Knockback > 0f)
+                {
+                    KnockbackFrom(
+                        ref _enemies[index], originX, originY,
+                        skill.Knockback, HackSpec.ComboKnockbackTime);
+                }
+                DamageEnemy(ref _enemies[index], damage);
+            }
+        }
+
+        /// <summary>Living enemies inside the iso radius, counted no further than
+        /// <paramref name="cap"/> — the callers only ever ask "are there at least N?".</summary>
+        private int CountLivingEnemiesWithin(float x, float y, float radius, int cap)
+        {
+            int found = 0;
+            for (int index = 0; index < _enemyCount && found < cap; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - x;
+                float deltaY = (enemy.State.Y - y) * SimConfig.IsoY;
+                if (deltaX * deltaX + deltaY * deltaY <= radius * radius)
+                {
+                    found += 1;
+                }
+            }
+            return found;
         }
 
         private void ClearCompanionTarget(int slot)
@@ -2835,6 +3004,11 @@ namespace CinderCourt.Sim
                 _companionLockTimer[slot] = 0f;
                 _companionReturnGrace[slot] = 0f;
                 _companionEngaged[slot] = false;
+                // AMENDMENT #8 (A8.3): the cooldown starts FULL, so neither a fresh run nor a
+                // restart can open with a free cast. The first cast is therefore at a time the
+                // table alone predicts.
+                _companionSkillCooldown[slot] = _companionSkill[slot].Cooldown;
+                _companionSkillFlash[slot] = 0f;
             }
         }
 

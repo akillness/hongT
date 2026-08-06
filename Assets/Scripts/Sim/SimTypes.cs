@@ -32,6 +32,11 @@ namespace CinderCourt.Sim
         public bool PulseQueued;
         public bool CompanionHoldQueued;
         public bool CompanionRecallQueued;
+        /// <summary>AMENDMENT #8 (A8.3): one-shot, GLOBAL like hold/recall — it orders every
+        /// active slot whose skill is off cooldown to cast now, bypassing the archetype's
+        /// auto-fire target threshold. A slot still on cooldown ignores it; the command is
+        /// never buffered.</summary>
+        public bool CompanionSkillQueued;
         // --- input depth amendment (_workspace/current/design/input-depth-spec.md) ---
         /// <summary>§3: sustained, not an edge. True for every tick the attack
         /// key is DOWN. Deliberately a plain held bool: classifying a tap by
@@ -111,6 +116,9 @@ namespace CinderCourt.Sim
         ExtractionComplete = 1 << 19,
         BossPhase2 = 1 << 20,
         ComboFinisher = 1 << 21,
+        // --- companion signature skills (docs/SIM_SPEC_HACKSLASH.md A8) ---
+        /// <summary>A8.5: at least one companion slot cast its signature skill this tick.</summary>
+        CompanionSkillCast = 1 << 22,
     }
 
     public struct RunDigest

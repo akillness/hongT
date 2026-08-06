@@ -689,6 +689,8 @@ namespace CinderCourt.View
             if (_bossName != null) _bossName.text = bossDisplayName;
             if (_companionHoldButton != null) _companionHoldButton.SetActive(companionActive);
             if (_companionRecallButton != null) _companionRecallButton.SetActive(companionActive);
+            if (_companionSkillButton != null) _companionSkillButton.SetActive(companionActive);
+            _lastCompanionSkillTenths = int.MinValue;   // force one relabel on the next sync
         }
 
         /// <summary>True only while a visible terminal panel can consume the retry shortcut.</summary>
@@ -1325,7 +1327,7 @@ namespace CinderCourt.View
             }
             if (!GeminiCommandClient.HasKey)
             {
-                ShowConsoleToast("알 수 없는 명령 — 키워드: 집중공격/방어/복귀/노바/결계/파동/화살/질주", 3f);
+                ShowConsoleToast("알 수 없는 명령 — 키워드: 집중공격/방어/복귀/특기/노바/결계/파동/화살/질주", 3f);
                 return;
             }
             if (_consoleBusy) { ShowConsoleToast("이전 명령 해석 중…", 1.5f); return; }
@@ -1340,14 +1342,15 @@ namespace CinderCourt.View
             {
                 _consoleBusy = false;
                 if (intent == CompanionCommandIntent.Unknown)
-                    ShowConsoleToast("해석 실패 — 키워드 명령을 써보세요: 집중공격/방어/복귀", 2.5f);
+                    ShowConsoleToast("해석 실패 — 키워드 명령을 써보세요: 집중공격/방어/복귀/특기", 2.5f);
                 else ApplyCommandIntent(intent);
             });
         }
 
-        /// <summary>Intent -> deterministic latch. The reply copy is honest about
-        /// the actor: guardian orders say 수호자, skill casts say 시전 (the sim
-        /// has no companion skills — §S3 gate; PLAYER casts them).</summary>
+        /// <summary>Intent -> deterministic latch. The reply copy is honest about the
+        /// actor: 수호자 orders drive the companion, 시전 lines are the PLAYER's own kit.
+        /// AMENDMENT #8 added the one case where the companion itself acts —
+        /// CompanionSkill — and its copy names the companion for that reason.</summary>
         void ApplyCommandIntent(CompanionCommandIntent intent)
         {
             if (Input == null) return;
@@ -1378,6 +1381,12 @@ namespace CinderCourt.View
                     Input.QueueWard(); ShowConsoleToast("공허 방패 시전", 1.5f); break;
                 case CompanionCommandIntent.SkillDash:
                     Input.QueueDash(); ShowConsoleToast("질주", 1.5f); break;
+                case CompanionCommandIntent.CompanionSkill:
+                    // A8.3: one global order; each ready slot casts its OWN skill. A slot
+                    // still on cooldown ignores it, so the copy promises "준비된" only.
+                    Input.QueueCompanionSkill();
+                    ShowConsoleToast("수호자: 준비된 고유 특기 발동", 2f);
+                    break;
             }
         }
 
@@ -1442,6 +1451,11 @@ namespace CinderCourt.View
         GameObject _shieldPanel;        // HUD atlas: hidden until shield > 0
 
         GameObject _companionHoldButton, _companionRecallButton;
+        // AMENDMENT #8: commanded signature cast. The label doubles as the cooldown
+        // readout — the order is global, so ONE control covers every slot.
+        GameObject _companionSkillButton;
+        Text _companionSkillLabel;
+        int _lastCompanionSkillTenths = int.MinValue;
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
@@ -1550,6 +1564,10 @@ namespace CinderCourt.View
             _companionRecallButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
                 new Vector2(-16, 4), new Vector2(154, 92), "동료 호출 (H)", 16,
                 () => { if (Input != null) Input.QueueCompanionRecall(); });
+            _companionSkillButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
+                new Vector2(-16, -96), new Vector2(154, 92), "동료 특기 (V)", 16,
+                () => { if (Input != null) Input.QueueCompanionSkill(); });
+            _companionSkillLabel = _companionSkillButton.GetComponentInChildren<Text>();
 
             // --- shield readout (backed panel, hidden until shield > 0) ---------
             _shieldPanel = Panel(dungeonRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -1626,6 +1644,26 @@ namespace CinderCourt.View
         }
 
         /// <summary>Per-frame dungeon sync (IHackSnapshot surface, primitives only).</summary>
+        /// <summary>
+        /// AMENDMENT #8 (A8.5) readout. Primitives only, like every other HUD sync: the
+        /// caller reduces the per-slot cooldowns to the SOONEST one, because the command is
+        /// global and the player only needs to know when SOMETHING will answer it. Relabels
+        /// at tenth-of-a-second granularity so the text is not rebuilt every frame.
+        /// </summary>
+        public void SyncCompanionSkill(int slots, float soonestCooldown, bool anyReady)
+        {
+            if (_companionSkillLabel == null) return;
+            var tenths = anyReady ? 0 : Mathf.Max(1, Mathf.CeilToInt(soonestCooldown * 10f));
+            if (slots <= 0 || tenths == _lastCompanionSkillTenths) return;
+            _lastCompanionSkillTenths = tenths;
+            _companionSkillLabel.text = anyReady
+                ? "동료 특기 (V)"
+                : $"동료 특기 {tenths / 10f:0.0}s";
+            _companionSkillLabel.color = anyReady
+                ? new Color(1f, 0.86f, 0.5f)
+                : new Color(0.72f, 0.72f, 0.78f);
+        }
+
         public void SyncDungeon(
             int level, int xp, int xpNext, int comboIndex,
             float dashCooldown, IReadOnlyList<float> skillCooldowns, float shield,

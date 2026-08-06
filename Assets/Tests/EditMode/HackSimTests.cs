@@ -3477,9 +3477,28 @@ namespace CinderCourt.Tests
 
             var swings = new int[roster.Length];
             var attacking = new bool[roster.Length];
-            for (int tick = 0; tick < 600; tick += 1)
+            var inRangeTicks = new int[roster.Length];
+            var attackRange = new float[roster.Length];
+            for (int slot = 0; slot < roster.Length; slot += 1)
             {
-                sim.Tick(HackScriptInput(tick + 240));
+                HackSpec.CompanionStats(
+                    HackSpec.CompanionArchetype(roster[slot]), out _, out attackRange[slot], out _);
+            }
+
+            // The player STOPS WANDERING once the companions are pinned. That is what makes
+            // this a test of the hold rule instead of a test of luck: a moving player drags
+            // the wave away from slots that cannot follow, and the original wandering script
+            // left slot 1 with a single in-range tick in the whole window — one sibling kill
+            // on that tick (AMENDMENT #8 skills resolve before swings, and slots resolve in
+            // index order) was enough to take the only swing it would ever get. Standing
+            // still keeps enemies converging on the pinned slots, so "a held slot still
+            // swings" is exercised dozens of times and the inRangeTicks guard below fails
+            // loudly, and differently, if a future change ever starves the scenario again.
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                var input = default(SimInput);
+                input.AttackQueued = (tick + 240) % 30 == 0;
+                sim.Tick(input);
                 for (int slot = 0; slot < roster.Length; slot += 1)
                 {
                     Assert.That(sim.CompanionXAt(slot), Is.EqualTo(heldX[slot]).Within(Tolerance),
@@ -3494,11 +3513,30 @@ namespace CinderCourt.Tests
                         swings[slot] += 1;
                     }
                     attacking[slot] = nowAttacking;
+
+                    var enemies = sim.Enemies;
+                    for (int index = 0; index < enemies.Count; index += 1)
+                    {
+                        if (enemies[index].Dead)
+                        {
+                            continue;
+                        }
+                        float deltaX = enemies[index].X - sim.CompanionXAt(slot);
+                        float deltaY = (enemies[index].Y - sim.CompanionYAt(slot)) * SimConfig.IsoY;
+                        if (deltaX * deltaX + deltaY * deltaY <= attackRange[slot] * attackRange[slot])
+                        {
+                            inRangeTicks[slot] += 1;
+                            break;
+                        }
+                    }
                 }
             }
 
             for (int slot = 0; slot < roster.Length; slot += 1)
             {
+                Assert.That(inRangeTicks[slot], Is.GreaterThan(20),
+                    $"scenario starved: held slot {slot} barely saw a target, so its swing count "
+                    + "would prove nothing about the hold rule");
                 Assert.That(swings[slot], Is.GreaterThan(0),
                     $"a held slot {slot} still swings on its cadence (AMENDMENT #3)");
             }

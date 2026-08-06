@@ -278,6 +278,7 @@ namespace CinderCourt.View
                 input.RestartQueued = false;
                 input.CompanionHoldQueued = false;
                 input.CompanionRecallQueued = false;
+                input.CompanionSkillQueued = false;
                 _accumulator -= SimConfig.FixedStep;
                 steps++;
             }
@@ -539,6 +540,22 @@ namespace CinderCourt.View
                         hack.DashCooldown, hack.SkillCooldowns, hack.Shield,
                         hack.ExtractionProgress, hack.ExtractionTarget,
                         hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
+                if (Hud != null)
+                {
+                    // AMENDMENT #8: reduce the per-slot cooldowns to the soonest one before
+                    // handing it to the HUD — the cast order is global, so that single number
+                    // is exactly what the control promises.
+                    var readySlots = hack.CompanionCount;
+                    var soonest = 0f;
+                    var anyReady = false;
+                    for (var slot = 0; slot < readySlots; slot++)
+                    {
+                        var cooldown = hack.CompanionSkillCooldownAt(slot);
+                        if (cooldown <= 0f) anyReady = true;
+                        if (slot == 0 || cooldown < soonest) soonest = cooldown;
+                    }
+                    Hud.SyncCompanionSkill(readySlots, soonest, anyReady);
+                }
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
                 // §P2 rank glow. ComboIndex IS the current swing during Attack
