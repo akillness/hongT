@@ -6,6 +6,8 @@ Shader "UI/Icon-Glow"
         _Color ("Base Color", Color) = (1, 1, 1, 1)
         _GlowColor ("Glow Color", Color) = (1, 0.6, 0.2, 1)
         _GlowIntensity ("Glow Intensity", Range(0, 2)) = 1
+        _SceneLightInfluence ("Scene Light Influence", Range(0, 1)) = 0.5
+
         _ShadowOffset ("Shadow Offset", Vector) = (1, -1, 0, 0)
         _ShadowColor ("Shadow Color", Color) = (0, 0, 0, 0.3)
         _OutlineWidth ("Outline Width", Range(0, 0.1)) = 0.02
@@ -109,6 +111,11 @@ Shader "UI/Icon-Glow"
             float4 _GlowColor;
             float _GlowIntensity;
             float _OutlineWidth;
+            float _SceneLightInfluence;
+
+            // URP's main directional light color (intensity-scaled), set globally each frame
+            // via Input.hlsl (already pulled in by Core.hlsl above). Blending it into the glow
+            // ties the HUD icon glow to the scene's actual lighting mood instead of a fixed hue.
 
             Varyings vert(Attributes input)
             {
@@ -129,8 +136,12 @@ Shader "UI/Icon-Glow"
                 half alpha = tex.a;
                 half rimGlow = saturate(alpha * (1 - alpha) * 4);
                 
+                half3 sceneTint = saturate(_MainLightColor.rgb);
+                half3 glowTint = lerp(half3(1, 1, 1), sceneTint, _SceneLightInfluence);
                 half4 glow = _GlowColor * rimGlow * _GlowIntensity;
+                glow.rgb *= glowTint;
                 col.rgb = col.rgb + glow.rgb * tex.a;
+
                 col.a = tex.a * input.color.a;
                 
                 return col;
