@@ -4,6 +4,14 @@
 // completion (warden retrospective).
 namespace CinderCourt.View
 {
+    /// <summary>Palette class of a story speaker (SpeechBubbleView tints).</summary>
+    public enum SpeakerVoice
+    {
+        Ambient,   // watcher narration
+        Boss,
+        Warden,
+    }
+
     public static class StoryCatalog
     {
         // Beat-kind keys (use these constants to avoid stringly-typed drift).
@@ -13,19 +21,42 @@ namespace CinderCourt.View
         public const string Completion = "completion";
 
         // Speakers. The watcher narrates stage openings as a caption; boss and
-        // warden names double as the color key in SpeechBubbleView.
+        // warden names carry their own voice class (see VoiceOf).
         public const string Watcher = "감시자";
         public const string DuskWarden = "DUSK WARDEN";
         public const string CinderWarden = "CINDER WARDEN";
         public const string VeilTactician = "VEIL TACTICIAN";
         public const string GateSovereign = "GATE SOVEREIGN";
-        // Cycle-2 executor-wing bosses (dungeon-roster-spec §비트). Same
-        // English-caps grammar; SpeechBubbleView has no color rule for these
-        // prefixes yet, so they render in the ambient watcher color until a
-        // bubble-side key is added.
+        // Cycle-2 executor-wing bosses (dungeon-roster-spec §비트).
         public const string SluiceKeeper = "SLUICE KEEPER";
         public const string BastionSentinel = "BASTION SENTINEL";
         public const string AshMagistrate = "ASH MAGISTRATE";
+
+        /// <summary>
+        /// Presentation class of a speaker — the palette key SpeechBubbleView
+        /// resolves. Classification lives next to the speaker constants on
+        /// purpose: the cycle-2 wing shipped rendering as ambient narration
+        /// because the bubble matched name PREFIXES from a list three files
+        /// away, so adding a boss here silently mis-coloured it. An exact
+        /// switch over the same constants cannot drift that way.
+        /// </summary>
+        public static SpeakerVoice VoiceOf(string speaker)
+        {
+            switch (speaker)
+            {
+                case CinderWarden:
+                case VeilTactician:
+                case GateSovereign:
+                case SluiceKeeper:
+                case BastionSentinel:
+                case AshMagistrate:
+                    return SpeakerVoice.Boss;
+                case DuskWarden:
+                    return SpeakerVoice.Warden;
+                default:
+                    return SpeakerVoice.Ambient;   // watcher narration and anything unlisted
+            }
+        }
 
         /// <summary>
         /// Looks up the line for a stage/beat pair. Lines are verbatim from the

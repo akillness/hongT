@@ -116,7 +116,6 @@ namespace CinderCourt.View
         Text _stageClearBanner;
         float _stageClearTimer;
         int _stageClearFinalScore, _stageClearFinalRelics;
-        int _stageClearShownScore = -1, _stageClearShownRelics = -1;
         bool _stageClearPending;
         const float StageClearDuration = 0.5f;
         static readonly Color StageClearColor = new Color(0.17f, 0.68f, 0.84f);
@@ -689,7 +688,6 @@ namespace CinderCourt.View
 
             _stageClearFinalScore = digest.Score;
             _stageClearFinalRelics = digest.Relics;
-            _stageClearShownScore = _stageClearShownRelics = -1;
             _stageClearTimer = StageClearDuration;
             _stageClearPending = true;
             _stageClearBanner.text = "구역 정화";

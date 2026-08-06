@@ -90,3 +90,81 @@
     첫클리어 보너스 비지급(기클리어) — negotiation entry 5 계약 그대로.
 - 폰트: U+2713 소스 폰트 부재 발견 → "서약 •"(U+2022, 시드 문자)로 교체,
   재생성 coverage FULL (v1.2 잔여 5자 + v1.3 8자 포함).
+
+## v1.4 이월 결함 패스 재게이트 (2026-08-06)
+
+v1.3 문서가 남긴 이월 항목을 코드로 닫은 패스. 신규 기능 0 — 결함 수정과
+**주장의 기계화**(문서에만 있던 계약을 테스트로 고정)만.
+
+- EditMode: **240/240** [OBSERVED, unity-logs/test-results-093217.xml]
+  (v1.3 236 + 신규 4). 골든 이동 0 — 15행 전부 무변경.
+- WebGL 빌드: `result=Succeeded size=57006939 errors=0 **warnings=0**`
+  [OBSERVED, unity-logs/build-092640.log]. v1.3의 경고 2건이 0으로 —
+  cycle-2 회고가 "main 세션 코드 소유"로 이월했던 항목 종결.
+- 최종 재확인 [OBSERVED, test-results-094336.xml **240/240** ·
+  build-094351.log `errors=0 warnings=0 size=57006779`].
+- 라이브 스모크 (로컬 `python3 -m http.server 8917`, 헤드리스 Chromium
+  1280×720, 약 10분): 부팅 → 로비 렌더(성장 탭 실수치 `공격력 58.0 (+1.7)`
+  · `최대 체력 100 (+8)` · 요약줄 정상) → 프롤로그 클리어 → 세이브 반영
+  (`cinder-span 강하 가능`) → 던전 진입 → **스테이지 시작 말풍선 렌더**
+  (감시자, 앰비언트) → 웨이브 5/5 진행. **페이지 에러 0건.**
+  이 경로가 이번 패스에서 건드린 View 3파일(LobbyView 부팅 경로 ·
+  HudView 필드 · SpeechBubbleView Show)을 전부 통과한다.
+  **미도달**: 보스 등장 말풍선(엠버 틴트)의 육안 확인 — 헤드리스 스로틀로
+  보스 웨이브 전에 진행이 정체(적 0에서 스톨, 심은 계속 틱). 보스 틴트는
+  9스테이지 × 4비트 순회 테스트가 고정하고 있으므로 게이트는 충족하나,
+  **육안 확인은 미실시로 남긴다** — 다음 배포 스모크 항목.
+
+### 닫은 결함
+
+1. **말풍선 화자 색 (회고 이월 #2)** — cycle-2 보스 3종(SLUICE KEEPER /
+   BASTION SENTINEL / ASH MAGISTRATE)이 앰비언트(감시자) 색으로 렌더되던
+   결함. 원인은 이름 **prefix 매칭**: 화자 정체성은 StoryCatalog가 갖는데
+   색 규칙은 3파일 떨어진 SpeechBubbleView의 prefix 목록에 있어, 보스를
+   추가해도 아무것도 실패하지 않았다. `StoryCatalog.VoiceOf`(상수와 같은
+   자리의 정확 switch) + `SpeakerVoice`로 이동 — prefix 매칭 제거.
+   가드: `StorySpeakers_ResolveTheirIntendedBubblePalette` — 라이브
+   StageCatalog 9스테이지 × 4비트를 순회해 **명명 화자는 절대 앰비언트로
+   칠해지지 않음**을 고정(+ "CINDER IMPOSTOR"가 앰비언트로 떨어지는지로
+   prefix 회귀 차단). 실측 중 발견: abyss-chancel completion 화자는
+   DUSK WARDEN이 아니라 VEIL TACTICIAN(보스가 마지막 말) — 데이터가 아니라
+   테스트의 가정이 틀렸던 것이라 테스트를 고쳤다.
+2. **CS0414 죽은 필드** — `_stageClearShownScore/_stageClearShownRelics`는
+   기록만 되고 읽히지 않는 카운트업 잔재(스펙에 카운트업 없음) → 삭제.
+3. **CS0618 폐기 API** — `FindFirstObjectByType` → `FindAnyObjectByType`
+   (LobbyView 1 + 테스트 4). 전부 존재 확인용이라 순서 무관.
+
+### 기계화한 주장 (이전엔 문서·스크린샷만)
+
+4. **서약 경제 (negotiation entry 5)** — GameDirector 주석은
+   "internal so the EditMode economy test pins it"이라 했으나 **그런 테스트는
+   없었다**(테스트 레인도 "EditMode 밖"으로 분류). 실제 로비 토글을 눌러
+   출정하는 라우트 테스트 신설:
+   `ArmedPactSortie_DoublesOnlyTheInRunRelicPayout`.
+   측정 [OBSERVED, test-results-093217.xml 출력 블록]:
+   **일반 클리어 3유물 → 서약 클리어 6유물, 비율 2.00×** — entry 5의
+   "≤2.2×" QA 조건이 스크린샷 1장이 아니라 재현 가능한 게이트 수치로 충족.
+   함께 고정: 서약 지급은 인런 유물에만 배수(보너스 라인 비배수), 반복
+   클리어 포인트 +2(첫클리어 +3 아님), 진행도 불변.
+5. **로비 rect 감사** — v1.3이 "픽스처가 없어 후속"으로 미룬 항목.
+   `LobbyLayoutTests` 신설(WorldSpace 캔버스 시임 — HudLayoutTests와 동일).
+   서약↔강하 비중첩은 **실측 통과**.
+
+### 새로 드러난 것 — 사람 판단 필요 (설계 협상)
+
+- **로비 전체가 44 CSS px 터치 하한 미달** [OBSERVED, 위 XML 출력 블록,
+  390×844 portrait · 0.488 CSS px/u]: 강하/서약 41.0×13.7 · 탭 58.6×21.5 ·
+  스탯 + 25.4×21.5 · 재훈련 54.7×21.5. **전 항목이 세로축 미달.**
+  SIM_SPEC_HACKSLASH §9 "버튼 최소 44px" 위반이며 **v1.3 이전부터 존재**
+  (서약 토글은 강하 행 문법을 복제했을 뿐). v1.3 테스트 레인 문서의
+  "≥44 css px at phone scale" 주장은 산술 오류 — 해당 문서에 정정 기록.
+  68 u 카드 피치·9카드 스크롤·탭 스트립이 함께 움직이는 변경이라 조용히
+  재배치하지 않고 **동결 래칫**으로 고정: 미달 집합을 정확히 핀했으므로
+  신규 위반은 테스트가 잡고, 실제 수정도 테스트를 깨워 협상 기록을 요구한다.
+  → designer+pm 안건.
+
+### 이월 유지 (이 패스 범위 밖)
+
+- G8 인상 점수·G7 repeat-rate: 배포 후 구조화 플레이테스트 필요(불변).
+- ash-march 피날레 과열(골든 hp 8 마진): 사람 플레이테스트 후 판정(불변).
+- gh-pages 배포·origin push: 자격증명 권한 문제(불변, 사람 판단).

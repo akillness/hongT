@@ -395,11 +395,24 @@ which has no EditMode rect audit (LobbyView tests exist only in
 GameDirectorCampaignRouteTests, glyph/route level). Arithmetic check of the
 landed pact toggle instead: anchored (−104,6) size 84×28, pivot (1,0) →
 x −188..−104; 강하 at (−12,6) 84×28 → x −96..−12; gap 8 px, zero overlap,
-same 28 u height band as the audited 강하 grammar (≥44 css px at phone
-scale by the same scaler math). Toggle hidden until cleared, and cleared
-cards drop the '보상:' tail, so it never covers live reward text. A
-LobbyView rect audit would need a new fixture building the full lobby
-canvas — flagged as possible follow-up, not v1.3 scope.
+same 28 u height band as the audited 강하 grammar. Toggle hidden until
+cleared, and cleared cards drop the '보상:' tail, so it never covers live
+reward text. A LobbyView rect audit would need a new fixture building the
+full lobby canvas — flagged as possible follow-up, not v1.3 scope.
+
+> **CORRECTION 2026-08-06** (v1.4 lane, measured — supersedes the touch-floor
+> clause struck from the paragraph above). The original text claimed the 28 u
+> row was "≥44 css px at phone scale by the same scaler math". It is not:
+> at the audited worst phone scale (390×844 portrait, match 0.35 →
+> **0.488 CSS px/u**) 84×28 u measures **41.0 × 13.7 CSS px**, under the
+> §9 floor of 44 on BOTH axes. The follow-up fixture now exists
+> (`Assets/Tests/EditMode/LobbyLayoutTests.cs`) and measures the whole lobby:
+> **no** lobby control clears the floor vertically (강하/서약 41.0×13.7 ·
+> tabs 58.6×21.5 · stat + 25.4×21.5 · 재훈련 54.7×21.5). This predates v1.3
+> — the pact toggle inherited the row grammar — so it is carried as a frozen
+> RATCHET (exact undersized set pinned; a new offender fails the test) and
+> raised as a designer+pm item, not silently relaid out.
+> [OBSERVED, unity-logs/test-results-093217.xml, test output block]
 
 ### Glyph audit (v1.3 NEW glyphs — main lane HudKorean regen needed)
 

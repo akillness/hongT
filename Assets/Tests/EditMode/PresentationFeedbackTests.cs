@@ -15,7 +15,7 @@ namespace CinderCourt.Tests
         public void BossIntro_UsesProvidedName_AndResetsTransientInputSafeElements()
         {
             var preferences = PreferenceSnapshot.Capture();
-            var existingEventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var existingEventSystem = Object.FindAnyObjectByType<EventSystem>();
             GameObject hudObject = null;
             try
             {
@@ -67,7 +67,7 @@ namespace CinderCourt.Tests
         public void CampaignStageClear_StartsCeremonyWithoutPrematureOrDuplicateTerminalPanel()
         {
             var preferences = PreferenceSnapshot.Capture();
-            var existingEventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var existingEventSystem = Object.FindAnyObjectByType<EventSystem>();
             GameObject hudObject = null;
             try
             {
@@ -119,6 +119,80 @@ namespace CinderCourt.Tests
                 DestroyCreatedEventSystem(existingEventSystem);
                 preferences.Restore();
             }
+        }
+
+        /// <summary>
+        /// Every speaker the shipping catalog can emit must resolve to its
+        /// intended palette class. Regression: the cycle-2 executor wing
+        /// (SLUICE KEEPER / BASTION SENTINEL / ASH MAGISTRATE) shipped
+        /// rendering in the ambient watcher tint because the bubble matched
+        /// name prefixes instead of the catalog's own speaker identity —
+        /// three bosses spoke as narration for a whole cycle. Walking the
+        /// live StageCatalog means a new stage cannot repeat it silently.
+        /// </summary>
+        [Test]
+        public void StorySpeakers_ResolveTheirIntendedBubblePalette()
+        {
+            var boss = SpeechBubbleView.SpeakerColor(StoryCatalog.CinderWarden);
+            var warden = SpeechBubbleView.SpeakerColor(StoryCatalog.DuskWarden);
+            var ambient = SpeechBubbleView.SpeakerColor(StoryCatalog.Watcher);
+            Assert.That(boss, Is.Not.EqualTo(ambient),
+                "a boss must be visually distinct from watcher narration");
+            Assert.That(warden, Is.Not.EqualTo(ambient),
+                "the warden must be visually distinct from watcher narration");
+            Assert.That(boss, Is.Not.EqualTo(warden),
+                "boss and warden voices must stay distinguishable");
+
+            // The watcher opens every stage; every other beat is spoken by a
+            // NAMED character (boss or warden — abyss-chancel deliberately lets
+            // its boss keep the last word), and a named character must never
+            // paint as narration. That is exactly the defect this pins.
+            var beats = new[]
+            {
+                StoryCatalog.StageStart, StoryCatalog.BossEntry,
+                StoryCatalog.BossPhase2, StoryCatalog.Completion,
+            };
+            var namedBeats = 0;
+            for (var index = 0; index < StageCatalog.Entries.Count; index += 1)
+            {
+                var storyKey = StageCatalog.Entries[index].StoryKey;
+                foreach (var beat in beats)
+                {
+                    if (!StoryCatalog.TryGet(storyKey, beat, out var speaker, out _)) continue;
+                    var voice = StoryCatalog.VoiceOf(speaker);
+                    var tint = SpeechBubbleView.SpeakerColor(speaker);
+                    if (beat == StoryCatalog.StageStart)
+                    {
+                        Assert.That(voice, Is.EqualTo(SpeakerVoice.Ambient),
+                            $"{storyKey}/{beat} is watcher narration");
+                        Assert.That(tint, Is.EqualTo(ambient),
+                            $"{storyKey}/{beat} must paint as narration");
+                        continue;
+                    }
+
+                    namedBeats += 1;
+                    Assert.That(voice, Is.Not.EqualTo(SpeakerVoice.Ambient),
+                        $"{storyKey}/{beat} speaker '{speaker}' is a named character and "
+                        + "must not fall through to ambient narration");
+                    Assert.That(tint, Is.EqualTo(voice == SpeakerVoice.Boss ? boss : warden),
+                        $"{storyKey}/{beat} must paint its bubble with the {voice} tint");
+                }
+            }
+            Assert.That(namedBeats, Is.EqualTo(3 * StageCatalog.Entries.Count),
+                "every stage must contribute boss-entry, phase-2 and completion beats");
+
+            foreach (var executor in new[]
+                     {
+                         StoryCatalog.SluiceKeeper, StoryCatalog.BastionSentinel,
+                         StoryCatalog.AshMagistrate,
+                     })
+                Assert.That(SpeechBubbleView.SpeakerColor(executor), Is.EqualTo(boss),
+                    $"cycle-2 executor '{executor}' must speak in the boss tint, not narration");
+
+            Assert.That(SpeechBubbleView.SpeakerColor(null), Is.EqualTo(ambient),
+                "a missing speaker must fall back to ambient narration");
+            Assert.That(SpeechBubbleView.SpeakerColor("CINDER IMPOSTOR"), Is.EqualTo(ambient),
+                "palette must key off catalog identity, not a name prefix");
         }
 
 
@@ -192,7 +266,7 @@ namespace CinderCourt.Tests
         private static void DestroyCreatedEventSystem(EventSystem existingEventSystem)
         {
             if (existingEventSystem != null) return;
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = Object.FindAnyObjectByType<EventSystem>();
             if (eventSystem != null) Object.DestroyImmediate(eventSystem.gameObject);
         }
 

@@ -67,7 +67,10 @@ golden-digests-cycle2.md 헤더에 명문화 — 하니스 재구축 금지.
 ## 미해결 리스크 / 이월
 
 1. G8 인상 점수(≥4/5)·G7 repeat-rate(≥70%): 배포 후 구조화 플레이테스트 필요.
-2. SpeechBubbleView.SpeakerColor 신규 보스 prefix 미분화(1줄).
+2. ~~SpeechBubbleView.SpeakerColor 신규 보스 prefix 미분화~~ — **닫힘
+   (2026-08-06, v1.4)**: prefix 매칭 자체를 제거하고 화자 분류를
+   StoryCatalog(`VoiceOf`)로 이동 + 9스테이지 순회 가드 신설.
+   `qa/gate-measurements.md` §v1.4.
 3. Stage 3 미진행: G4(몰입 점수), G6 최종(소크/롤백 리허설), G2/G3/G5 최종
    측정(아키타입 로테이션 매트릭스 — 테스트 봇은 준비됨).
 4. gh-pages 배포 미수행 — 빌드는 준비 완료(56.8MB), 배포는 사용자 확인 후.
@@ -75,6 +78,11 @@ golden-digests-cycle2.md 헤더에 명문화 — 하니스 재구축 금지.
    패스, nan2026 제출 패키지.
 6. P2 글로우·C1 트레일 라이브 육안(이월 2회째): 이번 스모크는 신규 스테이지
    중심 — 다음 배포 스모크에서 기존 스테이지 항목 포함할 것.
+7. **신규 (v1.4 감사에서 발견)** — 로비 전 버튼이 44 CSS px 터치 하한 미달
+   (390×844 portrait 실측: 강하/서약 41.0×13.7 · 탭 58.6×21.5 · 스탯 +
+   25.4×21.5 · 재훈련 54.7×21.5). SIM_SPEC_HACKSLASH §9 위반이고 v1.3
+   이전부터 존재. 카드 피치·스크롤·탭이 함께 움직이므로 designer+pm 협상
+   안건. 현재는 `LobbyLayoutTests` 동결 래칫으로 회귀만 차단 중.
 
 ## 다음 사이클 진입 결정
 

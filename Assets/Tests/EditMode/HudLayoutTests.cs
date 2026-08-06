@@ -60,7 +60,7 @@ namespace CinderCourt.Tests
         public void TearDown()
         {
             Object.DestroyImmediate(_hudObject);
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = Object.FindAnyObjectByType<EventSystem>();
             if (eventSystem != null) Object.DestroyImmediate(eventSystem.gameObject);
             if (!_hadRotateHintPref) PlayerPrefs.DeleteKey("al:rotate-hint");
             ViewPrefs.ReducedMotion = _reducedMotionPrefValue == 1;

@@ -149,7 +149,7 @@ namespace CinderCourt.View
             canvasObject.AddComponent<GraphicRaycaster>();
             _root = canvasObject;
 
-            if (FindFirstObjectByType<EventSystem>() == null)
+            if (FindAnyObjectByType<EventSystem>() == null)
             {
                 var eventSystem = new GameObject("EventSystem");
                 eventSystem.AddComponent<EventSystem>();
