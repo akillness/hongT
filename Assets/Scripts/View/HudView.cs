@@ -1106,8 +1106,7 @@ namespace CinderCourt.View
                 fillObject.transform.SetParent(_chargeGauge.transform, false);
                 _chargeGaugeFill = fillObject.AddComponent<Image>();
                 _chargeGaugeFill.raycastTarget = false;
-                _chargeGaugeFill.type = Image.Type.Filled;
-                _chargeGaugeFill.fillMethod = Image.FillMethod.Horizontal;
+                MakeFilled(_chargeGaugeFill, Image.FillMethod.Horizontal);
                 var fillRect = _chargeGaugeFill.rectTransform;
                 fillRect.anchorMin = Vector2.zero;
                 fillRect.anchorMax = Vector2.one;
@@ -1490,8 +1489,10 @@ namespace CinderCourt.View
             xpFillObject.transform.SetParent(xpBack.transform, false);
             _xpFill = xpFillObject.AddComponent<Image>();
             _xpFill.color = new Color(0.56f, 0.91f, 1f);
-            _xpFill.type = Image.Type.Filled;
-            _xpFill.fillMethod = Image.FillMethod.Horizontal;
+            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
+            // fillAmount path entirely when it is), then main's atlas sprite
+            // replaces the 1x1 placeholder when it is present.
+            MakeFilled(_xpFill, Image.FillMethod.Horizontal);
             var xpFillSprite = Resources.Load<Sprite>("Icons/hud-xp-bar-fill");
             if (xpFillSprite != null) _xpFill.sprite = xpFillSprite;
 
@@ -1592,8 +1593,10 @@ namespace CinderCourt.View
             bossFillObject.transform.SetParent(bossBack.transform, false);
             _bossFill = bossFillObject.AddComponent<Image>();
             _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
-            _bossFill.type = Image.Type.Filled;
-            _bossFill.fillMethod = Image.FillMethod.Horizontal;
+            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
+            // fillAmount path entirely when it is), then main's atlas sprite
+            // replaces the 1x1 placeholder when it is present.
+            MakeFilled(_bossFill, Image.FillMethod.Horizontal);
             var bossFillSprite = Resources.Load<Sprite>("Icons/hud-boss-bar-fill");
             if (bossFillSprite != null) _bossFill.sprite = bossFillSprite;
 
@@ -1617,8 +1620,10 @@ namespace CinderCourt.View
             extractFillObject.transform.SetParent(extractBack.transform, false);
             _extractRing = extractFillObject.AddComponent<Image>();
             _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
-            _extractRing.type = Image.Type.Filled;
-            _extractRing.fillMethod = Image.FillMethod.Horizontal;
+            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
+            // fillAmount path entirely when it is), then main's atlas sprite
+            // replaces the 1x1 placeholder when it is present.
+            MakeFilled(_extractRing, Image.FillMethod.Horizontal);
             var extractFillSprite = Resources.Load<Sprite>("Icons/hud-extraction-ring-fill");
             if (extractFillSprite != null) _extractRing.sprite = extractFillSprite;
 
@@ -1985,6 +1990,53 @@ namespace CinderCourt.View
             return frameImage;
         }
 
+        /// <summary>
+        /// 1x1 opaque white sprite shared by every generated Image. uGUI's
+        /// <c>Image.OnPopulateMesh</c> bails to the plain <c>Graphic</c> full-rect
+        /// quad when <c>activeSprite</c> is null — the <c>type</c>/<c>fillAmount</c>
+        /// switch is never reached. A Filled Image with no sprite therefore
+        /// renders permanently full no matter what fillAmount is written to it,
+        /// which is exactly how the 체력/기름 meters lost their drain.
+        /// </summary>
+        static Sprite _fillSprite;
+
+        static Sprite FillSprite()
+        {
+            if (_fillSprite != null) return _fillSprite;
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+            {
+                name = "HudFillTexture",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                // Procedural and cached in a static: without DontSave a domain
+                // reload or playmode exit destroys it while the Images that
+                // reference it survive, leaving them sprite-less again — the
+                // exact null-activeSprite state this whole helper exists to
+                // prevent, but only after a reload, which is worse than never.
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply(false, true);
+            _fillSprite = Sprite.Create(texture, new Rect(0, 0, 1, 1),
+                new Vector2(0.5f, 0.5f), 1f, 0, SpriteMeshType.FullRect);
+            _fillSprite.name = "HudFillSprite";
+            _fillSprite.hideFlags = HideFlags.HideAndDontSave;
+            return _fillSprite;
+        }
+
+        /// <summary>The ONLY sanctioned way to make a Filled Image in this HUD.
+        /// Assigning the sprite is not decoration — it is what makes fillAmount
+        /// reach the mesh at all (see <see cref="FillSprite"/>).</summary>
+        static void MakeFilled(Image image, Image.FillMethod method, int origin = 0)
+        {
+            image.sprite = FillSprite();
+            image.type = Image.Type.Filled;
+            image.fillMethod = method;
+            image.fillOrigin = origin;
+            image.preserveAspect = false;
+        }
+
+
 
         Image Bar(Transform parent, float x, float y, float width, float height,
                   Color fillColor, out Text valueText, string label,
@@ -2021,6 +2073,7 @@ namespace CinderCourt.View
             // the ornate border bezel draws over the fill's edges but the
             // readout text still draws over the bezel and stays legible.
             ApplyFrameOverlay(back.transform, frameSpriteId);
+            MakeFilled(fill, Image.FillMethod.Horizontal);
             valueText = Label(back.transform, 6, 0, width - 12, height, label, 14, TextAnchor.MiddleLeft);
             valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
 
@@ -2125,9 +2178,8 @@ namespace CinderCourt.View
             overlayObject.transform.SetParent(card.transform, false);
             cooldownOverlay = overlayObject.AddComponent<Image>();
             cooldownOverlay.color = new Color(0f, 0f, 0f, 0.65f);
-            cooldownOverlay.type = Image.Type.Filled;
-            cooldownOverlay.fillMethod = Image.FillMethod.Vertical;
-            cooldownOverlay.fillOrigin = (int)Image.OriginVertical.Top;
+            MakeFilled(cooldownOverlay, Image.FillMethod.Vertical,
+                (int)Image.OriginVertical.Top);
             cooldownOverlay.raycastTarget = false;
             var overlayRect = overlayObject.GetComponent<RectTransform>();
             overlayRect.anchorMin = Vector2.zero;

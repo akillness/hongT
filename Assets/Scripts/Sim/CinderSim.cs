@@ -940,7 +940,17 @@ namespace CinderCourt.Sim
             }
 
             // §2.2/§2.3: the dungeon replaces the arena kit with dash + four skills.
-            if (_dungeon)
+            //
+            // AMENDMENT #7: a TRIAL gets the same kit. The view already promised
+            // it — GameDirector sets InputAdapter.Profile.Dungeon on entry with
+            // the comment "full kit: you practise with your tools" — but the sim
+            // fell through to the arena branch, which reads only Nova and Ward.
+            // Q/E/Shift were dead keys in every trial: the input published
+            // BoltQueued/PulseQueued/DashQueued and nothing consumed them.
+            // Found by the skill-VFX lane (qa/skill-vfx-mode-coverage.md) as
+            // "2 of 5 silhouettes never fire in training" — a VFX symptom whose
+            // cause was here, in the sim.
+            if (_dungeon || _training)
             {
                 CastDungeonSkills(in input);
                 return;
