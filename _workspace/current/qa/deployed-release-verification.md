@@ -50,3 +50,49 @@ Capture-environment caveat: Playwright's bundled headless Chromium lacks
 proprietary audio codecs and logs `EncodingError: Unable to decode audio data`
 during video capture. Real-browser smokes on the same URL log zero errors —
 environment artifact, not a game defect.
+## 2026-08-06 배포 사이클 — 걷기/휘두르기 모션 수정
+
+[OBSERVED] 소스 `7343cd0` (내 `57f8afd` 모션 수정 + 형제 세션의
+`b3ad28d` 인트로 릴 5프레임, `7343cd0` HUD 아틀라스 배선), gh-pages
+`ce76295`, 캐시 버전 `a78283f49ff7e483`.
+
+빌드: `bash tools/unity_batch.sh build` — `result=Succeeded errors=0
+warnings=8 size=70,601,672 time=00:01:14`. 배포 산출물 47.2 MB
+(`data` 36,196,342 B · `wasm` 10,472,622 B · `framework` 79,052 B ·
+`loader` 48,106 B) — 계약 상한 120 MB 대비 39 %. 편집기가 프로젝트
+잠금을 쥐고 있어 `/tmp/hongt-build` 클론(Library 포함 APFS 클론)에서
+배치모드로 빌드했고, `Assets/ ProjectSettings/ Packages/ docs/ web/`를
+`rsync -a --delete`로 `7343cd0` 작업트리와 일치시킨 뒤 빌드했다
+(`Assets` 최종 동기화 차이 0건). 로그
+`_workspace/current/engineering/unity-logs/build-170501.log`.
+
+배포: `bash tools/deploy/deploy_pages.sh`.
+
+[OBSERVED] 실브라우저 검증 2회 — 로컬(`python3 -m http.server` 상당,
+`Content-Encoding` 없음 = Pages와 동일한 폴백 경로)과 라이브
+<https://akillness.github.io/hongT/> 양쪽에서 Chromium(swiftshader)
+헤드리스로 부팅:
+
+| 항목 | 로컬 `a78283f49ff7e483` | 라이브 `a78283f49ff7e483` |
+|---|---|---|
+| 요청 실패(≥400) | 0 | 0 |
+| 콘솔 에러 / 페이지 예외 | 0 / 0 | 0 / 0 |
+| 로더 진행률 | 100 % | 100 % |
+| WebGL 컨텍스트 | webgl2 | webgl2 |
+| 캔버스 CSS / 백킹스토어 | 1280×853 / 1280×853 | 1280×853 / 1280×853 |
+| 경고 배너 | 없음 | 없음 |
+| 인트로 릴 | `Video/cinder-court-intro.mp4` 200 | 동일 파일 206 range 2건 |
+| 렌더 픽셀 | 84,283색 | 46,146색 (배경 #050812 포함) |
+
+`loader.js`는 Pages가 `gzip`으로, `.unityweb` 3종은 무압축으로 서빙되며
+빌드의 `decompressionFallback=true` 경로로 정상 해제됐다. `index.html`에
+루트 절대 URL 0건, 캐시 버스트 `?v=a78283f49ff7e483`가 4개 리소스에
+정확히 1회씩. 증거: `qa/swing-motion/deployed-pages-boot.png`.
+
+[OBSERVED] 배포 직후 라이브 `index.html`을 20초 간격으로 폴링해
+`321e5e336d66b53d`(같은 사이클의 선행 배포) → `a78283f49ff7e483` 전환을
+17:11:22에 확인했다. Pages 반영 지연 약 3분.
+
+[INFERENCE] 형제 세션이 동일 소스(`7343cd0`)로 gh-pages `3ecc425`를
+같은 시각에 배포했고 내 `ce76295`가 그 위에 올라갔다. 두 배포의 소스
+커밋이 같으므로 유실된 변경은 없다.
