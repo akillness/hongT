@@ -67,23 +67,51 @@ expectation back from `HackSpec.CompanionStats`; the test was changed to assert
 the D6.3 literals (0.85 / 1.30 / 1.45 s) against the observed swing period, and
 it now kills M2 as well.
 
-## [OBSERVED] Blocker — Unity batchmode EditMode run
+## [OBSERVED] Unity EditMode run — 259/259 pass
 
-`Unity -batchmode -runTests -testPlatform EditMode` could not be completed:
-the operator's Unity Editor is running on this project
-(`pid 16568 … -projectpath …/HongT/main`), and both attempts — in the repo and
-in the clone `/tmp/hongt-unity-test` — exited during script compilation with no
-`results.xml` (clone log tail: `Application is shutting down…` ~30 s in;
-`Logs/upm.log`: `parent process … is no longer running`). The editor session was
-deliberately left untouched. Re-run once the editor is closed:
+Run in the clone `/tmp/hongt-unity-test` (same Unity 6000.5.6f1, `Assets/Scripts/Sim/`
+and `Assets/Tests/` rsynced from the repo working tree, so the editor session the
+operator has open on the repo was never disturbed):
 
 ```
 /Applications/Unity/Hub/Editor/6000.5.6f1/Unity.app/Contents/MacOS/Unity \
-  -batchmode -nographics -projectPath <repo> -runTests -testPlatform EditMode \
-  -testResults _workspace/current/engineering/unity-logs/test-results-<hhmmss>.xml \
-  -logFile _workspace/current/engineering/unity-logs/tests-<hhmmss>.log -quit
+  -batchmode -nographics -projectPath /tmp/hongt-unity-test \
+  -runTests -testPlatform EditMode \
+  -testResults /tmp/hongt-unity-test/results.xml \
+  -logFile /tmp/hongt-unity-test/tests.log
+exit 0 — total=259 passed=259 failed=0 skipped=0 duration=3.04 s
 ```
 
-[INFERENCE] The Unity run is expected to reproduce the headless result: the new
-tests touch only `CinderCourt.Sim` types already referenced by the existing
-tests in the same assembly, and no production code was changed in this task.
+Artifacts copied into the repo:
+`_workspace/current/engineering/unity-logs/test-results-145745.xml` (the
+matching `tests-145745.log` sits next to it but stays untracked — `*.log` is
+gitignored). All 20 companion-related cases pass, including the 8 new
+`CompanionSlots_*` ones; `CinderCourt.Tests.EditMode` compiles clean (warnings
+only, all pre-existing `FindObjectsByType` obsolescence notices), which also
+settles the open question about `internal NormalizeCompanionSlots` — the tests
+reach it only through the public `CompanionSlots()` surface, so no
+`InternalsVisibleTo` is required by the Unity asmdef either.
+
+### Why the earlier attempts produced no `results.xml`
+
+Two independent mistakes, neither of them a licensing or editor-lock problem
+(the earlier "editor holds the project" reading was wrong):
+
+1. The Unity process was launched with `nohup … &` from a tool call that
+   returns immediately; the process group was torn down ~1 s later. The
+   `Logs/upm.log` line `parent process [54277] is no longer running` is that
+   teardown, not a crash.
+2. Once run in the foreground it exited 0 but still wrote no results, because
+   `-quit` was passed alongside `-runTests`. The test runner is asynchronous;
+   `-quit` closes the editor at the end of the first update loop, before the
+   run finishes. **`-runTests` must not be combined with `-quit`** — the runner
+   exits by itself (0 = all pass, 2 = failures).
+
+A third, unrelated failure appeared on the first successful run:
+`BuildScriptWebGlPostprocessTests.PolishIndexHtml_ResyncsResponsiveBackingStore…`
+threw `FileNotFoundException: WebGL social preview was not copied`, because the
+clone had no `docs/branding/cinder-court-link-preview.png`
+(`BuildScript.SocialPreviewSource`, outside the rsynced `Assets/` subtree).
+Copying that file in made the suite fully green; nothing in the repo tree was
+at fault.
+
