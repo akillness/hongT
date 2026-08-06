@@ -1,0 +1,73 @@
+{
+  "tool": "Direct Material Generator (Python)",
+  "generated_at": "2026-08-06T10:38:29.879119",
+  "shader": {
+    "name": "UI/Icon-Glow",
+    "path": "Assets/Shaders/UI-Icon-Glow.shader",
+    "guid": "abc123def456abc123def456abc123de"
+  },
+  "materials_created": [
+    {
+      "name": "UIIcon-GlowMaterial",
+      "description": "Default glow material",
+      "glow_color": [
+        1.0,
+        0.6,
+        0.2
+      ],
+      "glow_intensity": 1.0,
+      "file": "Assets/Resources/Materials/UIIcon-GlowMaterial.mat",
+      "meta": "Assets/Resources/Materials/UIIcon-GlowMaterial.mat.meta"
+    },
+    {
+      "name": "UIIcon-Glow-Warm",
+      "description": "Warm theme for skills, equipment, pickups",
+      "glow_color": [
+        1.0,
+        0.6,
+        0.2
+      ],
+      "glow_intensity": 1.2,
+      "file": "Assets/Resources/Materials/UIIcon-Glow-Warm.mat",
+      "meta": "Assets/Resources/Materials/UIIcon-Glow-Warm.mat.meta"
+    },
+    {
+      "name": "UIIcon-Glow-Cold",
+      "description": "Cold theme for void skills and UI",
+      "glow_color": [
+        0.3,
+        0.9,
+        1.0
+      ],
+      "glow_intensity": 1.1,
+      "file": "Assets/Resources/Materials/UIIcon-Glow-Cold.mat",
+      "meta": "Assets/Resources/Materials/UIIcon-Glow-Cold.mat.meta"
+    },
+    {
+      "name": "UIIcon-Glow-Void",
+      "description": "Void theme for dark magic skills",
+      "glow_color": [
+        0.7,
+        0.3,
+        1.0
+      ],
+      "glow_intensity": 1.3,
+      "file": "Assets/Resources/Materials/UIIcon-Glow-Void.mat",
+      "meta": "Assets/Resources/Materials/UIIcon-Glow-Void.mat.meta"
+    },
+    {
+      "name": "UIIcon-Glow-Neutral",
+      "description": "Neutral theme for UI buttons",
+      "glow_color": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "glow_intensity": 0.8,
+      "file": "Assets/Resources/Materials/UIIcon-Glow-Neutral.mat",
+      "meta": "Assets/Resources/Materials/UIIcon-Glow-Neutral.mat.meta"
+    }
+  ],
+  "total": 5,
+  "output_directory": "Assets/Resources/Materials"
+}
