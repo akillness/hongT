@@ -1,9 +1,38 @@
 # AMENDMENT — Companion Autonomy Sim Revision
 
-**Status: PROPOSAL (draft, not frozen, not implemented).** Read-only analysis of
+**Status: IMPLEMENTED 2026-08-07 in commit `b9a728c`.** EditMode 316/316 passed
+(evidence `_workspace/current/engineering/unity-logs/test-results-080205.xml`).
+The five constants landed exactly as proposed; **one deliberate divergence** is
+recorded in §"Divergences from this proposal" below. Read-only analysis of
 `/Users/jangyoung/orca/workspaces/HongT/main`. Amends `docs/SIM_SPEC_HACKSLASH.md`
 §4, §12, §13, and DRAFT Amendment #6 only as specified. Preserves all frozen
 `Arena`, `Prologue`, and zero-companion `Dungeon` behavior.
+
+## Divergences from this proposal (as built)
+
+**D-1. `CompanionBehavior` was NOT extended with `Engage = 2`.** The proposal made
+engagement a third enum member. As built, `CompanionBehavior` stays the frozen
+Amendment #3 pair `{Follow, Hold}` and engagement is exposed as a derived per-slot
+flag, `IHackSnapshot.CompanionEngagedAt(slot)`, alongside
+`CompanionTargetIdAt(slot)`. Reason: `CompanionBehavior` is the **commanded**
+surface (hold/recall come from player input and are persisted), while engagement is
+**derived every tick** from geometry. Folding a derived state into the commanded
+enum would let a command be read back as a derived one, and would put a value into
+persistence that no command can ever produce. Tests 4/8/13 were retargeted onto
+`CompanionEngagedAt` accordingly.
+
+**D-2. Engagement can be true while the lock reads 0.** Pursuit runs before the
+swing inside one tick, so a slot may close the gap and finish its own target in the
+same tick; the lock is then released immediately so the snapshot never publishes a
+lock on a corpse. "Engaged implies a live lock" is therefore NOT an invariant —
+see `llm-wiki/wiki/hongt-companion-autonomy-tick-order-trap.md`.
+
+**D-3. Digest scope, confirmed by measurement.** Arena, Prologue and
+companion-less Dungeon digests are byte-identical to pre-amendment and are pinned
+as literals in `CompanionAutonomyTests`. Runs *with* companions do change their
+digest (1-companion cinder-span: kills 15→14, relics 3→4, hp 118→112 on the
+standard 1800-tick script). That was approved as decision D2/D3 of
+`_workspace/current/intake/deep-interview-seed-ui-vfx-flow.md`.
 
 ## Summary
 
@@ -134,7 +163,7 @@ attack logic unchanged) — Amendment #3 preserved verbatim.
 | **Pursuit speed** | — | **`CompanionPursuitSpeedScale = 1.05` × `_playerSpeed`** | must exceed 1.0 to close on a player-speed foe; capped low so it cannot lead |
 | **Target lock duration** | 0 (re-picked each swing) | **`CompanionTargetLockSeconds = 2.0` s** (120 ticks) | integral at 1/60 |
 | **Return dwell** | — | **`CompanionReturnGraceSeconds = 0.35` s** | prevents leash-edge oscillation |
-| Behavior enum | `{Follow, Hold}` | **`{Follow, Hold, Engage}`** (`Engage = 2`, append-only) | serialized default stays `Follow = 0` |
+| Behavior enum | `{Follow, Hold}` | **unchanged** — see divergence D-1 | engagement ships as a derived per-slot flag, not an enum member |
 | Gaze radius (View) | `80 × 1.5 = 120` px | **unchanged, still View-only** | must not enter digest |
 
 Chosen relations, not tastes: `AcquireRadius (300) < LeashRadius (320)` guarantees
