@@ -434,3 +434,107 @@ Each braced expression is rendered as its evaluated integer: `m = 1` yields
 - Identical complete stage handoffs, selected offers, and simulation inputs
   must yield identical snapshots and digests. The deterministic Ember Rest
   offer hash must remain unchanged from before this amendment.
+## Frozen Contract Amendment #6 — DRAFT (multi-slot companions + per-companion stats)
+
+**Status: DRAFT — awaiting human sign-off before any FROZEN edit.**
+Unlike Amendments #2–#5, the SimTypes/HackTypes edits this amendment requires
+are **not yet applied**. It is recorded here first because §4's "1슬롯 동행" is a
+frozen contract; expanding it and adding per-companion stats is the scope the
+operator authorized ("a 진행"), and the numbers below are the gate that the
+implementation and its tests must reproduce. Nothing in the sim, view, tests,
+or persistence changes until this draft is promoted to **frozen** by the
+operator. This amendment amends §§4, 12, and 13, and Amendment #3, only as
+specified; it preserves all frozen `Arena`, `Prologue`, and unselected/no-
+companion `Dungeon` behavior.
+
+### D6.1 Scope
+
+- The active companion count grows from exactly 1 to **0..3 simultaneous**
+  companions in `Dungeon`. `Arena`, `Prologue`, and any run with zero active
+  companions are unchanged, byte-for-byte in digest.
+- Each active companion carries **per-archetype combat stats** (cadence, range,
+  damage scale) instead of the single global §4 tuple. The §4 tuple becomes the
+  default/fallback for an archetype with no override.
+- Companions remain **untargetable material-tint variants of the existing 7
+  meshes** (§4 payload contract — no new mesh). Slot count does not add art.
+
+### D6.2 Config and migration (append-only, FROZEN files)
+
+- `HackConfig` keeps `CompanionId` (single string) untouched and adds
+  `CompanionIds` (`string[]`, length 0..3, deduplicated, order = slot index).
+  Construction rule: if `CompanionIds` is null/empty, a non-empty legacy
+  `CompanionId` is promoted to a 1-element list; if both are set, `CompanionIds`
+  wins and `CompanionId` is treated as its slot 0. This keeps every existing
+  1-companion `TryDungeon` call producing the identical single-slot run.
+- The `SimInput` hold/recall bools from Amendment #3 stay **global**: they
+  command **every** active companion at once (recall-wins tie rule unchanged).
+  No per-slot input field is added — the frozen `SimInput` list gains nothing.
+
+### D6.3 Per-companion stats (the numeric gate)
+
+Stats are keyed by the companion's underlying `EnemyVisual` archetype. Values
+are proposed relative to §4's base (cadence 1.1 s, range 200 px, damage ×0.60):
+
+| Archetype (id)          | cadence (s) | range (px) | damage scale |
+|-------------------------|-------------|------------|--------------|
+| ember-cohort (bruiser)  | 1.05        | 170        | 0.70         |
+| scout-echo (skirmisher) | 0.85        | 240        | 0.50         |
+| shade-echo (caster)     | 1.30        | 260        | 0.65         |
+| possessed-echo (heavy)  | 1.45        | 150        | 0.80         |
+| any other / fallback    | 1.10        | 200        | 0.60 (§4)    |
+
+Damage stays **player-damage × scale, neutral element, untargetable** (§4).
+GuardianResonance (Amendment #4) preparation modifiers, if present, apply to
+**every** slot's cadence/range/damage after the per-archetype base, using the
+same clamps (0.5 s cadence floor) — it never becomes per-slot.
+
+### D6.4 Follower geometry (multi-slot fan-out)
+
+- The follow anchor is unchanged: player position offset **80 px opposite the
+  player facing** (§4 `CompanionFollowOffset`).
+- Slots fan **laterally** off that anchor so bodies do not stack:
+  slot 0 = 0 px, slot 1 = +64 px, slot 2 = −64 px along the axis perpendicular
+  to the facing. A single-companion run (slot 0 only) is therefore identical to
+  the current §4 follower and must reproduce its digest exactly.
+- `CompanionBehavior.Hold`/`Recall` (Amendment #3) apply per slot from the one
+  global command: hold locks every active slot's current coordinates; recall
+  resumes every slot's fan-out follow with no teleport.
+
+### D6.5 Snapshot surface (append-only, FROZEN `IHackSnapshot`)
+
+- The existing scalar `CompanionX/CompanionY/CompanionAttacking/
+  CompanionBehavior` are retained and alias **slot 0** for back-compat, so every
+  current reader keeps working.
+- Add `CompanionCount` (int, 0..3) and indexed accessors
+  `CompanionXAt(i)/CompanionYAt(i)/CompanionAttackingAt(i)/CompanionBehaviorAt(i)`
+  (or an equivalent readonly struct list). Restored/migrated snapshots lacking
+  the new members default to `CompanionCount = (legacy companion active ? 1 : 0)`
+  and `Follow` behavior (Amendment #3 default preserved).
+- No `SimEvents` member is added. §11 persistence is unchanged: neither slot
+  count nor behavior is saved as campaign progress.
+
+### D6.6 View (non-frozen)
+
+- `CampaignData` keeps `Active` (single string) and adds `ActiveSlots`
+  (`string[]`, 0..3). Legacy saves with only `Active` migrate to a 1-element
+  `ActiveSlots`. `LobbyView` legion tab selects up to 3; `GameView` spawns a
+  `_companionView` per slot from `Bootstrap.CompanionVisual`; `GameDirector`
+  passes `ActiveSlots` into `TryDungeon`.
+
+### D6.7 Required deterministic proof before promotion to frozen
+
+- A **zero-companion** and a **single-companion** `Dungeon` run reproduce their
+  pre-amendment digests exactly; every legacy `Arena`/`Prologue` digest is
+  unchanged.
+- A single-companion run's follower coordinates and attack cadence are
+  bit-identical to the §4 pre-amendment follower (slot 0 fan-out = 0 px).
+- Two- and three-companion runs are deterministic (identical config + inputs →
+  identical snapshots and digests) and each slot obeys its D6.3 archetype tuple
+  and D6.4 fan-out offset.
+- The global hold/recall command drives every active slot per Amendment #3
+  (hold locks all, recall resumes all, recall-wins tie, restart → Follow, inert
+  in Arena/Prologue/no-companion runs).
+- Snapshot back-compat: scalar `CompanionX/Y/Attacking/Behavior` equal the
+  slot-0 indexed accessors; migration of a legacy snapshot yields
+  `CompanionCount ∈ {0,1}` and `Follow`.
+
