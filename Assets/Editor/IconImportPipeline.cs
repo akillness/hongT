@@ -60,10 +60,13 @@ namespace CinderCourt.EditorTools
         ///   stats panel        used at 240x108 -> border capped ~20 v
         ///   skill card frame   used at 150x88 (108x88 dungeon) -> ~16 v
         ///   boss bar frame     used at 520x46 (outer plate) -> ~10 v
-        /// xp-bar / extraction-ring / shield-readout frames are NOT sliced
-        /// here: their real usage height (8-14 u) is too small for any
-        /// readable border, so HudView.cs only applies their FILL sprite
-        /// (Image.Type.Filled has no border math, so no size limit).</summary>
+        ///   shield readout     used at 200x26 -> border capped ~7 v
+        /// xp-bar / extraction-ring frames are NOT 9-sliced: their real
+        /// usage height (8-10 u) is too small for any readable border.
+        /// HudView.cs stretches them as a flat Image.Type.Simple overlay
+        /// instead (no border math, no size limit) plus their FILL sprite
+        /// (Image.Type.Filled also has no border math).</summary>
+
         static bool TryGetFrameBorder(string path, out Vector4 border)
         {
             if (IsButtonPlate(path)) { border = new Vector4(12, 8, 12, 8); return true; }
@@ -74,6 +77,8 @@ namespace CinderCourt.EditorTools
             if (path.EndsWith("hud-skill-card-frame.png")
                 || path.EndsWith("hud-skill-card-frame-ready.png")) { border = new Vector4(16, 16, 16, 16); return true; }
             if (path.EndsWith("hud-boss-bar-frame.png")) { border = new Vector4(20, 10, 20, 10); return true; }
+            if (path.EndsWith("hud-shield-readout-frame.png")) { border = new Vector4(14, 7, 14, 7); return true; }
+
             border = default;
             return false;
         }

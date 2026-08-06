@@ -31,6 +31,8 @@ namespace CinderCourt.View
         Text _healthText, _chargeText, _waveText, _scoreText, _relicText, _enemyText;
         Text _loreText, _finalText, _retryLabel;
         Image _novaCooldownOverlay, _wardCooldownOverlay;
+        Image _novaFrame, _wardFrame;   // HUD atlas: ready-state gold rim swap
+
         // Input depth §3/§5 surfaces, lazily built on first use.
         GameObject _chargeGauge;
         Image _chargeGaugeFill;
@@ -257,10 +259,11 @@ namespace CinderCourt.View
             // --- bottom-center: skill cards ------------------------------------
             var novaCard = SkillCard(root, -95, "Q", "잿불 노바",
                 () => { if (Input != null) Input.QueueNova(); },
-                out _novaCooldownOverlay, out _novaGroup, "skill-nova");
+                out _novaCooldownOverlay, out _novaGroup, out _novaFrame, "skill-nova");
             var wardCard = SkillCard(root, 95, "E", "랜턴 결계",
                 () => { if (Input != null) Input.QueueWard(); },
-                out _wardCooldownOverlay, out _wardGroup, "skill-ward");
+                out _wardCooldownOverlay, out _wardGroup, out _wardFrame, "skill-ward");
+
             _novaRect = novaCard.GetComponent<RectTransform>();
             _wardRect = wardCard.GetComponent<RectTransform>();
 
@@ -1425,7 +1428,10 @@ namespace CinderCourt.View
         Image[] _comboPips;
         Image[] _skillOverlays;         // bolt, pulse, nova(R), ward(F)
         CanvasGroup[] _skillGroups;
+        Image[] _skillFrames;           // HUD atlas: ready-state gold rim swap
         Image _dashOverlay;
+        Image _dashFrame;
+
         GameObject _bossBar;
         Image _bossFill;
         Text _bossName;
@@ -1433,12 +1439,16 @@ namespace CinderCourt.View
         Image _extractRing;
         GameObject _extractRoot;
         Text _shieldText;
+        GameObject _shieldPanel;        // HUD atlas: hidden until shield > 0
+
         GameObject _companionHoldButton, _companionRecallButton;
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
         static readonly float[] SkillMaxCooldowns = { 6.5f, 4f, 8f, 12f };
         static readonly float[] SkillCosts = { 25f, 30f, 45f, 30f };
+        static Sprite _skillFrameNormalSprite, _skillFrameReadySprite;   // ready-state swap cache
+
 
         /// <summary>Dungeon combat HUD (spec §2, §7): XP, combo, 4 skills, dash,
         /// boss bar, extraction channel. Replaces the 2-card arena skill row.</summary>
@@ -1460,7 +1470,8 @@ namespace CinderCourt.View
 
             // --- XP bar (bottom edge) + level ---------------------------------
             var xpBack = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f));
+                new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f), "hud-xp-bar-frame");
+
             _xpBackRect = xpBack.GetComponent<RectTransform>();
             _xpBackRect.pivot = new Vector2(0.5f, 0f);
             var xpFillObject = new GameObject("XpFill");
@@ -1508,9 +1519,11 @@ namespace CinderCourt.View
             // --- skill row: dash + Q/E/R/F --------------------------------------
             _skillOverlays = new Image[4];
             _skillGroups = new CanvasGroup[4];
+            _skillFrames = new Image[4];
             var dashCard = SkillCard(dungeonRoot, -232, "SHIFT", "질주",
                 () => { if (Input != null) Input.QueueDash(); },
-                out _dashOverlay, out _, "skill-dash");
+                out _dashOverlay, out _, out _dashFrame, "skill-dash");
+
             _dashCardRect = dashCard.GetComponent<RectTransform>();
             _dashCardRect.sizeDelta = new Vector2(110, 88);
             var labels = new[] { ("Q", "균열 화살"), ("E", "묘지 파동"), ("R", "잿불 노바"), ("F", "공허 방패") };
@@ -1525,7 +1538,8 @@ namespace CinderCourt.View
             for (var i = 0; i < 4; i++)
             {
                 var card = SkillCard(dungeonRoot, -116 + i * 116, labels[i].Item1, labels[i].Item2,
-                    actions[i], out _skillOverlays[i], out _skillGroups[i], icons[i]);
+                    actions[i], out _skillOverlays[i], out _skillGroups[i], out _skillFrames[i], icons[i]);
+
                 _skillCardRects[i] = card.GetComponent<RectTransform>();
                 _skillCardRects[i].sizeDelta = new Vector2(108, 88);
             }
@@ -1537,13 +1551,16 @@ namespace CinderCourt.View
                 new Vector2(-16, 4), new Vector2(154, 92), "동료 호출 (H)", 16,
                 () => { if (Input != null) Input.QueueCompanionRecall(); });
 
-            // --- shield readout ---------------------------------------------------
-            _shieldText = Label(dungeonRoot, 0, 0, 200, 24, "", 15, TextAnchor.MiddleLeft);
-            var shieldRect = _shieldText.rectTransform;
-            shieldRect.anchorMin = shieldRect.anchorMax = new Vector2(0f, 1f);
-            shieldRect.pivot = new Vector2(0f, 1f);
-            shieldRect.anchoredPosition = new Vector2(16, -98);
+            // --- shield readout (backed panel, hidden until shield > 0) ---------
+            _shieldPanel = Panel(dungeonRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(16, -98), new Vector2(190, 28), new Color(0.02f, 0.05f, 0.08f, 0.72f),
+                "hud-shield-readout-frame");
+            var shieldPanelRect = _shieldPanel.GetComponent<RectTransform>();
+            shieldPanelRect.pivot = new Vector2(0f, 1f);
+            _shieldText = Label(_shieldPanel.transform, 10, -2, 170, 24, "", 15, TextAnchor.MiddleLeft);
             _shieldText.color = new Color(0.56f, 0.85f, 1f);
+            _shieldPanel.SetActive(false);   // matches boss-bar/extraction-ring: no chip until it has a value
+
 
             // --- boss bar (top center, hidden until boss) --------------------------
             _bossBar = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
@@ -1581,7 +1598,8 @@ namespace CinderCourt.View
                 new Vector2(0, -120), new Vector2(120, 26), new Color(0.02f, 0.05f, 0.06f, 0.8f));
             Label(_extractRoot.transform, 0, 0, 120, 12, "추출", 11, TextAnchor.MiddleCenter);
             var extractBack = Panel(_extractRoot.transform, new Vector2(0, 0), new Vector2(0, 0),
-                new Vector2(6, 4), new Vector2(108, 8), new Color(0f, 0f, 0f, 0.6f));
+                new Vector2(6, 4), new Vector2(108, 8), new Color(0f, 0f, 0f, 0.6f), "hud-extraction-ring-frame");
+
             extractBack.GetComponent<RectTransform>().pivot = Vector2.zero;
             var extractFillObject = new GameObject("ExtractFill");
             extractFillObject.transform.SetParent(extractBack.transform, false);
@@ -1600,7 +1618,8 @@ namespace CinderCourt.View
             extractRect.offsetMax = new Vector2(-1, -1);
             _extractRoot.SetActive(false);
 
-            _shieldRect = _shieldText.rectTransform;
+            _shieldRect = shieldPanelRect;
+
             ApplyLayoutTier();          // grade the fresh dungeon surfaces
             SyncTouchModeSurfaces();    // dash touch button goes live
             ShowRotateHintIfPortrait(); // spec #14: one-time landscape nudge
@@ -1648,21 +1667,26 @@ namespace CinderCourt.View
             }
 
             _dashOverlay.fillAmount = Mathf.Clamp01(dashCooldown / 1.6f);
+            ApplySkillCardReadyState(_dashFrame, dashCooldown <= 0.0001f);
             if (skillCooldowns != null && skillCooldowns.Count >= 4)
             {
                 for (var i = 0; i < 4; i++)
                 {
                     _skillOverlays[i].fillAmount = Mathf.Clamp01(skillCooldowns[i] / SkillMaxCooldowns[i]);
                     _skillGroups[i].alpha = charge >= SkillCosts[i] ? 1f : 0.45f;
+                    ApplySkillCardReadyState(_skillFrames[i], skillCooldowns[i] <= 0.0001f);
                 }
             }
+
 
             var shieldShown = shield > 0f ? Mathf.CeilToInt(shield) : 0;
             if (shieldShown != _lastShield)
             {
                 _lastShield = shieldShown;
                 _shieldText.text = shieldShown > 0 ? $"방패 {shieldShown}" : "";
+                if (_shieldPanel != null) _shieldPanel.SetActive(shieldShown > 0);
             }
+
 
             var bossVisible = bossMaxHp > 0f && bossHp > 0f;
             if (_bossBar.activeSelf != bossVisible)
@@ -1774,6 +1798,16 @@ namespace CinderCourt.View
         GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
                          Vector2 anchored, Vector2 size, Color color, string frameSpriteId = null)
         {
+            return Panel(parent, anchorMin, anchorMax, anchored, size, color, out _, frameSpriteId);
+        }
+
+        /// <summary>Overload for callers that need the frame overlay's own
+        /// Image (e.g. SkillCard's ready-state art swap) — every other call
+        /// site keeps using the discarding overload above unchanged.</summary>
+        GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
+                         Vector2 anchored, Vector2 size, Color color, out Image frameImage,
+                         string frameSpriteId = null)
+        {
             var panel = new GameObject("Panel");
             panel.transform.SetParent(parent, false);
             var image = panel.AddComponent<Image>();
@@ -1789,28 +1823,37 @@ namespace CinderCourt.View
             rect.pivot = anchorMin;
             rect.anchoredPosition = anchored;
             rect.sizeDelta = size;
-            ApplyFrameOverlay(panel.transform, frameSpriteId);
+            frameImage = ApplyFrameOverlay(panel.transform, frameSpriteId);
             return panel;
         }
 
         /// <summary>Additive decorative chrome (HUD atlas, see
-        /// _workspace/current/design/hud-atlas/): a full-stretch 9-sliced
-        /// child drawn ON TOP of the panel's own flat-color Image, never a
-        /// replacement for it. That keeps every existing translucent
-        /// track/backdrop tint exactly as before when the sprite is absent
-        /// AND when a fill bar sits on top of a partially-hollow frame —
-        /// the flat base still shows through as the "empty" track. No-op
-        /// when the sprite hasn't been generated/imported yet.</summary>
-        static void ApplyFrameOverlay(Transform parent, string frameSpriteId)
+        /// _workspace/current/design/hud-atlas/): a full-stretch child drawn
+        /// ON TOP of the panel's own flat-color Image, never a replacement
+        /// for it. That keeps every existing translucent track/backdrop tint
+        /// exactly as before when the sprite is absent AND when a fill bar
+        /// sits on top of a partially-hollow frame — the flat base still
+        /// shows through as the "empty" track. No-op when the sprite hasn't
+        /// been generated/imported yet. Returns the created Image (or null)
+        /// so callers that need to swap its sprite later (skill-card
+        /// ready-state) can keep a reference.
+        ///
+        /// xp-bar-frame and extraction-ring-frame have no usable 9-slice
+        /// border (real on-screen height 8-10 u, see IconImportPipeline's
+        /// TryGetFrameBorder note) so they render Type.Simple — a flat
+        /// stretch with no border math and therefore no minimum size.</summary>
+        static Image ApplyFrameOverlay(Transform parent, string frameSpriteId)
         {
-            if (frameSpriteId == null) return;
+            if (frameSpriteId == null) return null;
             var frame = Resources.Load<Sprite>("Icons/" + frameSpriteId);
-            if (frame == null) return;   // missing sprite keeps the flat-color fallback
+            if (frame == null) return null;   // missing sprite keeps the flat-color fallback
             var frameObject = new GameObject("Frame");
             frameObject.transform.SetParent(parent, false);
             var frameImage = frameObject.AddComponent<Image>();
             frameImage.sprite = frame;
-            frameImage.type = Image.Type.Sliced;
+            frameImage.type = frameSpriteId == "hud-xp-bar-frame" || frameSpriteId == "hud-extraction-ring-frame"
+                ? Image.Type.Simple
+                : Image.Type.Sliced;
             frameImage.color = Color.white;
             frameImage.raycastTarget = false;
             var frameRect = frameObject.GetComponent<RectTransform>();
@@ -1818,7 +1861,9 @@ namespace CinderCourt.View
             frameRect.anchorMax = Vector2.one;
             frameRect.offsetMin = Vector2.zero;
             frameRect.offsetMax = Vector2.zero;
+            return frameImage;
         }
+
 
         Image Bar(Transform parent, float x, float y, float width, float height,
                   Color fillColor, out Text valueText, string label,
@@ -1916,11 +1961,12 @@ namespace CinderCourt.View
         GameObject SkillCard(Transform parent, float offsetX, string key, string label,
                              UnityEngine.Events.UnityAction onClick,
                              out Image cooldownOverlay, out CanvasGroup group,
-                             string iconId = null)
+                             out Image frameImage, string iconId = null)
         {
             var card = Panel(parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f),
-                "hud-skill-card-frame");
+                out frameImage, "hud-skill-card-frame");
+
 
             card.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             var rect = card.GetComponent<RectTransform>();
@@ -2285,9 +2331,10 @@ namespace CinderCourt.View
             }
 
             SyncSkill(_novaCooldownOverlay, _novaGroup, sim.NovaCooldown,
-                SimConfig.NovaCooldown, sim.Charge >= SimConfig.NovaCost);
+                SimConfig.NovaCooldown, sim.Charge >= SimConfig.NovaCost, _novaFrame);
             SyncSkill(_wardCooldownOverlay, _wardGroup, sim.WardCooldown,
-                SimConfig.WardCooldown, sim.Charge >= SimConfig.WardCost);
+                SimConfig.WardCooldown, sim.Charge >= SimConfig.WardCost, _wardFrame);
+
 
             if (_loreTimer > 0f)
             {
@@ -2540,10 +2587,32 @@ namespace CinderCourt.View
         }
 
         static void SyncSkill(Image overlay, CanvasGroup group, float cooldown,
-                              float maxCooldown, bool affordable)
+                              float maxCooldown, bool affordable, Image frame = null)
         {
             overlay.fillAmount = cooldown / maxCooldown;
             group.alpha = affordable ? 1f : 0.45f;
+            ApplySkillCardReadyState(frame, cooldown <= 0.0001f);
+        }
+
+        /// <summary>HUD atlas ready-state chrome: swap the card's frame
+        /// sprite to the gold-rim variant while its cooldown overlay is
+        /// fully retracted (fillAmount 0 = usable now). The dark cooldown
+        /// overlay already communicates "not ready" per-pixel as it wipes
+        /// down, so this only touches the border art, never fillAmount/alpha
+        /// — those keep working exactly as before. Sprites are cached after
+        /// first load and the swap is skipped when already applied, so this
+        /// costs nothing beyond a null/reference check on every other frame.
+        /// No-op for callers with no frame (arena is optional; frame == null
+        /// happens if the atlas sprite failed to import).</summary>
+        static void ApplySkillCardReadyState(Image frame, bool ready)
+        {
+            if (frame == null) return;
+            if (_skillFrameNormalSprite == null)
+                _skillFrameNormalSprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame");
+            if (_skillFrameReadySprite == null)
+                _skillFrameReadySprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame-ready");
+            var target = ready ? _skillFrameReadySprite : _skillFrameNormalSprite;
+            if (target != null && frame.sprite != target) frame.sprite = target;
         }
     }
 }
