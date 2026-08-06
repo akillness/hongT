@@ -403,4 +403,96 @@ namespace CinderCourt.Sim
             return config;
         }
     }
+
+    /// <summary>
+    /// Training-ground trials (AMENDMENT #7 — design/training-and-surge-spec.md).
+    /// One dominant gimmick per trial and NOTHING else: no spawns, no boss, no
+    /// wave table. The survey's training cross-table is empty in exactly this
+    /// column (T8 gimmick-only trial, 0/11) because an RNG title cannot make a
+    /// hazard reproducible enough to practise. Ours are fixed-phase, so they are
+    /// the one thing here that IS practisable.
+    ///
+    /// The pillar is deliberately absent: it is a static blocker, so "practising"
+    /// it is not a skill (the cross-table row is empty for that reason).
+    /// </summary>
+    public static class TrainingTrials
+    {
+        public const string Vent = "trial-vent";
+        public const string Current = "trial-current";
+        public const string Pylon = "trial-pylon";
+        public const string Wall = "trial-wall";
+        public const string Altar = "trial-altar";
+
+        /// <summary>Trial ids in lobby display order.</summary>
+        public static readonly string[] Ids = { Vent, Current, Pylon, Wall, Altar };
+
+        private static readonly HazardConfig[] VentTrial =
+        {
+            HazardConfig.Vent(568f, 484f, 0f),
+            HazardConfig.Vent(968f, 484f, 0.6f),
+            HazardConfig.Vent(568f, 724f, 1.2f),
+            HazardConfig.Vent(968f, 724f, 1.8f),
+        };
+
+        private static readonly HazardConfig[] CurrentTrial =
+        {
+            HazardConfig.Current(768f, 484f, CampaignSpec.CurrentPush, 0f),
+            HazardConfig.Current(768f, 724f, -CampaignSpec.CurrentPush, 3f),
+        };
+
+        private static readonly HazardConfig[] PylonTrial =
+        {
+            HazardConfig.Pylon(568f, 604f),
+            HazardConfig.Pylon(968f, 604f),
+            HazardConfig.Pylon(768f, 460f),
+        };
+
+        private static readonly HazardConfig[] WallTrial =
+        {
+            HazardConfig.Wall(0f),
+            HazardConfig.Wall(CampaignSpec.WallPeriod * 0.5f, fromRight: true),
+        };
+
+        private static readonly HazardConfig[] AltarTrial =
+        {
+            HazardConfig.Altar(608f, 500f),
+            HazardConfig.Altar(928f, 708f),
+            // The watching vent sits BETWEEN the altars, never on the spawn point
+            // (768, 604) — a probe found a parked player dying to it before the
+            // trial could teach anything about channelling.
+            HazardConfig.Vent(768f, 460f, 0f),
+        };
+
+        /// <summary>Trial index in <see cref="Ids"/>, or -1.</summary>
+        public static int IndexOf(string trialId)
+        {
+            for (int index = 0; index < Ids.Length; index += 1)
+            {
+                if (string.Equals(Ids[index], trialId, System.StringComparison.Ordinal))
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Hazard placement for a trial. Tier does not change the layout — it
+        /// scales the CLOCK in the sim (HackSpec.TrainingTierRate), never the
+        /// telegraph seconds and never the roster.
+        /// </summary>
+        public static bool TryGet(string trialId, out HazardConfig[] hazards)
+        {
+            switch (IndexOf(trialId))
+            {
+                case 0: hazards = VentTrial; return true;
+                case 1: hazards = CurrentTrial; return true;
+                case 2: hazards = PylonTrial; return true;
+                case 3: hazards = WallTrial; return true;
+                case 4: hazards = AltarTrial; return true;
+                default: hazards = System.Array.Empty<HazardConfig>(); return false;
+            }
+        }
+    }
 }

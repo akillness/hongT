@@ -8,7 +8,7 @@ namespace CinderCourt.View
 {
     public sealed class GameDirector : MonoBehaviour
     {
-        public enum State { Lobby, Prologue, Dungeon, Arena }
+        public enum State { Lobby, Prologue, Dungeon, Arena, Training }
 
         GameBootstrap _bootstrap;
         LobbyView _lobby;
@@ -74,6 +74,7 @@ namespace CinderCourt.View
                 OnSelectCompanion = OnSelectCompanion,
                 OnBuySigil = OnBuySigil,
                 OnEquipSigil = OnEquipSigil,
+                OnStartTrial = StartTraining,
             };
             _lobby.Build(_data, callbacks);
 
@@ -82,6 +83,7 @@ namespace CinderCourt.View
             var stage = WebGLStorage.QueryParam("stage");
             if (mode == "arena") StartArena();
             else if (mode == "prologue") StartPrologue();
+            else if (mode == "training") StartTraining(TrialFromQuery(), TierFromQuery());
             else if (mode == "campaign" && IsStageUnlocked(stage)) StartDungeon(stage);
             else EnterLobby();
         }
@@ -245,6 +247,79 @@ namespace CinderCourt.View
             _prologueStep = 0;
             _prologueStepTimer = 0f;
             _hud.ShowPrologueToast(0);
+        }
+
+        // --------------------------------------------------- training ground --
+        int _trialIndex = -1;
+        int _trialTier;
+
+        static int TrialFromQuery()
+        {
+            int index = TrainingTrials.IndexOf(WebGLStorage.QueryParam("trial"));
+            return index < 0 ? 0 : index;
+        }
+
+        static int TierFromQuery()
+        {
+            int tier = 0;
+            int.TryParse(WebGLStorage.QueryParam("tier"), out tier);
+            return tier < 0 ? 0 : (tier >= HackSpec.TrainingTiers ? HackSpec.TrainingTiers - 1 : tier);
+        }
+
+        /// <summary>
+        /// Enter a trial (AMENDMENT #7). The first run of the game still gets the
+        /// original three-wave prologue — a trial only replaces the REPEAT visit,
+        /// so a new player's path and the prologue golden are both untouched.
+        /// </summary>
+        void StartTraining(int trialIndex, int tier)
+        {
+            if (!_data.PrologueDone)
+            {
+                StartPrologue();
+                return;
+            }
+            if (trialIndex < 0 || trialIndex >= TrainingTrials.Ids.Length) return;
+
+            var metaStats = MetaStats.Of(_data.Attack, _data.Vitality, _data.Swiftness);
+            var equipTiers = EquipTiers.Of(_data.Weapon, _data.Lantern, _data.Cloak);
+            if (!HackConfig.TryTraining(TrainingTrials.Ids[trialIndex], tier, metaStats, equipTiers,
+                    out var config))
+            {
+                EnterLobby();
+                return;
+            }
+
+            ClearEmberRestRoute();
+            _state = State.Training;
+            _trialIndex = trialIndex;
+            _trialTier = tier;
+            SetStageTerrain(null);
+            ApplyStageDressing(null);
+            PrepareRunUi();
+            _input.Mode = InputAdapter.Profile.Dungeon;   // full kit: you practise with your tools
+            _rig.SetProfile(CameraRig.Profile.Dungeon);
+            _game.Begin(config, TrialDisplayName(trialIndex, tier), null);
+        }
+
+        static string TrialDisplayName(int trialIndex, int tier)
+            => $"{LobbyView.TrialNames[trialIndex]} • {LobbyView.TierNames[tier]}";
+
+        /// <summary>
+        /// A trial survived to the clock records its tier and nothing else
+        /// (AMENDMENT #7 · negotiation entry 7). The ONLY currency the training
+        /// ground can ever pay is the one-time mastery grant, and only when every
+        /// trial sits at the top tier — PM's band was "one-time <=2 relics,
+        /// repeat payouts banned", and a trial spawns no enemies so there is no
+        /// drop path either.
+        /// </summary>
+        void PersistTrialClear()
+        {
+            CampaignStore.RecordTrial(ref _data, _trialIndex, _trialTier);
+            if (!_data.TrainingMasteryClaimed && CampaignStore.MasteryComplete(in _data))
+            {
+                _data.TrainingMasteryClaimed = true;
+                _data.Relics += HackSpec.TrainingMasteryRelics;
+            }
         }
 
         void StartDungeon(string stageId, PreparationOffer preparation = default)
@@ -525,6 +600,10 @@ namespace CinderCourt.View
                 {
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
+                }
+                else if (_state == State.Training)
+                {
+                    PersistTrialClear();
                 }
                 CampaignStore.Save(in _data);
                 _lobby.Refresh(_data);

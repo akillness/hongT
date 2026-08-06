@@ -29,6 +29,8 @@ namespace CinderCourt.View
         public System.Action<int> OnBuySigil;
         /// <summary>v1.5: equip/flip/unequip. Args = (SigilKind, SigilFace) as ints.</summary>
         public System.Action<int, int> OnEquipSigil;
+        /// <summary>v1.6: enter a training trial. Args = (trial index, tier).</summary>
+        public System.Action<int, int> OnStartTrial;
     }
 
     public sealed class LobbyView : MonoBehaviour
@@ -221,11 +223,15 @@ namespace CinderCourt.View
             _pointText.text = $"포인트 {data.Points}";
 
             // --- sortie: prologue gates everything, stages unlock in order ----
-            _prologueStatus.text = data.PrologueDone ? "재훈련 가능" : "필수 훈련";
+            // v1.6: the repeat visit is no longer a replay of the three waves —
+            // it is the training ground below, so the cleared state points there
+            // instead of promising the same tutorial again.
+            _prologueStatus.text = data.PrologueDone ? "훈련장 개방" : "필수 훈련";
             _prologueStatus.color = data.PrologueDone ? Gold : Ember;
             _prologueButtonLabel.text = data.PrologueDone ? "재훈련" : "점화 훈련";
             // cycle2 B3: first-run guide — ember border pulse until done.
             SetPrologueGuide(!data.PrologueDone);
+            RefreshTrials(in data);
 
             for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
@@ -648,8 +654,12 @@ namespace CinderCourt.View
             contentRect.anchorMax = new Vector2(1f, 1f);
             contentRect.pivot = new Vector2(0.5f, 1f);
             contentRect.anchoredPosition = Vector2.zero;
-            // 9 cards at the 70 u pitch + trailing margin.
-            contentRect.sizeDelta = new Vector2(0f, StageCatalog.Entries.Count * 70f + 8f);
+            // 9 stage cards + 1 tier-selector card + 5 trial cards at the 70 u
+            // pitch + trailing margin. The training rows sit BELOW the stages so
+            // every audited stage-card coordinate keeps the value the layout
+            // tests froze.
+            contentRect.sizeDelta = new Vector2(
+                0f, (StageCatalog.Entries.Count + 1 + TrainingTrials.Ids.Length) * 70f + 8f);
 
             var scroll = stageViewport.AddComponent<ScrollRect>();
             scroll.content = contentRect;
@@ -722,6 +732,125 @@ namespace CinderCourt.View
                 pact.SetActive(false);   // revealed by Refresh on clear
 
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
+            }
+
+            BuildTrialCards(stageContent.transform, StageCatalog.Entries.Count);
+        }
+
+        // ----------------------------------------------------- training ground --
+        /// <summary>Trial display names, catalog order (AMENDMENT #7).</summary>
+        public static readonly string[] TrialNames =
+            { "불씨 시련", "해류 시련", "방벽 시련", "행진 시련", "증언 시련" };
+        /// <summary>Tier names — the ladder the survey's T3 archetype asks for.</summary>
+        public static readonly string[] TierNames = { "견습", "숙련", "판결" };
+        static readonly string[] TrialLessons =
+        {
+            "예고를 읽고 링 밖으로",
+            "순류와 역류의 이동 감각",
+            "오라 안팎의 피해 차이",
+            "침식 타이밍 암기",
+            "리듬 사이 채널 유지",
+        };
+
+        readonly Text[] _trialStatus = new Text[TrainingTrials.Ids.Length];
+        readonly Button[] _trialButtons = new Button[TrainingTrials.Ids.Length];
+        readonly CanvasGroup[] _trialGroups = new CanvasGroup[TrainingTrials.Ids.Length];
+        Button[] _tierButtons = System.Array.Empty<Button>();
+        Image[] _tierBackgrounds = System.Array.Empty<Image>();
+        Text _trialMasteryLabel;
+        int _selectedTier;
+
+        /// <summary>
+        /// A shared tier selector card, then one card per trial carrying exactly
+        /// one stage-grammar button.
+        ///
+        /// The first draft put three tier buttons on EVERY trial card. The layout
+        /// gate measured them at 28.3 x 13.7 CSS px — narrower than any existing
+        /// lobby control (the previous worst was 강하 at 41.0 x 13.7), fifteen of
+        /// them at once. A new smallest touch target is a defect, not a frozen-
+        /// table update, so the tier choice moved to one shared row and every
+        /// button here now matches the audited stage-card button exactly.
+        /// </summary>
+        void BuildTrialCards(Transform content, int rowOffset)
+        {
+            var tierCard = Card(content, -6 - rowOffset * 70, 68);
+            Eyebrow(tierCard.transform, 12, -6, "TRAINING", "훈련장 • 등급");
+            _trialMasteryLabel = Label(tierCard.transform, 12, -44, 250, 16, "", 10,
+                TextAnchor.MiddleLeft);
+            _tierButtons = new Button[HackSpec.TrainingTiers];
+            _tierBackgrounds = new Image[HackSpec.TrainingTiers];
+            for (var tier = 0; tier < HackSpec.TrainingTiers; tier++)
+            {
+                var tierIndex = tier;
+                var button = TextButton(tierCard.transform, new Vector2(1, 0),
+                    new Vector2(-12 - (HackSpec.TrainingTiers - 1 - tier) * 92, 6),
+                    new Vector2(84, 28), TierNames[tier], 13,
+                    () => SelectTier(tierIndex), plated: false);
+                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _tierButtons[tier] = button.GetComponent<Button>();
+                _tierBackgrounds[tier] = button.GetComponent<Image>();
+            }
+
+            for (var i = 0; i < TrainingTrials.Ids.Length; i++)
+            {
+                var card = Card(content, -6 - (rowOffset + 1 + i) * 70, 68);
+                Eyebrow(card.transform, 12, -6, "TRIAL", TrialNames[i]);
+                var lesson = Label(card.transform, 12, -44, 230, 16, TrialLessons[i], 10,
+                    TextAnchor.MiddleLeft);
+                lesson.color = InkDim;
+                _trialStatus[i] = Label(card.transform, -12, -8, 110, 18, "잠김", 11,
+                    TextAnchor.MiddleRight);
+                AnchorTopRight(_trialStatus[i].rectTransform);
+
+                var trialIndex = i;
+                var enter = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
+                    new Vector2(84, 28), "수련", 13,
+                    () => _callbacks.OnStartTrial?.Invoke(trialIndex, _selectedTier));
+                enter.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _trialButtons[i] = enter.GetComponent<Button>();
+
+                _trialGroups[i] = card.AddComponent<CanvasGroup>();
+            }
+        }
+
+        /// <summary>Session-only tier choice — never persisted, the same grammar
+        /// the verdict pact toggle uses (a run-scoped decision, re-made per visit).</summary>
+        void SelectTier(int tier)
+        {
+            _selectedTier = tier;
+            for (var t = 0; t < _tierBackgrounds.Length; t++)
+            {
+                PlateStateful(_tierBackgrounds[t], t == _selectedTier);
+            }
+        }
+
+        /// <summary>Trial row state. Locked until the prologue is cleared, then
+        /// each row shows its best tier and the mastery line states the one-time
+        /// grant (negotiation entry 7) instead of implying a repeatable payout.</summary>
+        void RefreshTrials(in CampaignData data)
+        {
+            var open = data.PrologueDone;
+            for (var i = 0; i < TrainingTrials.Ids.Length; i++)
+            {
+                var best = CampaignStore.BestTier(in data, i);
+                _trialStatus[i].text = !open
+                    ? "잠김"
+                    : (best < 0 ? "미도전" : $"최고 {TierNames[best]}");
+                _trialStatus[i].color = !open ? Lock : (best < 0 ? InkDim : Gold);
+                _trialGroups[i].alpha = open ? 1f : 0.45f;
+                _trialButtons[i].interactable = open;
+            }
+            for (var tier = 0; tier < _tierButtons.Length; tier++)
+            {
+                _tierButtons[tier].interactable = open;
+            }
+            SelectTier(_selectedTier);
+            if (_trialMasteryLabel != null)
+            {
+                _trialMasteryLabel.text = data.TrainingMasteryClaimed
+                    ? "숙달 보상 수령됨"
+                    : $"5시련 판결 완주 → 유물 +{HackSpec.TrainingMasteryRelics} (1회)";
+                _trialMasteryLabel.color = data.TrainingMasteryClaimed ? InkDim : Gold;
             }
         }
 

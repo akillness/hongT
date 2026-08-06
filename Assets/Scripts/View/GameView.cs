@@ -63,6 +63,7 @@ namespace CinderCourt.View
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
+        bool _isTraining;
         bool _campaignUiOn;
         bool _dungeonUiOn;
         string _logicalStageId;
@@ -143,6 +144,7 @@ namespace CinderCourt.View
                           string logicalStageId = null)
         {
             _isDungeon = config.Mode == GameMode.Dungeon;
+            _isTraining = config.Mode == GameMode.Training;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
             var companionActive = !string.IsNullOrEmpty(companionId);
@@ -508,6 +510,12 @@ namespace CinderCourt.View
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
+            // AMENDMENT #7: the surge window is readable for EVERY player, sigils
+            // or not — the beat is the narrative (G1), the clause is the payoff.
+            var surgeSim = _sim as CinderSim;
+            if (Hud != null && surgeSim != null)
+                Hud.SyncSurge(surgeSim.PerilRemaining, surgeSim.SurgeRemaining,
+                    surgeSim.TrainingElapsed, surgeSim.TrainingHits, _isTraining);
 
             if (_isDungeon)
             {

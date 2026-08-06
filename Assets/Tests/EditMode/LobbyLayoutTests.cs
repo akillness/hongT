@@ -124,20 +124,28 @@ namespace CinderCourt.Tests
             TestContext.WriteLine($"[lobby touch-floor audit @390x844 portrait, "
                 + $"{SpecCssPerUnit} CSS px/u, floor {MinCssPx}]\n" + report);
 
-            // Frozen debt, re-measured 2026-08-06 after v1.5 added the 각인 tab
-            // (9 stage 강하 · 1 revealed 서약 · 4 tabs · 3 stat "+" · 재훈련).
+            // Frozen debt, re-measured 2026-08-06 after v1.6 added the training
+            // ground (9 stage 강하 · 1 revealed 서약 · 3 tier · 5 수련 · 4 tabs ·
+            // 3 stat "+" · 재훈련).
             //
             // The tab strip MOVED and the movement is an improvement: re-dividing
             // the same 400 u panel into 4 x 91 u took tab WIDTH from 58.6 to 44.4
             // CSS px, which now CLEARS the floor on that axis. They stay in this
             // table because their 44 u HEIGHT is still 21.5 CSS px — the debt this
             // ratchet exists to track, unchanged and still a designer+pm item.
-            // 각인 joins for the same reason as its three neighbours, not as a
-            // new class of violation.
+            //
+            // v1.6 joins 8 controls (견습/숙련/판결 + five 수련) and adds NO new
+            // violation class: every one measures 41.0 x 13.7, the exact size the
+            // 강하 button has carried since cycle 2. The narrowest control in the
+            // lobby is still the stat "+" at 25.4. An earlier draft did create a
+            // new class — three per-card tier buttons at 28.3 x 13.7, fifteen of
+            // them — and this test caught it; the fix was a shared tier row, not
+            // a wider table (negotiation entry 10).
             var expected = new Dictionary<string, int>
             {
                 { "강하", 9 }, { "서약", 1 }, { "성장", 1 }, { "장비", 1 },
                 { "군단", 1 }, { "각인", 1 }, { "+", 3 }, { "재훈련", 1 },
+                { "견습", 1 }, { "숙련", 1 }, { "판결", 1 }, { "수련", 5 },
             };
             var actual = new Dictionary<string, int>();
             foreach (var label in undersized)

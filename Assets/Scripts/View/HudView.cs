@@ -1556,6 +1556,86 @@ namespace CinderCourt.View
             ShowRotateHintIfPortrait(); // spec #14: one-time landscape nudge
         }
 
+        // --- AMENDMENT #7 surge / trial banner ---------------------------------
+        Text _surgeBanner;
+        Text _trialBanner;
+        string _lastSurgeText = "";
+        string _lastTrialText = "";
+        static readonly Color PerilColor = new Color(1f, 0.42f, 0.32f);
+        static readonly Color SurgeColor = new Color(1f, 0.82f, 0.38f);
+
+        /// <summary>
+        /// Surge windows and the trial clock (AMENDMENT #7). Text only, reusing
+        /// the toast band — no new geometry, so the audited HUD rects the layout
+        /// tests froze are untouched.
+        ///
+        /// The banner shows for every player, including one with no sigils: the
+        /// window is a readable beat first and a mechanical payoff second, and a
+        /// player who cannot yet use it should still learn to recognise it.
+        /// </summary>
+        public void SyncSurge(float perilRemaining, float surgeRemaining,
+                              float trialElapsed, int trialHits, bool training)
+        {
+            EnsureSurgeBanners();
+
+            var surgeText = perilRemaining > 0f
+                ? $"위기 {perilRemaining:0.0}"
+                : (surgeRemaining > 0f ? $"기세 {surgeRemaining:0.0}" : "");
+            if (surgeText != _lastSurgeText)
+            {
+                _lastSurgeText = surgeText;
+                _surgeBanner.text = surgeText;
+                _surgeBanner.color = perilRemaining > 0f ? PerilColor : SurgeColor;
+                _surgeBanner.gameObject.SetActive(surgeText.Length > 0);
+            }
+
+            if (!training)
+            {
+                if (_lastTrialText.Length > 0)
+                {
+                    _lastTrialText = "";
+                    _trialBanner.gameObject.SetActive(false);
+                }
+                return;
+            }
+
+            var left = Mathf.Max(0f, HackSpec.TrainingSeconds - trialElapsed);
+            var trialText = $"남은 {left:0} · 피격 {trialHits}";
+            if (trialText != _lastTrialText)
+            {
+                _lastTrialText = trialText;
+                _trialBanner.text = trialText;
+                _trialBanner.gameObject.SetActive(true);
+            }
+        }
+
+        void EnsureSurgeBanners()
+        {
+            if (_surgeBanner != null) return;
+            // Label() is the HUD's only text factory — it anchors top-left, so
+            // each banner re-anchors to top-centre after construction.
+            _surgeBanner = Label(transform, 0f, 0f, 260f, 30f, "", 22, TextAnchor.UpperCenter);
+            _surgeBanner.name = "SurgeBanner";
+            var surgeRect = _surgeBanner.rectTransform;
+            surgeRect.anchorMin = new Vector2(0.5f, 1f);
+            surgeRect.anchorMax = new Vector2(0.5f, 1f);
+            surgeRect.pivot = new Vector2(0.5f, 1f);
+            surgeRect.anchoredPosition = new Vector2(0f, -96f);
+            surgeRect.sizeDelta = new Vector2(260f, 30f);
+            _surgeBanner.gameObject.SetActive(false);
+
+            _trialBanner = Label(transform, 0f, 0f, 260f, 24f, "", 18, TextAnchor.UpperCenter);
+            _trialBanner.name = "TrialBanner";
+            var trialRect = _trialBanner.rectTransform;
+            trialRect.anchorMin = new Vector2(0.5f, 1f);
+            trialRect.anchorMax = new Vector2(0.5f, 1f);
+            trialRect.pivot = new Vector2(0.5f, 1f);
+            trialRect.anchoredPosition = new Vector2(0f, -130f);
+            trialRect.sizeDelta = new Vector2(260f, 24f);
+            _trialBanner.color = new Color(0.86f, 0.9f, 1f);
+            _trialBanner.gameObject.SetActive(false);
+        }
+
         /// <summary>Per-frame dungeon sync (IHackSnapshot surface, primitives only).</summary>
         public void SyncDungeon(
             int level, int xp, int xpNext, int comboIndex,

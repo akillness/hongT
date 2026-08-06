@@ -98,3 +98,57 @@ signed: []
 PM이 확인할 것: 각인 60유물이 장비 40유물과 경쟁하면서 T5 도달 밴드
 (10-20세션)를 밀어내지 않는가. 밀어낸다면 12를 낮추거나, 각인을 장비 T5
 이후 해금으로 게이팅하는 안이 대안이다.
+
+### entry 7~9 — 훈련장·돌발·각인 서지 (2026-08-06, v1.6 설계, round 1)
+
+근거: `design/training-and-surge-spec.md` · `.survey/roguelike-training-and-surge/`
+· `qa/benchmark-notes.md` §훈련·돌발 · `pm/revenue-map.md` §run-id 20260806
+
+```yaml
+entry: 7
+revenue_point: 훈련장 완주 보상
+balance_number: 5기믹 전부 판결 등급 -> 일회성 +2유물, 반복 지급 0
+designer_bound: "등급 사다리에 종착점이 있어야 재방문이 성립한다"
+pm_bound: "일회성 <=2유물 등가까지. 반복 통화 금지 (revenue-map 후보표 판정)"
+agreed: "일회성 +2유물 1회. 훈련장은 적을 스폰하지 않으므로 처치 드롭
+  경로도 0 - PM이 지적한 '훈련 심이 이미 유물을 굴린다' 문제의 구조적 해결"
+signed: [game-designer, game-pm]
+```
+
+```yaml
+entry: 8
+revenue_point: 각인 위기 조항 - 사실상 면역의 허용 범위
+balance_number: 집행인 벽 틱 면제 6초 -> **3초 x 틱 절반(10->5)로 강등**
+designer_bound: "위기 탈출 도구가 없으면 서지가 상태 표시로 끝난다"
+pm_bound: "G5 comeback 밴드 - 단일 발동 즉시역전 <=30% maxHP, 캡/쿨다운 기록"
+agreed: "director 산술 중재. 상세는 아래 표"
+signed: [game-designer, game-pm, game-production-director]
+```
+
+**director 중재 (수치가 판정했다)** — 벽 DoT 16.67 dmg/s 기준:
+
+| 조항 | 회피량 | 기본HP 대비 | 판정 |
+|---|---|---|---|
+| 역류인 위기(밀기 0) | 0 (해류 직접피해 0) | 0% | PASS - 밴드 무관 |
+| **집행인 위기(벽 면제 6초)** | **100.0** | **100%** | **FAIL** |
+| 집행인 강등안(3초 x 틱 절반) | 25.0 | 25% (만개 11%) | PASS |
+| 증언인 위기(제단 즉시완료) | 0 (기름 획득, 피해 회피 아님) | 0% | PASS - 단 기름->스킬->생존 간접 경로 QA 측정 |
+| 판결인/점화인 기세 조항 | 0 (적 대상) | 0% | PASS |
+
+추가 캡 3개 (강등안과 함께 계약):
+1. **런당 위기 발동 총 2회** (웨이브당 1회 -> 9웨이브 스테이지에서 최대 10회
+   발동은 캡 없는 역전 공급). 히스테리시스 50%는 유지.
+2. **위기 조항 중첩 금지** - 슬롯 2개에 위기 각인 2종을 끼워도 한 번에 하나만
+   발동(슬롯0 우선). 중첩 시 회피량이 밴드를 재돌파한다.
+3. **지속 3초 · 예고 없음** - 위기는 이미 "체력 35% 미만"이라는 플레이어
+   가시 상태가 예고를 대신한다(HUD 체력바가 곧 텔레그래프).
+
+```yaml
+entry: 9
+revenue_point: 돌발(Surge) 자체의 보상
+balance_number: 0 - 상태 변화만, 유물/포인트/진행도 미접촉
+designer_bound: "돌발은 리듬 장치이지 보상 장치가 아니다"
+pm_bound: "comeback 밴드 미접촉이면 이견 없음"
+agreed: "무보상 확정. 돌발은 세이브에 기록되지 않는다(런 스코프)"
+signed: [game-designer, game-pm]
+```

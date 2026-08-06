@@ -113,6 +113,10 @@ namespace CinderCourt.Sim
         ComboFinisher = 1 << 21,
         // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
         PylonDown = 1 << 22,
+
+        // --- surge amendment (docs/SIM_SPEC_DUNGEONS.md §14) ---
+        PerilOpened = 1 << 23,
+        SurgeOpened = 1 << 24,
     }
 
     public struct RunDigest
