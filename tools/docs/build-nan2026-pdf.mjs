@@ -25,6 +25,7 @@ const OUT_DIR = path.join(SRC_DIR, "pdf");
 const BUILD_DIR = path.join(SRC_DIR, ".build");
 
 const DOCS = [
+  { id: "00", file: "00-submission-guide.md" },
   { id: "01", file: "01-game-overview.md" },
   { id: "02", file: "02-ai-tech.md" },
   { id: "03", file: "03-team-roles.md" },
@@ -78,12 +79,16 @@ function build({ id, file }) {
   fs.writeFileSync(scratch, body);
 
   const out = path.join(OUT_DIR, file.replace(/\.md$/, ".pdf"));
-  execFileSync("pandoc", [
+  const header = path.join(ASSET_DIR, "pdf-header.tex");
+  const args = [
     scratch,
     "-o", out,
     "--pdf-engine=xelatex",
     "--from=markdown+yaml_metadata_block+pipe_tables+backtick_code_blocks+implicit_figures",
     "--resource-path", BUILD_DIR,
+  ];
+  if (fs.existsSync(header)) args.push("-H", header);
+  args.push(
     "-V", `mainfont=${MAIN_FONT}`,
     "-V", `sansfont=${MAIN_FONT}`,
     "-V", `monofont=${MONO_FONT}`,
@@ -98,7 +103,8 @@ function build({ id, file }) {
     "--highlight-style=tango",
     "--toc",
     "--toc-depth=2",
-  ], { stdio: "inherit", cwd: ROOT });
+  );
+  execFileSync("pandoc", args, { stdio: "inherit", cwd: ROOT });
 
   return { id, out: path.relative(ROOT, out), bytes: fs.statSync(out).size };
 }

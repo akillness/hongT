@@ -57,9 +57,13 @@ namespace CinderCourt.View
             speechObject.transform.SetParent(transform, false);
             var speech = speechObject.AddComponent<SpeechBubbleView>();
 
+            var cutsceneObject = new GameObject("Cutscene");
+            cutsceneObject.transform.SetParent(transform, false);
+            var cutscene = cutsceneObject.AddComponent<CutsceneView>();
+
             var director = gameObject.AddComponent<GameDirector>();
             director.Attach(this, lobby, staging, rig, input, hud, audio, vfx,
-                game, speech);
+                game, speech, cutscene);
         }
 
         void LoadEnemy(EnemyVisual visual, string path)

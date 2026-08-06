@@ -477,11 +477,19 @@ are proposed relative to §4's base (cadence 1.1 s, range 200 px, damage ×0.60)
 
 | Archetype (id)          | cadence (s) | range (px) | damage scale |
 |-------------------------|-------------|------------|--------------|
-| ember-cohort (bruiser)  | 1.05        | 170        | 0.70         |
+| ember-cohort (bruiser)  | 1.10        | 200        | 0.60 (§4)    |
 | scout-echo (skirmisher) | 0.85        | 240        | 0.50         |
 | shade-echo (caster)     | 1.30        | 260        | 0.65         |
 | possessed-echo (heavy)  | 1.45        | 150        | 0.80         |
 | any other / fallback    | 1.10        | 200        | 0.60 (§4)    |
+
+> **AMENDMENT #6 correction (approved):** `ember-cohort` was originally drafted
+> at 1.05/170/0.70 but is pinned to the §4 tuple (1.10/200/0.60). Rationale: the
+> only pre-amendment single-companion path uses `CompanionId="ember-cohort"`, and
+> D6.7 bullets 1–2 require that run to reproduce its pre-amendment digest and
+> follower cadence bit-for-bit. Any deviation from §4 for ember-cohort would break
+> that hard gate and the existing frozen `ember-cohort` cadence/range/damage tests.
+> Per-archetype differentiation therefore lives in the three new echo archetypes.
 
 Damage stays **player-damage × scale, neutral element, untargetable** (§4).
 GuardianResonance (Amendment #4) preparation modifiers, if present, apply to

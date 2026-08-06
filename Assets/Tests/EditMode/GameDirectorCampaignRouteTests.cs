@@ -463,13 +463,14 @@ namespace CinderCourt.Tests
                 var vfx = AddChild<VfxDirector>("Vfx");
                 Game = AddChild<GameView>("Game");
                 var speech = AddChild<SpeechBubbleView>("Speech");
+                var cutscene = AddChild<CutsceneView>("Cutscene");
                 Hud.Build();
                 Game.Input = input;
                 Game.Hud = Hud;
                 Game.Audio = audio;
                 Game.Vfx = vfx;
                 Game.Rig = rig;
-                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx, Game, speech);
+                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx, Game, speech, cutscene);
             }
 
             public void StartCinderSpanThroughLobbyCallback()

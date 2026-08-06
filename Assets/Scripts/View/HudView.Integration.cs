@@ -3,6 +3,7 @@
 // Injected into Build() after UI elements are created
 
 using UnityEngine;
+using UnityEngine.UI;
 using System.Collections.Generic;
 
 namespace CinderCourt.View

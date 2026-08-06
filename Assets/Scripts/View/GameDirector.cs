@@ -20,6 +20,7 @@ namespace CinderCourt.View
         VfxDirector _vfx;
         GameView _game;
         SpeechBubbleView _speech;
+        CutsceneView _cutscene;
 
         State _state = State.Lobby;
         CampaignData _data;
@@ -40,7 +41,7 @@ namespace CinderCourt.View
             GameBootstrap bootstrap, LobbyView lobby, LobbyStaging staging,
             CameraRig rig, InputAdapter input, HudView hud,
             AudioDirector audio, VfxDirector vfx, GameView game,
-            SpeechBubbleView speech)
+            SpeechBubbleView speech, CutsceneView cutscene)
         {
             _bootstrap = bootstrap;
             _lobby = lobby;
@@ -52,6 +53,7 @@ namespace CinderCourt.View
             _vfx = vfx;
             _game = game;
             _speech = speech;
+            _cutscene = cutscene;
 
             _data = CampaignStore.Load();
             _hud.OnReturnHome = ReturnToLobby;
@@ -85,6 +87,7 @@ namespace CinderCourt.View
         {
             _state = State.Lobby;
             ClearEmberRestRoute();
+            if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
             SetStageTerrain(null);        // back to the base court plate
             ApplyStageDressing(null);
             _game.EndRun();
@@ -239,6 +242,11 @@ namespace CinderCourt.View
             _prologueStep = 0;
             _prologueStepTimer = 0f;
             _hud.ShowPrologueToast(0);
+            // Intro cutscene doubles as the prologue loading screen (spec §8/§1):
+            // the pre-rendered lantern-court key art holds while the fresh sim
+            // spins up underneath, then fades to reveal the tutorial court.
+            _cutscene.Show("scene-intro", "PROLOGUE", "잿불의 법정",
+                "등불을 들어라. 사슬이 무엇을 붙들고 있는지 확인할 시간이다.");
         }
 
         void StartDungeon(string stageId, PreparationOffer preparation = default)
@@ -270,6 +278,19 @@ namespace CinderCourt.View
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
             _game.Begin(config, entry.DisplayName, _data.Active, entry.Id);
+
+            // Stage-entry cutscene loading screen (spec §8): pick the pre-rendered
+            // scene frame by context — a mid-campaign continuation from Ember Rest
+            // rides the transition art, a Gate Sovereign stage opens on the boss
+            // key art, everything else on the generic stage-entry frame. The
+            // watcher's stageStart narration (frozen StoryCatalog) captions it.
+            StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out _, out var introNarration);
+            var cutsceneSprite = preparation.IsValid
+                ? "scene-transition"
+                : entry.Boss.Visual == EnemyVisual.BossMonarch
+                    ? "scene-boss-entry"
+                    : "scene-stage-entry";
+            _cutscene.Show(cutsceneSprite, entry.Kicker, entry.Title, introNarration);
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));

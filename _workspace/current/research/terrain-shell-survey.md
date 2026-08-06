@@ -38,7 +38,23 @@
 
 ### 0.3 그래서 art인가 카메라 한 줄인가
 
-`[INFERENCE]` **카메라/셰이딩 쪽 한 줄이 맞다.** art로 풀려면 16:9 bigwave까지 덮는 데 프리팹 **2.31× 확대**가 필요하고(§5.1), 그러면 apron 텍스처가 2.31× 늘어나 텍셀 밀도가 그만큼 떨어진다. 반면 §5.2/§5.3은 `SceneBuilder.cs` 3~5줄이다.
+`[INFERENCE]` **카메라/셰이딩 쪽이 맞다.** art로 풀려면 16:9 bigwave까지 덮는 데 프리팹 **2.31× 확대**가 필요하고(§5.1), 그러면 apron 텍스처가 2.31× 늘어나 텍셀 밀도가 그만큼 떨어진다. 반면 fog + vignette는 추가 드로우콜 0·트라이앵글 0·셰이더 변이 재빌드 0이다.
+
+### 0.4 조사 종료 시점 결론 (해결됨)
+
+`[OBSERVED]` 조사 중 병행 세션이 §5.2 권고를 구현했고, 그 과정에서 **fog 거리의 2차 결함까지 발견·수정**되었다(게이트 218/218). 최종 형태:
+
+| 항목 | 최종 상태 | 위치 |
+|---|---|---|
+| clear colour | `#0B090F` 유지 | `SceneBuilder.cs:30` |
+| fog = clear colour, Linear | ✅ | `SceneBuilder.cs:79-83` → 씬 `m_Fog: 1`, `m_FogColor` = clear |
+| Dungeon fog 거리 | ✅ **궤도 추종 덧셈** `궤도+2 / 궤도+5.5` | `CameraRig.cs:45-46, 253-255` |
+| 비-Dungeon 복원 | ✅ Awake 캡처 → `SetProfile` 원복 | `CameraRig.cs:52-53, 68-69, 94-97` |
+| Vignette 0.22 | ✅ 부활 (`AddObjectToAsset`) | `SceneBuilder.cs:163, 173, 180` |
+
+`[OBSERVED]` **fog 거리는 상수가 아니라 궤도 함수여야 했다.** Dungeon 카메라는 crowd tier(17↔21, `CameraRig.cs:109`)와 `_aspectWiden`(1↔2.2, `:137`) **두 축**으로 움직인다. 고정 19/22.5는 calm landscape에서만 옳고, bigwave에서 아레나 중심을 57.1%·플레이 far-y 끝을 100% 안개로 덮는다 — 보스가 스폰되는 바로 그 순간에 배경색으로 씻긴다. 상세 전개와 내 초판 처방의 오류는 **§5.5**.
+
+`[INFERENCE]` 남은 것: 검정 **면적 자체**는 그대로다(16:9 bigwave 51.7%). 하드 에지만 사라졌다. 그 화면이 허전하다면 §5.1 3위(백드롭 quad, +1 드로우콜).
 
 ---
 
@@ -302,7 +318,7 @@ echo-throne:   sim Y −301.0 … 1325.0                        (깊이 1626)
 
 ## 4. skybox / backdrop / fog 볼륨 인벤토리
 
-`[OBSERVED]`
+`[OBSERVED]` **아래 표는 `HEAD`(`3e2e3a1`) 기준 = 검정을 만들어낸 상태다.** 조사 종료 시점의 작업 트리는 fog/vignette가 적용되어 다르다 — §5.4 참조.
 
 | 항목 | 존재? | 위치 / 값 |
 |---|---|---|
@@ -454,13 +470,17 @@ echo-throne:   sim Y −301.0 … 1325.0                        (깊이 1626)
 
 ### 5.4 구현 현황 (조사 종료 시점)
 
-`[OBSERVED]` 본 보고서 작성 중 `Assets/Editor/SceneBuilder.cs`에 **§5.2의 1·2번이 이미 반영**되었다(작업 트리, 미커밋, +37/−0). 본 레인의 편집이 아니다.
+`[OBSERVED]` 본 보고서 작성 중 병행 세션이 **§5.2의 1·2번을 구현하고 씬까지 재생성**했다. 본 레인의 편집이 아니며, 아래는 조사 종료 시점 작업 트리의 **관측 사실**이다.
 
-| §5.2 항목 | 상태 | 작업 트리 위치 |
+`[OBSERVED]` 변경된 파일 (`git status --porcelain Assets/`): `Assets/Editor/SceneBuilder.cs`, `Assets/Scenes/CinderCourt.unity`, `Assets/Settings/CinderPostProfile.asset` (+ 본 조사와 무관한 Sim/View/Tests 파일들).
+
+| §5.2 항목 | 상태 | 근거 (작업 트리) |
 |---|---|---|
-| 2. Vignette 복구 (`AddObjectToAsset`) | ✅ 반영됨 | `SceneBuilder.cs:163` (Bloom), `:173` (Vignette), `:180` `AssetDatabase.SaveAssets()` — 배치 가드 밖으로 이동 |
-| 1. fog = clear colour | ✅ 반영됨 | `SceneBuilder.cs:79-83` — `fog = true`, `FogMode.Linear`, `fogColor = camera.backgroundColor`, `start 16f`, `end 25f` (권고값 그대로) |
-| 3. `backgroundColor` → `#050812` | ⬜ 미반영 | `SceneBuilder.cs:30` 원값 유지 |
+| 1. fog = clear colour | ✅ **적용** (거리는 §5.5에서 재작업) | `SceneBuilder.cs:79-83`. 재생성된 씬: `CinderCourt.unity:17` `m_Fog: **1**`, `:18` `m_FogColor {0.043, 0.035, 0.06}` (= clear colour와 **일치**), `:19` `m_FogMode: **1**`(Linear), `:21` `m_LinearFogStart: **19**`, `:22` `m_LinearFogEnd: **22.5**`. 이 베이크값은 이제 **Arena/Prologue 기준선**이고 Dungeon은 런타임이 궤도로 갱신한다(§5.5.3) |
+| 2. Vignette 복구 | ✅ **적용·에셋 반영 확인** | `SceneBuilder.cs:163`(Bloom), `:173`(Vignette) `AddObjectToAsset`; `:180` `SaveAssets()`가 배치 가드 밖으로. `CinderPostProfile.asset`: YAML 문서 **1개 → 3개**, `components:`가 `{fileID: 0}` 2개 → **실제 서브에셋 2개**(`-5818421777675616150`, `-7224517428791241879`) |
+| 3. `backgroundColor` → `#050812` | ⬜ 미반영 | `SceneBuilder.cs:30` 원값 `(0.043, 0.035, 0.06)` 유지 |
+
+`[OBSERVED]` fog 거리는 권고값(16/25)이 아니라 **19 / 22.5**로 들어갔다. `[OBSERVED]` 이 값은 **calm landscape에서만 정답**이고 bigwave·portrait에서 전투 영역을 덮는다 — 상세와 최종 해법은 **§5.5**. 카메라가 고정인 Arena/Prologue에는 이 상수가 그대로 옳으며, `CameraRig.cs:68-69`가 Awake에 캡처해 비-Dungeon 프로파일에서 복원한다.
 
 `[OBSERVED]` HEAD → 작업 트리 줄번호 이동 (본문 인용은 전부 HEAD 기준):
 
@@ -471,13 +491,133 @@ echo-throne:   sim Y −301.0 … 1325.0                        (깊이 1626)
 | `CreatePrimitive(Quad)` (CourtBackdrop) | 65 | 86 |
 | `AssetDatabase.SaveAssets()` (배치 가드) | 112 | 133 |
 | `BuildPostProfile()` 시그니처 | 122 | 143 |
-| `vignette.intensity.Override(0.22f)` | 140 | 176 |
 | `EditorUtility.SetDirty(profile)` | 143 | 179 |
 
-`[미검증]` 이 변경의 실제 렌더 결과는 확인하지 않았다(Unity 미기동). 남은 검증 항목:
-1. 씬 재생성 후 `CinderCourt.unity`의 `m_Fog: 0` → `1`, `m_FogColor`가 `(0.043,0.035,0.06)`로 바뀌는지.
-2. `CinderPostProfile.asset`의 `components:`가 `{fileID: 0}` 2개 → 실제 Bloom/Vignette 서브에셋 2개로 바뀌는지.
-3. §4.1·§5.1-2위 지적대로, post가 실제로 켜진 상태에서 WebGL(Forward + RenderScale 0.8) 프레임 비용 **재측정** — 기존 "p95 10.0 ms"는 post가 죽어 있던 빌드의 값이다.
+`[미검증]` 남은 검증 항목:
+1. **실제 렌더 확인** — 본 레인은 Unity를 띄우지 않았다. fog가 §2.3에서 잰 18.9~51.7%의 검정 영역을 실제로 어떻게 읽히게 하는지는 스크린샷으로만 판정 가능하다.
+2. **post 비용 재측정** — §4.1 지적대로 기존 "desktop p95 10.0 ms"(`SceneBuilder.cs:39-41`)는 post가 죽어 있던 빌드의 값이다. vignette가 살아난 지금, WebGL 실경로(Mobile_RPAsset, Forward, RenderScale 0.8, `m_IntermediateTextureMode: 0`)에서 다시 재야 한다.
+3. **fog와 Unlit 상호작용** — 지형·백드롭 전부 URP/Unlit이므로 `MixFog`가 적용된다고 판단했으나(§4.2), 실제 셰이더 변이에서 확인하지 않았다.
+
+### 5.5 fog 거리와 움직이는 카메라 — 결함과 최종 해법 (해결됨)
+
+> **상태**: `[OBSERVED]` 아래 결함은 조사 종료 전에 **수정·게이트 통과(218/218)**되었다. §5.5.3이 최종 반영 형태이고, §5.5.1은 **내 초판 처방이 틀렸던 기록**이다. 시간순: ① 베이크 상수 19/22.5 반영 → ② bigwave 결함(§5.5) → ③ 내 비례식 처방(틀림, §5.5.1) → ④ 궤도 기준 덧셈으로 확정(§5.5.3).
+
+`[OBSERVED]` **fog 거리는 카메라로부터 잰다. 그런데 Dungeon 카메라는 두 방향으로 움직인다.** (i) `CameraRig.cs:109` `SetDungeonCrowd(true)` → `_dungeonTargetDistance` 17 → **21**, `:202-204`가 lerp. (ii) `:137` `_aspectWiden`이 좁은 화면에서 1 → 최대 **2.2**. `:218`이 두 값의 **곱**을 궤도 반경으로 넘긴다. 고정 fog 거리는 둘 다 따라가지 못한다.
+
+`[OBSERVED]` 최초 베이크값 **start 19 / end 22.5** 기준 카메라→지점 거리와 안개 비율:
+
+| 지점 (sim) | calm(17) 거리 | calm 안개 | bigwave(21) 거리 | **bigwave 안개** |
+|---|---:|---:|---:|---:|
+| 아레나 중심 (768,604) | 17.00 | 0.0% | 21.00 | **57.1%** |
+| 플레이 +x 끝 (1288,604) | 17.78 | 0.0% | 21.63 | **75.3%** |
+| 플레이 −x 끝 (248,604) | 17.78 | 0.0% | 21.63 | **75.3%** |
+| 플레이 far-y 끝 (768,334) | 18.68 | 0.0% | 22.66 | **100.0%** |
+| 플레이 near-y 끝 (768,874) | 15.61 | 0.0% | 19.58 | 16.5% |
+| apron 원경 모서리 | 23.20 | 100.0% | 27.03 | 100.0% |
+| apron 원경 코너 | 24.71 | 100.0% | 28.33 | 100.0% |
+
+`[OBSERVED]` **calm은 완벽하다** — 플레이 가능 영역 전체가 안개 0%, apron 끝이 100%. 의도대로다.
+`[OBSERVED]` **bigwave는 망가진다** — 아레나 중심이 57.1%, 플레이 영역 far-y 끝은 **100% 안개** = 배경색과 동일. `[INFERENCE]` bigwave는 대형 웨이브·보스 구간이므로, **가장 중요한 전투에서 플레이어·적·이펙트가 배경색으로 씻긴다.**
+
+`[OBSERVED]` **§5.2에서 내가 제안한 16/25도 같은 결함이 있었다** — calm 아레나 중심 11.1%, bigwave 아레나 중심 55.6%, bigwave far-y 74.0%. `[INFERENCE]` 움직이는 카메라에 상수 거리를 준 내 실수다.
+
+#### 5.5.1 내가 처음 쓴 처방은 틀렸다 — 비례식은 portrait에서 깨진다
+
+`[OBSERVED]` 본 문서 초판은 `start = 1.10 × _dungeonDistance`, `end = 1.28 × _dungeonDistance`를 처방했다. **이 형태는 landscape 두 tier만 통과하고 portrait에서 전부 실패한다.**
+
+`[OBSERVED]` 근본 원인 — **`_dungeonDistance`는 궤도 반경이 아니다.** `CameraRig.cs:218`이 넘기는 실제 반경은 `_dungeonDistance * _aspectWiden`이고, `:137`이 좁은 화면에서 `_aspectWiden`을 1 이상으로 올린다. 내 배수는 `_aspectWiden`이 빠진 값을 곱하므로 **카메라는 물러나는데 안개 띠는 따라가지 않는다.**
+
+| 형태 | calm LS (17.00) | boss LS (21.00) | calm PT 1.18 (20.06) | boss PT 1.18 (24.78) | calm PT 2.2 (37.40) | boss PT 2.2 (46.20) |
+|---|---|---|---|---|---|---|
+| 초판 `1.10/1.28 × _dungeonDistance` | ✅ 0.0% | ✅ 0.0% | ❌ **98.7%** | ❌ **87.9%** | ❌ 100% | ❌ 100% |
+| `1.10/1.28 × 실제 궤도` | ✅ 0.0% | ✅ 0.0% | ✅ 0.0% | ⚠️ rim 76.9% | ⚠️ rim 28.5% | ⚠️ rim 11.2% |
+| **`궤도 + 2 / 궤도 + 5.5` (실제 반영본)** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 고정 19 / 22.5 | ✅ | ❌ 100% | ❌ 77.8% | ❌ 100% | ❌ 100% | ❌ 100% |
+
+(표의 %는 **플레이 가능 영역의 최악 지점** 안개율 — near-y·중심·+x·far-y 네 지점의 max. `rim`은 apron 원경 모서리/코너의 min.)
+
+`[OBSERVED]` `_aspectWiden`을 곱해 실제 궤도에 비례시켜도 **portrait에서 이번엔 rim이 안 지워진다**(2.2에서 28.5%). 비례식은 어느 쪽으로 고쳐도 전 조합을 만족하지 못한다.
+
+#### 5.5.2 왜 덧셈이 맞는가 — 오프셋은 비율이 아니라 상수다
+
+`[OBSERVED]` 카메라→지점 거리는 궤도 반경 `r`에 대해 닫힌 형태를 가진다. 지점이 `ArenaCenter`에서 `(dx, dz)` 떨어져 있으면:
+
+```
+dist(r) = sqrt( r² + 2·cos(55°)·dz·r + dx² + dz² )
+dist(r) − r  →  cos(55°)·dz          (r → ∞)
+```
+
+`[OBSERVED]` 즉 **각 지점의 "궤도보다 얼마나 먼가"는 상수로 수렴한다** (비율이 아니라 world unit):
+
+| 지점 | dz | 점근 오프셋 `cos55·dz` | r=17 | r=21 | r=46.2 |
+|---|---:|---:|---:|---:|---:|
+| 플레이 near-y (768,874) | −2.70 | **−1.549** | −1.391 | −1.423 | −1.494 |
+| 아레나 중심 | 0 | **0.000** | 0.000 | 0.000 | 0.000 |
+| 플레이 +x (1288,604) | 0 | **0.000** | +0.778 | +0.634 | +0.292 |
+| 플레이 far-y (768,334) | +2.70 | **+1.549** | +1.680 | +1.657 | +1.600 |
+| apron 원경 모서리 | +8.804 | **+5.050** | +6.199 | +6.030 | +5.555 |
+| apron 원경 코너 | +8.804 | **+5.050** | +7.707 | +7.335 | +6.248 |
+
+`[INFERENCE]` 안개 띠가 분리해야 할 두 값(최악 플레이 지점 ≈ +1.6, rim ≈ +5.6~7.7)의 **간격이 world unit 상수**다. 따라서 띠도 궤도에 **더해야** 한다. 곱하면 `r`이 커질수록 띠가 벌어져 rim을 놓치거나(초판×궤도) 플레이 영역을 덮는다(초판×`_dungeonDistance`).
+
+#### 5.5.3 실제 반영된 형태 (검증됨)
+
+`[OBSERVED]` 반영본은 **실제 궤도 기준 덧셈**이다 (`CameraRig.cs`, 작업 트리):
+
+```csharp
+// L45-46
+const float FogStartOffset = 2f;
+const float FogEndOffset   = 5.5f;
+
+// L253-255, Dungeon 케이스, PlaceOrbit 직후
+var fogNear = _dungeonDistance * _aspectWiden;
+RenderSettings.fogStartDistance = fogNear + FogStartOffset;
+RenderSettings.fogEndDistance   = fogNear + FogEndOffset;
+```
+
+`[OBSERVED]` `fogNear`가 `_dungeonDistance * _aspectWiden` — 즉 `:218`이 `PlaceOrbit`에 넘기는 것과 **동일한 실제 궤도**다. 내 초판이 놓친 `_aspectWiden`이 여기 들어 있다.
+
+`[OBSERVED]` 6개 조합 전수 검증 — **최악 플레이 지점 안개 0.0%, rim 100.0%**:
+
+| 조합 | 궤도 | 띠 | 최악 플레이 | rim |
+|---|---:|---|---:|---:|
+| calm landscape | 17.00 | 19.00 … 22.50 | 0.0% | 100.0% |
+| boss landscape | 21.00 | 23.00 … 26.50 | 0.0% | 100.0% |
+| calm portrait 1.18 | 20.06 | 22.06 … 25.56 | 0.0% | 100.0% |
+| boss portrait 1.18 | 24.78 | 26.78 … 30.28 | 0.0% | 100.0% |
+| calm portrait 2.2 | 37.40 | 39.40 … 42.90 | 0.0% | 100.0% |
+| boss portrait 2.2 | 46.20 | 48.20 … 51.70 | 0.0% | 100.0% |
+
+`[OBSERVED]` landscape calm에서 띠가 **19.00 … 22.50** — §5.4에서 관측한 씬 베이크값 `m_LinearFogStart: 19` / `m_LinearFogEnd: 22.5`와 정확히 일치한다. `[INFERENCE]` 베이크값은 덧셈 공식의 `_aspectWiden=1, dist=17` 인스턴스이고, 런타임이 매 프레임 이를 실제 궤도로 갱신한다.
+
+`[INFERENCE]` 덧셈의 부가 이점: 띠 폭이 항상 3.5 u로 **고정**되므로 rim 그라디언트가 모든 tier에서 동일하게 보인다. 비례식은 tier마다 전이 폭이 달라져 원경 질감이 흔들린다.
+
+#### 5.5.4 경계 조건
+
+`[OBSERVED]` `end = 궤도 + 5.5`가 rim을 완전히 지우려면 `apron 원경 오프셋 > 5.5`여야 한다. 이 오프셋은 `r`이 커질수록 점근값 5.050으로 **감소**하므로 상한이 존재한다:
+
+```
+apron 원경 오프셋이 +5.5 아래로 내려가는 지점: 궤도 ≈ 52.5
+도달 가능한 최대 궤도 = 21 × 2.2 = 46.2   → 여유 6.3 u
+```
+
+`[INFERENCE]` 현재 상수 범위에서는 안전하지만 **여유가 크지 않다**. `_aspectWiden` 상한(`CameraRig.cs:137`의 2.2)이나 bigwave 거리(`:109`의 21)를 올리면 궤도 52.5를 넘어 rim이 다시 드러난다. 그때는 `+5.5`를 함께 줄여야 한다(점근 하한 5.050 위, 최악 플레이 오프셋 ~1.7 아래).
+
+`[OBSERVED]` `start = 궤도 + 2.0`은 반대쪽 여유가 넉넉하다 — 최악 플레이 오프셋이 +2.0 아래로 내려가는 것은 궤도 3.64부터이고, 최소 도달 궤도는 17이다.
+
+#### 5.5.5 `RenderSettings`는 전역 — 프로파일 이탈 시 누수
+
+`[OBSERVED]` `RenderSettings.fog*`는 **씬 전역**이다. Dungeon에서 매 프레임 쓰면 그 값이 Lobby/Arena/Prologue로 그대로 넘어간다. `[OBSERVED]` 그 프로파일들은 카메라 궤도가 전혀 달라(Prologue ortho dist 12, Lobby 9.5, Arena 고정 pos) Dungeon용 띠가 그대로 적용되면 오독된다.
+
+`[OBSERVED]` 반영본은 **Awake에서 베이크된 띠를 캡처해 두고, 비-Dungeon `SetProfile`마다 복원**한다 (`CameraRig.cs`, 작업 트리):
+
+- `:52-53` `_bakedFogStart = 19f`, `_bakedFogEnd = 22.5f` — 씬 값이 없을 때의 폴백.
+- `:68-69` `Awake`에서 `RenderSettings.fogStartDistance / fogEndDistance`를 캡처 (= SceneBuilder가 구운 19 / 22.5).
+- `:94-97` `SetProfile`에서 Dungeon이 아니면 두 값을 원복.
+
+`[INFERENCE]` 올바른 처리다 — 전역 상태를 만지는 컴포넌트가 자기 진입/이탈 경계에서 원복 책임을 진다. `[OBSERVED]` 복원이 없으면 보스 웨이브 직후 Lobby가 23 / 26.5를 물려받아, 그 프로파일들의(카메라가 훨씬 가까운) apron rim이 다시 또렷하게 드러난다.
+
+`[미검증]` 위 수치는 Dungeon pitch 55°·FOV 42°·focus = `ArenaCenter` 기준이다. `FocusPulse`(`CameraRig.cs:233-239`)가 보스 인트로에 focus를 최대 55% 당기는 동안에는 카메라 위치가 달라지므로, 그 구간의 안개는 별도 확인이 필요하다.
 
 ---
 

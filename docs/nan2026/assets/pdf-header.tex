@@ -1,0 +1,23 @@
+% NAN 2026 PDF readability header (loaded via pandoc -H).
+% Goal: legible tables with visible rules and breathing row height.
+% We deliberately DO NOT redefine \toprule (pandoc emits it inside longtable
+% \noalign context, and injecting \rowcolors there triggers "Misplaced
+% \noalign"). Instead we only thicken the rules and open up row height, which
+% is safe everywhere pandoc places a booktabs rule.
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{colortbl}
+
+% Taller rows so Hangul + descenders never touch the horizontal rules.
+\renewcommand{\arraystretch}{1.32}
+
+% Thicker, darker rules than the hairline booktabs default.
+\setlength{\arrayrulewidth}{0.5pt}
+\setlength{\heavyrulewidth}{1.1pt}
+\setlength{\lightrulewidth}{0.6pt}
+\arrayrulecolor[gray]{0.4}
+
+% Table captions: small, muted, bold label, above the table.
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,skip=4pt}

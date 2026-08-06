@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace CinderCourt.View
 {
-    public sealed class HudView : MonoBehaviour
+    public sealed partial class HudView : MonoBehaviour
     {
         static readonly string[] LoreBeats =
         {
