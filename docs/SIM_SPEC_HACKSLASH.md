@@ -434,3 +434,63 @@ Each braced expression is rendered as its evaluated integer: `m = 1` yields
 - Identical complete stage handoffs, selected offers, and simulation inputs
   must yield identical snapshots and digests. The deterministic Ember Rest
   offer hash must remain unchanged from before this amendment.
+
+---
+
+# AMENDMENT #6 — 각인 (Sigils): 기믹에 걸리는 메타 강화
+
+**Additive only.** 기존 수치 0개 변경. 미장착 런은 이 증보 이전과 바이트
+동일하고, 골든 15행이 그 증명이다.
+
+설계 근거: `.survey/meta-upgrade-gimmick-interaction/`(신규 조사) →
+`_workspace/current/design/sigil-spec.md`.
+
+## §13.0 왜 필요했나
+
+§5 스탯(공격 +3%/pt · 체력 +8/pt · 이속 +2%/pt)과 §6 장비(+6%/+8%/+8HP)는
+전부 **스칼라**이고, AMENDMENT #5가 도입한 기믹 6종 중 **어느 하나도 건드리지
+않는다.** 플레이어가 배우는 것(고정 시간표 패턴)과 키우는 것(숫자)이 만나지
+않는다. 각인은 그 접점이다.
+
+## §13.1 형태
+
+- 각인 5종, 각 **양면(A/B) 택1**. A = 기믹을 견딘다, B = 기믹을 적에게 돌린다.
+- **슬롯 2개** (`SigilLoadout.Slots`). 5종 중 2개만 — 선택이 강제된다.
+- 해금은 유물 구매(뷰 레인, `LobbyView.SigilCost`), 면 전환은 무료·무제한.
+- **던전 전용.** 아레나/프롤로그는 로드아웃을 무시한다.
+
+## §13.2 설계 규칙 (조사 근거, 위반 금지)
+
+1. **면역 금지 — 저항까지만.** 판정선: 기믹이 여전히 행동을 바꾸는가.
+   틱 피해를 줄여도 이탈해야 하면 OK, 서 있어도 되면 금지.
+2. **무작위 발동 금지.** 전부 상수 배율/치환. 확률 0개.
+3. **사이드그레이드.** A/B는 서로 다른 축(생존 vs 처치), 우열은 상황 의존.
+
+## §13.3 수치 (전부 `HackSpec` §13)
+
+| 각인 | 기믹 | A면 | 상수 | B면 | 상수 |
+|---|---|---|---|---|---|
+| 역류인 | tide-current | 내 밀기 ×0.5 | `SigilCurrentPlayerPushMult` | 적 밀기 ×1.5 | `SigilCurrentEnemyPushMult` |
+| 판결인 | ember-pylon | 오라 0.40→0.70 | `SigilPylonAuraRelief` | 방벽주 피해 ×2 | `SigilPylonStrikeMult` |
+| 집행인 | ash-wall | 내 틱 10→6 | `SigilWallPlayerTick` | 적 틱 10→18 | `SigilWallEnemyTick` |
+| 점화인 | ember-vent | 피격 시 기름 +12 (**피해 불변**) | `SigilVentOilRefund` | 적에게 피해 14 | `SigilVentEnemyDamage` |
+| 증언인 | relic-altar | 채널 1.2→0.8초 | `SigilAltarHoldSeconds` | 기름 +18→+30 | `SigilAltarOilBurst` |
+
+## §13.4 대칭 독트린 확장 (점화인 B 한정)
+
+분출구는 기본적으로 **플레이어 전용 피해**다(SIM_SPEC_CAMPAIGN §ember-vent).
+점화인 B는 이 예외를 **장착 중에만** 해제해 해류·벽과 같은 대칭 규칙으로
+편입시킨다. 미장착 시 기존 비대칭이 그대로라 골든이 보호된다.
+
+## §13.5 결정론
+
+로드아웃은 생성자에서 1회 해석되어 필드로 캐시된다(`ResolveSigils`).
+per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 무작위가
+들어갈 자리가 구조적으로 없다.
+
+## §13.6 검증 계약
+
+- 미장착 == 사전 증보: 골든 15행 무이동 + 4앵커 락스텝 동치.
+- 10면 각각 격리 테스트: 효과 발생 · 방향 · **면역 아님**(하한 어서션).
+- 장착 런 2회 동일 다이제스트.
+- 아레나/프롤로그는 로드아웃이 새어들어도 불변.

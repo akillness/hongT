@@ -60,6 +60,62 @@ namespace CinderCourt.Sim
     }
 
     /// <summary>
+    /// Sigil identity (AMENDMENT #6, design/sigil-spec.md). Each sigil binds ONE
+    /// dungeon gimmick; <see cref="None"/> is the inert default so an unequipped
+    /// run is byte-identical to every run before the amendment.
+    /// </summary>
+    public enum SigilKind
+    {
+        None = 0,
+        Countercurrent = 1,   // 역류인 — tide-current
+        Verdict = 2,          // 판결인 — ember-pylon
+        Executioner = 3,      // 집행인 — ash-wall
+        Ignition = 4,         // 점화인 — ember-vent
+        Witness = 5,          // 증언인 — relic-altar
+    }
+
+    /// <summary>
+    /// Which face of a sigil is turned up. A = defensive (survive the gimmick),
+    /// B = offensive (turn the gimmick on the enemy). Sidegrades, never a ladder:
+    /// the survey's rule 3 (design/sigil-spec.md §설계 규칙).
+    /// </summary>
+    public enum SigilFace { A = 0, B = 1 }
+
+    /// <summary>
+    /// Two equipped sigils. Five exist, two fit — the choice is the point
+    /// (sigil-spec §형태). Defaults to two empty slots, which resolves to every
+    /// pre-amendment constant.
+    /// </summary>
+    public struct SigilLoadout
+    {
+        public SigilKind Slot0;
+        public SigilFace Face0;
+        public SigilKind Slot1;
+        public SigilFace Face1;
+
+        /// <summary>Slot count — the equip ceiling the lobby enforces.</summary>
+        public const int Slots = 2;
+
+        public static SigilLoadout Of(SigilKind slot0, SigilFace face0,
+                                      SigilKind slot1, SigilFace face1) => new SigilLoadout
+        {
+            Slot0 = slot0,
+            Face0 = face0,
+            Slot1 = slot1,
+            Face1 = face1,
+        };
+
+        /// <summary>One sigil on one face, in either slot.</summary>
+        public static SigilLoadout One(SigilKind kind, SigilFace face)
+            => Of(kind, face, SigilKind.None, SigilFace.A);
+
+        /// <summary>True when this exact sigil/face pair is equipped.</summary>
+        public bool Has(SigilKind kind, SigilFace face)
+            => kind != SigilKind.None
+               && ((Slot0 == kind && Face0 == face) || (Slot1 == kind && Face1 == face));
+    }
+
+    /// <summary>
     /// One hack &amp; slash run setup (docs/SIM_SPEC_HACKSLASH.md §12).
     /// <see cref="Mode"/> selects the rule set; <see cref="StageId"/> is dungeon-only.
     /// </summary>
@@ -85,6 +141,13 @@ namespace CinderCourt.Sim
         /// value is <see cref="PreparationOfferKind.None"/> and is inert.
         /// </summary>
         public PreparationOffer PreparationOffer;
+        /// <summary>
+        /// Equipped sigils (AMENDMENT #6). Default = two empty slots, which
+        /// resolves every gimmick constant to its pre-amendment value. Set by the
+        /// view after <see cref="TryDungeon"/>, the same seam the verdict pact
+        /// uses for <see cref="Hazards"/> — the signature stays put.
+        /// </summary>
+        public SigilLoadout Sigils;
 
         /// <summary>The frozen arena run expressed as a hack config (no meta/equipment).</summary>
         public static HackConfig Arena() => new HackConfig
@@ -386,6 +449,55 @@ namespace CinderCourt.Sim
         public const float AttackPerPoint = 0.03f;
         public const float VitalityHealthPerPoint = 8f;
         public const float SwiftnessSpeedPerPoint = 0.02f;
+
+        // --- §13 sigils (AMENDMENT #6 — design/sigil-spec.md) -----------------
+        // Meta upgrades that touch the GIMMICKS instead of the stat block.
+        // Sourced from .survey/meta-upgrade-gimmick-interaction/. Three rules the
+        // numbers below obey, each one a survey finding:
+        //
+        //  1. NO IMMUNITY, resistance only. The line the survey draws is "does the
+        //     hazard still change your behaviour" — so the current still shoves you
+        //     (100 px/s against 218 move), the wall still hurts (6 a tick), and the
+        //     vent's defensive face does not reduce its damage AT ALL, it converts
+        //     the hit into oil. A sigil never makes standing in a hazard correct.
+        //  2. NO RANDOM PROCS. Every value here is a constant multiplier or
+        //     replacement resolved once at construction. Predictability IS the
+        //     product identity (the D4-affliction backlash vs HoT-wall praise).
+        //  3. SIDEGRADES. A/B are different axes (survive vs kill), not a ladder,
+        //     so neither face is the "correct" pick independent of the stage.
+        //
+        // Unequipped resolves to the pre-amendment constants exactly — proven by
+        // the 15 golden rows staying byte-identical.
+        public const int SigilSlots = SigilLoadout.Slots;
+
+        /// <summary>역류인 A — current push ON THE PLAYER scales by this.</summary>
+        public const float SigilCurrentPlayerPushMult = 0.5f;   // 200 -> 100 vs move 218
+        /// <summary>역류인 B — current push ON ENEMIES scales by this.</summary>
+        public const float SigilCurrentEnemyPushMult = 1.5f;
+
+        /// <summary>판결인 A — pylon aura damage-taken multiplier is RAISED to this
+        /// (0.40 -> 0.70: the shield thins, it does not vanish).</summary>
+        public const float SigilPylonAuraRelief = 0.70f;
+        /// <summary>판결인 B — damage dealt TO a pylon body scales by this.</summary>
+        public const float SigilPylonStrikeMult = 2f;
+
+        /// <summary>집행인 A — wall tick on the player, replacing 10.</summary>
+        public const float SigilWallPlayerTick = 6f;
+        /// <summary>집행인 B — wall tick on enemies, replacing 10.</summary>
+        public const float SigilWallEnemyTick = 18f;
+
+        /// <summary>점화인 A — oil granted when a vent hits the player. The DAMAGE
+        /// IS UNCHANGED: this face buys resource off pain, never safety.</summary>
+        public const float SigilVentOilRefund = 12f;
+        /// <summary>점화인 B — vent damage dealt to enemies, replacing 8. Vents are
+        /// player-only by default (SIM_SPEC_CAMPAIGN); this face opts INTO the
+        /// symmetric doctrine for vents, and only while equipped.</summary>
+        public const float SigilVentEnemyDamage = 14f;
+
+        /// <summary>증언인 A — altar channel seconds, replacing 1.2.</summary>
+        public const float SigilAltarHoldSeconds = 0.8f;
+        /// <summary>증언인 B — altar oil burst, replacing 18.</summary>
+        public const float SigilAltarOilBurst = 30f;
 
         // --- §7 boss phases (AMENDMENT #4 — boss-phase-metric-definition) -----
         // Three phases on HP thresholds. The stat vector is stored as TIME

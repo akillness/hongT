@@ -25,6 +25,10 @@ namespace CinderCourt.View
         public System.Action<string> OnBuyEquip;
         /// <summary>Companion id, or "" for none.</summary>
         public System.Action<string> OnSelectCompanion;
+        /// <summary>v1.5: unlock a sigil for relics. Arg = SigilKind as int.</summary>
+        public System.Action<int> OnBuySigil;
+        /// <summary>v1.5: equip/flip/unequip. Args = (SigilKind, SigilFace) as ints.</summary>
+        public System.Action<int, int> OnEquipSigil;
     }
 
     public sealed class LobbyView : MonoBehaviour
@@ -48,6 +52,40 @@ namespace CinderCourt.View
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
         static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };  // relics for T(i)->T(i+1)
+
+        // --- v1.5 sigils (AMENDMENT #6 · design/sigil-spec.md) ------------------
+        const int TabCount = 4;
+        /// <summary>Relics to unlock one sigil, once. Internal so the economy
+        /// test pins it and a negotiation can move it in one line.</summary>
+        internal const int SigilCost = 12;
+        /// <summary>Catalog order. Index 0 is deliberately the inert None so the
+        /// stored ints are the SigilKind enum values with no remapping.</summary>
+        internal static readonly SigilKind[] SigilOrder =
+        {
+            SigilKind.Countercurrent, SigilKind.Verdict, SigilKind.Executioner,
+            SigilKind.Ignition, SigilKind.Witness,
+        };
+        static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
+        /// <summary>Which gimmick each sigil binds — the line that tells the
+        /// player WHERE it matters, not just what number moves.</summary>
+        static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
+        // Face copy: [kind][face]. A = survive the gimmick, B = turn it on them.
+        static readonly string[][] SigilFaceNames =
+        {
+            new[] { "역류 저항", "와류" },
+            new[] { "관통 판결", "파쇄" },
+            new[] { "집행 저항", "처형" },
+            new[] { "재점화", "연쇄" },
+            new[] { "속기", "증폭" },
+        };
+        static readonly string[][] SigilFaceEffects =
+        {
+            new[] { "내가 받는 해류 밀기 절반", "적이 받는 해류 밀기 1.5배" },
+            new[] { "방벽주 실드 40% → 70%", "방벽주에 주는 피해 2배" },
+            new[] { "벽이 나에게 주는 피해 10 → 6", "벽이 적에게 주는 피해 10 → 18" },
+            new[] { "분출구에 맞으면 기름 +12", "분출구가 적에게 피해 14" },
+            new[] { "제단 채널 1.2초 → 0.8초", "제단 기름 +18 → +30" },
+        };
 
         // v1.3 M2: tier narrative names (court vocabulary — worldview.md
         // '메타 서사 (v1.3)' is the single source). [slot][tier], slot order
@@ -104,6 +142,16 @@ namespace CinderCourt.View
         // Tabs.
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
+
+        // v1.5 각인 rows (AMENDMENT #6). Built once, Refresh flips state only.
+        readonly Text[] _sigilTitles = new Text[5];
+        readonly Text[] _sigilEffects = new Text[5];
+        readonly GameObject[] _sigilBuyButtons = new GameObject[5];
+        readonly Text[] _sigilBuyLabels = new Text[5];
+        readonly GameObject[,] _sigilFaceButtons = new GameObject[5, 2];
+        readonly Image[,] _sigilFaceBackgrounds = new Image[5, 2];
+        readonly Text[,] _sigilFaceLabels = new Text[5, 2];
+        Text _sigilFooter;
 
         // Growth rows.
         readonly Text[] _statValues = new Text[3];
@@ -262,6 +310,50 @@ namespace CinderCourt.View
                 PlateStateful(_rosterBackgrounds[i + 1], active);
                 _rosterButtons[i + 1].interactable = owned;
             }
+
+            // --- 각인 (v1.5) -------------------------------------------------
+            // Locked row shows the price; owned row shows the A/B pair with the
+            // equipped face lit. Slot pressure is stated, never hidden: the footer
+            // always says how many of the two slots are spent.
+            var equipped0 = data.SigilSlot0;
+            var equipped1 = data.SigilSlot1;
+            var used = (equipped0 != 0 ? 1 : 0) + (equipped1 != 0 ? 1 : 0);
+            for (var i = 0; i < SigilOrder.Length; i++)
+            {
+                var kind = (int)SigilOrder[i];
+                var owned = (data.SigilsOwned & (1 << kind)) != 0;
+                var slotted = equipped0 == kind || equipped1 == kind;
+                var face = (data.SigilFaces & (1 << kind)) != 0 ? 1 : 0;
+
+                _sigilTitles[i].color = slotted ? Gold : owned ? Cyan : Lock;
+                _sigilEffects[i].text = owned
+                    ? SigilFaceEffects[i][face]
+                    : $"{SigilGimmicks[i]} 기믹에 걸리는 각인";
+
+                _sigilBuyButtons[i].SetActive(!owned);
+                if (!owned)
+                {
+                    var affordable = data.Relics >= SigilCost;
+                    _sigilBuyLabels[i].text = $"유물 {SigilCost} → 해금";
+                    _sigilBuyLabels[i].color = affordable ? Gold : Lock;
+                    _sigilBuyButtons[i].GetComponent<Button>().interactable = affordable;
+                }
+
+                for (var f = 0; f < 2; f++)
+                {
+                    _sigilFaceButtons[i, f].SetActive(owned);
+                    if (!owned) continue;
+                    var lit = slotted && face == f;
+                    _sigilFaceLabels[i, f].text = SigilFaceNames[i][f];
+                    _sigilFaceLabels[i, f].color = lit ? Ember : InkDim;
+                    _sigilFaceBackgrounds[i, f].color = lit
+                        ? new Color(Ember.r, Ember.g, Ember.b, 0.22f)
+                        : ButtonBack;
+                }
+            }
+            _sigilFooter.text = used >= SigilLoadout.Slots
+                ? $"슬롯 {used}/{SigilLoadout.Slots} — 새로 끼우면 먼저 낀 각인이 빠진다."
+                : $"슬롯 {used}/{SigilLoadout.Slots} — 면 전환은 무료다.";
         }
 
         void RefreshMotionLabel()
@@ -643,15 +735,20 @@ namespace CinderCourt.View
 
             Eyebrow(panel.transform, 16, -12, "SANCTUM", "성소 정비");
 
-            // Segmented tab buttons.
-            string[] tabNames = { "성장", "장비", "군단" };
-            _tabContents = new GameObject[3];
-            _tabBackgrounds = new Image[3];
-            for (var i = 0; i < 3; i++)
+            // Segmented tab buttons. v1.5 adds 각인 as a fourth tab; the strip
+            // re-divides the same 400 u panel (4 x 91 u, pitch 95) instead of
+            // growing, so the sanctum keeps its audited footprint. Width 91 u
+            // = 44.4 CSS px at the worst phone scale, which CLEARS the touch
+            // floor on that axis — the 44 u height debt is untouched and stays
+            // the designer+pm item it already was (LobbyLayoutTests ratchet).
+            string[] tabNames = { "성장", "장비", "군단", "각인" };
+            _tabContents = new GameObject[TabCount];
+            _tabBackgrounds = new Image[TabCount];
+            for (var i = 0; i < TabCount; i++)
             {
                 var tabIndex = i;
                 var tab = TextButton(panel.transform, new Vector2(0, 1),
-                    new Vector2(16 + i * 124, -60), new Vector2(120, 44), tabNames[i], 16,
+                    new Vector2(16 + i * 95, -60), new Vector2(91, 44), tabNames[i], 15,
                     () => SelectTab(tabIndex), plated: false);
                 _tabBackgrounds[i] = tab.GetComponent<Image>();
             }
@@ -659,6 +756,7 @@ namespace CinderCourt.View
             _tabContents[0] = BuildGrowthTab(panel.transform);
             _tabContents[1] = BuildEquipTab(panel.transform);
             _tabContents[2] = BuildLegionTab(panel.transform);
+            _tabContents[3] = BuildSigilTab(panel.transform);
         }
 
         GameObject TabContent(Transform parent)
@@ -806,9 +904,78 @@ namespace CinderCourt.View
             return content;
         }
 
+        /// <summary>
+        /// v1.5 각인 tab. One row per sigil: name + bound gimmick, then either a
+        /// buy button (locked) or the A/B face pair (owned). Rows are built once;
+        /// Refresh only flips text, colour and interactable — the same contract
+        /// every other tab keeps.
+        /// </summary>
+        GameObject BuildSigilTab(Transform parent)
+        {
+            var content = TabContent(parent);
+            var hint = Label(content.transform, 16, -6, 360, 22,
+                $"기믹에 걸리는 각인. {SigilLoadout.Slots}개까지 장착", 13, TextAnchor.MiddleLeft);
+            hint.color = InkDim;
+
+            for (var i = 0; i < SigilOrder.Length; i++)
+            {
+                var row = i;
+                var y = -32 - i * 74;
+
+                var title = Label(content.transform, 16, y, 150, 18,
+                    $"{SigilNames[i]} • {SigilGimmicks[i]}", 13, TextAnchor.MiddleLeft);
+                title.color = Gold;
+                _sigilTitles[i] = title;
+
+                var effect = Label(content.transform, 16, y - 18, 210, 16, "", 10, TextAnchor.MiddleLeft);
+                effect.color = InkDim;
+                _sigilEffects[i] = effect;
+
+                // Buy (locked state) — replaced in place by the face pair once owned.
+                var buy = TextButton(content.transform, new Vector2(0, 1),
+                    new Vector2(232, y - 6), new Vector2(140, 30), "", 12,
+                    () => BuySigil(row), plated: false);
+                _sigilBuyButtons[i] = buy;
+                _sigilBuyLabels[i] = buy.GetComponentInChildren<Text>();
+
+                for (var f = 0; f < 2; f++)
+                {
+                    var face = f;
+                    var button = TextButton(content.transform, new Vector2(0, 1),
+                        new Vector2(232 + face * 72, y - 6), new Vector2(68, 30), "", 11,
+                        () => ToggleSigil(row, (SigilFace)face), plated: false);
+                    _sigilFaceButtons[i, f] = button;
+                    _sigilFaceBackgrounds[i, f] = button.GetComponent<Image>();
+                    _sigilFaceLabels[i, f] = button.GetComponentInChildren<Text>();
+                }
+            }
+
+            _sigilFooter = Label(content.transform, 16, -406, 360, 32, "", 11, TextAnchor.UpperLeft);
+            _sigilFooter.color = InkDim;
+            return content;
+        }
+
+        /// <summary>Unlocks a sigil for relics. One-time, no refund path — the
+        /// FACE is what stays free to change (spec §형태).</summary>
+        void BuySigil(int row)
+        {
+            _callbacks.OnBuySigil?.Invoke((int)SigilOrder[row]);
+        }
+
+        /// <summary>
+        /// Equip/unequip, or flip an equipped sigil to its other face. Pressing the
+        /// face already showing removes the sigil; pressing the other face swaps to
+        /// it. Equipping past the slot limit evicts the oldest — a full loadout must
+        /// never silently swallow the tap.
+        /// </summary>
+        void ToggleSigil(int row, SigilFace face)
+        {
+            _callbacks.OnEquipSigil?.Invoke((int)SigilOrder[row], (int)face);
+        }
+
         void SelectTab(int index)
         {
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < TabCount; i++)
             {
                 _tabContents[i].SetActive(i == index);
                 // Sprite swap, not tint — see PlateStateful. Colour stays

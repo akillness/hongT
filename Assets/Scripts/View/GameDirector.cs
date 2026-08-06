@@ -72,6 +72,8 @@ namespace CinderCourt.View
                 OnAllocateStat = OnAllocateStat,
                 OnBuyEquip = OnBuyEquip,
                 OnSelectCompanion = OnSelectCompanion,
+                OnBuySigil = OnBuySigil,
+                OnEquipSigil = OnEquipSigil,
             };
             _lobby.Build(_data, callbacks);
 
@@ -274,6 +276,9 @@ namespace CinderCourt.View
             else if (entry.HazardOverride != null)
                 config.Hazards = entry.HazardOverride;
             config.PreparationOffer = preparation;
+            // AMENDMENT #6: the equipped loadout rides the same view-composed seam
+            // as the pact table. Empty loadout = every pre-sigil constant.
+            config.Sigils = SigilsOf(in _data);
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;
@@ -434,6 +439,68 @@ namespace CinderCourt.View
             CampaignStore.Save(in _data);
             _lobby.Refresh(_data);
             _staging.Show(_selectedStage, _data.Active);
+        }
+
+        /// <summary>
+        /// Unlocks a sigil (AMENDMENT #6). One-time relic spend; the FACE stays
+        /// free to flip forever, which is the survey's anti-lock-in rule.
+        /// </summary>
+        void OnBuySigil(int kind)
+        {
+            if (kind <= 0) return;
+            var bit = 1 << kind;
+            if ((_data.SigilsOwned & bit) != 0) return;
+            if (_data.Relics < LobbyView.SigilCost) return;
+            _data.Relics -= LobbyView.SigilCost;
+            _data.SigilsOwned |= bit;
+            CampaignStore.Save(in _data);
+            _lobby.Refresh(_data);
+        }
+
+        /// <summary>
+        /// Equip, flip or unequip. Pressing the face already lit removes the sigil;
+        /// pressing the other face swaps to it. With both slots full the OLDEST
+        /// (slot 0) is evicted — a full loadout must never swallow the tap silently.
+        /// </summary>
+        void OnEquipSigil(int kind, int face)
+        {
+            if (kind <= 0 || (_data.SigilsOwned & (1 << kind)) == 0) return;
+
+            var faceBit = 1 << kind;
+            var wantsB = face == 1;
+            var showingB = (_data.SigilFaces & faceBit) != 0;
+            var slotted = _data.SigilSlot0 == kind || _data.SigilSlot1 == kind;
+
+            if (slotted && showingB == wantsB)
+            {
+                // Same face pressed again → take it off.
+                if (_data.SigilSlot0 == kind) _data.SigilSlot0 = 0;
+                if (_data.SigilSlot1 == kind) _data.SigilSlot1 = 0;
+            }
+            else
+            {
+                if (wantsB) _data.SigilFaces |= faceBit;
+                else _data.SigilFaces &= ~faceBit;
+                if (!slotted)
+                {
+                    if (_data.SigilSlot0 == 0) _data.SigilSlot0 = kind;
+                    else if (_data.SigilSlot1 == 0) _data.SigilSlot1 = kind;
+                    else { _data.SigilSlot0 = _data.SigilSlot1; _data.SigilSlot1 = kind; }
+                }
+            }
+
+            CampaignStore.Save(in _data);
+            _lobby.Refresh(_data);
+        }
+
+        /// <summary>Persisted slots/faces as the sim's loadout struct.</summary>
+        SigilLoadout SigilsOf(in CampaignData data)
+        {
+            return SigilLoadout.Of(
+                (SigilKind)data.SigilSlot0,
+                (data.SigilFaces & (1 << data.SigilSlot0)) != 0 ? SigilFace.B : SigilFace.A,
+                (SigilKind)data.SigilSlot1,
+                (data.SigilFaces & (1 << data.SigilSlot1)) != 0 ? SigilFace.B : SigilFace.A);
         }
 
         // ------------------------------------------------------------ run events --

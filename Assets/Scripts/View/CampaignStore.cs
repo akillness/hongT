@@ -21,6 +21,13 @@ namespace CinderCourt.View
         public string[] Roster;                     // companion ids, never null after Load
         public string Active;                       // active companion id, "" = none
         public bool PrologueDone;
+
+        // v4 sigils (AMENDMENT #6 · design/sigil-spec.md). Three ints, all
+        // additive: a save written before this cycle parses them as 0, which is
+        // "nothing owned, nothing equipped" — exactly the pre-sigil game.
+        public int SigilsOwned;                     // bitmask over SigilKind (bit k = kind k)
+        public int SigilFaces;                      // bitmask, bit k set = kind k shows face B
+        public int SigilSlot0, SigilSlot1;          // equipped SigilKind ints, 0 = empty
     }
 
     public static class CampaignStore
@@ -72,6 +79,12 @@ namespace CinderCourt.View
             data.Roster = ExtractStrings(Section(raw, "\"roster\":[", ']'));
             data.Active = ExtractString(raw, "\"active\":\"");
             data.PrologueDone = raw.Contains("\"prologueDone\":true");
+            // v4 sigils — absent in every pre-amendment blob, so the parser's
+            // missing-key-is-zero rule loads them as "none owned, none equipped".
+            data.SigilsOwned = ExtractInt(raw, "\"sigilsOwned\":");
+            data.SigilFaces = ExtractInt(raw, "\"sigilFaces\":");
+            data.SigilSlot0 = ExtractInt(raw, "\"sigilSlot0\":");
+            data.SigilSlot1 = ExtractInt(raw, "\"sigilSlot1\":");
             return data;
         }
 
@@ -99,6 +112,10 @@ namespace CinderCourt.View
             }
             Builder.Append("],\"active\":\"").Append(data.Active ?? "")
                 .Append("\",\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
+                .Append(",\"sigilsOwned\":").Append(data.SigilsOwned)
+                .Append(",\"sigilFaces\":").Append(data.SigilFaces)
+                .Append(",\"sigilSlot0\":").Append(data.SigilSlot0)
+                .Append(",\"sigilSlot1\":").Append(data.SigilSlot1)
                 .Append('}');
             WebGLStorage.SetString(Key, Builder.ToString());
         }

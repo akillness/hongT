@@ -199,6 +199,20 @@ namespace CinderCourt.Sim
         private readonly float _companionAttackInterval;
         private readonly float _companionAttackRange;
         private readonly float _companionDamageScale;
+        // --- AMENDMENT #6 sigils: resolved ONCE at construction, so the per-tick
+        // cost is a field read and an unequipped run keeps every original constant
+        // (the 15 golden rows prove it). Initializers are the pre-amendment values,
+        // which is what the arena and classic-campaign constructors keep.
+        private float _sigilCurrentPlayerPushMult = 1f;
+        private float _sigilCurrentEnemyPushMult = 1f;
+        private float _sigilPylonAuraMult = CampaignSpec.PylonAuraDamageTakenMult;
+        private float _sigilPylonStrikeMult = 1f;
+        private float _sigilWallPlayerTick = CampaignSpec.WallTickDamage;
+        private float _sigilWallEnemyTick = CampaignSpec.WallTickDamage;
+        private float _sigilVentOilRefund;                     // 0 = no refund
+        private float _sigilVentEnemyDamage;                   // 0 = vents stay player-only
+        private float _sigilAltarHoldSeconds = CampaignSpec.AltarHoldSeconds;
+        private float _sigilAltarOilBurst = CampaignSpec.AltarOilBurst;
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
         private int _emberRestSeed;
@@ -302,6 +316,7 @@ namespace CinderCourt.Sim
             _companionDamageScale = companionDamageScale;
             _config = _dungeon ? configured.ToCampaignConfig() : default;
             _companionActive = _dungeon && !string.IsNullOrEmpty(configured.CompanionId);
+            ResolveSigils(_dungeon ? configured.Sigils : default);
             _hazards = _dungeon ? (_config.Hazards ?? NoHazards) : NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -313,6 +328,44 @@ namespace CinderCourt.Sim
                 _hazardView.Add(default);
             }
             Restart();
+        }
+
+        /// <summary>
+        /// Turns the equipped loadout into the per-run gimmick constants
+        /// (AMENDMENT #6 · design/sigil-spec.md). Called once from the hack
+        /// constructor; an empty loadout writes nothing, so every field keeps the
+        /// pre-amendment initializer and the run is byte-identical.
+        ///
+        /// Every branch is a constant swap — no probability, no per-tick state.
+        /// That is survey rule 2 (predictability is the product identity) enforced
+        /// structurally: there is nowhere for randomness to enter.
+        /// </summary>
+        private void ResolveSigils(in SigilLoadout loadout)
+        {
+            if (loadout.Has(SigilKind.Countercurrent, SigilFace.A))
+                _sigilCurrentPlayerPushMult = HackSpec.SigilCurrentPlayerPushMult;
+            if (loadout.Has(SigilKind.Countercurrent, SigilFace.B))
+                _sigilCurrentEnemyPushMult = HackSpec.SigilCurrentEnemyPushMult;
+
+            if (loadout.Has(SigilKind.Verdict, SigilFace.A))
+                _sigilPylonAuraMult = HackSpec.SigilPylonAuraRelief;
+            if (loadout.Has(SigilKind.Verdict, SigilFace.B))
+                _sigilPylonStrikeMult = HackSpec.SigilPylonStrikeMult;
+
+            if (loadout.Has(SigilKind.Executioner, SigilFace.A))
+                _sigilWallPlayerTick = HackSpec.SigilWallPlayerTick;
+            if (loadout.Has(SigilKind.Executioner, SigilFace.B))
+                _sigilWallEnemyTick = HackSpec.SigilWallEnemyTick;
+
+            if (loadout.Has(SigilKind.Ignition, SigilFace.A))
+                _sigilVentOilRefund = HackSpec.SigilVentOilRefund;
+            if (loadout.Has(SigilKind.Ignition, SigilFace.B))
+                _sigilVentEnemyDamage = HackSpec.SigilVentEnemyDamage;
+
+            if (loadout.Has(SigilKind.Witness, SigilFace.A))
+                _sigilAltarHoldSeconds = HackSpec.SigilAltarHoldSeconds;
+            if (loadout.Has(SigilKind.Witness, SigilFace.B))
+                _sigilAltarOilBurst = HackSpec.SigilAltarOilBurst;
         }
 
         /// <summary>
@@ -1484,7 +1537,7 @@ namespace CinderCourt.Sim
                 _player.Moving = false;
             }
 
-            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, deltaTime);
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, deltaTime, _sigilCurrentPlayerPushMult);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             if (_dungeon)
@@ -1558,7 +1611,7 @@ namespace CinderCourt.Sim
             _player.X += _dashDirX * speed * step;
             _player.Y += _dashDirY * speed * SimConfig.YMoveScale * step;
             ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
-            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, step);
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, step, _sigilCurrentPlayerPushMult);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
             _player.Moving = true;
             _player.ActionTime += deltaTime;
@@ -2017,7 +2070,7 @@ namespace CinderCourt.Sim
                 }
             }
 
-            ApplyCurrents(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp, deltaTime);
+            ApplyCurrents(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp, deltaTime, _sigilCurrentEnemyPushMult);
             ApplyPillars(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
 
             if (MathF.Abs(deltaX) > EnemyFacingDeadzone)
@@ -2673,8 +2726,31 @@ namespace CinderCourt.Sim
                     _events |= SimEvents.HazardPulse;
                     if (IsoWithin(hazard.X, hazard.Y, _player.X, _player.Y, hazard.Radius))
                     {
-                        // Gimmicks are player risk only.
+                        // Vents are player risk by default (SIM_SPEC_CAMPAIGN).
+                        // 점화인 A does NOT soften the hit — it pays oil for taking
+                        // it. Buying resource off pain, never safety (AMENDMENT #6).
+                        float healthBefore = _player.Health;
                         DamagePlayer(CampaignSpec.VentDamage);
+                        if (_sigilVentOilRefund > 0f && _player.Health < healthBefore)
+                        {
+                            _charge = MathF.Min(SimConfig.LanternMax, _charge + _sigilVentOilRefund);
+                        }
+                    }
+                    // 점화인 B opts vents INTO the symmetric doctrine the current and
+                    // the wall already follow — but only while equipped, so the
+                    // default asymmetry (and every golden row) is untouched.
+                    if (_sigilVentEnemyDamage > 0f)
+                    {
+                        for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
+                        {
+                            ref Enemy ventEnemy = ref _enemies[enemyIndex];
+                            if (ventEnemy.State.Dead
+                                || !IsoWithin(hazard.X, hazard.Y, ventEnemy.State.X, ventEnemy.State.Y, hazard.Radius))
+                            {
+                                continue;
+                            }
+                            DamageEnemy(ref ventEnemy, _sigilVentEnemyDamage);
+                        }
                     }
                     continue;
                 }
@@ -2723,14 +2799,18 @@ namespace CinderCourt.Sim
                     bool fromRight = hazard.PushX < 0f;
                     if (WallCovers(fromRight, depth, _player.X))
                     {
-                        DamagePlayer(CampaignSpec.WallTickDamage);
+                        // 집행인 A: 10 -> 6. Still a tick you must walk out of —
+                        // the wall keeps owning the space (AMENDMENT #6).
+                        DamagePlayer(_sigilWallPlayerTick);
                     }
                     for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
                     {
                         ref Enemy enemy = ref _enemies[enemyIndex];
                         if (!enemy.State.Dead && WallCovers(fromRight, depth, enemy.State.X))
                         {
-                            DamageEnemy(ref enemy, CampaignSpec.WallTickDamage);
+                            // 집행인 B: 10 -> 18 on the enemy side. Herding into the
+                            // wall was always legal; this makes it a build.
+                            DamageEnemy(ref enemy, _sigilWallEnemyTick);
                         }
                     }
                     continue;
@@ -2760,14 +2840,17 @@ namespace CinderCourt.Sim
                 }
 
                 runtime.Hold += deltaTime;
-                if (runtime.Hold < CampaignSpec.AltarHoldSeconds)
+                // 증언인 A shortens the channel (1.2 -> 0.8): still a window the
+                // gimmick rhythm has to allow, just a narrower one. AMENDMENT #6.
+                if (runtime.Hold < _sigilAltarHoldSeconds)
                 {
                     continue;
                 }
 
                 runtime.Hold = 0f;
                 runtime.Cooldown = CampaignSpec.AltarCooldown;
-                _charge = MathF.Min(SimConfig.LanternMax, _charge + CampaignSpec.AltarOilBurst);
+                // 증언인 B pays more for the same window (18 -> 30).
+                _charge = MathF.Min(SimConfig.LanternMax, _charge + _sigilAltarOilBurst);
                 _events |= SimEvents.AltarBlessing;
             }
         }
@@ -2858,8 +2941,15 @@ namespace CinderCourt.Sim
         /// player and enemies alike). Runs after the actor's own move + clamp and
         /// before pillar push-out; re-clamps when it moved the actor. Reads the
         /// previous tick's <see cref="_stageTime"/> by contract (1-tick latency).
+        ///
+        /// <paramref name="pushMult"/> is the 역류인 seam (AMENDMENT #6): 1 for an
+        /// unequipped run, so the arithmetic is bit-identical to before the sigil.
+        /// The defensive face HALVES the shove rather than cancelling it — 100 px/s
+        /// against a 218 move still displaces you, which is the survey's
+        /// no-immunity line.
         /// </summary>
-        private void ApplyCurrents(ref float x, ref float y, float clampMargin, float deltaTime)
+        private void ApplyCurrents(ref float x, ref float y, float clampMargin, float deltaTime,
+                                   float pushMult)
         {
             bool pushed = false;
             for (int index = 0; index < _hazards.Length; index += 1)
@@ -2874,8 +2964,8 @@ namespace CinderCourt.Sim
                 {
                     continue;
                 }
-                x += hazard.PushX * deltaTime;
-                y += hazard.PushY * deltaTime;
+                x += hazard.PushX * pushMult * deltaTime;
+                y += hazard.PushY * pushMult * deltaTime;
                 pushed = true;
             }
             if (pushed)
@@ -2913,7 +3003,8 @@ namespace CinderCourt.Sim
                     continue;
                 }
                 runtime.LastHitAttack = _player.AttackId;
-                runtime.Hp = MathF.Max(0f, runtime.Hp - damage);
+                // 판결인 B doubles what a swing takes off the body (AMENDMENT #6).
+                runtime.Hp = MathF.Max(0f, runtime.Hp - damage * _sigilPylonStrikeMult);
                 landed = true;
                 _events |= SimEvents.EnemyHit;
                 if (runtime.Hp <= 0f)
@@ -2925,8 +3016,11 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// ×0.60 on damage TAKEN by an enemy inside any live pylon aura; stacking
-        /// is non-cumulative (§Gimmick 2). 1 when no pylon applies.
+        /// Damage-taken multiplier for an enemy inside any live pylon aura;
+        /// stacking is non-cumulative (§Gimmick 2). 1 when no pylon applies.
+        /// The multiplier is ×0.40 by default and ×0.70 under 판결인 A — the
+        /// shield THINS, it never lifts, so the target-priority puzzle survives
+        /// the upgrade (AMENDMENT #6, no-immunity rule).
         /// </summary>
         private float PylonAuraMultiplier(float enemyX, float enemyY)
         {
@@ -2937,7 +3031,7 @@ namespace CinderCourt.Sim
                     && _hazardRuntime[index].Hp > 0f
                     && IsoWithin(hazard.X, hazard.Y, enemyX, enemyY, CampaignSpec.PylonAuraRadius))
                 {
-                    return CampaignSpec.PylonAuraDamageTakenMult;
+                    return _sigilPylonAuraMult;
                 }
             }
             return 1f;
