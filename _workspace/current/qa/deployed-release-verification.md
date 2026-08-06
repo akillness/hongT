@@ -96,3 +96,42 @@ warnings=8 size=70,601,672 time=00:01:14`. 배포 산출물 47.2 MB
 [INFERENCE] 형제 세션이 동일 소스(`7343cd0`)로 gh-pages `3ecc425`를
 같은 시각에 배포했고 내 `ce76295`가 그 위에 올라갔다. 두 배포의 소스
 커밋이 같으므로 유실된 변경은 없다.
+## 2026-08-07 배포 사이클 — 카메라 x1.17 던전 스케일 + 오디오 10큐 갱신
+
+[OBSERVED] 소스 `15baa5a` (내 커밋 스택: `441f8e7` 카메라 거리 상수화
+calm 17→20 / crowd 21→24.5 ×1.17, `ed59b2e` ElevenLabs 10큐 재생성,
+`83f30f1`/`15baa5a` Lane C·E 문서). gh-pages `cb0d344`, 캐시 버전
+`b9b1dc5b28b9fe2c`.
+
+편집기가 프로젝트 잠금(PID 16568)을 쥐고 있어 APFS 클론 `/tmp/hongt-build`
+(Library 웜)에서 배치모드로 검증·빌드했다. 클론 소스는 `git archive HEAD |
+tar -x`로 커밋 `15baa5a` 트리와 정확히 일치시켰다(CameraRig 상수 반영 확인).
+
+- EditMode 테스트: `290/290 passed, 0 failed`
+  (`unity-logs/test-results-070311.xml`, duration 3.12s). 이전 사이클 대비
+  +14 케이스(276→290) 전부 그린.
+- WebGL 빌드: `[BuildWebGL] result=Succeeded size=70578670 errors=0 warnings=8
+  time=00:01:14` (`unity-logs/build-070425.log`). 산출물 45 MB
+  (`data` 36,185,771 B · `wasm` 10,475,796 B · `framework` 79,052 B ·
+  `loader` 48,106 B) — 계약 상한 120 MB 대비 38 %. (로그의 `AtomicSafetyHandle`
+  resolve 경고 3건은 IL2CPP 스트리핑 시 Unity.Collections 디버그 필드에 대한
+  상시 경고로, `result=Succeeded errors=0`에 포함되지 않는 노이즈.)
+
+배포: `bash tools/deploy/deploy_pages.sh` — gh-pages `cb0d344` 푸시. 산출물
+`build-webgl/`(gitignore)을 `rsync -a --delete`로 클론 빌드와 일치시킨 뒤
+배포.
+
+[OBSERVED] 라이브 검증 <https://akillness.github.io/hongT/>:
+
+| 항목 | 라이브 `b9b1dc5b28b9fe2c` |
+|---|---|
+| `index.html` 캐시 토큰 | `?v=b9b1dc5b28b9fe2c` (want 일치, 1차 폴링에 전파 확인) |
+| `/` | 200 |
+| `Build/build-webgl.loader.js` | 200 |
+| `Build/build-webgl.data.unityweb` | 200 |
+| `Build/build-webgl.wasm.unityweb` | 200 |
+| `StreamingAssets/Video/cinder-court-intro.mp4` | 200 |
+| `index.html` 루트 절대 URL | 0건 |
+
+gh-pages 트리에 `index.html` / `Build/` 4종 / `StreamingAssets/Video/
+cinder-court-intro.mp4` / `.nojekyll` 커밋 확인.
