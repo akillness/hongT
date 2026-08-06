@@ -38,7 +38,7 @@ namespace CinderCourt.EditorTools
             ("run", "Running", true),
             ("hit", "Standing React Small From Left", false),
             ("bighit", "Receive Uppercut To The Face", false),
-            ("attack", "Punching", false),
+            ("attack", "Standing Melee Attack Horizontal", false),
             ("critical", "Illegal Elbow Punch", false),
             ("avoid", "Dodging", false),
             ("defence", "Body Block", false),
@@ -48,6 +48,28 @@ namespace CinderCourt.EditorTools
             ("attack2", "Hook Punch", false),                        // #9 combo 2nd
             ("attack3", "Standing Melee Combo Attack Ver. 2", false), // #9 combo 3rd
             ("cast", "Standing 2H Magic Attack 01", false),           // #4 skill cast
+        };
+
+        // --- clip trims -------------------------------------------------------
+        // A mixamo action clip is authored as a standalone performance: settle
+        // into stance, wind up, strike, recover, settle again. The sim holds an
+        // attack pose for a FIXED window (arena 5 frames @ 12 fps = 0.417 s) and
+        // drops it the instant that window closes, so an untrimmed 2.417 s swing
+        // can only ever show its preamble. Measured in the running editor
+        // (2026-02-04): every player swing was cut at normalizedTime 0.10-0.35
+        // and the weapon never travelled.
+        //
+        // Measured trim window (AnimationClip.SampleAnimation over the whole
+        // clip, right-hand speed relative to the hips, 24 fps source): frames
+        // 0-17 are stance, the strike accelerates at f18, peaks f21-25 (max
+        // 6.9 u/s at f24) and is spent by f26; f27+ is recovery. 16..28 keeps
+        // the arc and nothing else -- 12 frames = 0.5 s, which ActorView paces
+        // at 1.2x, and it places the contact frames at 0.17-0.31 s of the pose,
+        // inside the sim's own active window (SimConfig.AttackActiveFrom/To =
+        // 0.167..0.333 s). Actions with no row here import whole.
+        static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
+        {
+            ("attack", 16, 28),
         };
 
         /// <summary>Index of the first View-only substate — everything below is
@@ -250,6 +272,18 @@ namespace CinderCourt.EditorTools
                     throw new InvalidOperationException($"no animation takes in {path}");
                 var take = takes[0];
                 take.name = action;
+                // Trim BEFORE the loop/lock flags: the range is what defines the
+                // clip's length, and every flag below is relative to it.
+                foreach (var (trimmed, firstFrame, lastFrame) in ClipTrims)
+                {
+                    if (!string.Equals(trimmed, action, StringComparison.Ordinal)) continue;
+                    if (lastFrame > take.lastFrame)
+                        throw new InvalidOperationException(
+                            $"clip '{action}' trim {firstFrame}..{lastFrame} exceeds the " +
+                            $"source take (0..{take.lastFrame}) in {path}");
+                    take.firstFrame = firstFrame;
+                    take.lastFrame = lastFrame;
+                }
                 take.loopTime = loop;
                 take.loopPose = loop;
                 take.lockRootRotation = true;

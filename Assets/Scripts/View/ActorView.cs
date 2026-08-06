@@ -1,7 +1,9 @@
 // One actor (player / enemy / boss). Maps sim state to transform, Animator,
 // billboarded health bar, and death fade. No per-frame allocations.
+using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
+
 
 namespace CinderCourt.View
 {
@@ -55,6 +57,28 @@ namespace CinderCourt.View
         float _roarTime;                      // §M boss entrance roar window
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
+        // --- §M2 swing pacing ------------------------------------------------
+        // The sim holds an attack pose for a FIXED window (arena 5 frames @
+        // 12 fps = 0.417 s; dungeon HackSpec.ComboSwing = 0.30/0.30/0.42) and
+        // drops it the instant that window closes. The authored mixamo swings
+        // are ~1 s long, so at animator speed 1 the clip is cut at ~35% — the
+        // arm winds up and the pose is yanked back to idle before the weapon
+        // ever travels. Measured in the editor (prologue, 2026-02-04): every
+        // swing ended at normalizedTime 0.10-0.35. Scaling the animator to
+        // clipLength / window plays the WHOLE arc inside the window the sim
+        // actually holds, which is what makes the swing readable at all.
+        //
+        // Mirrors CinderSim's private AttackClipFrames(5)/AttackClipFps(12).
+        // SwingWindowMirrorsSimTests pins it against a real sim run, so a sim
+        // change fails a test instead of silently mistiming every swing.
+        internal const float ArenaSwingSeconds = 5f / 12f;
+        // Sanity rails: a clip wildly out of scale with the window must not
+        // produce a strobing or frozen pose.
+        internal const float MinPoseSpeed = 0.5f, MaxPoseSpeed = 4f;
+        // Authored clip seconds per attack pose value, read once from the
+        // controller. Empty on a rig with no controller — pose speed stays 1.
+        readonly Dictionary<int, float> _poseClipSeconds = new Dictionary<int, float>(4);
+
 
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
@@ -85,6 +109,8 @@ namespace CinderCourt.View
             view._baseScale = baseScale;
             view._camera = Camera.main;
             view.BuildHealthBar();
+            view.CachePoseClipSeconds();
+
             return view;
         }
         static void RemovePrimitiveCollider(GameObject primitive)
@@ -118,7 +144,10 @@ namespace CinderCourt.View
             _healthFill.sharedMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.32f), false);
         }
 
-        public void SyncPlayer(in PlayerState state)
+        /// <param name="simDelta">Sim seconds actually advanced this frame
+        /// (steps × FixedStep). NOT Time.deltaTime — see the launch gate below.
+        /// 0 means no tick ran, so nothing moved and nothing can be inferred.</param>
+        public void SyncPlayer(in PlayerState state, float simDelta = 0f)
         {
             // §M: the player can now be launched (phase-3 boss slam). The sim
             // keeps that state private — PlayerState is frozen — so the View
@@ -133,15 +162,26 @@ namespace CinderCourt.View
             // "I got hit" pose on an escape move. Anything above 1500 px/s is
             // a teleport (a finisher step or a run reset), never a launch.
             // The dash is excluded outright because Avoid owns its pose.
-            if (!float.IsNaN(_prevSimX) && Time.deltaTime > 0f
+            //
+            // THE DENOMINATOR IS SIM TIME, NOT RENDER TIME. The step above is
+            // produced by whole 1/60 s ticks, and GameView runs 0 or 1 of them
+            // on a frame shorter than the fixed step. Dividing a 1-tick step by
+            // a shorter Time.deltaTime reports a speed inflated by
+            // (1/60)/deltaTime: at 120 fps a plain 218 px/s walk reads 436 px/s
+            // and lands inside this band, so ordinary walking played `bighit`
+            // for as long as the player held a direction. Measured in the
+            // editor at ~120 fps (prologue, 2026-02-04): sim=Move but
+            // param=4/bighit for 1.9 s straight.
+            if (!float.IsNaN(_prevSimX) && simDelta > 0f
                 && state.Action != ActorAction.Avoid)
             {
                 var stepX = state.X - _prevSimX;
                 var stepY = state.Y - _prevSimY;
-                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
                 if (speed > 400f && speed < 1500f)
                     _knockbackTime = HackSpec.BossSlamKnockbackTime;
             }
+
             // NOTE: _prevSimX/Y are deliberately NOT written here. Apply's
             // 16-direction yaw block owns them, and writing first would hand
             // it a zero delta — facing would freeze on every frame.
@@ -163,7 +203,10 @@ namespace CinderCourt.View
         /// exposes per-enemy DidDamage, so a health drop between frames IS the
         /// hit signal. First sync after pooling never counts as a hit.
         /// </summary>
-        public float SyncEnemy(in EnemyState state)
+        /// <param name="simDelta">Sim seconds actually advanced this frame.
+        /// Same contract as <see cref="SyncPlayer"/>: render time would inflate
+        /// the launch speed on any frame shorter than the fixed step.</param>
+        public float SyncEnemy(in EnemyState state, float simDelta = 0f)
         {
             var damage = 0f;
             if (_lastHealth < float.MaxValue && state.Health < _lastHealth - 0.01f)
@@ -180,14 +223,17 @@ namespace CinderCourt.View
             // chase step is 128 px/s * 50 ms = 6.4 px and a fixed px gate would
             // fire BigHit on every hit exactly when the game is already
             // struggling. 300 px/s sits between chase (<=128) and launch (~667)
-            // at any frame rate.
-            if (hit && !float.IsNaN(_prevSimX) && Time.deltaTime > 0f)
+            // — but ONLY when the divisor is the sim time that produced the
+            // step. See SyncPlayer: dividing by Time.deltaTime inflates it by
+            // (1/60)/deltaTime and a 128 px/s chase clears 300 above 140 fps.
+            if (hit && !float.IsNaN(_prevSimX) && simDelta > 0f)
             {
                 var stepX = state.X - _prevSimX;
                 var stepY = state.Y - _prevSimY;
-                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
                 if (speed > 300f) _knockbackTime = HackSpec.ComboKnockbackTime;
             }
+
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.MaxHealth > 0f ? state.Health / state.MaxHealth : 0f,
                   state.Scale, state.Dead, state.FadeTime, hit);
@@ -203,6 +249,14 @@ namespace CinderCourt.View
         /// must yield during the flash or a boss can never show a hit color
         /// (§K3: the element flash matters most on the boss).</summary>
         internal bool FlashLive => _flashTime > 0f;
+
+        /// <summary>§M: true while the launch window inferred by SyncPlayer /
+        /// SyncEnemy is open, i.e. while ResolveActionValue will pose BigHit
+        /// instead of the sim's own action. The inference is a velocity
+        /// heuristic over the sim step, so this is the seam that pins it:
+        /// ordinary locomotion must never open this window.</summary>
+        internal bool KnockbackLive => _knockbackTime > 0f;
+
 
         float _companionLastX;
 
@@ -380,6 +434,65 @@ namespace CinderCourt.View
             if (castPoseLive && action == ActorAction.Idle) return CastValue;
             return (int)action;
         }
+
+        /// <summary>§M2: reads the authored length of every attack pose clip
+        /// off the controller once, so the per-frame path only does a lookup.
+        /// Clip names are the action names the import pipeline writes
+        /// (CharacterImportPipeline.ReimportClips sets take.name = action).
+        /// </summary>
+        void CachePoseClipSeconds()
+        {
+            _poseClipSeconds.Clear();
+            if (_animator == null || _animator.runtimeAnimatorController == null) return;
+            var clips = _animator.runtimeAnimatorController.animationClips;
+            for (var i = 0; i < clips.Length; i++)
+            {
+                var clip = clips[i];
+                if (clip == null || clip.length <= 0f) continue;
+                var value = PoseValueForClip(clip.name);
+                if (value >= 0) _poseClipSeconds[value] = clip.length;
+            }
+        }
+
+        /// <summary>Animator value a clip name poses, or -1 when the clip is
+        /// not an attack pose (only swings are time-scaled: locomotion loops
+        /// and reaction clips must keep their authored pace).</summary>
+        internal static int PoseValueForClip(string clipName)
+        {
+            if (clipName == "attack") return (int)ActorAction.Attack;
+            if (clipName == "critical") return (int)ActorAction.Critical;
+            if (clipName == "attack2") return Attack2Value;
+            if (clipName == "attack3") return Attack3Value;
+            return -1;
+        }
+
+        /// <summary>§M2: sim seconds the swing pose is held. Arena/prologue run
+        /// the fixed 5-frame attack clip; the dungeon combo runs
+        /// HackSpec.ComboSwing per chain index, and GameView keeps the tier
+        /// current BEFORE the pose resolves (§M/#9), so the tier IS the index
+        /// of the swing on screen. comboTier &lt; 0 means "not a dungeon run".
+        /// </summary>
+        internal static float SwingWindowSeconds(int comboTier)
+        {
+            if (comboTier < 0) return ArenaSwingSeconds;
+            var index = Mathf.Clamp(comboTier, 0, HackSpec.ComboLength - 1);
+            return HackSpec.ComboSwing[index];
+        }
+
+        /// <summary>§M2: animator speed that fits <paramref name="actionValue"/>'s
+        /// authored clip into the sim's swing window. 1 for every non-swing
+        /// pose, and 1 whenever the clip length is unknown.</summary>
+        internal static float PoseSpeed(float clipSeconds, float windowSeconds)
+        {
+            if (clipSeconds <= 0f || windowSeconds <= 0f) return 1f;
+            return Mathf.Clamp(clipSeconds / windowSeconds, MinPoseSpeed, MaxPoseSpeed);
+        }
+
+        float ResolvePoseSpeed(int actionValue)
+            => _poseClipSeconds.TryGetValue(actionValue, out var clipSeconds)
+                ? PoseSpeed(clipSeconds, SwingWindowSeconds(_comboTier))
+                : 1f;
+
 
         /// <summary>§M: starts the entrance roar window. Called from the
         /// BossSpawned event, which is where the intro letterbox already
@@ -635,7 +748,11 @@ namespace CinderCourt.View
                     // suppressed for the whole death animation.
                     _flashTime = 0f;
                     if (_animator != null && _animator.isActiveAndEnabled)
+                    {
                         _animator.SetInteger(ActionParam, (int)ActorAction.Die);
+                        _animator.speed = 1f;   // §M2: death never inherits swing pacing
+                    }
+
                 }
                 // Shrink fade (0.34 s) — cheaper than URP transparent conversion.
                 // Kill pop: brief 1.18x punch on the death frame, damped by the
@@ -660,9 +777,14 @@ namespace CinderCourt.View
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.SetInteger(ActionParam, actionValue);
+                // §M2: swings are time-scaled into the sim's window; every
+                // other pose runs at its authored pace. Assigned on the SAME
+                // edge as the value, so leaving a swing restores speed 1.
+                _animator.speed = ResolvePoseSpeed(actionValue);
                 _lastActionValue = actionValue;
                 _lastAction = action;
             }
+
 
             // A flash gets its FULL duration: the frame that arms it must not
             // immediately spend a delta against it. On a long frame (100 ms vs
@@ -774,7 +896,9 @@ namespace CinderCourt.View
             {
                 _animator.Rebind();
                 _animator.SetInteger(ActionParam, (int)ActorAction.Idle);
+                _animator.speed = 1f;   // §M2: a pooled actor never inherits swing pacing
             }
+
         }
     }
 }

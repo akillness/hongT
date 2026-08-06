@@ -64,6 +64,13 @@ namespace CinderCourt.View
         readonly ActorView[] _companionViews = new ActorView[MaxCompanionViews];
 
         float _accumulator;
+        /// <summary>Sim seconds advanced by THIS frame's tick batch
+        /// (steps × FixedStep). ActorView's launch heuristics divide the sim
+        /// step by this, never by Time.deltaTime — a frame shorter than the
+        /// fixed step runs 0 or 1 ticks, so render time reports a walk as a
+        /// knockback (see ActorView.SyncPlayer).</summary>
+        float _simDelta;
+
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
@@ -279,8 +286,10 @@ namespace CinderCourt.View
             // Only consume latches when at least one tick sampled them —
             // otherwise a 144 Hz frame with no step would eat Q/E presses.
             if (steps > 0 && Input != null) Input.ClearLatches();
+            _simDelta = steps * SimConfig.FixedStep;
 
             SyncViews();
+
             ApplyTimeScale();
         }
 
@@ -433,7 +442,8 @@ namespace CinderCourt.View
             // it CHANGES, so a tier that arrives after the swing starts would
             // lock the wrong variant for the entire swing, not just one frame.
             if (_isDungeon) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
-            _playerView.SyncPlayer(_sim.Player);
+            _playerView.SyncPlayer(_sim.Player, _simDelta);
+
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
 
@@ -468,8 +478,8 @@ namespace CinderCourt.View
                 // SyncEnemy reports the health delta since last frame — the
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
-                view.SetElementTint(liveTint);
-                var damage = view.SyncEnemy(in state);
+                var damage = view.SyncEnemy(in state, _simDelta);
+
                 if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
                     && state.Visual == stage.Boss.Visual)
                     ApplyBossPresentation(view, in stage);
