@@ -58,7 +58,11 @@ namespace CinderCourt.View
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         ActorView _playerView;
-        ActorView _companionView;
+        // AMENDMENT #6 (D6.6): up to 3 simultaneous companions, slot order
+        // matching HackConfig.CompanionSlots(). Unused trailing slots stay null.
+        const int MaxCompanionViews = 3;
+        readonly ActorView[] _companionViews = new ActorView[MaxCompanionViews];
+
         float _accumulator;
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
@@ -145,7 +149,12 @@ namespace CinderCourt.View
             _isDungeon = config.Mode == GameMode.Dungeon;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
-            var companionActive = !string.IsNullOrEmpty(companionId);
+            // AMENDMENT #6 (D6.6): companionId is kept for legacy single-
+            // companion call sites, but the spawned roster always comes from
+            // the config itself, so a config carrying 2-3 CompanionIds
+            // spawns every slot even when companionId only echoes slot 0.
+            var companionSlots = _isDungeon ? config.CompanionSlots() : System.Array.Empty<string>();
+            var companionActive = companionSlots.Length > 0;
             _sim = new CinderSim(in config);
             _accumulator = 0f;
             _digestWritten = false;
@@ -176,13 +185,17 @@ namespace CinderCourt.View
                     Hud.SetCampaignSurfacesVisible(true);
                 }
 
-                if (companionActive && Bootstrap != null)
+                if (Bootstrap != null)
                 {
-                    var (prefab, tint) = Bootstrap.CompanionVisual(companionId);
-                    _companionView = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
-                    _companionView.name = "Companion";
-                    if (tint.HasValue)
-                        LobbyStaging.TintRenderers(_companionView.gameObject, tint.Value);
+                    for (var slot = 0; slot < companionSlots.Length && slot < MaxCompanionViews; slot++)
+                    {
+                        var (prefab, tint) = Bootstrap.CompanionVisual(companionSlots[slot]);
+                        var view = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
+                        view.name = "Companion" + slot;
+                        if (tint.HasValue)
+                            LobbyStaging.TintRenderers(view.gameObject, tint.Value);
+                        _companionViews[slot] = view;
+                    }
                 }
             }
             else if (Hud != null)
@@ -191,6 +204,7 @@ namespace CinderCourt.View
             }
         }
 
+
         /// <summary>Stop the run and release run-scoped views. Safe when idle.</summary>
         public void EndRun()
         {
@@ -198,12 +212,15 @@ namespace CinderCourt.View
             foreach (var pair in _enemyViews)
                 Return(pair.Value);
             _enemyViews.Clear();
-            if (_companionView != null)
+            for (var slot = 0; slot < _companionViews.Length; slot++)
             {
-                if (Application.isPlaying) Destroy(_companionView.gameObject);
-                else DestroyImmediate(_companionView.gameObject);
-                _companionView = null;
+                var view = _companionViews[slot];
+                if (view == null) continue;
+                if (Application.isPlaying) Destroy(view.gameObject);
+                else DestroyImmediate(view.gameObject);
+                _companionViews[slot] = null;
             }
+
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
             ClearDamageNumbers();
@@ -522,9 +539,15 @@ namespace CinderCourt.View
                 // §Lane P: socket props follow the same live ranks (idempotent
                 // per band — a mid-run rank-up swaps the prop immediately).
                 _playerView.AttachEquipProps(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
-                if (_companionView != null)
+                // AMENDMENT #6 (D6.6): one gaze/idle resolution per active
+                // slot. Each companion tracks the nearest living enemy inside
+                // its own attack range independently of its siblings.
+                for (var slot = 0; slot < _companionViews.Length; slot++)
                 {
-                    var preparation = _sim as IRunPreparationSnapshot;
+                    var view = _companionViews[slot];
+                    if (view == null) continue;
+                    var companionX = hack.CompanionXAt(slot);
+                    var companionY = hack.CompanionYAt(slot);
                     // G1: nearest living enemy inside the companion's attack
                     // range owns the gaze between strikes (iso-weighted metric,
                     // same as the sim's targeting). Near the player with no
@@ -535,24 +558,24 @@ namespace CinderCourt.View
                     {
                         var enemy = enemies[i];
                         if (enemy.Dead) continue;
-                        var deltaX = enemy.X - hack.CompanionX;
-                        var deltaY = (enemy.Y - hack.CompanionY) * SimConfig.IsoY;
+                        var deltaX = enemy.X - companionX;
+                        var deltaY = (enemy.Y - companionY) * SimConfig.IsoY;
                         var distSq = deltaX * deltaX + deltaY * deltaY;
                         if (distSq >= bestSq) continue;
                         bestSq = distSq;
                         gazeYaw = Mathf.Round(
-                            Mathf.Atan2(deltaX, -(enemy.Y - hack.CompanionY))
+                            Mathf.Atan2(deltaX, -(enemy.Y - companionY))
                             * Mathf.Rad2Deg / 22.5f) * 22.5f;
                     }
-                    var playerDeltaX = _sim.Player.X - hack.CompanionX;
-                    var playerDeltaY = _sim.Player.Y - hack.CompanionY;
-                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttacking
+                    var playerDeltaX = _sim.Player.X - companionX;
+                    var playerDeltaY = _sim.Player.Y - companionY;
+                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttackingAt(slot)
                         && playerDeltaX * playerDeltaX + playerDeltaY * playerDeltaY
                            < HackSpec.CompanionFollowOffset * HackSpec.CompanionFollowOffset * 2.25f;
-                    _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,
-                        preparation != null ? preparation.CompanionFacing : 0,
-                        hack.CompanionAttacking, gazeYaw, restIdle);
+                    view.SyncCompanion(companionX, companionY, hack.CompanionFacingAt(slot),
+                        hack.CompanionAttackingAt(slot), gazeYaw, restIdle);
                 }
+
             }
             SyncDeathNumberPunch();
         }

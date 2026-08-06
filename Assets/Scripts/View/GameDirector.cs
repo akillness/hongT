@@ -259,10 +259,10 @@ namespace CinderCourt.View
             }
             var metaStats = MetaStats.Of(_data.Attack, _data.Vitality, _data.Swiftness);
             var equipTiers = EquipTiers.Of(_data.Weapon, _data.Lantern, _data.Cloak);
-            var companion = string.IsNullOrEmpty(_data.Active) ? null : _data.Active;
-            if (!HackConfig.TryDungeon(entry.SimAnchorId, metaStats, equipTiers, companion,
+            if (!HackConfig.TryDungeon(entry.SimAnchorId, metaStats, equipTiers, _data.ActiveSlots,
                     RosterMaskOf(_data.Roster), out var config))
             {
+
                 EnterLobby();
                 return;
             }
@@ -432,13 +432,46 @@ namespace CinderCourt.View
             _lobby.Refresh(_data);
         }
 
+        /// <summary>
+        /// AMENDMENT #6 (D6.6): the legion tab toggles membership instead of
+        /// replacing a single slot. "" (the "없음" button) clears every slot;
+        /// clicking an already-active companion removes it; clicking a new
+        /// one appends it while under the 3-slot cap and is a no-op at cap.
+        /// </summary>
         void OnSelectCompanion(string id)
         {
-            _data.Active = id ?? "";
+            id = id ?? "";
+            var slots = _data.ActiveSlots ?? System.Array.Empty<string>();
+            if (string.IsNullOrEmpty(id))
+            {
+                slots = System.Array.Empty<string>();
+            }
+            else
+            {
+                var index = System.Array.IndexOf(slots, id);
+                if (index >= 0)
+                {
+                    var shrunk = new string[slots.Length - 1];
+                    for (int i = 0, w = 0; i < slots.Length; i++)
+                        if (i != index) shrunk[w++] = slots[i];
+                    slots = shrunk;
+                }
+                else if (slots.Length < 3)
+                {
+                    var grown = new string[slots.Length + 1];
+                    System.Array.Copy(slots, grown, slots.Length);
+                    grown[slots.Length] = id;
+                    slots = grown;
+                }
+                // else: 3 slots already active — click is a no-op.
+            }
+            _data.ActiveSlots = slots;
+            _data.Active = slots.Length > 0 ? slots[0] : "";
             CampaignStore.Save(in _data);
             _lobby.Refresh(_data);
             _staging.Show(_selectedStage, _data.Active);
         }
+
 
         // ------------------------------------------------------------ run events --
         void OnRunEvents(SimEvents events, ICinderSim sim)
@@ -505,7 +538,12 @@ namespace CinderCourt.View
             if (firstClear && !string.IsNullOrEmpty(entry.CompanionReward))
             {
                 AddToRoster(entry.CompanionReward);
-                if (string.IsNullOrEmpty(_data.Active)) _data.Active = entry.CompanionReward;
+                if (_data.ActiveSlots == null || _data.ActiveSlots.Length == 0)
+                {
+                    _data.Active = entry.CompanionReward;
+                    _data.ActiveSlots = new[] { entry.CompanionReward };
+                }
+
             }
 
             var hack = sim as IHackSnapshot;

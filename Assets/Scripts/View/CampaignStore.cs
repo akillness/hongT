@@ -19,7 +19,12 @@ namespace CinderCourt.View
         public int Points;                          // unspent stat points
         public int Relics;                          // meta currency
         public string[] Roster;                     // companion ids, never null after Load
-        public string Active;                       // active companion id, "" = none
+        public string Active;                       // active companion id, "" = none (legacy alias of ActiveSlots[0])
+        /// <summary>AMENDMENT #6 (D6.6): 0..3 active companion ids, slot order preserved.
+        /// Never null after Load. Legacy saves with only "active" migrate to a 1-element
+        /// (or empty) array here; "active" itself keeps saving as ActiveSlots[0] so an
+        /// older client reading this key still sees the right single companion.</summary>
+        public string[] ActiveSlots;
         public bool PrologueDone;
     }
 
@@ -34,6 +39,7 @@ namespace CinderCourt.View
             var data = default(CampaignData);
             data.Roster = EmptyRoster;
             data.Active = "";
+            data.ActiveSlots = EmptyRoster;
             var raw = WebGLStorage.GetString(Key);
             if (string.IsNullOrEmpty(raw)) return data;
 
@@ -66,6 +72,15 @@ namespace CinderCourt.View
             data.Roster = ExtractStrings(Section(raw, "\"roster\":[", ']'));
             data.Active = ExtractString(raw, "\"active\":\"");
             data.PrologueDone = raw.Contains("\"prologueDone\":true");
+
+            // AMENDMENT #6 (D6.6): "activeSlots" wins when present; a save
+            // written before this amendment only has "active", which migrates
+            // to a 1-element (or empty) slot list here so every legacy save
+            // still resumes with its single companion in slot 0.
+            var hasActiveSlots = raw.IndexOf("\"activeSlots\":[", System.StringComparison.Ordinal) >= 0;
+            data.ActiveSlots = hasActiveSlots
+                ? ExtractStrings(Section(raw, "\"activeSlots\":[", ']'))
+                : (string.IsNullOrEmpty(data.Active) ? EmptyRoster : new[] { data.Active });
             return data;
         }
 
@@ -91,8 +106,23 @@ namespace CinderCourt.View
                     Builder.Append('"').Append(roster[i]).Append('"');
                 }
             }
-            Builder.Append("],\"active\":\"").Append(data.Active ?? "")
-                .Append("\",\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
+            var activeSlots = data.ActiveSlots;
+            // Legacy "active" always mirrors slot 0 so a pre-amendment client
+            // (or any code still reading only .Active) sees the right value.
+            var legacyActive = activeSlots != null && activeSlots.Length > 0
+                ? activeSlots[0]
+                : (data.Active ?? "");
+            Builder.Append("],\"active\":\"").Append(legacyActive)
+                .Append("\",\"activeSlots\":[");
+            if (activeSlots != null)
+            {
+                for (var i = 0; i < activeSlots.Length; i++)
+                {
+                    if (i > 0) Builder.Append(',');
+                    Builder.Append('"').Append(activeSlots[i]).Append('"');
+                }
+            }
+            Builder.Append("],\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
                 .Append('}');
             WebGLStorage.SetString(Key, Builder.ToString());
         }

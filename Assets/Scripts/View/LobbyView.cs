@@ -189,17 +189,21 @@ namespace CinderCourt.View
             }
 
             // --- legion ----------------------------------------------------------
-            var noneActive = string.IsNullOrEmpty(data.Active);
+            // AMENDMENT #6 (D6.6): legion tab now selects up to 3 (multi-slot),
+            // so "active" here means "present in ActiveSlots", not "the one".
+            var activeSlots = data.ActiveSlots ?? System.Array.Empty<string>();
+            var noneActive = activeSlots.Length == 0;
             _rosterLabels[0].color = noneActive ? Gold : InkDim;
             PlateStateful(_rosterBackgrounds[0], noneActive);
             for (var i = 0; i < CompanionIds.Length; i++)
             {
                 var owned = RosterContains(data.Roster, CompanionIds[i]);
-                var active = owned && data.Active == CompanionIds[i];
+                var active = owned && System.Array.IndexOf(activeSlots, CompanionIds[i]) >= 0;
                 _rosterLabels[i + 1].text = owned ? CompanionNames[i] : $"{CompanionNames[i]} (미보유)";
                 _rosterLabels[i + 1].color = active ? Gold : owned ? Cyan : Lock;
                 PlateStateful(_rosterBackgrounds[i + 1], active);
                 _rosterButtons[i + 1].interactable = owned;
+
             }
         }
 
@@ -548,7 +552,8 @@ namespace CinderCourt.View
         GameObject BuildLegionTab(Transform parent)
         {
             var content = TabContent(parent);
-            var hint = Label(content.transform, 16, -6, 360, 22, "던전에 동행할 동료 1체 선택", 13, TextAnchor.MiddleLeft);
+            var hint = Label(content.transform, 16, -6, 360, 22, "던전에 동행할 동료 최대 3체 선택", 13, TextAnchor.MiddleLeft);
+
             hint.color = InkDim;
 
             // Slot 0: none. Slots 1..: every obtainable companion (pre-built,
