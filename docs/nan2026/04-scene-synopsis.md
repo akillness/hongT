@@ -25,6 +25,19 @@
 > `scene-transition`(Ember Rest 이어가기) / `scene-boss-entry`(BossMonarch 스테이지) /
 > `scene-stage-entry`(그 외)를 골라 `entry.Kicker`·`entry.Title`과 frozen
 > `StoryCatalog` stageStart 내레이션을 캡션으로 얹는다. 로비 복귀 시 `_cutscene.Hide()`.
+>
+> **부트 브랜드 영상** `[OBSERVED]`: 엔진 기본 로딩 화면은 게임 컨셉·브랜드
+> 인트로 영상으로 대체됐다. `god-tibo-imagen`으로 생성한 6장
+> (`_workspace/current/design/intro-video/frames/`)을 ffmpeg Ken-Burns +
+> 크로스페이드로 이어 붙인 7.8 s H.264 1280×720 무음 클립이며, 마지막 홀드에
+> `ABYSSAL LANTERN` / `잿불의 법정을 지켜라` 타이틀 록업을 `HudKorean.otf`로
+> 구웠다. 산출물은 `Assets/StreamingAssets/Video/cinder-court-intro.mp4`,
+> 재생은 `IntroVideoView`(ScreenSpaceOverlay, sortingOrder 520 — `CutsceneView`
+> 500 위)가 담당한다. 기본 부트 경로에서만 재생하고 QA 딥링크(`?mode=...`)와
+> `?intro=off`에서는 건너뛴다. 아무 키·탭으로 스킵 가능하며, 4 s 준비 타임아웃과
+> 20 s 워치독이 있어 브라우저가 클립을 디코드하지 못해도 부트를 막지 않는다.
+> 스토리 비트는 `_workspace/current/design/intro-video/scenario.md`,
+> 생성·조립 근거는 `docs/provenance/intro-video.json`.
 
 
 ---

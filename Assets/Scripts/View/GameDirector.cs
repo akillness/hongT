@@ -21,6 +21,8 @@ namespace CinderCourt.View
         GameView _game;
         SpeechBubbleView _speech;
         CutsceneView _cutscene;
+        IntroVideoView _intro;
+
 
         State _state = State.Lobby;
         CampaignData _data;
@@ -41,7 +43,9 @@ namespace CinderCourt.View
             GameBootstrap bootstrap, LobbyView lobby, LobbyStaging staging,
             CameraRig rig, InputAdapter input, HudView hud,
             AudioDirector audio, VfxDirector vfx, GameView game,
-            SpeechBubbleView speech, CutsceneView cutscene)
+            SpeechBubbleView speech, CutsceneView cutscene,
+            IntroVideoView intro = null)
+
         {
             _bootstrap = bootstrap;
             _lobby = lobby;
@@ -54,6 +58,8 @@ namespace CinderCourt.View
             _game = game;
             _speech = speech;
             _cutscene = cutscene;
+            _intro = intro;
+
 
             _data = CampaignStore.Load();
             _hud.OnReturnHome = ReturnToLobby;
@@ -76,10 +82,19 @@ namespace CinderCourt.View
             // Boot route (spec §0): default Lobby; QA deep links preserved.
             var mode = WebGLStorage.QueryParam("mode");
             var stage = WebGLStorage.QueryParam("stage");
+
+            // Brand intro reel replaces the plain engine loading screen. It is a
+            // pure overlay (sorting 520) above the route that boots underneath,
+            // so no state is gated on it. QA deep links and ?intro=off skip it.
+            if (_intro != null && string.IsNullOrEmpty(mode)
+                && WebGLStorage.QueryParam("intro") != "off")
+                _intro.Play();
+
             if (mode == "arena") StartArena();
             else if (mode == "prologue") StartPrologue();
             else if (mode == "campaign" && IsStageUnlocked(stage)) StartDungeon(stage);
             else EnterLobby();
+
         }
 
         // ------------------------------------------------------------- lobby --
