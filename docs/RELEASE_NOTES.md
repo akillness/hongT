@@ -1,5 +1,52 @@
 # Release Notes
 
+## GitHub Pages 배포 — 툴링 경계 가드 + 재임포트 검증 · 2026-08-05
+
+### 변경 (배포 위생 사이클 — 게임플레이 변경 없음)
+- **Unity-MCP 에디터 툴링을 수렴 상태로 커밋**: OpenUPM 스코프 레지스트리 +
+  `com.ivanmurzak.*` UPM 패키지 11종, 리졸버가 `Assets/Plugins/NuGet`에
+  설치한 DLL 42종(17 MB). 전부 에디터 전용 — 아래 가드가 플레이어 유입을
+  차단한다.
+- **`BuildScript.ExcludeEditorToolingFromWebGl()` 신설**: 리졸버
+  (`NuGetPluginConfigurator`)는 도메인 리로드마다 DLL을 `anyPlatform=1`로
+  수렴시키므로 손 편집 메타는 유지되지 않는다. 대신 빌드 시점마다
+  (1) `UNITY_MCP_READY`를 WebGL 그룹에서 **빌드 스코프로 strip**
+  (`finally` 복원 — 빌드가 tracked 설정에 추가 churn을 남기지 않음),
+  (2) NuGet DLL 임포터에 `Exclude WebGL` 설정(리졸버 수렴 검사는
+  per-platform exclude를 읽지 않으므로 영구 유지).
+- **`ProjectSettings.asset` 정직 기록**: `scriptingDefineSymbols`가 `{}` →
+  `UNITY_MCP_READY` 19개 그룹으로 변했다. 이는 리졸버가 세션마다 주입하는
+  값이라 되돌리면 클린 클론에서 tracked 파일이 영구적으로 dirty해진다 —
+  수렴 상태로 커밋하고, WebGL 그룹만 빌드마다 strip되는 구조를 택했다.
+- **스테일 텍스처 진단 (직전 세션 이월 항목)**: 배치 임포트 결과
+  **재임포트 0건** — Library는 이미 디스크(=HEAD 텍스처)와 일치했고,
+  에디터의 구버전 표시는 **열린 에디터의 메모리 캐시**였다. 씬 미저장
+  상태로 에디터를 종료(디스크 = 진실 소스)하고 배치 파이프라인으로 재검증.
+- `GrowthChoiceSnapshot.cs.meta` 페어링 커밋 (3d599f0가 .cs만 커밋해
+  GUID가 임포트마다 재생성될 수 있었다).
+
+### 게이트·배포
+- EditMode **225/225 통과** (`test-results-214651.xml`).
+- WebGL 빌드 Succeeded, 62,068,944 bytes(디스크 39 MB ≤ 계약 120 MB) —
+  `build-214745.log`: strip 라인(604행) + **40 DLL 제외** 라인(2166행),
+  플레이어 빌드 로그에 McpPlugin/SignalR 문자열 **0건**.
+- gh-pages `73f7c11`, 캐시 `c920df31f01c03eb` — curl 폴링 2회차에 로컬과
+  일치. main: `d9b79f2` → `c7c8cfa` → `8c61544`.
+
+### 검증 상태
+- **라이브 확인**: 배포 빌드 로비 부팅(에러 배너 없음), 장비 탭에서
+  `equip-weapon`(검)·`equip-lantern`(주황 랜턴)·`equip-cloak`(청색 망토)
+  3종이 고유 팔레트로 렌더 (`deployed-tooling-equip.png`). ui-button
+  플레이트·성장 아이콘·해저드 글리프도 같은 프레임에 렌더.
+- **체인 검증 (라이브 육안과 별개)**: 아이콘 *신선도*의 근거는 체인이다 —
+  재임포트 0건(Library=디스크) → 그 Library로 빌드 → 라이브 캐시버전
+  일치. 스크린샷은 렌더 확인이며 구버전 대비 픽셀 diff가 아니다
+  (구버전 대조 캡처가 존재하지 않는다).
+- **미확인**: 전투 중 `pickup-ember/flask/relic` 아이콘은 화면 확인 못 함
+  (전투 진입 필요, VfxDirector 로드 경로는 기존 배포에서 검증된 경로
+  그대로). 에디터 재기동 후 MCP 자동 재연결은 다음 인터랙티브 세션에서
+  확인될 항목.
+
 ## GitHub Pages 배포 — §K3 스킬 원소색 피격 + 플래시 지속 수정 · 2026-08-05
 
 ### 변경 (spec `combat-feel-boss-phase-spec` §K3)

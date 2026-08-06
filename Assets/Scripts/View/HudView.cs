@@ -31,6 +31,11 @@ namespace CinderCourt.View
         Text _healthText, _chargeText, _waveText, _scoreText, _relicText, _enemyText;
         Text _loreText, _finalText, _retryLabel;
         Image _novaCooldownOverlay, _wardCooldownOverlay;
+        // Input depth §3/§5 surfaces, lazily built on first use.
+        GameObject _chargeGauge;
+        Image _chargeGaugeFill;
+        GameObject _growthPanel;
+        Text _growthTitle, _growthOptions;
         CanvasGroup _novaGroup, _wardGroup;
         GameObject _gameOverPanel, _touchJoystickRoot;
         Text _muteLabel;
@@ -1058,6 +1063,71 @@ namespace CinderCourt.View
             _prologueToastText.text = steps[step];
         }
 
+        /// <summary>Input depth §3: charge gauge. Lazily built like the
+        /// prologue toast so it costs nothing until a player first holds the
+        /// attack key. raycastTarget stays false — decoration only.</summary>
+        void SyncChargeGauge(float progress)
+        {
+            if (progress <= 0f)
+            {
+                if (_chargeGauge != null && _chargeGauge.activeSelf) _chargeGauge.SetActive(false);
+                return;
+            }
+            if (_chargeGauge == null)
+            {
+                var root = (Transform)_safeRoot;
+                _chargeGauge = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0, 96), new Vector2(220, 8), new Color(0.02f, 0.02f, 0.04f, 0.8f));
+                _chargeGauge.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+                var fillObject = new GameObject("ChargeFill");
+                fillObject.transform.SetParent(_chargeGauge.transform, false);
+                _chargeGaugeFill = fillObject.AddComponent<Image>();
+                _chargeGaugeFill.raycastTarget = false;
+                _chargeGaugeFill.type = Image.Type.Filled;
+                _chargeGaugeFill.fillMethod = Image.FillMethod.Horizontal;
+                var fillRect = _chargeGaugeFill.rectTransform;
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = Vector2.one;
+                fillRect.sizeDelta = Vector2.zero;
+                fillRect.anchoredPosition = Vector2.zero;
+            }
+            _chargeGauge.SetActive(true);
+            _chargeGaugeFill.fillAmount = progress;
+            // Ember while building, gold at full — the colour IS the "ready"
+            // signal, so the player never has to read the bar's length.
+            _chargeGaugeFill.color = progress >= 1f
+                ? new Color(0.87f, 0.78f, 0.41f)
+                : Color.Lerp(new Color(0.95f, 0.35f, 0.17f, 0.75f),
+                             new Color(0.87f, 0.78f, 0.41f), progress * progress);
+        }
+
+        /// <summary>Input depth §5: the level-up offer. Shows the three keys
+        /// and the countdown, so an ignoring player can SEE that waiting is
+        /// safe rather than having to learn it.</summary>
+        void SyncGrowthOffer(bool open, float secondsLeft)
+        {
+            if (!open)
+            {
+                if (_growthPanel != null && _growthPanel.activeSelf) _growthPanel.SetActive(false);
+                return;
+            }
+            if (_growthPanel == null)
+            {
+                var root = (Transform)_safeRoot;
+                _growthPanel = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0, 150), new Vector2(440, 62), new Color(0.03f, 0.03f, 0.06f, 0.88f));
+                _growthPanel.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+                _growthTitle = Label(_growthPanel.transform, 0, 16, 440, 22,
+                    "", 15, TextAnchor.MiddleCenter);
+                _growthTitle.color = new Color(0.87f, 0.78f, 0.41f);
+                _growthOptions = Label(_growthPanel.transform, 0, -6, 440, 24,
+                    "1 공격  ·  2 생명  ·  3 민첩", 16, TextAnchor.MiddleCenter);
+                _growthOptions.color = new Color(0.72f, 0.86f, 0.95f);
+            }
+            _growthPanel.SetActive(true);
+            _growthTitle.text = $"레벨 업 — 강화 선택 ({Mathf.CeilToInt(secondsLeft)})";
+        }
+
         public void HidePrologueToast()
         {
             if (_prologueToast != null) _prologueToast.SetActive(false);
@@ -1073,6 +1143,12 @@ namespace CinderCourt.View
         Text _consoleToast;
         float _consoleToastTimer;
         bool _consoleBusy;               // one in-flight Gemini call max
+        // New-Input-System-only project (activeInputHandler:1): legacy uGUI
+        // InputField reads the OLD Input.inputString/IMGUI stream, which is
+        // dead here — so typing never reached the field (only Enter/ESC worked,
+        // read straight off Keyboard.current). Feed Keyboard.onTextInput by
+        // hand instead (Unity input-system docs: read-keyboard-text-input).
+        System.Action<char> _consoleTextHandler;
         /// <summary>GameView caps timeScale at 0.2 while this is true — typing
         /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
         /// reduced-motion players get the same breathing room.</summary>
@@ -1143,20 +1219,53 @@ namespace CinderCourt.View
             if (Input != null) Input.TextInputActive = true;
             _consoleField.text = string.Empty;
             _consoleField.ActivateInputField();
+            // New-input-only project: the uGUI InputField can't pull text from
+            // the dead legacy Input stream, so we mirror Keyboard.onTextInput
+            // into the field ourselves (printable chars + backspace).
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null)
+            {
+                _consoleTextHandler = OnConsoleTextInput;
+                keyboard.onTextInput += _consoleTextHandler;
+            }
             if (!GeminiCommandClient.HasKey)
                 ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 · 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
         }
+
+        void OnConsoleTextInput(char c)
+        {
+            if (!CommandConsoleOpen || _consoleField == null) return;
+            // Enter/ESC are handled separately in UpdateCommandConsole; ignore
+            // their control chars and the tab so the field stays clean.
+            if (c == '\n' || c == '\r' || c == '\t' || c == (char)27) return;
+            if (c == '\b' || c == (char)127)
+            {
+                var t = _consoleField.text;
+                if (t.Length > 0) _consoleField.text = t.Substring(0, t.Length - 1);
+                return;
+            }
+            if (!char.IsControl(c)) _consoleField.text += c;
+        }
+
 
         void CloseCommandConsole(bool submit)
         {
             if (_consoleRoot == null) return;
             var raw = _consoleField.text;
             _consoleField.DeactivateInputField();
+            // Detach the manual text feed so it never leaks onto other surfaces.
+            if (_consoleTextHandler != null)
+            {
+                var keyboard = UnityEngine.InputSystem.Keyboard.current;
+                if (keyboard != null) keyboard.onTextInput -= _consoleTextHandler;
+                _consoleTextHandler = null;
+            }
             _consoleRoot.SetActive(false);
             CommandConsoleOpen = false;
             if (Input != null) Input.TextInputActive = false;
             if (submit && !string.IsNullOrWhiteSpace(raw)) SubmitCommand(raw.Trim());
         }
+
 
         void SubmitCommand(string raw)
         {
@@ -2102,6 +2211,17 @@ namespace CinderCourt.View
         // cast flash (#10), wave banner (#20), level toast/punch (#19).
         void SyncJuice(ISimSnapshot sim)
         {
+            // Input depth §3/§5. Both read additive seams, so a snapshot that
+            // predates the amendment simply leaves them hidden.
+            if (sim is CinderSim liveSim)
+            {
+                SyncChargeGauge(liveSim.ChargeProgress);
+            }
+            if (sim is IGrowthChoiceSnapshot growth)
+            {
+                SyncGrowthOffer(growth.GrowthOfferOpen, growth.GrowthOfferTime);
+            }
+
             // Low-HP vignette: heartbeat pulse under 35 HP, scaled for reduced motion.
             var lowHp = sim.Mode != SimMode.GameOver && sim.Player.Health < 35f;
             var targetAlpha = lowHp

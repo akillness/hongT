@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
@@ -26,6 +27,7 @@ namespace CinderCourt.EditorTools
 
         public static void BuildWebGL()
         {
+            var originalWebGlDefines = ExcludeEditorToolingFromWebGl();
             var output = "build-webgl";
             // Transparent-variant seed must exist BEFORE the player build, or
             // URP strips _SURFACE_TYPE_TRANSPARENT and all runtime transparent
@@ -53,7 +55,18 @@ namespace CinderCourt.EditorTools
                 locationPathName = output,
                 options = BuildOptions.None,
             };
-            var report = BuildPipeline.BuildPlayer(options);
+            BuildReport report;
+            try
+            {
+                report = BuildPipeline.BuildPlayer(options);
+            }
+            finally
+            {
+                // Build-scoped strip only: put the tracked ProjectSettings
+                // define set back no matter how BuildPlayer ends, so batch
+                // builds never leave WebGL-group churn in a tracked file.
+                RestoreWebGlDefines(originalWebGlDefines);
+            }
             var summary = report.summary;
             Debug.Log($"[BuildWebGL] result={summary.result} size={summary.totalSize} " +
                       $"errors={summary.totalErrors} warnings={summary.totalWarnings} time={summary.totalTime}");
@@ -64,6 +77,78 @@ namespace CinderCourt.EditorTools
             }
             PolishIndexHtml(output);
             if (Application.isBatchMode) EditorApplication.Exit(0);
+        }
+
+        /// <summary>
+        /// MCP editor tooling (com.ivanmurzak.unity.mcp packages + the NuGet
+        /// DLLs its resolver installs under Assets/Plugins/NuGet) must never
+        /// ship in the WebGL player:
+        ///  - the resolver marks runtime-capable DLLs anyPlatform=1 on every
+        ///    domain reload (NuGetPluginConfigurator.ConfigureDll), which
+        ///    would IL2CPP ~17 MB of SignalR/Json/R3/Roslyn-adjacent managed
+        ///    code into the wasm and reference socket APIs WebGL cannot run;
+        ///  - the UNITY_MCP_READY define (installed project-wide by the
+        ///    resolver) would compile the MCP Runtime asmdef into the player.
+        /// Hand-editing the .meta files does not survive the resolver's
+        /// convergence pass, so both levers are re-asserted here at build
+        /// time, immediately before BuildPlayer. Editor targets are left
+        /// untouched — the MCP tooling keeps working in the editor.
+        /// </summary>
+        static string ExcludeEditorToolingFromWebGl()
+        {
+            var webgl = NamedBuildTarget.WebGL;
+            var defines = PlayerSettings.GetScriptingDefineSymbols(webgl);
+            var kept = new List<string>();
+            var stripped = false;
+            foreach (var define in defines.Split(';'))
+            {
+                if (define == "UNITY_MCP_READY") { stripped = true; continue; }
+                if (define.Length > 0) kept.Add(define);
+            }
+            if (stripped)
+            {
+                PlayerSettings.SetScriptingDefineSymbols(webgl, string.Join(";", kept));
+                Debug.Log("[BuildWebGL] stripped UNITY_MCP_READY from the WebGL define set (build-scoped)");
+            }
+
+            var excluded = 0;
+            foreach (var importer in PluginImporter.GetAllImporters())
+            {
+                if (importer == null) continue;
+                if (!importer.assetPath.StartsWith("Assets/Plugins/NuGet/", StringComparison.Ordinal))
+                    continue;
+
+                var dirty = false;
+                if (importer.GetCompatibleWithAnyPlatform())
+                {
+                    if (!importer.GetExcludeFromAnyPlatform("WebGL"))
+                    {
+                        importer.SetExcludeFromAnyPlatform("WebGL", true);
+                        dirty = true;
+                    }
+                }
+                else if (importer.GetCompatibleWithPlatform(BuildTarget.WebGL))
+                {
+                    importer.SetCompatibleWithPlatform(BuildTarget.WebGL, false);
+                    dirty = true;
+                }
+
+                if (dirty)
+                {
+                    importer.SaveAndReimport();
+                    excluded++;
+                }
+            }
+            if (excluded > 0)
+                Debug.Log($"[BuildWebGL] excluded {excluded} NuGet tooling DLL(s) from the WebGL player");
+            return defines;
+        }
+
+        static void RestoreWebGlDefines(string defines)
+        {
+            var webgl = NamedBuildTarget.WebGL;
+            if (PlayerSettings.GetScriptingDefineSymbols(webgl) != defines)
+                PlayerSettings.SetScriptingDefineSymbols(webgl, defines);
         }
 
         /// <summary>

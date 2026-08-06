@@ -142,7 +142,7 @@ namespace CinderCourt.View
             _novaRing.positionCount = RingSegments;
             _novaRing.widthMultiplier = 0.09f;
             _novaRing.useWorldSpace = true;
-            _novaMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.62f, 0.25f, 1f), true);
+            _novaMaterial = ViewWorld.MakeAdditive(new Color(1f, 0.62f, 0.25f, 1f));
             _novaRing.sharedMaterial = _novaMaterial;
             _novaRing.enabled = false;
 
@@ -154,7 +154,7 @@ namespace CinderCourt.View
             _pulseRing.positionCount = RingSegments;
             _pulseRing.widthMultiplier = 0.06f;
             _pulseRing.useWorldSpace = true;
-            _pulseMaterial = ViewWorld.MakeUnlit(new Color(0.953f, 0.349f, 0.173f, 0.6f), true);
+            _pulseMaterial = ViewWorld.MakeAdditive(new Color(0.953f, 0.349f, 0.173f, 0.6f));
             _pulseRing.sharedMaterial = _pulseMaterial;
             _pulseRing.enabled = false;
 
@@ -233,13 +233,51 @@ namespace CinderCourt.View
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Sphere;
             shape.radius = 0.12f;
+            // --- Unity advanced-VFX guide techniques, ported to the built-in
+            // ParticleSystem. VFX Graph itself CANNOT ship here: it requires
+            // compute shaders, which WebGL lacks and CLAUDE.md L27 forbids.
+            // These four modules are the guide's portable ideas — organic
+            // noise motion, lifetime shaping, and strip trails — at zero
+            // texture cost and zero new shader variants.
+
+            // 1) Noise: the guide's headline technique. Straight-line debris
+            // reads as a particle system; curled debris reads as fire, ash and
+            // magic. Cheap because it samples a procedural field, not a texture.
+            var noise = system.noise;
+            noise.enabled = true;
+            noise.strength = 0.35f;
+            noise.frequency = 1.8f;
+            noise.scrollSpeed = 0.6f;
+            noise.quality = ParticleSystemNoiseQuality.Low;   // WebGL budget
+            noise.damping = true;                              // strength scales with size
+
+            // 2) Size over lifetime: a burst that pops in and shrinks away
+            // reads as energy dissipating. A constant-size burst reads as
+            // sprites being deleted.
+            var sizeOverLife = system.sizeOverLifetime;
+            sizeOverLife.enabled = true;
+            sizeOverLife.size = new ParticleSystem.MinMaxCurve(1f,
+                new AnimationCurve(
+                    new Keyframe(0f, 0.35f),
+                    new Keyframe(0.18f, 1f),
+                    new Keyframe(1f, 0f)));
+
+            // 3) Rotation over lifetime: breaks the billboard grid so debris
+            // does not read as a card sheet. NOTE the Unity API trap — this
+            // setter is RADIANS per second even though the inspector shows
+            // degrees. Mathf.PI = 180 deg/s, a half-turn per second; passing
+            // 180f here would be 28.6 revolutions per second, i.e. shimmer.
+            var rotation = system.rotationOverLifetime;
+            rotation.enabled = true;
+            rotation.z = new ParticleSystem.MinMaxCurve(-Mathf.PI, Mathf.PI);
+
             var renderer = system.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             // PROVEN seed path (MakeUnlit) — URP Particles shader would be
             // variant-stripped on WebGL (zero material references in build).
-            renderer.sharedMaterial = ViewWorld.MakeUnlit(color, true);
+            renderer.sharedMaterial = ViewWorld.MakeAdditive(color);
             // Emission is off — Play() once so Emit(count) bursts actually
             // simulate (a stopped system spawns particles that never age).
             system.Play();
@@ -498,7 +536,7 @@ namespace CinderCourt.View
                 slot.Ring.positionCount = 28;
                 slot.Ring.widthMultiplier = 0.05f;
                 slot.Ring.useWorldSpace = true;
-                slot.Material = ViewWorld.MakeUnlit(color, true);
+                slot.Material = ViewWorld.MakeAdditive(color);
                 slot.Ring.sharedMaterial = slot.Material;
             }
             slot.Center = ViewWorld.ToWorld(simX, simY, 0.06f);
@@ -525,7 +563,7 @@ namespace CinderCourt.View
                 slot.Ring.positionCount = 28;
                 slot.Ring.widthMultiplier = 0.035f;
                 slot.Ring.useWorldSpace = true;
-                slot.Material = ViewWorld.MakeUnlit(Color.white, true);
+                slot.Material = ViewWorld.MakeAdditive(Color.white);
                 slot.Ring.sharedMaterial = slot.Material;
             }
             slot.Center = ViewWorld.ToWorld(simX, simY, 0.1f);
@@ -595,7 +633,7 @@ namespace CinderCourt.View
                 _boltStreak.useWorldSpace = true;
                 _boltStreak.startWidth = 0.07f;
                 _boltStreak.endWidth = 0.015f;
-                _boltStreakMaterial = ViewWorld.MakeUnlit(new Color(0.75f, 0.55f, 1f, 0.9f), true);
+                _boltStreakMaterial = ViewWorld.MakeAdditive(new Color(0.75f, 0.55f, 1f, 0.9f));
                 _boltStreak.sharedMaterial = _boltStreakMaterial;
                 _boltStreak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }

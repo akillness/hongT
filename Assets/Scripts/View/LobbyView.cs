@@ -252,14 +252,14 @@ namespace CinderCourt.View
             // --- legion ----------------------------------------------------------
             var noneActive = string.IsNullOrEmpty(data.Active);
             _rosterLabels[0].color = noneActive ? Gold : InkDim;
-            _rosterBackgrounds[0].color = noneActive ? ButtonActive : ButtonBack;
+            PlateStateful(_rosterBackgrounds[0], noneActive);
             for (var i = 0; i < CompanionIds.Length; i++)
             {
                 var owned = RosterContains(data.Roster, CompanionIds[i]);
                 var active = owned && data.Active == CompanionIds[i];
                 _rosterLabels[i + 1].text = owned ? CompanionNames[i] : $"{CompanionNames[i]} (미보유)";
                 _rosterLabels[i + 1].color = active ? Gold : owned ? Cyan : Lock;
-                _rosterBackgrounds[i + 1].color = active ? ButtonActive : ButtonBack;
+                PlateStateful(_rosterBackgrounds[i + 1], active);
                 _rosterButtons[i + 1].interactable = owned;
             }
         }
@@ -811,7 +811,9 @@ namespace CinderCourt.View
             for (var i = 0; i < 3; i++)
             {
                 _tabContents[i].SetActive(i == index);
-                _tabBackgrounds[i].color = i == index ? ButtonActive : ButtonBack;
+                // Sprite swap, not tint — see PlateStateful. Colour stays
+                // white so the plate art is not multiplied.
+                PlateStateful(_tabBackgrounds[i], i == index);
             }
         }
 
@@ -824,6 +826,12 @@ namespace CinderCourt.View
             panel.transform.SetParent(parent, false);
             var image = panel.AddComponent<Image>();
             image.color = color;
+            // HudView.Panel sets this and LobbyView never did, so every lobby
+            // panel, card, border line and row has been an invisible raycast
+            // target — decoration eating clicks meant for what is under it.
+            // Callers that need the click (TextButton) re-enable it explicitly
+            // on the very next line, so this is safe to default off.
+            image.raycastTarget = false;
             var rect = panel.GetComponent<RectTransform>();
             rect.anchorMin = anchorMin;
             rect.anchorMax = anchorMax;
@@ -897,6 +905,24 @@ namespace CinderCourt.View
             var text = Label(buttonObject.transform, 0, 0, size.x, size.y, label, fontSize, TextAnchor.MiddleCenter);
             Stretch(text.rectTransform);
             return buttonObject;
+        }
+
+        /// <summary>Plates a STATEFUL button (tab, roster row) so it joins the
+        /// same button language as the action buttons.
+        ///
+        /// These previously kept a flat fill because the state signal was
+        /// Image.color, and tinting a sprite multiplies it — the plate would
+        /// go muddy. Swapping the sprite instead carries state without
+        /// touching colour, so 12 buttons that were excluded by an art
+        /// limitation now match the rest.</summary>
+        static void PlateStateful(Image image, bool active)
+        {
+            var sprite = Resources.Load<Sprite>(
+                active ? "Icons/ui-button-active" : "Icons/ui-button");
+            if (sprite == null) return;   // fallback: caller's flat tint stands
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.color = Color.white;
         }
 
         /// <summary>Card: inner panel with the original border-line token.</summary>

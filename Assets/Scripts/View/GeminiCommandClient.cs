@@ -18,7 +18,7 @@ namespace CinderCourt.View
     {
         private const string KeyPref = "al:gemini-key";
         private const string Endpoint =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
         public static bool HasKey => !string.IsNullOrEmpty(LoadKey());
 

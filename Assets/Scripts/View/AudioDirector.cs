@@ -1,5 +1,15 @@
 // SimEvents -> one-shot cues, plus looping BGM bed and lore ambience.
 // User directive 2026-08-04: SFX + BGM only, NO voice narration.
+//
+// Voice pool + pitch jitter (improvement-brainstorm.md TOP 1): a single
+// AudioSource replayed every cue overlaps identical waveforms in phase, so a
+// combo's rapid `hit` retriggers read as one buzzing tone. A small round-robin
+// pool spreads concurrent one-shots across voices and a deterministic pitch
+// jitter (±6%) de-phases repeats so a burst sounds like many strikes, not one.
+// WebGL contract: AudioSource.pitch is supported but MUST stay positive
+// (docs.unity3d.com/Manual/webgl-audio.html); the jitter range [0.94,1.06]
+// never crosses zero. `priority` is a no-op on WebGL, so voice spreading is the
+// only way to keep a loud cue from stealing a quiet one.
 using CinderCourt.Sim;
 using UnityEngine;
 
@@ -8,8 +18,22 @@ namespace CinderCourt.View
     public sealed class AudioDirector : MonoBehaviour
     {
         const string MuteKey = "abyssal-lantern:cinder-court:muted";
+        // Enough voices for the loudest realistic frame (nova hit + finisher +
+        // kill + pickup) without letting round-robin wrap onto a still-ringing
+        // voice mid-burst. WebGL has no hardware voice cap, so this is only
+        // about phase spreading, not a channel budget.
+        const int VoiceCount = 6;
+        // ±6% keeps every retrigger recognizably the same cue while breaking the
+        // in-phase overlap that makes repeats buzz. Stays > 0 for WebGL.
+        const float PitchJitter = 0.06f;
 
-        AudioSource _oneShot;
+        readonly AudioSource[] _voices = new AudioSource[VoiceCount];
+        int _voiceCursor;
+        // View-only presentation RNG. NOT the sim — pitch never feeds a tick, so
+        // seeding it deterministically keeps EditMode assertions reproducible
+        // without touching the frozen deterministic-sim contract.
+        uint _pitchRng = 0x9E3779B9u;
+
         AudioSource _bgm;
         AudioClip _strike, _hit, _kill, _nova, _ward, _pickup, _wave, _gameover, _lore;
         bool _muted;
@@ -18,8 +42,12 @@ namespace CinderCourt.View
 
         void Awake()
         {
-            _oneShot = gameObject.AddComponent<AudioSource>();
-            _oneShot.playOnAwake = false;
+            for (var i = 0; i < VoiceCount; i++)
+            {
+                var voice = gameObject.AddComponent<AudioSource>();
+                voice.playOnAwake = false;
+                _voices[i] = voice;
+            }
 
             _strike = Resources.Load<AudioClip>("Audio/cue-strike");
             _hit = Resources.Load<AudioClip>("Audio/cue-hit");
@@ -62,10 +90,27 @@ namespace CinderCourt.View
             ApplyMute();
         }
 
+        /// <summary>Deterministic view-only jitter in [1-PitchJitter, 1+PitchJitter],
+        /// advancing an xorshift32 state. Pure given the state, so EditMode can
+        /// assert its bounds and that consecutive draws differ. Never touches the
+        /// sim RNG or any tick input.</summary>
+        internal static float NextPitch(ref uint state)
+        {
+            // xorshift32 — full-period, cheap, no allocation.
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            var unit = (state & 0xFFFFFFu) / (float)0x1000000; // [0,1)
+            return 1f + (unit * 2f - 1f) * PitchJitter;
+        }
+
         void Play(AudioClip clip, float volume = 1f)
         {
-            if (_muted || clip == null || _oneShot == null) return;
-            _oneShot.PlayOneShot(clip, volume);   // overlap allowed, no trimming
+            if (_muted || clip == null || _voices[0] == null) return;
+            var voice = _voices[_voiceCursor];
+            _voiceCursor = (_voiceCursor + 1) % VoiceCount;   // round-robin
+            voice.pitch = NextPitch(ref _pitchRng);
+            voice.PlayOneShot(clip, volume);   // overlap allowed, no trimming
         }
 
         public void OnEvents(SimEvents events)

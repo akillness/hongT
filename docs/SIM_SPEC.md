@@ -10,7 +10,7 @@
 | 고정스텝 | `1/60` s, accumulator, `MAX_FRAME_DELTA 0.25`, `MAX_CATCH_UP_STEPS 5` |
 | 월드 | 1536 × 1024 (원본 px 단위 유지; Unity에선 1 unit = 1 px, XZ 평면) |
 | 아레나 중심 | (768, 604) |
-| 아레나 반경 | half-width 520, half-height 270 (타원 클램프 아님: AABB 클램프) |
+| 아레나 반경 | half-width 520, half-height 270 (다이아몬드/L1 클램프 — 아래 참조) |
 | 깊이 스케일 | far 0.62 → near 1.0, y 정규화 후 9단계 양자화 (View 전용) |
 
 - 좌표 계약: 시뮬레이션은 원본 2D 좌표(x→우, y→화면 아래=near)를 그대로 쓴다.
@@ -19,6 +19,15 @@
   `halfW = 520 − margin`, `halfH = 270 − margin*0.5`,
   `n = |x−768|/halfW + |y−604|/halfH`; `n > 1`이면 `localX /= n`, `localY /= n`.
   AABB 클램프 아님. 플레이어 margin 34, 적 margin 24.
+- **AMENDMENT #4 (던전 전용)**: 던전 경로만 L2(타원)로 클램프한다.
+  같은 바운딩 박스·같은 바닥이지만 도달 가능 면적이 280,800 → 441,080 u²
+  (+57%)다. L1은 위쪽 끝 75% 지점에서 `|x| ≤ 130`(가능치 520)만 허용해
+  구석을 잘라냈다. 드레싱 평면이 정확히 바운딩 박스라 새로 열린 좌표에도
+  이미 바닥이 있다. **아레나·프롤로그·평캠페인은 L1 그대로**이며 EditMode가
+  두 모양을 각각 고정한다.
+- **AMENDMENT #5 (던전 전용)**: `SimInput`에 `AttackHeld`(bool),
+  `GrowthChoice`(int 0..3) 추가. 기본값이 `false`/`0`이라 아레나 다이제스트
+  불변. 의미는 `docs/SIM_SPEC_HACKSLASH.md §12.1`.
 - 아이소 전투 거리: `dist² = dx² + (dy*1.42)²`.
 - 전방 판정: `dx * facing ≥ -18`.
 

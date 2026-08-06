@@ -36,9 +36,21 @@ namespace CinderCourt.View
         // Dungeon distance tiers (spec §10): calm 17, big-wave/boss 21.
         float _dungeonDistance = 17f;
         float _dungeonTargetDistance = 17f;
+        // Outskirt fog offsets from the live orbit distance. Derived from the
+        // measured floor geometry at pitch 55: the far playable edge sits
+        // ~1.7 u beyond the focus depth and the apron rim ~5.5 u beyond, so
+        // starting the band 2 u out keeps the whole play area clear while the
+        // rim lands at the far end. Baked scene values (19/22.5) remain the
+        // Arena/Prologue baseline — those cameras never move.
+        const float FogStartOffset = 2f;
+        const float FogEndOffset = 5.5f;
         // Prologue reveal interpolation state.
         float _revealT;
 
+        // Scene-authored fog band, captured at Awake and restored whenever a
+        // non-dungeon profile takes over.
+        float _bakedFogStart = 19f;
+        float _bakedFogEnd = 22.5f;
         public Profile Current => _profile;
 
         void Awake()
@@ -51,6 +63,10 @@ namespace CinderCourt.View
             if (_camera == null) return;
             _basePosition = _camera.transform.position;
             _baseRotation = _camera.transform.rotation;
+            // Snapshot the scene's authored fog band before any dungeon run
+            // overwrites it — this is what non-dungeon profiles restore to.
+            _bakedFogStart = RenderSettings.fogStartDistance;
+            _bakedFogEnd = RenderSettings.fogEndDistance;
             ApplyAspect(true);
         }
 
@@ -69,6 +85,16 @@ namespace CinderCourt.View
             _focusTimer = 0f;   // stale boss focus must not survive a run exit
             _focusDuration = 1f;
             _focusTarget = Vector3.zero;
+            // The dungeon branch drives RenderSettings fog every frame, and
+            // RenderSettings is GLOBAL — without this, Lobby and Arena inherit
+            // whatever band the last dungeon run left (up to 23/26.5 after a
+            // boss wave), which un-dissolves their apron rims. Restore the
+            // baked scene values on every non-dungeon profile.
+            if (profile != Profile.Dungeon)
+            {
+                RenderSettings.fogStartDistance = _bakedFogStart;
+                RenderSettings.fogEndDistance = _bakedFogEnd;
+            }
             if (_camera == null) return;
             switch (profile)
             {
@@ -216,6 +242,17 @@ namespace CinderCourt.View
                         focus = Vector3.Lerp(ArenaCenter, _focusTarget, blend * 0.55f);
                     }
                     PlaceOrbit(55f, _dungeonDistance * _aspectWiden, focus);
+                    // Outskirt fog must TRACK the orbit, not sit at a baked
+                    // distance. The dungeon has two tiers (calm 17, big-wave/
+                    // boss 21), and a static 19/22.5 band tuned for calm fogs
+                    // the arena centre 57% and the far playable edge 100% once
+                    // the camera pulls back — the boss would dissolve into the
+                    // background at the exact moment it spawns. Offsetting
+                    // from the live distance keeps the playable area at 0% in
+                    // both tiers while still dissolving the apron rim ~95%+.
+                    var fogNear = _dungeonDistance * _aspectWiden;
+                    RenderSettings.fogStartDistance = fogNear + FogStartOffset;
+                    RenderSettings.fogEndDistance = fogNear + FogEndOffset;
                     ApplyShakeOffset();
                     break;
                 }

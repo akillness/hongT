@@ -52,8 +52,13 @@ namespace CinderCourt.View
         // They MUST match the row order in CharacterImportPipeline.Clips, which
         // ClipTableTests pins.
         const int Attack2Value = 11, Attack3Value = 12, CastValue = 13;
+        // §M: the roar clip's readable length. Long enough that the entrance
+        // registers, short enough that the boss is not a free target — it can
+        // still turn and attack the instant its AI decides to.
+        const float RoarDuration = 1.1f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
+        float _roarTime;                      // §M boss entrance roar window
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
 
@@ -121,6 +126,31 @@ namespace CinderCourt.View
 
         public void SyncPlayer(in PlayerState state)
         {
+            // §M: the player can now be launched (phase-3 boss slam). The sim
+            // keeps that state private — PlayerState is frozen — so the View
+            // infers it from velocity, the same trick already used for
+            // enemies.
+            //
+            // The gate is a BAND, not a floor. Measured px/s:
+            //   walk 218 | slam 577 | dash 864 | retreat finisher 4440
+            //   | run reset 30000+
+            // A bare floor would fire on the retreat finisher — a one-frame
+            // 74 px reposition during the player's OWN swing — and flash the
+            // "I got hit" pose on an escape move. Anything above 1500 px/s is
+            // a teleport (a finisher step or a run reset), never a launch.
+            // The dash is excluded outright because Avoid owns its pose.
+            if (!float.IsNaN(_prevSimX) && Time.deltaTime > 0f
+                && state.Action != ActorAction.Avoid)
+            {
+                var stepX = state.X - _prevSimX;
+                var stepY = state.Y - _prevSimY;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                if (speed > 400f && speed < 1500f)
+                    _knockbackTime = HackSpec.BossSlamKnockbackTime;
+            }
+            // NOTE: _prevSimX/Y are deliberately NOT written here. Apply's
+            // 16-direction yaw block owns them, and writing first would hand
+            // it a zero delta — facing would freeze on every frame.
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.Health / SimConfig.PlayerMaxHealth, 1f, false, 0f,
                   state.DamageCooldown > SimConfig.PlayerHitGrace - 0.16f);
@@ -131,6 +161,7 @@ namespace CinderCourt.View
                 _swingTrail.emitting = state.Action == ActorAction.Attack
                     && state.ActionTime >= 0.10f && state.ActionTime < 0.34f;
             UpdateCastGlow(Time.deltaTime);   // §V1 convergence step
+            UpdateAfterimages(Time.deltaTime);   // dash ghosts (vfx survey)
         }
 
         /// <summary>
@@ -348,14 +379,31 @@ namespace CinderCourt.View
         /// A live knockback outranks everything except death — being launched is
         /// the strongest thing happening to that body.</summary>
         internal static int ResolveActionValue(
-            ActorAction action, int comboTier, bool castPoseLive, bool knockbackLive = false)
+            ActorAction action, int comboTier, bool castPoseLive, bool knockbackLive = false,
+            bool roarLive = false)
         {
             if (action == ActorAction.Die) return (int)ActorAction.Die;
             if (knockbackLive) return (int)ActorAction.BigHit;
+            // §M: the boss entrance roar. Sits under knockback (a boss launched
+            // mid-roar should read as launched) but over locomotion, because a
+            // roaring boss that walks looks like neither. Idle-only, same rule
+            // as the cast pose: a boss already swinging keeps its swing.
+            if (roarLive && (action == ActorAction.Idle || action == ActorAction.Move
+                || action == ActorAction.Run))
+                return (int)ActorAction.Show;
             if (action == ActorAction.Attack && comboTier > 0)
                 return comboTier == 1 ? Attack2Value : Attack3Value;
             if (castPoseLive && action == ActorAction.Idle) return CastValue;
             return (int)action;
+        }
+
+        /// <summary>§M: starts the entrance roar window. Called from the
+        /// BossSpawned event, which is where the intro letterbox already
+        /// triggers — the sim never poses this, because a sim-side Show would
+        /// be overwritten by the AI on the very next tick.</summary>
+        public void PlayRoar()
+        {
+            _roarTime = RoarDuration;
         }
 
         /// <summary>
@@ -383,6 +431,110 @@ namespace CinderCourt.View
             _swingTrail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _swingTrail.receiveShadows = false;
             _swingTrail.emitting = false;
+        }
+
+        // --- dash afterimages (vfx survey: hack-and-slash dash flair) --------
+        // Three world-frozen ghosts baked from the skinned mesh, spawned
+        // ~55 ms apart along the dash path, additive ember fade over 0.28 s.
+        // Player-only decoration; capsule fallbacks (no SkinnedMeshRenderer)
+        // and non-triggered actors pay nothing.
+        const int GhostCount = 3;
+        const float GhostLife = 0.28f;
+        const float GhostInterval = 0.055f;
+        static readonly Color GhostColor = new Color(0.953f, 0.349f, 0.173f, 0.55f);
+        SkinnedMeshRenderer _ghostSource;
+        readonly Mesh[] _ghostMeshes = new Mesh[GhostCount];
+        readonly Transform[] _ghosts = new Transform[GhostCount];
+        readonly Material[] _ghostMaterials = new Material[GhostCount];
+        readonly float[] _ghostLives = new float[GhostCount];
+        int _ghostsPending;
+        float _ghostSpawnCooldown;
+
+        /// <summary>Begin a dash afterimage trail (DashUsed event). Safe no-op
+        /// on rigs without a skinned mesh (capsule fallback).</summary>
+        public void TriggerAfterimages()
+        {
+            if (_ghostSource == null)
+                _ghostSource = GetComponentInChildren<SkinnedMeshRenderer>();
+            if (_ghostSource == null) return;
+            _ghostsPending = GhostCount;
+            _ghostSpawnCooldown = 0f;   // first ghost this frame — dash is short
+        }
+
+        void UpdateAfterimages(float deltaTime)
+        {
+            if (_ghostsPending > 0)
+            {
+                _ghostSpawnCooldown -= deltaTime;
+                if (_ghostSpawnCooldown <= 0f)
+                {
+                    SpawnGhost();
+                    _ghostsPending--;
+                    _ghostSpawnCooldown = GhostInterval;
+                }
+            }
+            for (var i = 0; i < GhostCount; i++)
+            {
+                if (_ghostLives[i] <= 0f) continue;
+                _ghostLives[i] -= deltaTime;
+                if (_ghostLives[i] <= 0f)
+                {
+                    if (_ghosts[i] != null) _ghosts[i].gameObject.SetActive(false);
+                    continue;
+                }
+                var color = GhostColor;
+                color.a = GhostColor.a * (_ghostLives[i] / GhostLife) * ViewPrefs.MotionScale;
+                _ghostMaterials[i].color = color;
+            }
+        }
+
+        void SpawnGhost()
+        {
+            // Oldest slot (smallest remaining life) is recycled.
+            var slot = 0;
+            for (var i = 1; i < GhostCount; i++)
+                if (_ghostLives[i] < _ghostLives[slot]) slot = i;
+            if (_ghosts[slot] == null)
+            {
+                var host = new GameObject("DashGhost");
+                _ghostMeshes[slot] = new Mesh();
+                host.AddComponent<MeshFilter>().sharedMesh = _ghostMeshes[slot];
+                var renderer = host.AddComponent<MeshRenderer>();
+                _ghostMaterials[slot] = ViewWorld.MakeAdditive(GhostColor);
+                renderer.sharedMaterial = _ghostMaterials[slot];
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                _ghosts[slot] = host.transform;   // world-frozen: no parent
+            }
+            _ghostSource.BakeMesh(_ghostMeshes[slot], true);
+            var source = _ghostSource.transform;
+            _ghosts[slot].SetPositionAndRotation(source.position, source.rotation);
+            _ghosts[slot].localScale = Vector3.one;
+            _ghosts[slot].gameObject.SetActive(true);
+            _ghostLives[slot] = GhostLife;
+            _ghostMaterials[slot].color = GhostColor;
+        }
+
+        void ClearAfterimages()
+        {
+            _ghostsPending = 0;
+            for (var i = 0; i < GhostCount; i++)
+            {
+                _ghostLives[i] = 0f;
+                if (_ghosts[i] != null) _ghosts[i].gameObject.SetActive(false);
+            }
+        }
+
+        void OnDestroy()
+        {
+            // Ghosts are unparented (world-frozen) — scene teardown must not
+            // leak them, their baked meshes, or their cloned materials.
+            for (var i = 0; i < GhostCount; i++)
+            {
+                if (_ghosts[i] != null) Destroy(_ghosts[i].gameObject);
+                if (_ghostMeshes[i] != null) Destroy(_ghostMeshes[i]);
+                if (_ghostMaterials[i] != null) Destroy(_ghostMaterials[i]);
+            }
         }
 
         // --- §Lane V1: cast-sync hand glow ----------------------------------
@@ -518,8 +670,9 @@ namespace CinderCourt.View
             // exhaustively instead of inferred from screenshots.
             if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
             if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
+            if (_roarTime > 0f) _roarTime -= Time.deltaTime;
             var actionValue = ResolveActionValue(
-                action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f);
+                action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f, _roarTime > 0f);
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.SetInteger(ActionParam, actionValue);
@@ -645,9 +798,11 @@ namespace CinderCourt.View
             _comboTier = -1;
             _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
             _knockbackTime = 0f;      // §M: nor a launch reaction
+            _roarTime = 0f;           // §M: nor an entrance roar
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;
+            ClearAfterimages();   // pooled actors never keep dash ghosts
             ClearEquipProps();   // §Lane P: pooled actors never keep props
             if (_castGlow != null) _castGlow.gameObject.SetActive(false);   // §V1
             if (_block != null && _renderers != null)

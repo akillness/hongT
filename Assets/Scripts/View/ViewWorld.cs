@@ -57,5 +57,25 @@ namespace CinderCourt.View
             }
             return material;
         }
+
+        /// <summary>
+        /// Additive-with-alpha unlit material (SrcAlpha/One) for glow-class
+        /// VFX: overlapping quads/lines ACCUMULATE brightness, so stacked
+        /// effects push past the Bloom threshold (CinderPostProfile 1.05)
+        /// and visibly flare instead of muddying like straight alpha blend.
+        /// Clones the same serialized transparent seed as MakeUnlit so the
+        /// _SURFACE_TYPE_TRANSPARENT variant survives WebGL stripping; only
+        /// the destination blend factor changes. Alpha fades keep working —
+        /// source is still scaled by SrcAlpha.
+        /// </summary>
+        public static Material MakeAdditive(Color color)
+        {
+            var material = MakeUnlit(color, true);
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+            material.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            material.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            return material;
+        }
     }
 }

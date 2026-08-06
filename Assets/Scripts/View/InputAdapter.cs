@@ -86,6 +86,11 @@ namespace CinderCourt.View
 
         /// <summary>Queue calls from HUD buttons (touch/click).</summary>
         public void QueueAttack() => _attackLatch = true;
+        /// <summary>§3: on-screen strike button hold state, so touch can charge.</summary>
+        public bool TouchAttackHeld;
+        int _growthLatch;
+        /// <summary>§5: on-screen level-up choice tap (1..3).</summary>
+        public void QueueGrowthChoice(int choice) => _growthLatch = choice;
         public void QueueNova() => _novaLatch = true;
         public void QueueWard() => _wardLatch = true;
         public void QueueBolt() => _boltLatch = true;
@@ -114,6 +119,7 @@ namespace CinderCourt.View
             _dashLatch = false;
             _companionHoldLatch = false;
             _companionRecallLatch = false;
+            _growthLatch = 0;   // §5: a stuck latch would eat every later offer
         }
 
 
@@ -134,6 +140,24 @@ namespace CinderCourt.View
                 if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) moveY -= 1f;
                 if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) moveY += 1f;
             }
+            // Input depth §3/§5. AttackHeld is polled state, NOT a latch: the
+            // sim needs to know the key is still down on every tick, and a
+            // latch would clear after the first one. Touch keeps its own hold
+            // flag so the on-screen strike button can charge too.
+            var attackHeld = TouchAttackHeld
+                || (keyboard != null && keyboard.spaceKey.isPressed);
+            var growthChoice = 0;
+            if (keyboard != null)
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame) growthChoice = 1;
+                else if (keyboard.digit2Key.wasPressedThisFrame) growthChoice = 2;
+                else if (keyboard.digit3Key.wasPressedThisFrame) growthChoice = 3;
+            }
+            if (_growthLatch != 0)
+            {
+                growthChoice = _growthLatch;   // on-screen tap
+            }
+
             if (TouchLeft) moveX -= 1f;
             if (TouchRight) moveX += 1f;
             if (TouchUp) moveY -= 1f;
@@ -156,6 +180,8 @@ namespace CinderCourt.View
                 RestartQueued = _restartLatch,
                 CompanionHoldQueued = _companionHoldLatch,
                 CompanionRecallQueued = _companionRecallLatch,
+                AttackHeld = attackHeld,
+                GrowthChoice = growthChoice,
             };
         }
 
@@ -171,6 +197,7 @@ namespace CinderCourt.View
             _restartLatch = false;
             _companionHoldLatch = false;
             _companionRecallLatch = false;
+            _growthLatch = 0;
         }
     }
 }

@@ -32,6 +32,15 @@ namespace CinderCourt.Sim
         public bool PulseQueued;
         public bool CompanionHoldQueued;
         public bool CompanionRecallQueued;
+        // --- input depth amendment (_workspace/current/design/input-depth-spec.md) ---
+        /// <summary>§3: sustained, not an edge. True for every tick the attack
+        /// key is DOWN. Deliberately a plain held bool: classifying a tap by
+        /// waiting for release would add up to 250 ms of latency to the most
+        /// frequently pressed key in the game.</summary>
+        public bool AttackHeld;
+        /// <summary>§5: 0 = no choice this tick, 1..3 = the level-up option
+        /// the player picked. Edge-consumed by the sim.</summary>
+        public int GrowthChoice;
     }
 
     public struct PlayerState

@@ -310,6 +310,52 @@ namespace CinderCourt.Sim
         public const float LevelRegenBonus = 0.3f;
 
         // --- §3 elites and extraction ---
+        /// <summary>Input depth §2: knockback multiplier per finisher variant,
+        /// indexed by ComboVariant (Neutral/Launcher/Retreat/Spin). Neutral is
+        /// exactly 1.0, so a player who never holds a direction sees the
+        /// original finisher unchanged.</summary>
+        public static readonly float[] FinisherKnockbackMul = { 1.00f, 1.60f, 0.70f, 1.00f };
+
+        /// <summary>Input depth §2: the spin finisher trades force for reach.</summary>
+        public const float SpinReachMul = 1.35f;
+
+        /// <summary>Input depth §2: how far the retreat finisher slides the
+        /// player back. Under one dash (190) so it repositions without
+        /// replacing the dodge.</summary>
+        public const float RetreatStepDistance = 74f;
+
+        /// <summary>Motion depth: how far a phase-3 boss slam throws the
+        /// PLAYER. Deliberately shorter than the player's own dash (190) so a
+        /// launch never covers more ground than a deliberate dodge, and short
+        /// enough that the recovery does not read as a stun-lock.</summary>
+        public const float BossSlamKnockbackDistance = 150f;
+        public const float BossSlamKnockbackTime = 0.26f;
+
+        // --- input depth (_workspace/current/design/input-depth-spec.md) ---
+        /// <summary>§3: hold this long AFTER a swing ends to arm the heavy.
+        /// Under the boss telegraph (0.80 s) on purpose — a player who reads a
+        /// wind-up still has time to push a charge into the opening.</summary>
+        public const float ChargeReadySeconds = 0.45f;
+        public const float ChargeDamageMul = 1.8f;
+        public const float ChargeKnockbackMul = 2.0f;
+        /// <summary>§3: charging is a commitment — movement is slowed while it
+        /// builds, so the heavy costs position instead of being free damage.</summary>
+        public const float ChargeMoveScale = 0.45f;
+
+        /// <summary>§5: seconds before an unanswered level-up offer confirms
+        /// itself. Short on purpose — a longer window would leave a player who
+        /// ignores it without stats for a meaningful slice of a 19 s boss
+        /// fight, which would make "ignoring costs nothing" false.</summary>
+        public const float GrowthOfferSeconds = 5f;
+        public const float GrowthAttackBonus = 0.08f;     // +8% damage per point
+        public const float GrowthVitalityHealth = 6f;     // +6 max HP per point
+        public const float GrowthSwiftnessSpeed = 0.04f;  // +4% move per point
+        /// <summary>§5: -6% dash cooldown per swiftness point, floored at 0.55
+        /// so a fully-invested build still has a real dodge cycle rather than
+        /// a permanent i-frame.</summary>
+        public const float GrowthSwiftnessCooldown = 0.06f;
+        public const float GrowthSwiftnessCooldownFloor = 0.55f;
+
         /// <summary>B-1 (AMENDMENT #4): dungeon-only boss HP factor, on top of
         /// the frozen SimConfig.BossHealthMul. Shares UpdateBossPhase's
         /// _dungeon gate, so boss length and boss phases always apply to the

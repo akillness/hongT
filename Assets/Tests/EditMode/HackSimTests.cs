@@ -2229,6 +2229,295 @@ namespace CinderCourt.Tests
                 "telegraph must stay constant across phases");
         }
 
+        // --- input depth §3/§5: charge and growth choice ------------------------
+
+        /// <summary>Ignoring the offer must cost NOTHING — that is the whole
+        /// claim that lets it ship without a tutorial. A pilot that never
+        /// presses 1/2/3 must end with zero banked points and the same stats
+        /// it had before the amendment.</summary>
+        [Test]
+        public void GrowthOffer_AutoConfirmsAndCostsNothingWhenIgnored()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+            var growth = (IGrowthChoiceSnapshot)sim;
+
+            bool sawOffer = false;
+            float longestOpen = 0f, openFor = 0f;
+            for (int tick = 0; tick < 60 * 240; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if (growth.GrowthOfferOpen)
+                {
+                    sawOffer = true;
+                    openFor += SimConfig.FixedStep;
+                    if (openFor > longestOpen) longestOpen = openFor;
+                }
+                else
+                {
+                    openFor = 0f;
+                }
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+
+            Assert.IsTrue(sawOffer, "the pilot must level at least once and see an offer");
+            Assert.That(longestOpen, Is.LessThan(HackSpec.GrowthOfferSeconds + 0.2f),
+                $"an ignored offer stayed open {longestOpen:F2}s - it must auto-confirm");
+            Assert.That(growth.GrowthAttack + growth.GrowthVitality + growth.GrowthSwiftness,
+                Is.EqualTo(0), "ignoring the offer must bank nothing");
+            Assert.That(growth.LastGrowthChoice, Is.EqualTo(GrowthChoiceKind.None));
+        }
+
+        /// <summary>The offer must never stop the fight. A sim that paused
+        /// would turn every level-up into a free safe window.</summary>
+        [Test]
+        public void GrowthOffer_DoesNotPauseTheSim()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+            var growth = (IGrowthChoiceSnapshot)sim;
+
+            for (int tick = 0; tick < 60 * 240; tick += 1)
+            {
+                sim.Tick(Pilot(sim, true));
+                if (growth.GrowthOfferOpen)
+                {
+                    // The offer's own clock is the falsifiable witness: it can
+                    // only decrease if the sim is still stepping. Position and
+                    // wave are not usable here — a cornered pilot may be still
+                    // and a wave may not turn over inside 30 ticks.
+                    float clockBefore = growth.GrowthOfferTime;
+                    Assert.That(clockBefore, Is.GreaterThan(0f),
+                        "an open offer must carry a live countdown");
+                    for (int inner = 0; inner < 30; inner += 1) sim.Tick(Pilot(sim, true));
+                    float elapsed = clockBefore - growth.GrowthOfferTime;
+                    if (growth.GrowthOfferOpen)
+                    {
+                        Assert.That(elapsed, Is.EqualTo(30 * SimConfig.FixedStep).Within(0.005f),
+                            $"30 ticks must burn 30 fixed steps of the offer clock, burnt {elapsed:F3}s");
+                    }
+                    else
+                    {
+                        // It auto-confirmed inside the window, which is itself
+                        // proof the clock ran.
+                        Assert.That(clockBefore, Is.LessThanOrEqualTo(30 * SimConfig.FixedStep + 0.005f),
+                            "the offer closed early, so its clock must have been nearly spent");
+                    }
+                    return;
+                }
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+            Assert.Pass("no level-up reached in budget; auto-confirm covered elsewhere");
+        }
+
+        /// <summary>Each growth axis must actually move the stat it names.
+        /// Pinned through the real constants so a silent zero cannot ship.</summary>
+        [Test]
+        public void GrowthAxes_EachRaiseSomethingReal()
+        {
+            Assert.That(HackSpec.GrowthAttackBonus, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthVitalityHealth, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthSwiftnessSpeed, Is.GreaterThan(0f));
+            Assert.That(HackSpec.GrowthSwiftnessCooldown, Is.GreaterThan(0f),
+                "swiftness must shorten the dodge cycle, not just raise speed");
+            Assert.That(HackSpec.GrowthSwiftnessCooldownFloor, Is.InRange(0.3f, 0.9f),
+                "the cooldown floor must leave a real dodge cycle at full investment");
+        }
+
+        /// <summary>Charge must be reachable INSIDE a boss telegraph, or the
+        /// heavy can never be used against the fight it exists for.</summary>
+        [Test]
+        public void ChargeWindow_FitsInsideABossTelegraph()
+        {
+            Assert.That(HackSpec.ChargeReadySeconds, Is.LessThan(HackSpec.BossTelegraph[0]),
+                $"charge takes {HackSpec.ChargeReadySeconds}s but the telegraph is "
+                + $"{HackSpec.BossTelegraph[0]}s - it could never be armed on a read");
+            Assert.That(HackSpec.ChargeDamageMul, Is.GreaterThan(1f));
+            Assert.That(HackSpec.ChargeMoveScale, Is.LessThan(1f),
+                "charging must cost mobility or it is free damage");
+        }
+
+        /// <summary>Holding attack must NOT change a mashing player's run.
+        /// AttackHeld arrives on every tick a key is down, so a naive read
+        /// would let mashers charge by accident.</summary>
+        [Test]
+        public void HoldingAttack_DoesNotAlterAMashingRun()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var mashing = new CinderSim(in config);
+            var holding = new CinderSim(in config);
+
+            for (int tick = 0; tick < 60 * 30; tick += 1)
+            {
+                var a = Pilot(mashing, true);
+                mashing.Tick(in a);
+                var b = Pilot(holding, true);
+                b.AttackHeld = true;          // same pilot, key never released
+                holding.Tick(in b);
+            }
+
+            // The held run is ALLOWED to differ - that is the feature. What
+            // must hold is that the mashing run never accumulates charge, so a
+            // player who taps gets exactly the pre-amendment sim.
+            Assert.That(mashing.ChargeProgress, Is.EqualTo(0f),
+                "a player who never holds must never accumulate charge");
+            // Was `>= 0f`, which is true of every float and is precisely why
+            // the broken charge shipped. With the chain gate the held run is
+            // deterministic: the chain completes, the charge accrues, and the
+            // gate stays shut while it exists - so a held key MUST end armed.
+            Assert.That(holding.ChargeProgress, Is.EqualTo(1f).Within(0.001f),
+                $"a held key ended at {holding.ChargeProgress:F2} charge - it must be armed");
+        }
+
+        /// <summary>The gap this missed the first time: holding the attack key
+        /// AUTO-REPEATS the combo (InputAdapter latches on isPressed), so the
+        /// sim was never idle and the charge could never accrue. A held pilot
+        /// must actually REACH a full charge, or §3 ships as dead code.</summary>
+        [Test]
+        public void HoldingAttack_ActuallyReachesAFullCharge()
+        {
+            var config = Dungeon(attack: 5, vitality: 5, swiftness: 5, weapon: 3, lantern: 3, cloak: 3);
+            var sim = new CinderSim(in config);
+
+            float peak = 0f;
+            for (int tick = 0; tick < 60 * 12; tick += 1)
+            {
+                var input = new SimInput { AttackQueued = true, AttackHeld = true };
+                sim.Tick(in input);
+                if (sim.ChargeProgress > peak) peak = sim.ChargeProgress;
+                if (sim.Mode == SimMode.GameOver) break;
+            }
+
+            Assert.That(peak, Is.EqualTo(1f).Within(0.001f),
+                $"a pilot holding attack peaked at {peak:F2} charge - it must reach 1.0, "
+                + "or the held key is only auto-attacking and the charge layer is unreachable");
+        }
+
+        // --- motion depth: the player can be launched --------------------------
+
+        /// <summary>A launch must never outrun a deliberate dodge, or the
+        /// dodge stops being the movement tool and taking a hit becomes the
+        /// fastest way to travel.</summary>
+        [Test]
+        public void BossSlamLaunch_StaysShorterThanADash()
+        {
+            Assert.That(HackSpec.BossSlamKnockbackDistance, Is.LessThan(HackSpec.DashDistance),
+                "a launch must move the player less than their own dash");
+            Assert.That(HackSpec.BossSlamKnockbackTime, Is.GreaterThan(0f));
+
+            // The View infers the launch from a velocity BAND (400-1500 px/s).
+            // A bare floor would also fire on the retreat finisher's one-frame
+            // 74 px step (~4440 px/s at 60 Hz), flashing the "I got hit" pose
+            // during the player's own escape move.
+            float slamSpeed = HackSpec.BossSlamKnockbackDistance / HackSpec.BossSlamKnockbackTime;
+            Assert.That(slamSpeed, Is.GreaterThan(400f).And.LessThan(1500f),
+                $"slam is {slamSpeed:F0} px/s - outside the View band it would never animate");
+            Assert.That(SimConfig.PlayerSpeed, Is.LessThan(400f),
+                "running must stay under the band or walking would trigger the launch pose");
+            float retreatSpeed = HackSpec.RetreatStepDistance * 60f;
+            Assert.That(retreatSpeed, Is.GreaterThan(1500f),
+                $"the retreat step is {retreatSpeed:F0} px/s and MUST sit above the band, "
+                + "or the player's own escape reads as being hit");
+        }
+
+        // --- input depth §2: directional finisher --------------------------------
+
+        /// <summary>The resolver is pure, so every branch is pinned here rather
+        /// than sampled through a run. "Forward" is relative to facing, so the
+        /// same stick direction must mean opposite variants for a left-facing
+        /// and a right-facing player — that mirror is the easiest thing to get
+        /// wrong and the hardest to notice.</summary>
+        [TestCase( 0.0f,  0.0f,  1, 0)]   // Neutral
+        [TestCase( 0.2f,  0.0f,  1, 0)]   // inside deadzone -> Neutral
+        [TestCase( 1.0f,  0.0f,  1, 1)]   // right, facing right -> Launcher
+        [TestCase(-1.0f,  0.0f,  1, 2)]   // left, facing right  -> Retreat
+        [TestCase(-1.0f,  0.0f, -1, 1)]   // left, facing LEFT   -> Launcher
+        [TestCase( 1.0f,  0.0f, -1, 2)]   // right, facing LEFT  -> Retreat
+        [TestCase( 0.0f,  1.0f,  1, 3)]   // vertical -> Spin
+        [TestCase( 0.0f, -1.0f,  1, 3)]
+        [TestCase( 1.0f,  1.0f,  1, 1)]   // horizontal wins over vertical
+        public void FinisherVariant_ResolvesRelativeToFacing(
+            float moveX, float moveY, int facing, int expected)
+        {
+            // The enum is internal to keep it off the frozen Sim contract, so
+            // the case data is its integer value.
+            Assert.That((int)CinderSim.ResolveFinisherVariant(moveX, moveY, facing),
+                Is.EqualTo(expected), $"move ({moveX},{moveY}) facing {facing}");
+        }
+
+        /// <summary>Neutral must be EXACTLY the old finisher. If this drifts,
+        /// every player who never holds a direction silently got a balance
+        /// change they did not ask for.</summary>
+        [Test]
+        public void NeutralFinisher_KeepsTheOriginalKnockback()
+        {
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Neutral],
+                Is.EqualTo(1f), "neutral must not scale knockback at all");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Spin],
+                Is.EqualTo(1f), "spin trades reach for force, so its knockback is unchanged");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Launcher],
+                Is.GreaterThan(1f), "launcher must throw harder");
+            Assert.That(HackSpec.FinisherKnockbackMul[(int)CinderSim.ComboVariant.Retreat],
+                Is.LessThan(1f), "retreat trades force for distance");
+            Assert.That(HackSpec.FinisherKnockbackMul.Length,
+                Is.EqualTo(System.Enum.GetValues(typeof(CinderSim.ComboVariant)).Length),
+                "every variant needs a multiplier or the index throws");
+        }
+
+        /// <summary>The retreat step must not become a better dash. If it ever
+        /// outruns the dodge, the dodge stops being the escape tool.</summary>
+        [Test]
+        public void RetreatStep_StaysShorterThanADash()
+        {
+            Assert.That(HackSpec.RetreatStepDistance, Is.LessThan(HackSpec.DashDistance),
+                "the retreat finisher must reposition less than a dedicated dodge");
+            Assert.That(HackSpec.RetreatStepDistance, Is.GreaterThan(0f));
+        }
+
+        /// <summary>AMENDMENT #4: the dungeon floor is an ellipse, the frozen
+        /// arena floor stays a diamond. Pinned by walking a pilot hard into a
+        /// corner and reading where it comes to rest — the corner is exactly
+        /// where the two shapes disagree most.</summary>
+        [Test]
+        public void DungeonFloor_ReachesCornersTheArenaDiamondForbids()
+        {
+            var dungeon = new CinderSim(Dungeon(attack: 5, vitality: 5, swiftness: 5,
+                weapon: 1, lantern: 1, cloak: 1));
+            var arena = new CinderSim();
+
+            // Drive both up-and-right for long enough to pin against the wall.
+            var corner = new SimInput { MoveX = 1f, MoveY = -1f };
+            for (int tick = 0; tick < 60 * 12; tick += 1)
+            {
+                dungeon.Tick(in corner);
+                arena.Tick(in corner);
+            }
+
+            float dungeonX = MathF.Abs(dungeon.Player.X - SimConfig.ArenaX);
+            float dungeonY = MathF.Abs(dungeon.Player.Y - SimConfig.ArenaY);
+            float arenaX = MathF.Abs(arena.Player.X - SimConfig.ArenaX);
+            float arenaY = MathF.Abs(arena.Player.Y - SimConfig.ArenaY);
+
+            float halfWidth = SimConfig.ArenaHalfWidth - SimConfig.PlayerMarginClamp;
+            float halfHeight = SimConfig.ArenaHalfHeight - SimConfig.PlayerMarginClamp * 0.5f;
+
+            // The arena pilot rests ON the diamond: |x|/a + |y|/b == 1.
+            float arenaL1 = arenaX / halfWidth + arenaY / halfHeight;
+            Assert.That(arenaL1, Is.EqualTo(1f).Within(0.02f),
+                $"the frozen arena floor must stay a diamond (L1 = {arenaL1:F3})");
+
+            // The dungeon pilot rests ON the ellipse, OUTSIDE that diamond.
+            float dungeonL2 = MathF.Sqrt(
+                dungeonX / halfWidth * (dungeonX / halfWidth) +
+                dungeonY / halfHeight * (dungeonY / halfHeight));
+            Assert.That(dungeonL2, Is.EqualTo(1f).Within(0.02f),
+                $"the dungeon floor must be an ellipse (L2 = {dungeonL2:F3})");
+
+            float dungeonL1 = dungeonX / halfWidth + dungeonY / halfHeight;
+            Assert.That(dungeonL1, Is.GreaterThan(1.05f),
+                $"the dungeon pilot must stand where the diamond forbids (L1 = {dungeonL1:F3})");
+        }
+
         /// <summary>The whole point of the phases is that a player can SEE
         /// them. A phase reads only if it fits at least one full
         /// telegraph->attack cycle; below that the boss changes state and dies

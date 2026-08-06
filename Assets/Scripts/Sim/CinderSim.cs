@@ -16,7 +16,8 @@ namespace CinderCourt.Sim
     /// (docs/SIM_SPEC_HACKSLASH.md) — prologue, combo, dash, skills, elites,
     /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
-    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot, IRunPreparationSnapshot
+    public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot,
+                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -156,9 +157,21 @@ namespace CinderCourt.Sim
         private int _comboSwing;      // hit currently swinging, -1 when idle
         private float _comboLink;     // seconds left of the 0.9 s chain window
         private bool _comboLanded;    // current swing already damaged something
+        private ComboVariant _comboVariant;  // finisher branch, latched at swing start
+        // Input depth §3/§5.
+        private float _chargeTime;            // seconds the attack key has been held
+        private bool _growthOfferOpen;
+        private float _growthOfferTime;
+        private GrowthChoiceKind _lastGrowthChoice;
+        private int _growthAttack, _growthVitality, _growthSwiftness;
         private float _dashCooldown;
         private float _dashTime;
         private float _dashDirX, _dashDirY;
+        // Motion depth: player launch state. Deliberately private rather than
+        // on PlayerState — the snapshot contract is frozen, and the View can
+        // infer the launch from position velocity (ActorView L145-158) exactly
+        // as it already does for enemies.
+        private float _playerKnockX, _playerKnockY, _playerKnockTime;
         private float _castInvuln;
         private float _shield;
         private float _shieldTime;
@@ -443,6 +456,18 @@ namespace CinderCourt.Sim
         public PreparationOffer AppliedPreparationInput => _appliedPreparationInput;
         public int CompanionFacing => _companionFacing;
 
+        // --- input depth §5 (IGrowthChoiceSnapshot, additive) -----------------
+        public bool GrowthOfferOpen => _growthOfferOpen;
+        public float GrowthOfferTime => _growthOfferTime;
+        public GrowthChoiceKind LastGrowthChoice => _lastGrowthChoice;
+        public int GrowthAttack => _growthAttack;
+        public int GrowthVitality => _growthVitality;
+        public int GrowthSwiftness => _growthSwiftness;
+        /// <summary>§3: 0..1 charge progress, for the HUD gauge.</summary>
+        public float ChargeProgress => _chargeTime <= 0f
+            ? 0f
+            : MathF.Min(1f, _chargeTime / HackSpec.ChargeReadySeconds);
+
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
         /// <summary>Spawn queue length for a wave, boss slot included, enemy cap applied.</summary>
@@ -670,6 +695,10 @@ namespace CinderCourt.Sim
                 if (_dungeon)
                 {
                     UpdateExtraction(dt);
+                    // Input depth §5: runs AFTER the wave/kill path that can
+                    // open an offer, so a level-up gained this tick gets its
+                    // full window rather than losing one tick of it.
+                    UpdateGrowthOffer(dt, in input);
                 }
                 UpdateWave(dt);
             }
@@ -786,7 +815,14 @@ namespace CinderCourt.Sim
             }
 
             _charge -= HackSpec.DashCost;
-            _dashCooldown = HackSpec.DashCooldownSeconds;
+            // Input depth §5: swiftness shortens the dodge cycle as well as
+            // raising speed. Speed alone made it the weak pick — a movement
+            // stat that does not change how often you can escape is not really
+            // a defensive choice. Clamped so stacked points cannot drive the
+            // cooldown toward zero.
+            _dashCooldown = HackSpec.DashCooldownSeconds * MathF.Max(
+                HackSpec.GrowthSwiftnessCooldownFloor,
+                1f - HackSpec.GrowthSwiftnessCooldown * _growthSwiftness);
             _dashTime = HackSpec.DashTime;
             _dashDirX = directionX;
             _dashDirY = directionY;
@@ -881,6 +917,12 @@ namespace CinderCourt.Sim
             _shield = HackSpec.AegisShield;
             _shieldTime = HackSpec.AegisDuration;
             _castInvuln = HackSpec.AegisCastInvuln;
+            // Motion depth: the authored `defence` clip (Body Block) shipped
+            // dead. The aegis cast window is literally a block — the player is
+            // invulnerable for AegisCastInvuln seconds — so the pose and the
+            // rule now say the same thing. Forced: the block must read
+            // immediately, and it is what makes the i-frames legible.
+            SetPlayerAction(ActorAction.Defence, true);
             _events |= SimEvents.WardCast;
         }
 
@@ -969,6 +1011,30 @@ namespace CinderCourt.Sim
             enemy.KnockTime = time;
         }
 
+        /// <summary>Launch the PLAYER away from a source point. Motion depth:
+        /// until now only enemies could be launched, so nothing the boss did
+        /// ever moved the player's body — every hit read as a number and a
+        /// colour flash. State lives in private fields, NOT on PlayerState, so
+        /// the frozen snapshot contract is untouched; the View infers the
+        /// launch from position velocity exactly as it already does for
+        /// enemies (ActorView L145-158).</summary>
+        private void KnockbackPlayer(float sourceX, float sourceY, float distance, float time)
+        {
+            float deltaX = _player.X - sourceX;
+            float deltaY = _player.Y - sourceY;
+            float length = Hypot(deltaX, deltaY);
+            if (length <= MoveEpsilon)
+            {
+                deltaX = -_player.Facing;
+                deltaY = 0f;
+                length = 1f;
+            }
+            float speed = distance / time;
+            _playerKnockX = deltaX / length * speed;
+            _playerKnockY = deltaY / length * speed;
+            _playerKnockTime = time;
+        }
+
         /// <summary>§2.5: kill XP, level-ups and the stat bump they carry.</summary>
         private void GainXp(int amount)
         {
@@ -1005,6 +1071,71 @@ namespace CinderCourt.Sim
             ApplyLevelStats();
             _player.Health = MathF.Min(_playerMaxHealth, _player.Health + (_playerMaxHealth - previousMax));
             _events |= SimEvents.LevelUp;
+
+            // Input depth §5: open a choice instead of ending here. The stat
+            // bump above still lands, so ignoring the offer is exactly the old
+            // behaviour; choosing adds a point on top. A pending offer is
+            // auto-confirmed rather than queued — two stacked offers would
+            // leave the player unable to tell which level they are choosing.
+            if (_dungeon)
+            {
+                if (_growthOfferOpen)
+                {
+                    ApplyGrowthChoice(GrowthChoiceKind.None);
+                }
+                _growthOfferOpen = true;
+                _growthOfferTime = HackSpec.GrowthOfferSeconds;
+            }
+        }
+
+        /// <summary>Input depth §5: bank one growth point and close the offer.
+        /// <c>None</c> means the timer expired — it applies nothing extra, so
+        /// a player who never presses 1/2/3 gets exactly the pre-amendment
+        /// automatic distribution and loses nothing.</summary>
+        private void ApplyGrowthChoice(GrowthChoiceKind choice)
+        {
+            _growthOfferOpen = false;
+            _growthOfferTime = 0f;
+            _lastGrowthChoice = choice;
+            switch (choice)
+            {
+                case GrowthChoiceKind.Attack:
+                    _growthAttack += 1;
+                    break;
+                case GrowthChoiceKind.Vitality:
+                    _growthVitality += 1;
+                    // Vitality heals immediately, or the choice would feel
+                    // like nothing at the moment it is made.
+                    _player.Health = MathF.Min(
+                        _playerMaxHealth + HackSpec.GrowthVitalityHealth,
+                        _player.Health + HackSpec.GrowthVitalityHealth);
+                    break;
+                case GrowthChoiceKind.Swiftness:
+                    _growthSwiftness += 1;
+                    break;
+            }
+            ApplyLevelStats();
+        }
+
+        /// <summary>Input depth §5: run the offer clock. The sim never pauses
+        /// for it — the fight continues while the player decides.</summary>
+        private void UpdateGrowthOffer(float deltaTime, in SimInput input)
+        {
+            if (!_growthOfferOpen)
+            {
+                return;
+            }
+            int picked = input.GrowthChoice;
+            if (picked >= 1 && picked <= 3)
+            {
+                ApplyGrowthChoice((GrowthChoiceKind)picked);
+                return;
+            }
+            _growthOfferTime -= deltaTime;
+            if (_growthOfferTime <= 0f)
+            {
+                ApplyGrowthChoice(GrowthChoiceKind.None);
+            }
         }
 
         /// <summary>§3: an elite leaves an extractable corpse marker for 10 s.</summary>
@@ -1303,6 +1434,28 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // Motion depth: a launch owns the step the same way a dash does.
+            // Steering out of it would erase the hit; the player is airborne,
+            // not merely slowed. Attacks stay locked out for the duration,
+            // which is what makes a boss slam cost something. Runs BEFORE the
+            // input read so a held key cannot fight the launch.
+            if (_playerKnockTime > 0f)
+            {
+                float step = MathF.Min(deltaTime, _playerKnockTime);
+                _player.X += _playerKnockX * step;
+                _player.Y += _playerKnockY * SimConfig.YMoveScale * step;
+                ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
+                _playerKnockTime -= deltaTime;
+                _player.Moving = true;
+                _player.ActionTime += deltaTime;
+                if (_playerKnockTime <= 0f)
+                {
+                    _playerKnockTime = 0f;
+                    SetPlayerAction(ActorAction.Idle, true);
+                }
+                return;
+            }
+
             float movementX = input.MoveX;
             float movementY = input.MoveY;
             float movementLength = Hypot(movementX, movementY);
@@ -1312,6 +1465,11 @@ namespace CinderCourt.Sim
                 movementX /= movementLength;
                 movementY /= movementLength;
                 float attackScale = _player.Action == ActorAction.Attack ? SimConfig.AttackMoveScale : 1f;
+                // Input depth §3: a building charge costs mobility, so the
+                // heavy is a commitment rather than free damage. Multiplies
+                // with the swing penalty — the two never both apply, since a
+                // live swing zeroes the charge.
+                if (_chargeTime > 0f) attackScale *= HackSpec.ChargeMoveScale;
                 _player.X += movementX * _playerSpeed * attackScale * deltaTime;
                 _player.Y += movementY * _playerSpeed * SimConfig.YMoveScale * attackScale * deltaTime;
                 _player.Moving = true;
@@ -1413,14 +1571,57 @@ namespace CinderCourt.Sim
             }
         }
 
+        /// <summary>Which finisher the third combo hit becomes. Dungeon only —
+        /// the arena path always resolves Neutral, preserving its digest.</summary>
+        internal enum ComboVariant
+        {
+            Neutral = 0,   // no direction held: the original finisher
+            Launcher = 1,  // toward the facing: knockback x1.6
+            Retreat = 2,   // away from the facing: knockback x0.7
+            Spin = 3,      // vertical only: knockback x1.0, reach x1.35
+        }
+
+        /// <summary>Pure: the direction held at the finisher's first frame maps
+        /// to a variant. Compared against facing so "forward" means forward for
+        /// a left-facing player too. The deadzone keeps a drifting stick from
+        /// flipping the branch.</summary>
+        internal static ComboVariant ResolveFinisherVariant(float moveX, float moveY, int facing)
+        {
+            const float Deadzone = 0.35f;
+            bool horizontal = MathF.Abs(moveX) >= Deadzone;
+            bool vertical = MathF.Abs(moveY) >= Deadzone;
+
+            if (horizontal)
+            {
+                // Facing is +1 right / -1 left, so a positive product means the
+                // player pushed the way the character already looks.
+                return moveX * facing > 0f ? ComboVariant.Launcher : ComboVariant.Retreat;
+            }
+            return vertical ? ComboVariant.Spin : ComboVariant.Neutral;
+        }
+
         /// <summary>
         /// §2.1: a three-hit chain. Each hit owns a swing length and an active window;
         /// re-pressing inside the 0.9 s link window advances the chain, otherwise the
         /// next press restarts at hit 1.
         /// </summary>
+
         private void UpdateCombo(float deltaTime, in SimInput input)
         {
-            if (input.AttackQueued && _comboSwing < 0)
+            // Input depth §3: holding the attack key AUTO-REPEATS the chain
+            // (InputAdapter L60 latches on isPressed, deliberately — that is
+            // how a held key walks 1->2->3). So a charge can only begin once
+            // the chain has actually COMPLETED: _comboIndex wraps to 0 while
+            // the link window is still open. Without this gate the sim is
+            // never idle under a held key and the charge could never accrue.
+            bool chainSpent = _dungeon && input.AttackHeld
+                && ((_comboIndex == 0 && _comboLink > 0f)
+                    // Once a charge exists, keep the gate shut so the link
+                    // window expiring cannot restart the chain and eat it.
+                    // Otherwise the usable release window would be only the
+                    // 0.45 s between arming and the 0.9 s chain restart.
+                    || _chargeTime > 0f);
+            if (input.AttackQueued && _comboSwing < 0 && !chainSpent)
             {
                 int hit = _comboLink > 0f ? _comboIndex : 0;
                 if (hit < 0 || hit >= HackSpec.ComboLength)
@@ -1432,7 +1633,21 @@ namespace CinderCourt.Sim
                 _comboLink = 0f;
                 _player.AttackId += 1;
                 _player.AttackCooldown = HackSpec.ComboSwing[hit];
-                SetPlayerAction(ActorAction.Attack, true);
+                // Input depth §2: the FINISHER branches on the direction held
+                // the moment it starts. Latched here, not read per-enemy, so
+                // every enemy in one swing takes the same variant even if the
+                // stick moves mid-swing. Needs no SimInput field: MoveX/MoveY
+                // already arrive on the same tick as AttackQueued.
+                _comboVariant = _dungeon && hit == HackSpec.ComboLength - 1
+                    ? ResolveFinisherVariant(input.MoveX, input.MoveY, _player.Facing)
+                    : ComboVariant.Neutral;
+                // Motion depth: the authored `critical` clip (Illegal Elbow
+                // Punch) shipped dead. The Launcher — the committed forward
+                // finisher — is the one swing that deserves its own pose, so
+                // the strongest choice in the combo finally LOOKS different.
+                SetPlayerAction(_comboVariant == ComboVariant.Launcher
+                    ? ActorAction.Critical
+                    : ActorAction.Attack, true);
                 _events |= SimEvents.PlayerStruck;
             }
 
@@ -1446,10 +1661,30 @@ namespace CinderCourt.Sim
                         _comboIndex = 0;
                     }
                 }
+                // Input depth §3: charge builds while the key STAYS down after
+                // a swing has finished. The press itself already swung
+                // instantly (above), so mashing is unchanged and holding costs
+                // no latency — the two readings never compete for the same
+                // press. Released early, the charge is simply discarded.
+                if (_dungeon && input.AttackHeld)
+                {
+                    _chargeTime += deltaTime;
+                }
+                else
+                {
+                    if (_chargeTime >= HackSpec.ChargeReadySeconds)
+                    {
+                        ReleaseCharge();
+                    }
+                    _chargeTime = 0f;
+                }
                 SetPlayerAction(_player.Moving ? ActorAction.Move : ActorAction.Idle, false);
                 _player.ActionTime += deltaTime;
                 return;
             }
+
+            // A live swing cancels any charge — the two cannot overlap.
+            _chargeTime = 0f;
 
             _player.ActionTime += deltaTime;
 
@@ -1469,6 +1704,50 @@ namespace CinderCourt.Sim
             _comboIndex = (index + 1) % HackSpec.ComboLength;
             _comboLink = HackSpec.ComboLinkWindow;
             SetPlayerAction(ActorAction.Idle, true);
+        }
+
+        /// <summary>Input depth §3: the charged heavy. Reuses the finisher's
+        /// reach and arc so it never becomes a second, different weapon —
+        /// only the numbers change. Damage x1.8, knockback x2.0.</summary>
+        private void ReleaseCharge()
+        {
+            _player.AttackId += 1;
+            _player.AttackCooldown = HackSpec.ComboSwing[HackSpec.ComboLength - 1];
+            _comboSwing = -1;
+            _comboIndex = 0;
+            _comboLink = 0f;
+            _comboVariant = ComboVariant.Neutral;
+            SetPlayerAction(ActorAction.Critical, true);
+            _events |= SimEvents.PlayerStruck;
+
+            float damage = _playerDamage * HackSpec.ChargeDamageMul;
+            bool landed = false;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead || enemy.LastHitAttack == _player.AttackId)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - _player.X;
+                float deltaY = (enemy.State.Y - _player.Y) * SimConfig.IsoY;
+                if (deltaX * _player.Facing < SimConfig.FacingArcTolerance
+                    || deltaX * deltaX + deltaY * deltaY
+                       > SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
+                {
+                    continue;
+                }
+                enemy.LastHitAttack = _player.AttackId;
+                landed = true;
+                Knockback(ref enemy,
+                    HackSpec.ComboKnockbackDistance * HackSpec.ChargeKnockbackMul,
+                    HackSpec.ComboKnockbackTime);
+                DamageEnemy(ref enemy, damage);
+            }
+            if (landed)
+            {
+                _events |= SimEvents.ComboFinisher;
+            }
         }
 
         /// <summary>
@@ -1491,8 +1770,13 @@ namespace CinderCourt.Sim
                 float deltaX = enemy.State.X - _player.X;
                 float deltaY = (enemy.State.Y - _player.Y) * SimConfig.IsoY;
                 bool inFacingArc = deltaX * _player.Facing >= SimConfig.FacingArcTolerance;
+                // Input depth §2: Spin sweeps wider instead of hitting harder,
+                // so a vertical finisher answers "I am surrounded" rather than
+                // "this one enemy must die".
+                float reach = SimConfig.PlayerAttackRange
+                    * (finisher && _comboVariant == ComboVariant.Spin ? HackSpec.SpinReachMul : 1f);
                 if (!inFacingArc
-                    || deltaX * deltaX + deltaY * deltaY > SimConfig.PlayerAttackRange * SimConfig.PlayerAttackRange)
+                    || deltaX * deltaX + deltaY * deltaY > reach * reach)
                 {
                     continue;
                 }
@@ -1501,7 +1785,9 @@ namespace CinderCourt.Sim
                 landed = true;
                 if (finisher)
                 {
-                    Knockback(ref enemy, HackSpec.ComboKnockbackDistance, HackSpec.ComboKnockbackTime);
+                    Knockback(ref enemy,
+                        HackSpec.ComboKnockbackDistance * HackSpec.FinisherKnockbackMul[(int)_comboVariant],
+                        HackSpec.ComboKnockbackTime);
                 }
                 DamageEnemy(ref enemy, damage);
             }
@@ -1518,6 +1804,17 @@ namespace CinderCourt.Sim
             if (landed)
             {
                 _comboLanded = true;
+            }
+
+            // Input depth §2: Retreat actually retreats — the player slides
+            // backward as the swing lands. Without this the "escape" finisher
+            // only weakens the knockback, which reads as a worse Neutral rather
+            // than a different tool. Gated on `landed` so a whiffed swing is
+            // not a free repositioning tool.
+            if (landed && finisher && _comboVariant == ComboVariant.Retreat)
+            {
+                _player.X -= _player.Facing * HackSpec.RetreatStepDistance;
+                ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
             }
         }
 
@@ -1579,6 +1876,17 @@ namespace CinderCourt.Sim
             _player.DamageCooldown = SimConfig.PlayerHitGrace;
             _player.Health = MathF.Max(0f, _player.Health - amount);
             _events |= SimEvents.PlayerDamaged;
+
+            // Motion depth: the authored `hit` clip (Standing React Small From
+            // Left) shipped dead — damage only ever produced a colour flash.
+            // A real hit that is not a kill now poses the recoil. Dungeon-gated
+            // and never overrides a dash: an i-framed roll must keep reading as
+            // a roll. The pose is not forced, so an in-progress swing wins —
+            // trading a hit for a hit stays a deliberate choice.
+            if (_dungeon && _player.Health > 0f && _dashTime <= 0f)
+            {
+                SetPlayerAction(ActorAction.Hit, false);
+            }
 
             if (_player.Health == 0f)
             {
@@ -1765,7 +2073,20 @@ namespace CinderCourt.Sim
                         ? HackSpec.BossPhase3DamageMul
                         : HackSpec.BossPhase2DamageMul;
                 }
+                float healthBefore = _player.Health;
                 DamagePlayer(damage);
+                // Motion depth: a phase-3 boss slam LAUNCHES the player. Gated
+                // on health actually dropping, so a dash i-frame, a ward, or a
+                // fully-absorbed shield hit does not throw the body — the
+                // launch is the tell that the defence failed. Phase 3 only:
+                // the final phase should feel different in the hands, not just
+                // on the damage number.
+                if (_dungeon && enemy.State.IsBoss && _bossPhase >= 3
+                    && _player.Health < healthBefore && _player.Health > 0f)
+                {
+                    KnockbackPlayer(enemy.State.X, enemy.State.Y,
+                        HackSpec.BossSlamKnockbackDistance, HackSpec.BossSlamKnockbackTime);
+                }
             }
         }
 
@@ -2187,12 +2508,19 @@ namespace CinderCourt.Sim
         private void ApplyLevelStats()
         {
             int levels = _level - 1;
+            // Input depth §5: banked growth points multiply on TOP of the
+            // automatic level curve. At zero points every term is exactly 1 or
+            // 0, so the arena and campaign paths keep their frozen values bit
+            // for bit — a player who ignores the offer is unaffected.
             _playerDamage = _baseDamage
                 * (1f + HackSpec.LevelDamageBonus * levels)
-                * (1f + _extractionBonus);
-            _playerMaxHealth = _baseMaxHealth + HackSpec.LevelHealthBonus * levels;
+                * (1f + _extractionBonus)
+                * (1f + HackSpec.GrowthAttackBonus * _growthAttack);
+            _playerMaxHealth = _baseMaxHealth + HackSpec.LevelHealthBonus * levels
+                + HackSpec.GrowthVitalityHealth * _growthVitality;
             _lanternRegen = _baseRegen + HackSpec.LevelRegenBonus * levels;
-            _playerSpeed = _baseSpeed;
+            _playerSpeed = _baseSpeed
+                * (1f + HackSpec.GrowthSwiftnessSpeed * _growthSwiftness);
         }
 
         /// <summary>Run-start reset of every hack &amp; slash field (§2-§7).</summary>
@@ -2204,10 +2532,21 @@ namespace CinderCourt.Sim
             _comboSwing = -1;
             _comboLink = 0f;
             _comboLanded = false;
+            _comboVariant = ComboVariant.Neutral;
+            _chargeTime = 0f;
+            _growthOfferOpen = false;
+            _growthOfferTime = 0f;
+            _lastGrowthChoice = GrowthChoiceKind.None;
+            _growthAttack = 0;
+            _growthVitality = 0;
+            _growthSwiftness = 0;
             _dashCooldown = 0f;
             _dashTime = 0f;
             _dashDirX = 0f;
             _dashDirY = 0f;
+            _playerKnockX = 0f;
+            _playerKnockY = 0f;
+            _playerKnockTime = 0f;
             _castInvuln = 0f;
             _shield = 0f;
             _shieldTime = 0f;
@@ -2614,13 +2953,27 @@ namespace CinderCourt.Sim
 
         // --- Shared math -----------------------------------------------------
 
-        private static void ClampToArena(ref float x, ref float y, float margin)
+        /// <summary>Arena floor clamp. The frozen arena/campaign path uses an
+        /// L1 (diamond) norm — the literal iso floor shape. AMENDMENT #4 gives
+        /// the DUNGEON path an L2 (ellipse) norm instead: same bounding box,
+        /// same drawn floor, but +57% reachable area (280,800 -> 441,080 u2).
+        /// The diamond amputates the corners — at 75% toward the top edge it
+        /// allows |x| &lt;= 130 of a possible 520 — which is what made the room
+        /// feel narrow. The dressing plane (StageCatalog L170-172: x 248..1288,
+        /// y 334..874) is EXACTLY the bounding box, so every point the ellipse
+        /// newly admits already has floor drawn under it.</summary>
+        private void ClampToArena(ref float x, ref float y, float margin)
         {
             float halfWidth = SimConfig.ArenaHalfWidth - margin;
             float halfHeight = SimConfig.ArenaHalfHeight - margin * 0.5f;
             float localX = x - SimConfig.ArenaX;
             float localY = y - SimConfig.ArenaY;
-            float normalized = MathF.Abs(localX) / halfWidth + MathF.Abs(localY) / halfHeight;
+
+            float unitX = localX / halfWidth;
+            float unitY = localY / halfHeight;
+            float normalized = _dungeon
+                ? MathF.Sqrt(unitX * unitX + unitY * unitY)   // ellipse
+                : MathF.Abs(unitX) + MathF.Abs(unitY);        // diamond (frozen)
 
             if (normalized > 1f)
             {

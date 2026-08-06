@@ -30,15 +30,32 @@ namespace CinderCourt.EditorTools
             importer.filterMode = FilterMode.Bilinear;
             importer.maxTextureSize = 256;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
-            if (importer.assetPath.EndsWith("ui-button.png"))
+            if (IsButtonPlate(importer.assetPath))
             {
                 // 9-slice: corners stay crisp under Image.Type.Sliced.
-                // Buttons are 34-48px tall, so the vertical border must stay
-                // small (14+14 < 34) while horizontal can keep the full 30px
-                // glow. Vector4 = (left, bottom, right, top) in sprite px.
-                importer.spriteBorder = new Vector4(30, 14, 30, 14);
+                //
+                // DEFECT FIX. The old (30,14,30,14) border on a 256x106 plate
+                // consumed 60 u horizontally and 28 u vertically, but real
+                // buttons are as small as 52x44 and 84x28 — so the stat "+"
+                // button had a centre of MINUS 8 u (its borders overlapped)
+                // and the stage-drop button exactly 0 u tall. 7 of 26 plated
+                // buttons rendered crushed. The old comment assumed "buttons
+                // are 34-48px tall"; six of them are 28.
+                //
+                // (12,8,12,8) consumes 24 x 16 and clears every size in use:
+                //   stat +      28 x 28     tab          96 x 24
+                //   stage drop  60 x 12     text button 120 x 18
+                //   skill card  84 x 56
+                importer.spriteBorder = new Vector4(12, 8, 12, 8);
             }
         }
+
+        /// <summary>Every 9-sliced button plate: idle, active, disabled. The
+        /// three must share a border or a state swap would shift the frame.</summary>
+        static bool IsButtonPlate(string path) =>
+            path.EndsWith("ui-button.png")
+            || path.EndsWith("ui-button-active.png")
+            || path.EndsWith("ui-button-disabled.png");
 
         /// <summary>Idempotent batch entry: -executeMethod ...IconImportPipeline.ImportAll</summary>
         public static void ImportAll()
@@ -50,7 +67,10 @@ namespace CinderCourt.EditorTools
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 if (AssetImporter.GetAtPath(path) is not TextureImporter importer) continue;
                 found += 1;
-                var borderOk = !path.EndsWith("ui-button.png") || importer.spriteBorder.x > 0f;
+                // `> 0` was too weak — the crushed (30,14,30,14) border passed
+                // it. Require the exact contract so a stale import is caught.
+                var borderOk = !IsButtonPlate(path)
+                    || importer.spriteBorder == new Vector4(12, 8, 12, 8);
                 if (importer.textureType == TextureImporterType.Sprite &&
                     importer.alphaIsTransparency && !importer.mipmapEnabled && borderOk) continue;
                 Apply(importer);
