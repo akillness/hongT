@@ -30,23 +30,14 @@ namespace CinderCourt.EditorTools
             importer.filterMode = FilterMode.Bilinear;
             importer.maxTextureSize = 256;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
-            if (IsButtonPlate(importer.assetPath))
+            if (TryGetFrameBorder(importer.assetPath, out var border))
             {
-                // 9-slice: corners stay crisp under Image.Type.Sliced.
-                //
-                // DEFECT FIX. The old (30,14,30,14) border on a 256x106 plate
-                // consumed 60 u horizontally and 28 u vertically, but real
-                // buttons are as small as 52x44 and 84x28 — so the stat "+"
-                // button had a centre of MINUS 8 u (its borders overlapped)
-                // and the stage-drop button exactly 0 u tall. 7 of 26 plated
-                // buttons rendered crushed. The old comment assumed "buttons
-                // are 34-48px tall"; six of them are 28.
-                //
-                // (12,8,12,8) consumes 24 x 16 and clears every size in use:
-                //   stat +      28 x 28     tab          96 x 24
-                //   stage drop  60 x 12     text button 120 x 18
-                //   skill card  84 x 56
-                importer.spriteBorder = new Vector4(12, 8, 12, 8);
+                // 9-slice: corners stay crisp under Image.Type.Sliced. Every
+                // border below is sized against its REAL on-screen usage
+                // height (not the source PNG's own pixel size) so it never
+                // repeats the crushed-border defect the button plates hit —
+                // see the button-plate history note for that failure mode.
+                importer.spriteBorder = border;
             }
         }
 
@@ -56,6 +47,37 @@ namespace CinderCourt.EditorTools
             path.EndsWith("ui-button.png")
             || path.EndsWith("ui-button-active.png")
             || path.EndsWith("ui-button-disabled.png");
+
+        /// <summary>Every 9-sliced sprite this pipeline knows about, mapped to
+        /// its Unity spriteBorder (left, bottom, right, top). Button plates:
+        /// (12,8,12,8) clears every plate size in use, 52x44 down to 84x28.
+        /// HUD chrome (hud-atlas-source.png, single gti generation, sliced
+        /// into 16 tiles by _workspace/current/design/hud-atlas/slice.sh):
+        /// each border is well under half of its real HudView.cs usage
+        /// height so no corner ever overlaps.
+        ///   hp/oil bar frame   used at 284x22 -> border capped ~6 v
+        ///   meters panel       used at 300x74 -> border capped ~16 v
+        ///   stats panel        used at 240x108 -> border capped ~20 v
+        ///   skill card frame   used at 150x88 (108x88 dungeon) -> ~16 v
+        ///   boss bar frame     used at 520x46 (outer plate) -> ~10 v
+        /// xp-bar / extraction-ring / shield-readout frames are NOT sliced
+        /// here: their real usage height (8-14 u) is too small for any
+        /// readable border, so HudView.cs only applies their FILL sprite
+        /// (Image.Type.Filled has no border math, so no size limit).</summary>
+        static bool TryGetFrameBorder(string path, out Vector4 border)
+        {
+            if (IsButtonPlate(path)) { border = new Vector4(12, 8, 12, 8); return true; }
+            if (path.EndsWith("hud-hp-bar-frame.png")
+                || path.EndsWith("hud-oil-bar-frame.png")) { border = new Vector4(14, 6, 14, 6); return true; }
+            if (path.EndsWith("hud-meters-panel-bg.png")) { border = new Vector4(16, 16, 16, 16); return true; }
+            if (path.EndsWith("hud-stats-panel-bg.png")) { border = new Vector4(16, 20, 16, 20); return true; }
+            if (path.EndsWith("hud-skill-card-frame.png")
+                || path.EndsWith("hud-skill-card-frame-ready.png")) { border = new Vector4(16, 16, 16, 16); return true; }
+            if (path.EndsWith("hud-boss-bar-frame.png")) { border = new Vector4(20, 10, 20, 10); return true; }
+            border = default;
+            return false;
+        }
+
 
         /// <summary>Idempotent batch entry: -executeMethod ...IconImportPipeline.ImportAll</summary>
         public static void ImportAll()
@@ -69,8 +91,9 @@ namespace CinderCourt.EditorTools
                 found += 1;
                 // `> 0` was too weak — the crushed (30,14,30,14) border passed
                 // it. Require the exact contract so a stale import is caught.
-                var borderOk = !IsButtonPlate(path)
-                    || importer.spriteBorder == new Vector4(12, 8, 12, 8);
+                var borderOk = !TryGetFrameBorder(path, out var expectedBorder)
+                    || importer.spriteBorder == expectedBorder;
+
                 if (importer.textureType == TextureImporterType.Sprite &&
                     importer.alphaIsTransparency && !importer.mipmapEnabled && borderOk) continue;
                 Apply(importer);

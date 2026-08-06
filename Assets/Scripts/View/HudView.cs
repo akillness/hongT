@@ -222,18 +222,24 @@ namespace CinderCourt.View
 
             // --- top-left: health + oil -------------------------------------
             var meters = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(16, -16), new Vector2(300, 74), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+                new Vector2(16, -16), new Vector2(300, 74), new Color(0.05f, 0.04f, 0.09f, 0.55f),
+                "hud-meters-panel-bg");
             _metersRect = meters.GetComponent<RectTransform>();
             _healthFill = Bar(meters.transform, 8, -8, 284, 22,
-                new Color(0.95f, 0.42f, 0.3f), out _healthText, "체력");
+                new Color(0.95f, 0.42f, 0.3f), out _healthText, "체력",
+                "hud-hp-bar-frame", "hud-hp-bar-fill");
             _chargeFill = Bar(meters.transform, 8, -40, 284, 22,
-                new Color(1f, 0.83f, 0.45f), out _chargeText, "기름");
+                new Color(1f, 0.83f, 0.45f), out _chargeText, "기름",
+                "hud-oil-bar-frame", "hud-oil-bar-fill");
             _healthBackRect = (RectTransform)_healthFill.transform.parent;
             _chargeBackRect = (RectTransform)_chargeFill.transform.parent;
 
             // --- top-right: wave / score / relics / enemies -------------------
             var stats = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-16, -16), new Vector2(240, 108), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+                new Vector2(-16, -16), new Vector2(240, 108), new Color(0.05f, 0.04f, 0.09f, 0.55f),
+                "hud-stats-panel-bg");
+            _statsRect = stats.GetComponent<RectTransform>();
+
             _statsRect = stats.GetComponent<RectTransform>();
             _waveText = Label(stats.transform, 10, -6, 220, 24, "웨이브 1", 18, TextAnchor.MiddleLeft);
             _scoreText = Label(stats.transform, 10, -30, 220, 24, "점수 0", 18, TextAnchor.MiddleLeft);
@@ -1463,6 +1469,9 @@ namespace CinderCourt.View
             _xpFill.color = new Color(0.56f, 0.91f, 1f);
             _xpFill.type = Image.Type.Filled;
             _xpFill.fillMethod = Image.FillMethod.Horizontal;
+            var xpFillSprite = Resources.Load<Sprite>("Icons/hud-xp-bar-fill");
+            if (xpFillSprite != null) _xpFill.sprite = xpFillSprite;
+
             _xpFill.raycastTarget = false;   // decorative fill must not eat taps
             var xpRect = xpFillObject.GetComponent<RectTransform>();
             xpRect.anchorMin = Vector2.zero;
@@ -1486,6 +1495,14 @@ namespace CinderCourt.View
                 pip.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
                 _comboPips[i] = pip.GetComponent<Image>();
                 _comboPipRects[i] = pip.GetComponent<RectTransform>();
+                // Simple, not Sliced: a round gem art shouldn't be
+                // 9-slice-stretched onto a 20x20 square pip — it just
+                // fills the square, same as any other icon Image. The
+                // existing per-frame Color tint below keeps dimming/
+                // lighting it exactly as before, now over real art.
+                var pipGem = Resources.Load<Sprite>("Icons/hud-combo-pip-gem");
+                if (pipGem != null) _comboPips[i].sprite = pipGem;
+
             }
 
             // --- skill row: dash + Q/E/R/F --------------------------------------
@@ -1530,7 +1547,9 @@ namespace CinderCourt.View
 
             // --- boss bar (top center, hidden until boss) --------------------------
             _bossBar = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0, -58), new Vector2(520, 46), new Color(0.05f, 0.02f, 0.05f, 0.8f));
+                new Vector2(0, -58), new Vector2(520, 46), new Color(0.05f, 0.02f, 0.05f, 0.8f),
+                "hud-boss-bar-frame");
+
             _bossBarRect = _bossBar.GetComponent<RectTransform>();
             _bossBarRect.pivot = new Vector2(0.5f, 1f);
             _bossName = Label(_bossBar.transform, 10, -2, 400, 20, bossDisplayName, 14, TextAnchor.MiddleLeft);
@@ -1546,6 +1565,9 @@ namespace CinderCourt.View
             _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
             _bossFill.type = Image.Type.Filled;
             _bossFill.fillMethod = Image.FillMethod.Horizontal;
+            var bossFillSprite = Resources.Load<Sprite>("Icons/hud-boss-bar-fill");
+            if (bossFillSprite != null) _bossFill.sprite = bossFillSprite;
+
             _bossFill.raycastTarget = false;
             var bossFillRect = bossFillObject.GetComponent<RectTransform>();
             bossFillRect.anchorMin = Vector2.zero;
@@ -1567,6 +1589,9 @@ namespace CinderCourt.View
             _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
             _extractRing.type = Image.Type.Filled;
             _extractRing.fillMethod = Image.FillMethod.Horizontal;
+            var extractFillSprite = Resources.Load<Sprite>("Icons/hud-extraction-ring-fill");
+            if (extractFillSprite != null) _extractRing.sprite = extractFillSprite;
+
             _extractRing.raycastTarget = false;
             var extractRect = extractFillObject.GetComponent<RectTransform>();
             extractRect.anchorMin = Vector2.zero;
@@ -1747,7 +1772,7 @@ namespace CinderCourt.View
 
         // ------------------------------------------------------------- factory --
         GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
-                         Vector2 anchored, Vector2 size, Color color)
+                         Vector2 anchored, Vector2 size, Color color, string frameSpriteId = null)
         {
             var panel = new GameObject("Panel");
             panel.transform.SetParent(parent, false);
@@ -1764,12 +1789,44 @@ namespace CinderCourt.View
             rect.pivot = anchorMin;
             rect.anchoredPosition = anchored;
             rect.sizeDelta = size;
+            ApplyFrameOverlay(panel.transform, frameSpriteId);
             return panel;
         }
 
-        Image Bar(Transform parent, float x, float y, float width, float height,
-                  Color fillColor, out Text valueText, string label)
+        /// <summary>Additive decorative chrome (HUD atlas, see
+        /// _workspace/current/design/hud-atlas/): a full-stretch 9-sliced
+        /// child drawn ON TOP of the panel's own flat-color Image, never a
+        /// replacement for it. That keeps every existing translucent
+        /// track/backdrop tint exactly as before when the sprite is absent
+        /// AND when a fill bar sits on top of a partially-hollow frame —
+        /// the flat base still shows through as the "empty" track. No-op
+        /// when the sprite hasn't been generated/imported yet.</summary>
+        static void ApplyFrameOverlay(Transform parent, string frameSpriteId)
         {
+            if (frameSpriteId == null) return;
+            var frame = Resources.Load<Sprite>("Icons/" + frameSpriteId);
+            if (frame == null) return;   // missing sprite keeps the flat-color fallback
+            var frameObject = new GameObject("Frame");
+            frameObject.transform.SetParent(parent, false);
+            var frameImage = frameObject.AddComponent<Image>();
+            frameImage.sprite = frame;
+            frameImage.type = Image.Type.Sliced;
+            frameImage.color = Color.white;
+            frameImage.raycastTarget = false;
+            var frameRect = frameObject.GetComponent<RectTransform>();
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.offsetMin = Vector2.zero;
+            frameRect.offsetMax = Vector2.zero;
+        }
+
+        Image Bar(Transform parent, float x, float y, float width, float height,
+                  Color fillColor, out Text valueText, string label,
+                  string frameSpriteId = null, string fillSpriteId = null)
+        {
+            // The frame overlay is added AFTER Fill below (not passed here)
+            // so it sits on top of the fill as a bezel instead of being
+            // covered by it — see ApplyFrameOverlay's ordering note.
             var back = Panel(parent, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(x, y), new Vector2(width, height), new Color(0f, 0f, 0f, 0.55f));
             var fillObject = new GameObject("Fill");
@@ -1784,7 +1841,23 @@ namespace CinderCourt.View
             rect.offsetMax = new Vector2(-2, -2);
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Horizontal;
+            if (fillSpriteId != null)
+            {
+                // Filled type crops a rect of the raw texture — no 9-slice
+                // border math, so unlike frames this is safe at any height.
+                // .color stays fillColor: the existing dynamic tint logic
+                // (health flash, boss phase colors, ...) keeps working
+                // unchanged, just multiplied over the new gradient art.
+                var fillSprite = Resources.Load<Sprite>("Icons/" + fillSpriteId);
+                if (fillSprite != null) fill.sprite = fillSprite;
+            }
+            // Sibling order: back (flat track) -> Fill -> Frame -> Label, so
+            // the ornate border bezel draws over the fill's edges but the
+            // readout text still draws over the bezel and stays legible.
+            ApplyFrameOverlay(back.transform, frameSpriteId);
             valueText = Label(back.transform, 6, 0, width - 12, height, label, 14, TextAnchor.MiddleLeft);
+            valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
+
             valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
             return fill;
         }
@@ -1846,7 +1919,9 @@ namespace CinderCourt.View
                              string iconId = null)
         {
             var card = Panel(parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f));
+                new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f),
+                "hud-skill-card-frame");
+
             card.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             var rect = card.GetComponent<RectTransform>();
             rect.pivot = new Vector2(0.5f, 0f);

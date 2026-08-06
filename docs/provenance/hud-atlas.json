@@ -1,0 +1,49 @@
+{
+  "asset_class": "HUD chrome atlas (HP/oil/xp bars, panels, skill cards, boss bar)",
+  "tool": "god-tibo-imagen (gti) 0.3.0",
+  "provider": "codex-cli (private-codex tried first, returned HTTP 429 rate-limit, fell back per docs/provenance/scene-synopsis-art.json precedent)",
+  "date": "2026-08-06",
+  "source": {
+    "path": "_workspace/current/design/hud-atlas/hud-atlas-source.png",
+    "dims": "1254x1254",
+    "md5": "f11515f29e0f2b2cc0a71c487b547502",
+    "reference_images": [
+      "Assets/Resources/Icons/app-lantern.png",
+      "Assets/Resources/Icons/ui-button.png"
+    ],
+    "note": "reference images were passed on the private-codex attempt only; codex-cli (the provider that actually generated this image) does not support --image or --size, matching the same limitation already recorded in docs/provenance/scene-synopsis-art.json.",
+    "prompt": "Unity game HUD sprite atlas sheet, single flat 2D graphic design asset (NOT a screenshot of gameplay, no 3D scene). Solid dark obsidian-black background (#0a0810) fills the whole canvas. Lay out exactly 16 distinct UI chrome tiles in a strict 4-column by 4-row grid of equal square cells, each tile centered and padded inside its own cell, separated by thin pure-white 3px straight grid divider lines running the full width/height so every cell boundary is unambiguous. Dark fantasy \"ember and oil lantern\" aesthetic matching the attached reference icons: warm ember-orange/red (#FF6B35, #FF4500) and gold (#FFD700) ornate thin metal trim for fire-themed pieces, cool sky-blue (#87CEEB) accent only where noted, painterly but clean, minimalist professional game UI chrome, no text, no letters, no digits, no gameplay art, no screenshots. Row 1 (health & oil bars): hp-bar frame + fill, oil-bar frame + fill. Row 2 (xp bar & panels): xp-bar frame + fill, meters-panel-bg, stats-panel-bg. Row 3 (skill cards & boss bar): skill-card-frame idle + ready(gold rim), boss-bar frame + fill. Row 4 (small readouts): extraction-ring frame + fill, combo-pip gem medallion, shield-readout-chip frame. Every framed tile keeps a hollow dark center so the middle can be stretched at runtime."
+  },
+  "slicer": {
+    "path": "_workspace/current/design/hud-atlas/slice.sh",
+    "method": "deterministic offline ImageMagick crop (grid boundaries verified against the actual PNG via numpy column/row-brightness peak detection before slicing — real dividers found at x/y ~= 0, 313, 627, 940, 1254, matching a clean 4x4 grid): per-cell inset -> -fuzz 9% -trim -> resize/pad to a fixed final size -> 4-corner floodfill-transparent against #0a0810 (same alpha-key convention already used by every other Assets/Resources/Icons/*.png, confirmed via PIL: ui-button.png corners are alpha=0)."
+  },
+  "tiles": [
+    { "cell": [0, 0], "file": "hud-hp-bar-frame.png", "final_size": "256x64", "wired_to": "HudView.cs Bar() health back panel (frame overlay, spriteBorder 14,6,14,6 vs real 284x22 usage)" },
+    { "cell": [1, 0], "file": "hud-hp-bar-fill.png", "final_size": "256x64", "wired_to": "HudView.cs _healthFill (Image.Type.Filled, tinted by the existing warm-red color)" },
+    { "cell": [2, 0], "file": "hud-oil-bar-frame.png", "final_size": "256x64", "wired_to": "HudView.cs Bar() oil back panel (frame overlay, spriteBorder 14,6,14,6)" },
+    { "cell": [3, 0], "file": "hud-oil-bar-fill.png", "final_size": "256x64", "wired_to": "HudView.cs _chargeFill (Filled, tinted by the existing amber color)" },
+    { "cell": [0, 1], "file": "hud-xp-bar-frame.png", "final_size": "256x64", "wired_to": "generated but NOT sliced-in: real usage height is 10 u, too small for a readable 9-slice border without corner overlap" },
+    { "cell": [1, 1], "file": "hud-xp-bar-fill.png", "final_size": "256x64", "wired_to": "HudView.cs _xpFill (Filled, no border math -> safe at any height)" },
+    { "cell": [2, 1], "file": "hud-meters-panel-bg.png", "final_size": "256x160", "wired_to": "HudView.cs top-left health/oil Panel (frame overlay, spriteBorder 16,16,16,16 vs real 300x74)" },
+    { "cell": [3, 1], "file": "hud-stats-panel-bg.png", "final_size": "256x160", "wired_to": "HudView.cs top-right wave/score Panel (frame overlay, spriteBorder 16,20,16,20 vs real 240x108)" },
+    { "cell": [0, 2], "file": "hud-skill-card-frame.png", "final_size": "160x160", "wired_to": "HudView.cs SkillCard() every card (arena Nova/Ward + dungeon dash/Q/E/R/F), spriteBorder 16,16,16,16 vs smallest real usage 108x88" },
+    { "cell": [1, 2], "file": "hud-skill-card-frame-ready.png", "final_size": "160x160", "wired_to": "generated, reserved — NOT wired this pass. Swapping it in on off-cooldown+affordable would need a new per-card Image reference threaded through SkillCard()'s 7 call sites; deferred to avoid touching that logic without a batchmode EditMode run available this session (see verification note below)." },
+    { "cell": [2, 2], "file": "hud-boss-bar-frame.png", "final_size": "256x38", "wired_to": "HudView.cs outer _bossBar Panel (frame overlay, spriteBorder 20,10,20,10 vs real 520x46; the inner 504x14 fill track is untouched)" },
+    { "cell": [3, 2], "file": "hud-boss-bar-fill.png", "final_size": "256x38", "wired_to": "HudView.cs _bossFill (Filled, still recolored per boss phase by existing code)" },
+    { "cell": [0, 3], "file": "hud-extraction-ring-frame.png", "final_size": "256x64", "wired_to": "generated but NOT sliced-in: real usage height is 8 u" },
+    { "cell": [1, 3], "file": "hud-extraction-ring-fill.png", "final_size": "256x64", "wired_to": "HudView.cs _extractRing (Filled, no border math)" },
+    { "cell": [2, 3], "file": "hud-combo-pip-gem.png", "final_size": "64x64", "wired_to": "HudView.cs combo pips (Image.Type.Simple, existing per-state Color tint unchanged)" },
+    { "cell": [3, 3], "file": "hud-shield-readout-frame.png", "final_size": "256x64", "wired_to": "generated, reserved — the shield readout is a bare Text with no backing Panel today; adding one would touch _shieldRect, which HudView.CollectDungeonReadoutRectsForTest() feeds into the §U1 overlap-grading tests. Deferred rather than risk that geometry without a batchmode EditMode run available this session." }
+  ],
+  "import_pipeline": {
+    "file": "Assets/Editor/IconImportPipeline.cs",
+    "change": "TryGetFrameBorder() replaces the old IsButtonPlate-only special case with a lookup covering the 5 newly-sliced HUD frames plus the existing button plate, each border picked well under half of its real HudView.cs on-screen usage height (not the source PNG's own pixel size) so no corner can overlap, per the button-plate crushed-border history note already in this file."
+  },
+  "runtime_integration": {
+    "applied": true,
+    "component": "Assets/Scripts/View/HudView.cs",
+    "mechanism": "Panel()/Bar() gained optional frameSpriteId/fillSpriteId parameters (default null, every other call site unaffected). A frame is an ADDITIVE full-stretch Sliced child drawn on top of the panel's own flat-color Image — the base color/alpha is never replaced, so every existing translucent tint and the health/oil/xp/boss 'empty track' visibility is unchanged when a sprite is missing, and still shows through the frame's hollow center when a sprite is present. A fill sprite is set directly on the existing dynamically-tinted Filled Image (health/oil/xp/boss/extraction), so all existing runtime recoloring (flash, boss-phase color swap) keeps working unmodified.",
+    "verification": "Could not run -batchmode -runTests this session: Temp/UnityLockfile is held by a live interactive Unity Editor (PID 16568, same project path) per CLAUDE.md §5 concurrent-session safety — starting a second batchmode instance against the same project would conflict with that session. Verified instead by: (1) numpy grid-line detection on the raw atlas before slicing, confirming a real 4x4 grid; (2) a per-tile opaque/ink-pixel-ratio + average-color sanity pass on all 16 sliced PNGs (all non-empty, colors match the requested per-row palette); (3) reading every touched call site back after editing to confirm the new optional parameters compile-shape correctly (C# optional params, backward compatible). EditMode test run (HudLayoutTests, HudIconIntegrationTests) and a WebGL visual check are still owed once the other session's Editor is free — Image.sprite/type changes don't move any RectTransform this pass, so the §U1 overlap tests should be unaffected, but that is inference, not an observed test run."
+  }
+}
