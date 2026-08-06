@@ -130,6 +130,20 @@ namespace CinderCourt.View
                     return hazards[h].PushX < 0f ? -1f : 1f;
                 }
             }
+            // AMENDMENT #7: trial placements live outside CampaignStages. Without
+            // this pass both bands of the current trial drew the same chevrons,
+            // so the one thing that trial teaches — 순류 vs 역류 — was invisible.
+            var trials = TrainingTrials.Ids;
+            for (var t = 0; t < trials.Length; t++)
+            {
+                if (!TrainingTrials.TryGet(trials[t], out var hazards)) continue;
+                for (var h = 0; h < hazards.Length; h++)
+                {
+                    if (hazards[h].Kind != HazardKind.TideCurrent) continue;
+                    if (hazards[h].X != x || hazards[h].Y != y) continue;
+                    return hazards[h].PushX < 0f ? -1f : 1f;
+                }
+            }
             return 1f;   // unknown placement (e.g. future override) — default +x
         }
 

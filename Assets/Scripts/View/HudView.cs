@@ -46,7 +46,9 @@ namespace CinderCourt.View
         GameObject _equipPanel;
         Text _equipText;
         GameObject _stageClearPanel;
-        Text _stageClearText, _stageClearRetryLabel;
+        Text _stageClearText, _stageClearRetryLabel, _stageClearTitle;
+        int _trialClearHits;
+        Text _gameOverTitle;
         string _campaignStageName;
         int _campaignTotalWaves;
         int _lastEquipHash = -1;
@@ -272,6 +274,7 @@ namespace CinderCourt.View
             // taps must not leak through to the combat HUD beneath it.
             _gameOverPanel.GetComponent<Image>().raycastTarget = true;
             var overTitle = Label(_gameOverPanel.transform, 0, -18, 460, 34, "잿불 법정 함락", 26, TextAnchor.MiddleCenter);
+            _gameOverTitle = overTitle;
             overTitle.color = new Color(1f, 0.55f, 0.4f);
             _finalText = Label(_gameOverPanel.transform, 0, -70, 460, 60, "", 18, TextAnchor.MiddleCenter);
             var retryButton = TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 26),
@@ -633,7 +636,12 @@ namespace CinderCourt.View
                 Vector2.zero, new Vector2(480, 240), new Color(0.02f, 0.05f, 0.06f, 0.94f));
             // Modal backdrop: deliberate raycast blocker (see game-over panel).
             _stageClearPanel.GetComponent<Image>().raycastTarget = true;
+            // Built with the dungeon wording: PresentationFeedbackTests IDENTIFIES
+            // this panel by finding "구역 정화" among its children, so an empty
+            // default makes the panel invisible to the audit. A trial swaps the
+            // text at reveal time instead (AMENDMENT #7).
             var clearTitle = Label(_stageClearPanel.transform, 0, -18, 480, 36, "구역 정화", 28, TextAnchor.MiddleCenter);
+            _stageClearTitle = clearTitle;
             clearTitle.color = new Color(0.56f, 0.91f, 1f);
             _stageClearText = Label(_stageClearPanel.transform, 0, -74, 480, 60, "", 18, TextAnchor.MiddleCenter);
             TextButton(_stageClearPanel.transform, new Vector2(0.5f, 0f), new Vector2(-105, 24),
@@ -657,9 +665,14 @@ namespace CinderCourt.View
             if (_stageBannerText != null && bannerHash != _lastBannerHash)
             {
                 _lastBannerHash = bannerHash;
-                _stageBannerText.text = bossAlive
-                    ? $"{_campaignStageName} — 경계 보스"
-                    : $"{_campaignStageName} — 웨이브 {Mathf.Min(wave, _campaignTotalWaves)}/{_campaignTotalWaves}";
+                // A trial has no wave table (_campaignTotalWaves 0), so the
+                // suffix would read "웨이브 0/0" — noise. The name stands alone
+                // and the trial banner carries the clock.
+                _stageBannerText.text = _campaignTotalWaves <= 0
+                    ? _campaignStageName
+                    : bossAlive
+                        ? $"{_campaignStageName} — 경계 보스"
+                        : $"{_campaignStageName} — 웨이브 {Mathf.Min(wave, _campaignTotalWaves)}/{_campaignTotalWaves}";
             }
             var equipHash = weapon * 100 + lantern * 10 + cloak;
             if (_equipText != null && equipHash != _lastEquipHash)
@@ -693,9 +706,10 @@ namespace CinderCourt.View
 
             _stageClearFinalScore = digest.Score;
             _stageClearFinalRelics = digest.Relics;
+            _trialClearHits = _lastTrialHits;
             _stageClearTimer = StageClearDuration;
             _stageClearPending = true;
-            _stageClearBanner.text = "구역 정화";
+            _stageClearBanner.text = _trialStatsHidden ? "시련 완료" : "구역 정화";
             _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g, StageClearColor.b, 0f);
             _stageClearBanner.rectTransform.localScale = Vector3.one;
             _stageClearFlash.fillAmount = 0f;
@@ -1563,6 +1577,8 @@ namespace CinderCourt.View
         string _lastTrialText = "";
         static readonly Color PerilColor = new Color(1f, 0.42f, 0.32f);
         static readonly Color SurgeColor = new Color(1f, 0.82f, 0.38f);
+        bool _trialStatsHidden;
+        int _lastTrialHits;
 
         /// <summary>
         /// Surge windows and the trial clock (AMENDMENT #7). Text only, reusing
@@ -1574,9 +1590,10 @@ namespace CinderCourt.View
         /// player who cannot yet use it should still learn to recognise it.
         /// </summary>
         public void SyncSurge(float perilRemaining, float surgeRemaining,
-                              float trialElapsed, int trialHits, bool training)
+                              float trialElapsed, int trialHits, bool trialLive)
         {
             EnsureSurgeBanners();
+            if (_surgeBanner == null) return;
 
             var surgeText = perilRemaining > 0f
                 ? $"위기 {perilRemaining:0.0}"
@@ -1589,7 +1606,7 @@ namespace CinderCourt.View
                 _surgeBanner.gameObject.SetActive(surgeText.Length > 0);
             }
 
-            if (!training)
+            if (!trialLive)
             {
                 if (_lastTrialText.Length > 0)
                 {
@@ -1599,8 +1616,9 @@ namespace CinderCourt.View
                 return;
             }
 
+            _lastTrialHits = trialHits;
             var left = Mathf.Max(0f, HackSpec.TrainingSeconds - trialElapsed);
-            var trialText = $"남은 {left:0} · 피격 {trialHits}";
+            var trialText = $"남은 {left:0} • 피격 {trialHits}";
             if (trialText != _lastTrialText)
             {
                 _lastTrialText = trialText;
@@ -1609,29 +1627,54 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Latches the run's mode ONCE at start (AMENDMENT #7). Separate from
+        /// the per-frame sync on purpose: the clear ceremony reads this AFTER
+        /// the run has ended, so a flag that decays with the run would hand the
+        /// trial the dungeon's "구역 정화 · 점수 0 • 유물 0" wording — a line
+        /// that reads like a failure for a mode with no score by design.
+        ///
+        /// A trial has no waves, no spawns and no economy, so 웨이브 / 유물 / 적
+        /// are structurally frozen at 1 / 0 / 0 and are hidden rather than shown
+        /// as broken values.
+        /// </summary>
+        public void SetTrialMode(bool training)
+        {
+            if (training == _trialStatsHidden) return;
+            _trialStatsHidden = training;
+            if (_waveText != null) _waveText.gameObject.SetActive(!training);
+            if (_relicText != null) _relicText.gameObject.SetActive(!training);
+            if (_enemyText != null) _enemyText.gameObject.SetActive(!training);
+        }
+
         void EnsureSurgeBanners()
         {
-            if (_surgeBanner != null) return;
-            // Label() is the HUD's only text factory — it anchors top-left, so
-            // each banner re-anchors to top-centre after construction.
-            _surgeBanner = Label(transform, 0f, 0f, 260f, 30f, "", 22, TextAnchor.UpperCenter);
+            if (_surgeBanner != null || _safeRoot == null) return;
+            // Parent to the SAFE ROOT, not this MonoBehaviour's transform. The
+            // HUD canvas is a child object built in EnsureBuilt, so a label hung
+            // on the component's own transform sits OUTSIDE the canvas and never
+            // draws — exactly what the browser showed: the banner code ran every
+            // frame and nothing appeared. No test caught it; only looking did.
+            var root = _safeRoot.transform;
+            _surgeBanner = Label(root, 0f, 0f, 300f, 30f, "", 22, TextAnchor.MiddleCenter);
             _surgeBanner.name = "SurgeBanner";
             var surgeRect = _surgeBanner.rectTransform;
             surgeRect.anchorMin = new Vector2(0.5f, 1f);
             surgeRect.anchorMax = new Vector2(0.5f, 1f);
             surgeRect.pivot = new Vector2(0.5f, 1f);
-            surgeRect.anchoredPosition = new Vector2(0f, -96f);
-            surgeRect.sizeDelta = new Vector2(260f, 30f);
+            surgeRect.anchoredPosition = new Vector2(0f, -150f);
+            surgeRect.sizeDelta = new Vector2(300f, 30f);
+            _surgeBanner.fontStyle = FontStyle.Bold;
             _surgeBanner.gameObject.SetActive(false);
 
-            _trialBanner = Label(transform, 0f, 0f, 260f, 24f, "", 18, TextAnchor.UpperCenter);
+            _trialBanner = Label(root, 0f, 0f, 300f, 24f, "", 18, TextAnchor.MiddleCenter);
             _trialBanner.name = "TrialBanner";
             var trialRect = _trialBanner.rectTransform;
             trialRect.anchorMin = new Vector2(0.5f, 1f);
             trialRect.anchorMax = new Vector2(0.5f, 1f);
             trialRect.pivot = new Vector2(0.5f, 1f);
-            trialRect.anchoredPosition = new Vector2(0f, -130f);
-            trialRect.sizeDelta = new Vector2(260f, 24f);
+            trialRect.anchoredPosition = new Vector2(0f, -60f);
+            trialRect.sizeDelta = new Vector2(300f, 24f);
             _trialBanner.color = new Color(0.86f, 0.9f, 1f);
             _trialBanner.gameObject.SetActive(false);
         }
@@ -2158,14 +2201,26 @@ namespace CinderCourt.View
             if ((events & SimEvents.GameOver) != 0)
             {
                 var digest = sim.Digest;
-                var deathContext = _bossAliveAtDeath
-                    ? "보스전에서 밀려났다"
-                    : Time.unscaledTime - _recentHazardTime <= 2f
-                        ? "위험 지대에 잠식됐다"
-                        : "군단에 함락됐다";
-                _finalText.text =
-                    $"점수 {digest.Score:N0} • 유물 {digest.Relics} • 처치 {digest.Kills}\n" +
-                    $"{deathContext} • 웨이브 {digest.Wave} 도달";
+                // A trial has no legion, no waves and no score. The dungeon
+                // defeat line ("군단에 함락됐다 · 웨이브 1 도달") names three
+                // things that do not exist in a trial, so it reads as a bug.
+                if (_trialStatsHidden)
+                {
+                    if (_gameOverTitle != null) _gameOverTitle.text = "시련 중단";
+                    _finalText.text = $"기믹에 쓰러졌다 • 피격 {_lastTrialHits}회";
+                }
+                else
+                {
+                    if (_gameOverTitle != null) _gameOverTitle.text = "잿불 법정 함락";
+                    var deathContext = _bossAliveAtDeath
+                        ? "보스전에서 밀려났다"
+                        : Time.unscaledTime - _recentHazardTime <= 2f
+                            ? "위험 지대에 잠식됐다"
+                            : "군단에 함락됐다";
+                    _finalText.text =
+                        $"점수 {digest.Score:N0} • 유물 {digest.Relics} • 처치 {digest.Kills}\n" +
+                        $"{deathContext} • 웨이브 {digest.Wave} 도달";
+                }
                 ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
                 SetTouchCombatControlsVisible(false);
@@ -2471,8 +2526,14 @@ namespace CinderCourt.View
             _stageClearBanner.color = new Color(StageClearColor.r, StageClearColor.g,
                 StageClearColor.b, 0f);
             _stageClearBanner.rectTransform.localScale = Vector3.one;
-            _stageClearText.text =
-                $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
+            // A trial reports what a trial measures. Score and relics are both
+            // structurally 0 there (no spawns), so the dungeon line would read
+            // "점수 0 • 유물 0" and imply a failed run instead of a finished one.
+            _stageClearText.text = _trialStatsHidden
+                ? $"피격 {_trialClearHits}회"
+                : $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
+            if (_stageClearTitle != null)
+                _stageClearTitle.text = _trialStatsHidden ? "시련 완료" : "구역 정화";
             _stageClearPanel.SetActive(true);
             SetTouchCombatControlsVisible(false);
         }

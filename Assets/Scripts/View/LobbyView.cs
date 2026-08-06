@@ -621,6 +621,14 @@ namespace CinderCourt.View
             var prologueSub = Label(prologue.transform, 12, -62, 220, 18,
                 "2D 디펜스 • 웨이브 3 • 스킬 없음", 12, TextAnchor.MiddleLeft);
             prologueSub.color = InkDim;
+            // v1.6 mastery line. It lives HERE and not on the tier card because
+            // the tier card carries three buttons: measured, that leaves 76 u of
+            // clear width beside them and no useful Korean string fits — the
+            // first build put it there and the browser showed the text running
+            // straight under 견습. This card is 100 u tall with ONE button, so
+            // the row at -82 has 232 u clear to the button's left edge.
+            _trialMasteryLabel = Label(prologue.transform, 12, -82, 230, 16, "", 10,
+                TextAnchor.MiddleLeft);
             _prologueStatus = Label(prologue.transform, -12, -10, 120, 20, "", 13, TextAnchor.MiddleRight);
             AnchorTopRight(_prologueStatus.rectTransform);
             var prologueButton = TextButton(prologue.transform, new Vector2(1, 0), new Vector2(-12, 10),
@@ -747,7 +755,7 @@ namespace CinderCourt.View
         {
             "예고를 읽고 링 밖으로",
             "순류와 역류의 이동 감각",
-            "오라 안팎의 피해 차이",
+            "3기 파괴 순서와 이동선",
             "침식 타이밍 암기",
             "리듬 사이 채널 유지",
         };
@@ -775,8 +783,12 @@ namespace CinderCourt.View
         {
             var tierCard = Card(content, -6 - rowOffset * 70, 68);
             Eyebrow(tierCard.transform, 12, -6, "TRAINING", "훈련장 • 등급");
-            _trialMasteryLabel = Label(tierCard.transform, 12, -44, 250, 16, "", 10,
-                TextAnchor.MiddleLeft);
+            // Only 76 u is clear beside three buttons, so this row carries the
+            // tier COUNT and nothing else. The mastery line is on the prologue
+            // card, which has the width for a sentence.
+            var tierHint = Label(tierCard.transform, 12, -44, 76, 16,
+                $"{HackSpec.TrainingTiers}단", 10, TextAnchor.MiddleLeft);
+            tierHint.color = InkDim;
             _tierButtons = new Button[HackSpec.TrainingTiers];
             _tierBackgrounds = new Image[HackSpec.TrainingTiers];
             for (var tier = 0; tier < HackSpec.TrainingTiers; tier++)

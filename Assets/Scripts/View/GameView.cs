@@ -64,6 +64,13 @@ namespace CinderCourt.View
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
         bool _isTraining;
+        /// <summary>Training borrows the DUNGEON presentation whole — hazard
+        /// visuals, skill row, level and combo readouts. A trial exists to
+        /// practise a gimmick with your full kit, so a trial rendered on the
+        /// arena HUD draws no hazards and shows no skills, which teaches
+        /// nothing (caught in the browser, not by any test). Sim behaviour
+        /// stays split on <see cref="_isDungeon"/>; only presentation is shared.</summary>
+        bool _dungeonPresentation;
         bool _campaignUiOn;
         bool _dungeonUiOn;
         string _logicalStageId;
@@ -145,6 +152,7 @@ namespace CinderCourt.View
         {
             _isDungeon = config.Mode == GameMode.Dungeon;
             _isTraining = config.Mode == GameMode.Training;
+            _dungeonPresentation = _isDungeon || _isTraining;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
             var companionActive = !string.IsNullOrEmpty(companionId);
@@ -159,26 +167,31 @@ namespace CinderCourt.View
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
 
-            if (_isDungeon)
+            if (_dungeonPresentation)
             {
                 if (Hud != null)
                 {
+                    // Latched for the WHOLE run, ceremony included.
+                    Hud.SetTrialMode(_isTraining);
+                    // A trial has no wave table, so the wave counter reads 0 and
+                    // the trial banner carries the clock instead.
+                    var waves = _isDungeon ? config.ToCampaignConfig().Waves : 0;
+                    var bossName = _isDungeon ? BossNameFor(_logicalStageId) : string.Empty;
                     if (!_campaignUiOn)
                     {
                         _campaignUiOn = true;
-                        Hud.EnableCampaignUi(stageDisplayName, config.ToCampaignConfig().Waves);
+                        Hud.EnableCampaignUi(stageDisplayName, waves);
                     }
                     if (!_dungeonUiOn)
                     {
                         _dungeonUiOn = true;
-                        Hud.EnableDungeonUi(BossNameFor(_logicalStageId));
+                        Hud.EnableDungeonUi(bossName);
                     }
-                    Hud.RefreshDungeonStage(stageDisplayName, config.ToCampaignConfig().Waves,
-                        BossNameFor(_logicalStageId), companionActive);
+                    Hud.RefreshDungeonStage(stageDisplayName, waves, bossName, companionActive);
                     Hud.SetCampaignSurfacesVisible(true);
                 }
 
-                if (companionActive && Bootstrap != null)
+                if (_isDungeon && companionActive && Bootstrap != null)
                 {
                     var (prefab, tint) = Bootstrap.CompanionVisual(companionId);
                     _companionView = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
@@ -189,6 +202,7 @@ namespace CinderCourt.View
             }
             else if (Hud != null)
             {
+                Hud.SetTrialMode(false);
                 Hud.SetCampaignSurfacesVisible(false);
             }
         }
@@ -417,7 +431,7 @@ namespace CinderCourt.View
             // the attack pose. ActorView only re-issues the animator value when
             // it CHANGES, so a tier that arrives after the swing starts would
             // lock the wrong variant for the entire swing, not just one frame.
-            if (_isDungeon) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
+            if (_dungeonPresentation) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
             _playerView.SyncPlayer(_sim.Player);
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
@@ -512,12 +526,21 @@ namespace CinderCourt.View
             if (Hud != null) Hud.Sync(_sim);
             // AMENDMENT #7: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.
+            //
+            // A finished run publishes ZERO. UpdateSurge stops running at
+            // GameOver, so the timer freezes wherever it was and the banner
+            // would sit on top of the defeat panel forever — seen in the browser
+            // reading "위기 0.1" behind 잿불 법정 함락.
             var surgeSim = _sim as CinderSim;
+            var runLive = _sim.Mode != SimMode.GameOver;
             if (Hud != null && surgeSim != null)
-                Hud.SyncSurge(surgeSim.PerilRemaining, surgeSim.SurgeRemaining,
-                    surgeSim.TrainingElapsed, surgeSim.TrainingHits, _isTraining);
+                Hud.SyncSurge(
+                    runLive ? surgeSim.PerilRemaining : 0f,
+                    runLive ? surgeSim.SurgeRemaining : 0f,
+                    surgeSim.TrainingElapsed, surgeSim.TrainingHits,
+                    _isTraining && runLive);
 
-            if (_isDungeon)
+            if (_dungeonPresentation)
             {
                 if (Vfx != null) Vfx.SyncHazards(_sim.Hazards);
                 if (Hud != null)

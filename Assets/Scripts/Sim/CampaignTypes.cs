@@ -436,8 +436,12 @@ namespace CinderCourt.Sim
 
         private static readonly HazardConfig[] CurrentTrial =
         {
-            HazardConfig.Current(768f, 484f, CampaignSpec.CurrentPush, 0f),
-            HazardConfig.Current(768f, 724f, -CampaignSpec.CurrentPush, 3f),
+            // Band centres match the shipped cinder-sluice geometry (y 360-580 /
+            // 630-850, a 50 px safe corridor). The first draft used 484/724,
+            // which leaves 20 px — the browser showed the player vanishing
+            // between two overlays at the spawn point.
+            HazardConfig.Current(768f, 470f, CampaignSpec.CurrentPush, 0f),
+            HazardConfig.Current(768f, 740f, -CampaignSpec.CurrentPush, 3f),
         };
 
         private static readonly HazardConfig[] PylonTrial =
