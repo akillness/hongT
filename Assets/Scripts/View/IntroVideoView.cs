@@ -24,6 +24,7 @@ namespace CinderCourt.View
 
         const float FadeOutSeconds = 0.6f;
         const float PrepareTimeout = 4f;    // give up if the browser will not decode
+        const float PlayStartTimeout = 2f;  // Play() issued but playback never began
         const float MaxPlaySeconds = 20f;   // hard watchdog, clip is ~9 s
         const int SortingOrder = 520;       // above CutsceneView (500)
         const int TextureWidth = 1280;
@@ -42,6 +43,7 @@ namespace CinderCourt.View
         float _phaseElapsed;
         float _fadeRemaining;
         bool _finishedFired;
+        bool _playbackObserved;
 
         /// <summary>Raised once when the intro leaves the screen (completed or skipped).</summary>
         public System.Action OnFinished;
@@ -62,6 +64,7 @@ namespace CinderCourt.View
             EnsureBuilt();
 
             _finishedFired = false;
+            _playbackObserved = false;
             _phaseElapsed = 0f;
             _fadeRemaining = FadeOutSeconds;
             _group.alpha = 1f;
@@ -103,8 +106,26 @@ namespace CinderCourt.View
         void Update()
         {
             if (_phase == Phase.Idle) return;
-            if (Input.anyKeyDown) Skip();
+            if (AnySkipPressedThisFrame()) Skip();
             Step(Time.unscaledDeltaTime);
+        }
+
+        /// <summary>Any-key/tap skip read through the Input System package —
+        /// the project switched active input handling, so the legacy
+        /// UnityEngine.Input class throws on every access. Every device is
+        /// null-guarded because batchmode has no attached devices.</summary>
+        static bool AnySkipPressedThisFrame()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.anyKey.wasPressedThisFrame) return true;
+
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) return true;
+
+            var touch = UnityEngine.InputSystem.Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame) return true;
+
+            return false;
         }
 
         /// <summary>State machine with dt injected so EditMode can drive it
@@ -130,10 +151,29 @@ namespace CinderCourt.View
                     break;
 
                 case Phase.Playing:
-                    var ended = _player == null
-                        || (!_player.isPlaying && _phaseElapsed > 0.25f)
-                        || _phaseElapsed >= MaxPlaySeconds;
-                    if (ended) BeginFadeOut();
+                    if (_player == null)
+                    {
+                        BeginFadeOut();
+                        break;
+                    }
+
+                    // VideoPlayer.Play() is asynchronous: isPlaying stays false
+                    // for a few frames after the call, so "not playing" only
+                    // means "finished" once playback was actually observed.
+                    if (_player.isPlaying || _player.frame > 0) _playbackObserved = true;
+
+                    // The last frame is the end: a non-looping VideoPlayer can
+                    // sit on it with isPlaying still true (observed in the
+                    // Editor), which would otherwise hold the intro on screen
+                    // until the watchdog.
+                    var lastFrame = _player.frameCount > 0
+                                    && _player.frame >= (long)_player.frameCount - 1;
+
+                    var ended = lastFrame
+                        || (_playbackObserved
+                            ? !_player.isPlaying
+                            : _phaseElapsed >= PlayStartTimeout);
+                    if (ended || _phaseElapsed >= MaxPlaySeconds) BeginFadeOut();
                     break;
 
                 case Phase.FadingOut:
@@ -215,6 +255,7 @@ namespace CinderCourt.View
             _player.waitForFirstFrame = true;
             _player.audioOutputMode = VideoAudioOutputMode.None;
             _player.errorReceived += OnVideoError;
+            _player.loopPointReached += OnClipEnded;
 
             canvasObject.SetActive(false);
         }
@@ -225,9 +266,20 @@ namespace CinderCourt.View
             Finish();
         }
 
+        /// <summary>End of the (non-looping) clip — start the fade immediately
+        /// instead of waiting for the polled end conditions in Step.</summary>
+        void OnClipEnded(VideoPlayer source)
+        {
+            if (_phase == Phase.Preparing || _phase == Phase.Playing) BeginFadeOut();
+        }
+
         void OnDestroy()
         {
-            if (_player != null) _player.errorReceived -= OnVideoError;
+            if (_player != null)
+            {
+                _player.errorReceived -= OnVideoError;
+                _player.loopPointReached -= OnClipEnded;
+            }
             if (_target != null) _target.Release();
         }
 

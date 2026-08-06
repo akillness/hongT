@@ -155,5 +155,30 @@ namespace CinderCourt.Tests
             Assert.That(IntroVideoView.ClipUrl,
                 Does.EndWith(IntroVideoView.ClipRelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar)));
         }
+
+        /// <summary>Regression: the project runs the Input System package, so
+        /// any read of the legacy UnityEngine.Input class throws
+        /// InvalidOperationException every frame — observed in play mode as a
+        /// per-frame exception out of Update that froze the intro on screen and
+        /// hid the game underneath it. Update must stay device-agnostic and
+        /// survive a machine with no attached input devices (batchmode).</summary>
+        [Test]
+        public void UpdateNeverReadsLegacyInput()
+        {
+            var update = typeof(IntroVideoView).GetMethod(
+                "Update",
+                System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Public);
+            Assert.That(update, Is.Not.Null, "IntroVideoView must keep an Update loop");
+
+            _intro.Play();   // phase leaves Idle, so Update does real work
+
+            Assert.DoesNotThrow(() => update.Invoke(_intro, null),
+                "reading input must go through the Input System package");
+            Assert.That(_intro.Active, Is.True,
+                "a single Update must not tear the intro down on its own");
+        }
+
     }
 }
