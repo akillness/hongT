@@ -18,6 +18,13 @@
 > | 스테이지 입장 | ![stage-entry](assets/scenes/02-stage-entry.png) |
 > | 이동 전이 | ![transition](assets/scenes/03-transition.png) |
 > | 보스 등장 | ![boss-entry](assets/scenes/04-boss-entry.png) |
+>
+> **런타임 적용** `[OBSERVED]`: 이 4장은 `Assets/Resources/Scenes/`에 스프라이트로
+> 복사되어 `CutsceneView`가 로딩 컷씬으로 표시한다. `GameDirector.StartPrologue`는
+> `scene-intro`("PROLOGUE / 잿불의 법정")를, `StartDungeon`은 컨텍스트별로
+> `scene-transition`(Ember Rest 이어가기) / `scene-boss-entry`(BossMonarch 스테이지) /
+> `scene-stage-entry`(그 외)를 골라 `entry.Kicker`·`entry.Title`과 frozen
+> `StoryCatalog` stageStart 내레이션을 캡션으로 얹는다. 로비 복귀 시 `_cutscene.Hide()`.
 
 
 ---
