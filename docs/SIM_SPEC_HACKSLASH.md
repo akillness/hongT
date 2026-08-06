@@ -436,16 +436,19 @@ Each braced expression is rendered as its evaluated integer: `m = 1` yields
   offer hash must remain unchanged from before this amendment.
 ## Frozen Contract Amendment #6 — DRAFT (multi-slot companions + per-companion stats)
 
-**Status: DRAFT — awaiting human sign-off before any FROZEN edit.**
-Unlike Amendments #2–#5, the SimTypes/HackTypes edits this amendment requires
-are **not yet applied**. It is recorded here first because §4's "1슬롯 동행" is a
-frozen contract; expanding it and adding per-companion stats is the scope the
-operator authorized ("a 진행"), and the numbers below are the gate that the
-implementation and its tests must reproduce. Nothing in the sim, view, tests,
-or persistence changes until this draft is promoted to **frozen** by the
-operator. This amendment amends §§4, 12, and 13, and Amendment #3, only as
-specified; it preserves all frozen `Arena`, `Prologue`, and unselected/no-
-companion `Dungeon` behavior.
+**Status: DRAFT — implemented and proven; awaiting operator sign-off to freeze.**
+The sim/view edits this amendment requires are **applied** (`HackConfig.
+CompanionIds` + `CompanionSlots()`, `HackSpec.CompanionSlotFanout` /
+`CompanionStats` / `CompanionArchetype`, `CinderSim` per-slot follower and
+`IHackSnapshot` indexed accessors), and the D6.7 proofs below are implemented
+as the `CompanionSlots_*` tests in `Assets/Tests/EditMode/HackSimTests.cs`.
+The numbers below remain the gate the implementation and its tests reproduce.
+Promotion of this section from DRAFT to **frozen** is the operator's call; no
+further FROZEN-file edit is made under this amendment until then. This
+amendment amends §§4, 12, and 13, and Amendment #3, only as specified; it
+preserves all frozen `Arena`, `Prologue`, and unselected/no-companion
+`Dungeon` behavior.
+
 
 ### D6.1 Scope
 
@@ -545,4 +548,19 @@ same clamps (0.5 s cadence floor) — it never becomes per-slot.
 - Snapshot back-compat: scalar `CompanionX/Y/Attacking/Behavior` equal the
   slot-0 indexed accessors; migration of a legacy snapshot yields
   `CompanionCount ∈ {0,1}` and `Follow`.
+
+
+Proof map — `Assets/Tests/EditMode/HackSimTests.cs`:
+
+| D6.7 bullet | Test |
+|---|---|
+| config/migration (D6.2) | `CompanionSlots_LegacyIdPromotesAndCompanionIdsWinsWithDedupeAndCap` |
+| zero/single-companion parity, Arena/Prologue | `CompanionSlots_ZeroAndSingleSlotRunsMatchTheLegacySingleIdPath` |
+| 2- and 3-slot determinism | `CompanionSlots_TwoAndThreeSlotRunsAreDeterministic` |
+| D6.3 archetype tuples | `CompanionSlots_ArchetypeTupleTableMatchesTheD63Gate` |
+| D6.4 fan-out geometry | `CompanionSlots_EachSlotHoldsItsLateralFanoutOffTheFollowAnchor` |
+| per-slot cadence | `CompanionSlots_EachSlotSwingsOnItsOwnArchetypeCadence` |
+| global hold/recall, tie, restart, inert modes | `CompanionSlots_GlobalHoldAndRecallCommandEverySlot` |
+| D6.5 snapshot back-compat | `CompanionSlots_ScalarSnapshotAliasesSlotZeroAndClampsOutOfRange` |
+
 

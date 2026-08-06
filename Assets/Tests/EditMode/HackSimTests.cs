@@ -1821,6 +1821,440 @@ namespace CinderCourt.Tests
             Assert.That(first.Player.Y, Is.EqualTo(second.Player.Y).Within(Tolerance));
         }
 
+        // --- AMENDMENT #6 companion slots (docs/SIM_SPEC_HACKSLASH.md D6.7 proof) ---
+
+        [Test]
+        public void CompanionSlots_LegacyIdPromotesAndCompanionIdsWinsWithDedupeAndCap()
+        {
+            Assert.That(Dungeon().CompanionSlots(), Is.Empty,
+                "D6.2: no companion id resolves to zero slots");
+            Assert.That(Dungeon(companionId: "ember-cohort").CompanionSlots(),
+                Is.EqualTo(new[] { "ember-cohort" }),
+                "D6.2: a legacy scalar id promotes to a 1-element slot list");
+
+            var both = Dungeon(companionId: "ember-cohort");
+            both.CompanionIds = new[] { "scout-echo", "shade-echo" };
+            Assert.That(both.CompanionSlots(), Is.EqualTo(new[] { "scout-echo", "shade-echo" }),
+                "D6.2: CompanionIds wins and the legacy scalar id is ignored");
+
+            Assert.That(
+                DungeonSlots(new[] { "scout-echo", null, "   ", "scout-echo", "shade-echo" }).CompanionSlots(),
+                Is.EqualTo(new[] { "scout-echo", "shade-echo" }),
+                "D6.2: blank and duplicate ids drop, first occurrence keeps its slot order");
+
+            Assert.That(
+                DungeonSlots(new[] { "scout-echo", "shade-echo", "possessed-echo", "ember-cohort" }).CompanionSlots(),
+                Is.EqualTo(new[] { "scout-echo", "shade-echo", "possessed-echo" }),
+                "D6.2: the slot list caps at three in slot order");
+
+            Assert.That(DungeonSlots(System.Array.Empty<string>()).CompanionSlots(), Is.Empty,
+                "D6.2: an empty id array is a zero-companion run");
+            Assert.That(DungeonSlots(new[] { "   " }).CompanionSlots(), Is.Empty,
+                "D6.2: a whitespace-only id is not a companion");
+        }
+
+        [Test]
+        public void CompanionSlots_ZeroAndSingleSlotRunsMatchTheLegacySingleIdPath()
+        {
+            Assert.That(HackSpec.CompanionSlotFanout[0], Is.EqualTo(0f).Within(Tolerance),
+                "D6.4: slot 0 must carry no lateral offset so it stays the frozen §4 follower");
+
+            var legacyNone = Dungeon(attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var slottedNone = DungeonSlots(
+                System.Array.Empty<string>(), attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var none = new CinderSim(in legacyNone);
+            var noneSlots = new CinderSim(in slottedNone);
+            Assert.That(none.CompanionCount, Is.EqualTo(0));
+            Assert.That(noneSlots.CompanionCount, Is.EqualTo(0));
+            AssertSlotRunsAreIdentical(none, noneSlots, 0, "D6.7: a zero-companion run is unchanged by the slot path");
+
+            var legacyOne = Dungeon(attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2,
+                companionId: "ember-cohort");
+            var slottedOne = DungeonSlots(
+                new[] { "ember-cohort" }, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var one = new CinderSim(in legacyOne);
+            var oneSlot = new CinderSim(in slottedOne);
+            Assert.That(one.CompanionCount, Is.EqualTo(1), "the legacy scalar id yields exactly one slot");
+            Assert.That(oneSlot.CompanionCount, Is.EqualTo(1));
+            AssertSlotRunsAreIdentical(one, oneSlot, 1,
+                "D6.7: a single ember-cohort run is bit-identical through the slot path");
+            Assert.That(one.Digest.Kills, Is.GreaterThan(0), "the scripted single-companion run must not be empty");
+
+            var arena = HackConfig.Arena();
+            var prologue = HackConfig.Prologue();
+            Assert.That(new CinderSim(in arena).CompanionCount, Is.EqualTo(0), "Arena never carries a companion");
+            Assert.That(new CinderSim(in prologue).CompanionCount, Is.EqualTo(0), "Prologue never carries a companion");
+        }
+
+        [Test]
+        public void CompanionSlots_TwoAndThreeSlotRunsAreDeterministic()
+        {
+            string[][] rosters =
+            {
+                new[] { "scout-echo", "shade-echo" },
+                new[] { "scout-echo", "shade-echo", "possessed-echo" },
+            };
+
+            foreach (string[] roster in rosters)
+            {
+                var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+                var first = new CinderSim(in config);
+                var second = new CinderSim(in config);
+                string because = $"roster [{string.Join(",", roster)}]";
+
+                Assert.That(first.CompanionCount, Is.EqualTo(roster.Length), because);
+                AssertSlotRunsAreIdentical(first, second, roster.Length, because);
+                Assert.That(first.Digest.Kills, Is.GreaterThan(0), $"{because}: the scripted run must not be empty");
+            }
+        }
+
+        [Test]
+        public void CompanionSlots_ArchetypeTupleTableMatchesTheD63Gate()
+        {
+            AssertArchetypeTuple("ember-cohort", 1.10f, 200f, 0.60f);
+            AssertArchetypeTuple("scout-echo", 0.85f, 240f, 0.50f);
+            AssertArchetypeTuple("shade-echo", 1.30f, 260f, 0.65f);
+            AssertArchetypeTuple("possessed-echo", 1.45f, 150f, 0.80f);
+            AssertArchetypeTuple(
+                "nameless-echo",
+                HackSpec.CompanionAttackInterval,
+                HackSpec.CompanionAttackRange,
+                HackSpec.CompanionDamageScale);
+            AssertArchetypeTuple(
+                null,
+                HackSpec.CompanionAttackInterval,
+                HackSpec.CompanionAttackRange,
+                HackSpec.CompanionDamageScale);
+
+            // The correction: ember-cohort must stay pinned to the §4 tuple.
+            HackSpec.CompanionStats(
+                HackSpec.CompanionArchetype("ember-cohort"),
+                out float cadence,
+                out float range,
+                out float damageScale);
+            Assert.That(cadence, Is.EqualTo(HackSpec.CompanionAttackInterval).Within(Tolerance));
+            Assert.That(range, Is.EqualTo(HackSpec.CompanionAttackRange).Within(Tolerance));
+            Assert.That(damageScale, Is.EqualTo(HackSpec.CompanionDamageScale).Within(Tolerance));
+        }
+
+        [Test]
+        public void CompanionSlots_EachSlotHoldsItsLateralFanoutOffTheFollowAnchor()
+        {
+            string[] roster = { "scout-echo", "shade-echo", "possessed-echo" };
+            var config = DungeonSlots(roster);
+            var sim = new CinderSim(in config);
+            Assert.That(sim.CompanionCount, Is.EqualTo(3));
+
+            for (int tick = 0; tick < 240; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = -1f });
+            }
+            Assert.That(sim.Player.Facing, Is.EqualTo(-1));
+
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(sim.CompanionXAt(slot) - sim.Player.X,
+                    Is.EqualTo(HackSpec.CompanionFollowOffset).Within(2f),
+                    $"D6.4: slot {slot} trails the shared 80 px anchor opposite the facing");
+                Assert.That(sim.CompanionYAt(slot) - sim.Player.Y,
+                    Is.EqualTo(HackSpec.CompanionSlotFanout[slot]).Within(2f),
+                    $"D6.4: slot {slot} sits at its lateral fan-out");
+            }
+
+            Assert.That(MathF.Abs(sim.CompanionYAt(1) - sim.CompanionYAt(0)), Is.GreaterThan(60f),
+                "D6.4: fanned slots must not stack on the anchor");
+            Assert.That(MathF.Abs(sim.CompanionYAt(2) - sim.CompanionYAt(0)), Is.GreaterThan(60f),
+                "D6.4: fanned slots must not stack on the anchor");
+            Assert.That(MathF.Abs(sim.CompanionYAt(2) - sim.CompanionYAt(1)), Is.GreaterThan(120f),
+                "D6.4: slot 1 and slot 2 fan to opposite sides");
+        }
+
+        [Test]
+        public void CompanionSlots_EachSlotSwingsOnItsOwnArchetypeCadence()
+        {
+            string[] roster = { "scout-echo", "shade-echo", "possessed-echo" };
+            // D6.3 literals, not HackSpec lookups: the observed swing period is the gate.
+            float[] expectedCadence = { 0.85f, 1.30f, 1.45f };
+
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+
+            var attacking = new bool[roster.Length];
+            var lastEdge = new int[roster.Length];
+            var minGap = new int[roster.Length];
+            var swings = new int[roster.Length];
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                lastEdge[slot] = -1;
+                minGap[slot] = int.MaxValue;
+            }
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    bool nowAttacking = sim.CompanionAttackingAt(slot);
+                    if (nowAttacking && !attacking[slot])
+                    {
+                        swings[slot] += 1;
+                        if (lastEdge[slot] >= 0 && tick - lastEdge[slot] < minGap[slot])
+                        {
+                            minGap[slot] = tick - lastEdge[slot];
+                        }
+                        lastEdge[slot] = tick;
+                    }
+                    attacking[slot] = nowAttacking;
+                }
+            }
+
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                float cadence = expectedCadence[slot];
+
+                Assert.That(swings[slot], Is.GreaterThan(1),
+                    $"slot {slot} ({roster[slot]}) must swing repeatedly during the scripted run");
+                Assert.That(minGap[slot], Is.LessThan(int.MaxValue));
+                Assert.That(minGap[slot] * SimConfig.FixedStep,
+                    Is.GreaterThanOrEqualTo(cadence - 2f * SimConfig.FixedStep),
+                    $"D6.3: slot {slot} ({roster[slot]}) must never swing faster than its cadence");
+                Assert.That(minGap[slot] * SimConfig.FixedStep,
+                    Is.EqualTo(cadence).Within(2f * SimConfig.FixedStep),
+                    $"D6.3: slot {slot} ({roster[slot]}) must swing on its own cadence");
+            }
+
+            Assert.That(swings[0], Is.GreaterThan(swings[2]),
+                "the 0.85 s scout-echo must out-swing the 1.45 s possessed-echo over the same script");
+        }
+
+        [Test]
+        public void CompanionSlots_GlobalHoldAndRecallCommandEverySlot()
+        {
+            string[] roster = { "scout-echo", "shade-echo", "possessed-echo" };
+            var config = DungeonSlots(roster);
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = -1f });
+            }
+
+            sim.Tick(new SimInput { CompanionHoldQueued = true });
+            var heldX = new float[roster.Length];
+            var heldY = new float[roster.Length];
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                heldX[slot] = sim.CompanionXAt(slot);
+                heldY[slot] = sim.CompanionYAt(slot);
+                Assert.That(sim.CompanionBehaviorAt(slot), Is.EqualTo(CompanionBehavior.Hold),
+                    $"D6.4: the global hold command holds slot {slot}");
+            }
+
+            for (int tick = 0; tick < 120; tick += 1)
+            {
+                sim.Tick(new SimInput { MoveX = 1f });
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    Assert.That(sim.CompanionXAt(slot), Is.EqualTo(heldX[slot]).Within(Tolerance),
+                        $"hold must lock slot {slot} x while the player walks away");
+                    Assert.That(sim.CompanionYAt(slot), Is.EqualTo(heldY[slot]).Within(Tolerance),
+                        $"hold must lock slot {slot} y while the player walks away");
+                }
+            }
+
+            sim.Tick(new SimInput { CompanionRecallQueued = true });
+            float maxStep = config.PlayerSpeed * SimConfig.FixedStep + Tolerance;
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(sim.CompanionBehaviorAt(slot), Is.EqualTo(CompanionBehavior.Follow),
+                    $"D6.4: the global recall command resumes slot {slot}");
+                float step = MathF.Sqrt(
+                    (sim.CompanionXAt(slot) - heldX[slot]) * (sim.CompanionXAt(slot) - heldX[slot])
+                    + (sim.CompanionYAt(slot) - heldY[slot]) * (sim.CompanionYAt(slot) - heldY[slot]));
+                Assert.That(step, Is.GreaterThan(0f), $"recall must move slot {slot} again");
+                Assert.That(step, Is.LessThanOrEqualTo(maxStep), $"recall must not teleport slot {slot}");
+            }
+
+            // Recall wins a same-tick tie for every slot.
+            var control = new CinderSim(in config);
+            var tied = new CinderSim(in config);
+            for (int tick = 0; tick < 90; tick += 1)
+            {
+                var input = new SimInput { MoveX = -1f };
+                control.Tick(in input);
+                tied.Tick(in input);
+            }
+            control.Tick(Idle);
+            tied.Tick(new SimInput { CompanionHoldQueued = true, CompanionRecallQueued = true });
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(tied.CompanionBehaviorAt(slot), Is.EqualTo(CompanionBehavior.Follow),
+                    $"recall wins the tie on slot {slot}");
+                Assert.That(tied.CompanionXAt(slot), Is.EqualTo(control.CompanionXAt(slot)).Within(Tolerance));
+                Assert.That(tied.CompanionYAt(slot), Is.EqualTo(control.CompanionYAt(slot)).Within(Tolerance));
+            }
+
+            // Restart re-parks every slot on its fan-out and returns to Follow.
+            sim.Tick(new SimInput { CompanionHoldQueued = true });
+            sim.Restart();
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(sim.CompanionBehaviorAt(slot), Is.EqualTo(CompanionBehavior.Follow),
+                    $"restart resets slot {slot} to Follow");
+                Assert.That(sim.CompanionXAt(slot),
+                    Is.EqualTo(sim.Player.X - HackSpec.CompanionFollowOffset * sim.Player.Facing).Within(Tolerance),
+                    $"restart parks slot {slot} on the anchor");
+                Assert.That(sim.CompanionYAt(slot),
+                    Is.EqualTo(sim.Player.Y + HackSpec.CompanionSlotFanout[slot]).Within(Tolerance),
+                    $"restart parks slot {slot} on its fan-out");
+            }
+
+            // Inert without an active companion and outside Dungeon.
+            var empty = Dungeon();
+            var emptySim = new CinderSim(in empty);
+            var arena = HackConfig.Arena();
+            var arenaSim = new CinderSim(in arena);
+            var prologue = HackConfig.Prologue();
+            var prologueSim = new CinderSim(in prologue);
+            var command = new SimInput { CompanionHoldQueued = true };
+            emptySim.Tick(in command);
+            arenaSim.Tick(in command);
+            prologueSim.Tick(in command);
+            Assert.That(emptySim.CompanionCount, Is.EqualTo(0));
+            Assert.That(emptySim.CompanionBehaviorAt(0), Is.EqualTo(CompanionBehavior.Follow),
+                "hold is inert without an active companion");
+            Assert.That(arenaSim.CompanionBehaviorAt(0), Is.EqualTo(CompanionBehavior.Follow),
+                "hold is inert in Arena");
+            Assert.That(prologueSim.CompanionBehaviorAt(0), Is.EqualTo(CompanionBehavior.Follow),
+                "hold is inert in Prologue");
+        }
+
+        [Test]
+        public void CompanionSlots_ScalarSnapshotAliasesSlotZeroAndClampsOutOfRange()
+        {
+            string[] roster = { "scout-echo", "shade-echo", "possessed-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            IHackSnapshot snapshot = sim;
+
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                Assert.That(snapshot.CompanionX, Is.EqualTo(snapshot.CompanionXAt(0)).Within(Tolerance),
+                    "D6.5: the scalar x aliases slot 0");
+                Assert.That(snapshot.CompanionY, Is.EqualTo(snapshot.CompanionYAt(0)).Within(Tolerance),
+                    "D6.5: the scalar y aliases slot 0");
+                Assert.That(snapshot.CompanionAttacking, Is.EqualTo(snapshot.CompanionAttackingAt(0)),
+                    "D6.5: the scalar attack flag aliases slot 0");
+                Assert.That(snapshot.CompanionBehavior, Is.EqualTo(snapshot.CompanionBehaviorAt(0)),
+                    "D6.5: the scalar behavior aliases slot 0");
+                Assert.That(sim.CompanionFacing, Is.EqualTo(snapshot.CompanionFacingAt(0)),
+                    "D6.5: the scalar facing aliases slot 0");
+            }
+
+            Assert.That(snapshot.CompanionCount, Is.EqualTo(3));
+            Assert.That(snapshot.CompanionXAt(-1), Is.EqualTo(snapshot.CompanionXAt(0)).Within(Tolerance),
+                "an out-of-range slot clamps to slot 0");
+            Assert.That(snapshot.CompanionXAt(9), Is.EqualTo(snapshot.CompanionXAt(0)).Within(Tolerance),
+                "an out-of-range slot clamps to slot 0");
+            Assert.That(snapshot.CompanionYAt(9), Is.EqualTo(snapshot.CompanionYAt(0)).Within(Tolerance));
+            Assert.That(snapshot.CompanionAttackingAt(9), Is.EqualTo(snapshot.CompanionAttackingAt(0)));
+            Assert.That(snapshot.CompanionFacingAt(9), Is.EqualTo(snapshot.CompanionFacingAt(0)));
+
+            // A migrated legacy snapshot: scalar-only config reads CompanionCount ∈ {0,1} and Follow.
+            var legacy = Dungeon(companionId: "ember-cohort");
+            IHackSnapshot legacySnapshot = new CinderSim(in legacy);
+            Assert.That(legacySnapshot.CompanionCount, Is.EqualTo(1));
+            Assert.That(legacySnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+            var noCompanion = Dungeon();
+            IHackSnapshot noCompanionSnapshot = new CinderSim(in noCompanion);
+            Assert.That(noCompanionSnapshot.CompanionCount, Is.EqualTo(0));
+            Assert.That(noCompanionSnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+        }
+
+        /// <summary>D6.2 multi-slot dungeon config: same shape as <see cref="Dungeon"/>,
+        /// routed through the AMENDMENT #6 <c>CompanionIds</c> overload.</summary>
+        private static HackConfig DungeonSlots(
+            string[] companionIds,
+            int attack = 0,
+            int vitality = 0,
+            int swiftness = 0,
+            int weapon = 0,
+            int lantern = 0,
+            int cloak = 0,
+            string stageId = CampaignStages.CinderSpan,
+            int rosterMask = 0)
+        {
+            Assert.IsTrue(
+                HackConfig.TryDungeon(
+                    stageId,
+                    MetaStats.Of(attack, vitality, swiftness),
+                    EquipTiers.Of(weapon, lantern, cloak),
+                    companionIds,
+                    rosterMask,
+                    out var config),
+                $"unknown stage {stageId}");
+            return config;
+        }
+
+        private static void AssertArchetypeTuple(
+            string companionId,
+            float expectedCadence,
+            float expectedRange,
+            float expectedDamageScale)
+        {
+            HackSpec.CompanionStats(
+                HackSpec.CompanionArchetype(companionId),
+                out float cadence,
+                out float range,
+                out float damageScale);
+            Assert.That(cadence, Is.EqualTo(expectedCadence).Within(Tolerance), $"{companionId} cadence");
+            Assert.That(range, Is.EqualTo(expectedRange).Within(Tolerance), $"{companionId} range");
+            Assert.That(damageScale, Is.EqualTo(expectedDamageScale).Within(Tolerance), $"{companionId} damage scale");
+        }
+
+        /// <summary>Runs both sims on the same scripted input and fails on the first tick
+        /// where any per-slot companion state or the player state diverges.</summary>
+        private static void AssertSlotRunsAreIdentical(
+            CinderSim expected,
+            CinderSim actual,
+            int slots,
+            string because)
+        {
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                var input = HackScriptInput(tick);
+                expected.Tick(in input);
+                actual.Tick(in input);
+
+                if (MathF.Abs(expected.Player.X - actual.Player.X) > Tolerance
+                    || MathF.Abs(expected.Player.Y - actual.Player.Y) > Tolerance
+                    || MathF.Abs(expected.Player.Health - actual.Player.Health) > Tolerance
+                    || expected.Events != actual.Events)
+                {
+                    Assert.Fail($"{because}: player state diverged at tick {tick}");
+                }
+
+                if (expected.CompanionCount != actual.CompanionCount)
+                {
+                    Assert.Fail($"{because}: companion count diverged at tick {tick}");
+                }
+
+                for (int slot = 0; slot < slots; slot += 1)
+                {
+                    if (MathF.Abs(expected.CompanionXAt(slot) - actual.CompanionXAt(slot)) > Tolerance
+                        || MathF.Abs(expected.CompanionYAt(slot) - actual.CompanionYAt(slot)) > Tolerance
+                        || expected.CompanionAttackingAt(slot) != actual.CompanionAttackingAt(slot)
+                        || expected.CompanionFacingAt(slot) != actual.CompanionFacingAt(slot)
+                        || expected.CompanionBehaviorAt(slot) != actual.CompanionBehaviorAt(slot))
+                    {
+                        Assert.Fail($"{because}: slot {slot} diverged at tick {tick}");
+                    }
+                }
+            }
+
+            AssertSameDigest(expected.Digest, actual.Digest, because);
+        }
+
         [Test]
         public void EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose()
         {
@@ -2697,17 +3131,27 @@ namespace CinderCourt.Tests
             Assert.That(firstSim.CompanionY, Is.EqualTo(secondSim.CompanionY).Within(Tolerance));
         }
 
+        /// <summary>The scripted dungeon pilot input for one tick. Shared by
+        /// <see cref="RunHackScript"/> and the AMENDMENT #6 slot proofs so both
+        /// replay the identical 1800-tick script.</summary>
+        private static SimInput HackScriptInput(int tick)
+        {
+            var input = Script(tick);
+            input.DashQueued = tick % 130 == 0;
+            input.BoltQueued = tick % 210 == 0;
+            input.PulseQueued = tick % 170 == 0;
+            return input;
+        }
+
         private static RunDigest RunHackScript(CinderSim sim)
         {
             for (int tick = 0; tick < 1800; tick += 1)
             {
-                var input = Script(tick);
-                input.DashQueued = tick % 130 == 0;
-                input.BoltQueued = tick % 210 == 0;
-                input.PulseQueued = tick % 170 == 0;
+                var input = HackScriptInput(tick);
                 sim.Tick(in input);
             }
             return sim.Digest;
         }
+
     }
 }
