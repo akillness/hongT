@@ -1150,7 +1150,15 @@ namespace CinderCourt.View
         // dead here — so typing never reached the field (only Enter/ESC worked,
         // read straight off Keyboard.current). Feed Keyboard.onTextInput by
         // hand instead (Unity input-system docs: read-keyboard-text-input).
+        // The field itself is readOnly so it can NEVER also write: with an IME
+        // active the field's own KeyPressed path still saw the committed Hangul
+        // syllable and appended a second copy ("한" -> "한한"). One writer only,
+        // and it is this buffer.
         System.Action<char> _consoleTextHandler;
+        UnityEngine.InputSystem.Keyboard _consoleTextKeyboard;   // exact device we subscribed to
+        readonly CommandConsoleBuffer _consoleBuffer = new CommandConsoleBuffer(ConsoleCharacterLimit);
+        const int ConsoleCharacterLimit = 60;
+
         /// <summary>GameView caps timeScale at 0.2 while this is true — typing
         /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
         /// reduced-motion players get the same breathing room.</summary>
@@ -1192,8 +1200,15 @@ namespace CinderCourt.View
             _consoleField = fieldObject.AddComponent<InputField>();
             _consoleField.textComponent = text;
             _consoleField.placeholder = placeholder;
-            _consoleField.characterLimit = 60;
+            _consoleField.characterLimit = ConsoleCharacterLimit;
             _consoleField.lineType = InputField.LineType.SingleLine;
+            // readOnly kills the field's OWN writer (InputField.Append/Backspace
+            // early-return on readOnly) while ActivateInputField still turns the
+            // IME on and the caret stays visible. Without this the IME-committed
+            // Hangul syllable was appended twice: once by the field, once by the
+            // Keyboard.onTextInput mirror below.
+            _consoleField.readOnly = true;
+
 
             _consoleToast = Label(root, 0, 346, 560, 28, "", 15, TextAnchor.MiddleCenter);
             var toastRect = _consoleToast.rectTransform;
@@ -1219,54 +1234,62 @@ namespace CinderCourt.View
             _consoleRoot.SetActive(true);
             CommandConsoleOpen = true;
             if (Input != null) Input.TextInputActive = true;
+            _consoleBuffer.Clear();
             _consoleField.text = string.Empty;
             _consoleField.ActivateInputField();
             // New-input-only project: the uGUI InputField can't pull text from
             // the dead legacy Input stream, so we mirror Keyboard.onTextInput
             // into the field ourselves (printable chars + backspace).
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null)
+            if (keyboard != null && _consoleTextHandler == null)
             {
                 _consoleTextHandler = OnConsoleTextInput;
+                _consoleTextKeyboard = keyboard;
                 keyboard.onTextInput += _consoleTextHandler;
             }
             if (!GeminiCommandClient.HasKey)
                 ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 · 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
         }
 
+
         void OnConsoleTextInput(char c)
         {
             if (!CommandConsoleOpen || _consoleField == null) return;
-            // Enter/ESC are handled separately in UpdateCommandConsole; ignore
-            // their control chars and the tab so the field stays clean.
-            if (c == '\n' || c == '\r' || c == '\t' || c == (char)27) return;
-            if (c == '\b' || c == (char)127)
-            {
-                var t = _consoleField.text;
-                if (t.Length > 0) _consoleField.text = t.Substring(0, t.Length - 1);
-                return;
-            }
-            if (!char.IsControl(c)) _consoleField.text += c;
+            // Every editing rule (control chars, backspace, 60-char cap,
+            // same-frame duplicate suppression) lives in the buffer; the field
+            // is a readOnly display of it.
+            if (!_consoleBuffer.Feed(c, Time.frameCount)) return;
+            _consoleField.text = _consoleBuffer.Text;
+            _consoleField.caretPosition = _consoleField.selectionAnchorPosition =
+                _consoleField.selectionFocusPosition = _consoleBuffer.Length;
         }
+
 
 
         void CloseCommandConsole(bool submit)
         {
             if (_consoleRoot == null) return;
-            var raw = _consoleField.text;
+            var raw = _consoleBuffer.Text;      // buffer is the single source of truth
             _consoleField.DeactivateInputField();
             // Detach the manual text feed so it never leaks onto other surfaces.
+            // Unsubscribe from the EXACT device we subscribed to: if
+            // Keyboard.current changed while the console was open, removing the
+            // handler from the new device would leave the old subscription live
+            // and every character would arrive twice on the next open.
             if (_consoleTextHandler != null)
             {
-                var keyboard = UnityEngine.InputSystem.Keyboard.current;
-                if (keyboard != null) keyboard.onTextInput -= _consoleTextHandler;
+                if (_consoleTextKeyboard != null)
+                    _consoleTextKeyboard.onTextInput -= _consoleTextHandler;
                 _consoleTextHandler = null;
+                _consoleTextKeyboard = null;
             }
+            _consoleBuffer.Clear();
             _consoleRoot.SetActive(false);
             CommandConsoleOpen = false;
             if (Input != null) Input.TextInputActive = false;
             if (submit && !string.IsNullOrWhiteSpace(raw)) SubmitCommand(raw.Trim());
         }
+
 
 
         void SubmitCommand(string raw)
