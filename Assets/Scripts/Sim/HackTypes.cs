@@ -14,7 +14,10 @@ namespace CinderCourt.Sim
     /// </summary>
     public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2 }
 
-    /// <summary>Active dungeon companion locomotion mode.</summary>
+    /// <summary>Active dungeon companion locomotion mode. This is the COMMANDED mode and
+    /// stays exactly the frozen Amendment #3 pair: the AMENDMENT #7 autonomy state is a
+    /// derived per-slot flag (<c>IHackSnapshot.CompanionEngagedAt</c>), deliberately not a
+    /// third member here, so a command surface can never be confused with a derived one.</summary>
     public enum CompanionBehavior { Follow = 0, Hold = 1 }
 
     /// <summary>
@@ -290,10 +293,16 @@ namespace CinderCourt.Sim
         float CompanionYAt(int slot);
         /// <summary>D6.5: slot i visible-attack flag.</summary>
         bool CompanionAttackingAt(int slot);
-        /// <summary>D6.5: slot i locomotion behavior.</summary>
+        /// <summary>D6.5: slot i commanded locomotion behavior (global hold/recall).</summary>
         CompanionBehavior CompanionBehaviorAt(int slot);
         /// <summary>D6.5: slot i target-facing (+1/-1).</summary>
         int CompanionFacingAt(int slot);
+        /// <summary>A7.2: true while slot i is closing on its locked target instead of
+        /// trailing its anchor. Derived per tick — a held slot never reports it.</summary>
+        bool CompanionEngagedAt(int slot);
+        /// <summary>A7.1: enemy id this slot has locked, or 0 when it holds no target.
+        /// Ids are unique and never reused, so this survives enemy-array compaction.</summary>
+        int CompanionTargetIdAt(int slot);
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }
@@ -469,6 +478,28 @@ namespace CinderCourt.Sim
         public const float CompanionAttackRange = 200f;
         public const float CompanionDamageScale = 0.6f;
         public const float CompanionAttackDisplay = 0.25f;
+
+        // --- §4 companion autonomy (AMENDMENT #7 — docs/SIM_SPEC_HACKSLASH.md A7) ---
+        // Every quantity is a compile-time constant compared against accumulated
+        // fixed-step floats, so §13 (no RNG anywhere) still holds. The relations are
+        // chosen, not tasted: AcquireRadius < LeashRadius guarantees a slot can always
+        // reach a target it is allowed to lock; LeashRadius = 4 x FollowOffset keeps the
+        // leash in anchor units; PursuitSpeedScale > 1 is the only way to close on a foe
+        // that walks at player speed, and stays low enough that a slot never leads.
+        /// <summary>A7.4: target acquisition radius, measured from the follow anchor
+        /// (not from the companion) so §4/D6.3 attack geometry is untouched.</summary>
+        public const float CompanionAcquireRadius = 300f;
+        /// <summary>A7.2: hard leash from the follow anchor. A locked target beyond it is
+        /// dropped and the slot returns; a slot beyond it never pursues.</summary>
+        public const float CompanionLeashRadius = 320f;
+        /// <summary>A7.2: pursuit speed as a multiple of the player's current speed.</summary>
+        public const float CompanionPursuitSpeedScale = 1.05f;
+        /// <summary>A7.1: seconds a locked target is retained against a nearer late arrival
+        /// (120 ticks at the 1/60 fixed step — integral, so the lock is frame-exact).</summary>
+        public const float CompanionTargetLockSeconds = 2f;
+        /// <summary>A7.3: dwell after an engagement ends before walking back to the anchor;
+        /// suppresses acquire/return oscillation at the radius edge.</summary>
+        public const float CompanionReturnGraceSeconds = 0.35f;
 
         // --- §4 companion multi-slot (AMENDMENT #6 — docs/SIM_SPEC_HACKSLASH.md D6.3/D6.4) ---
         /// <summary>D6.4: lateral fan-out per slot, perpendicular to facing.

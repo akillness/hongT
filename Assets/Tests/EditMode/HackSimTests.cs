@@ -1503,6 +1503,10 @@ namespace CinderCourt.Tests
                 sim.Tick(new SimInput { MoveX = -1f });
             }
             Assert.That(sim.Player.Facing, Is.EqualTo(-1));
+            // AMENDMENT #7: the slot may be off pursuing a locked target inside its leash, so the
+            // frozen §4 trail is measured once it has been unengaged long enough to walk home.
+            Assert.That(RunUntilEverySlotIsHome(sim, 1, Idle, 1800), Is.True,
+                "the slot must be able to come home");
             Assert.That(sim.CompanionX - sim.Player.X,
                 Is.EqualTo(HackSpec.CompanionFollowOffset).Within(2f),
                 "the companion trails on the side the player turned away from");
@@ -1950,6 +1954,9 @@ namespace CinderCourt.Tests
                 sim.Tick(new SimInput { MoveX = -1f });
             }
             Assert.That(sim.Player.Facing, Is.EqualTo(-1));
+            // AMENDMENT #7: measure the fan-out once every slot has come home from its pursuit.
+            Assert.That(RunUntilEverySlotIsHome(sim, roster.Length, Idle, 1800), Is.True,
+                "every slot must be able to come home");
 
             for (int slot = 0; slot < roster.Length; slot += 1)
             {
@@ -1989,7 +1996,7 @@ namespace CinderCourt.Tests
                 minGap[slot] = int.MaxValue;
             }
 
-            for (int tick = 0; tick < 1800; tick += 1)
+            for (int tick = 0; tick < 3600; tick += 1)
             {
                 sim.Tick(HackScriptInput(tick));
                 for (int slot = 0; slot < roster.Length; slot += 1)
@@ -3129,6 +3136,618 @@ namespace CinderCourt.Tests
             Assert.That(secondSnapshot.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
             Assert.That(firstSim.CompanionX, Is.EqualTo(secondSim.CompanionX).Within(Tolerance));
             Assert.That(firstSim.CompanionY, Is.EqualTo(secondSim.CompanionY).Within(Tolerance));
+        }
+
+        // --- AMENDMENT #7 companion autonomy (A7.1-A7.4) ---------------------------
+
+        [Test]
+        public void CompanionAutonomy_IsInertWithoutCompanionsAndOutsideDungeon()
+        {
+            var zeroSlots = Dungeon(attack: 2, vitality: 1, swiftness: 3);
+            var arena = HackConfig.Arena();
+            var prologue = HackConfig.Prologue();
+            var zeroSim = new CinderSim(in zeroSlots);
+            var arenaSim = new CinderSim(in arena);
+            var prologueSim = new CinderSim(in prologue);
+
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                var input = HackScriptInput(tick);
+                zeroSim.Tick(in input);
+                arenaSim.Tick(in input);
+                prologueSim.Tick(in input);
+                foreach (var sim in new[] { zeroSim, arenaSim, prologueSim })
+                {
+                    Assert.That(sim.CompanionCount, Is.EqualTo(0), "no slot may appear from autonomy");
+                    Assert.That(sim.CompanionTargetIdAt(0), Is.EqualTo(0),
+                        "A7.1 must never lock a target without an active companion");
+                    Assert.That(sim.CompanionEngagedAt(0), Is.False,
+                        "A7.2 must never engage without an active companion");
+                }
+            }
+
+            // The autonomy layer is skipped structurally (_companionCount == 0), so these runs
+            // stay reproducible exactly as before the amendment.
+            var replayConfig = Dungeon(attack: 2, vitality: 1, swiftness: 3);
+            var replay = new CinderSim(in replayConfig);
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                replay.Tick(HackScriptInput(tick));
+            }
+            AssertSameDigest(replay.Digest, zeroSim.Digest,
+                "a zero-companion dungeon run is unchanged by A7");
+        }
+
+        [Test]
+        public void CompanionAutonomy_NeverPublishesALockOnACorpse()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            var deadBefore = new System.Collections.Generic.HashSet<int>();
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    int targetId = sim.CompanionTargetIdAt(slot);
+                    if (targetId == 0)
+                    {
+                        continue;
+                    }
+                    Assert.That(deadBefore.Contains(targetId), Is.False,
+                        $"A7.1: tick {tick} slot {slot} still holds a lock on enemy {targetId}, "
+                        + "which was already dead when the tick started");
+                    int found = -1;
+                    for (int index = 0; index < sim.Enemies.Count; index += 1)
+                    {
+                        if (sim.Enemies[index].Id == targetId)
+                        {
+                            found = index;
+                            break;
+                        }
+                    }
+                    Assert.That(found, Is.GreaterThanOrEqualTo(0),
+                        $"tick {tick} slot {slot}: a lock must never survive its enemy leaving the field");
+                }
+
+                deadBefore.Clear();
+                for (int index = 0; index < sim.Enemies.Count; index += 1)
+                {
+                    if (sim.Enemies[index].Dead)
+                    {
+                        deadBefore.Add(sim.Enemies[index].Id);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void CompanionAutonomy_AcquiresOnlyInsideTheAcquireRadiusOfItsAnchor()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "possessed-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            var previousTarget = new int[roster.Length];
+            int acquisitions = 0;
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    int targetId = sim.CompanionTargetIdAt(slot);
+                    if (targetId != 0 && targetId != previousTarget[slot])
+                    {
+                        acquisitions += 1;
+                        float distance = IsoDistanceToEnemy(sim, targetId, AnchorX(sim), AnchorY(sim, slot));
+                        Assert.That(distance,
+                            Is.LessThanOrEqualTo(HackSpec.CompanionAcquireRadius + Tolerance),
+                            $"A7.4: tick {tick} slot {slot} acquired a target {distance:F1} px from its anchor");
+                    }
+                    previousTarget[slot] = targetId;
+                }
+            }
+
+            Assert.That(acquisitions, Is.GreaterThan(0), "the scripted run must actually acquire targets");
+        }
+
+        [Test]
+        public void CompanionAutonomy_HoldsItsLockUntilDeathLeashExitOrTwoSeconds()
+        {
+            string[] roster = { "ember-cohort", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            int lockTicks = (int)MathF.Round(HackSpec.CompanionTargetLockSeconds / SimConfig.FixedStep);
+            var previousTarget = new int[roster.Length];
+            var lockedAt = new int[roster.Length];
+            var beforeTick = new System.Collections.Generic.List<EnemyState>();
+            var previousSlotX = new float[roster.Length];
+            var previousSlotY = new float[roster.Length];
+            int releases = 0;
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                beforeTick.Clear();
+                for (int index = 0; index < sim.Enemies.Count; index += 1)
+                {
+                    beforeTick.Add(sim.Enemies[index]);
+                }
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    previousSlotX[slot] = sim.CompanionXAt(slot);
+                    previousSlotY[slot] = sim.CompanionYAt(slot);
+                }
+
+                sim.Tick(HackScriptInput(tick));
+
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    int targetId = sim.CompanionTargetIdAt(slot);
+                    int wasId = previousTarget[slot];
+
+                    // A release always shows up as id -> 0 (the sim spends one tick without a lock),
+                    // so no lock change can hide inside a same-tick refresh.
+                    Assert.That(wasId != 0 && targetId != 0 && targetId != wasId, Is.False,
+                        $"A7.1: tick {tick} slot {slot} swapped {wasId} -> {targetId} without releasing");
+
+                    if (wasId != 0 && targetId == 0)
+                    {
+                        releases += 1;
+                        int heldTicks = tick - lockedAt[slot];
+                        bool expired = heldTicks >= lockTicks - 1;
+                        bool gone = true;
+                        bool outsideLeash = false;
+                        // The anchor must be read AFTER the tick: UpdatePlayer runs before
+                        // UpdateCompanion, so the anchor the sim used this tick is built from
+                        // the player's post-move position. Reading it from the pre-tick player
+                        // is off by one player step — and by a full 160 px on a facing flip or
+                        // a dash, which no fixed slack can absorb.
+                        float anchorX = sim.Player.X - HackSpec.CompanionFollowOffset * sim.Player.Facing;
+                        float anchorY = sim.Player.Y + HackSpec.CompanionSlotFanout[slot];
+                        bool slotOutsideLeash = Iso(
+                            previousSlotX[slot], previousSlotY[slot], anchorX, anchorY)
+                            > HackSpec.CompanionLeashRadius;
+
+                        for (int index = 0; index < beforeTick.Count; index += 1)
+                        {
+                            if (beforeTick[index].Id != wasId)
+                            {
+                                continue;
+                            }
+                            gone = false;
+                            outsideLeash = Iso(beforeTick[index].X, beforeTick[index].Y, anchorX, anchorY)
+                                > HackSpec.CompanionLeashRadius;
+                            break;
+                        }
+                        bool killedThisTick = !gone && EnemyIsDead(sim, wasId);
+                        Assert.That(expired || gone || killedThisTick || outsideLeash || slotOutsideLeash,
+                            Is.True,
+                            $"A7.1: tick {tick} slot {slot} released a live in-leash lock after "
+                            + $"{heldTicks} ticks (the lock is {lockTicks} ticks)");
+                    }
+
+                    if (wasId == 0 && targetId != 0)
+                    {
+                        lockedAt[slot] = tick;
+                    }
+                    previousTarget[slot] = targetId;
+                }
+            }
+
+            Assert.That(releases, Is.GreaterThan(0), "the run must exercise lock releases");
+        }
+
+        /// <summary>True when the published enemy carrying <paramref name="id"/> is dead or gone.</summary>
+        private static bool EnemyIsDead(CinderSim sim, int id)
+        {
+            for (int index = 0; index < sim.Enemies.Count; index += 1)
+            {
+                if (sim.Enemies[index].Id == id)
+                {
+                    return sim.Enemies[index].Dead;
+                }
+            }
+            return true;
+        }
+
+        [Test]
+        public void CompanionAutonomy_EngagesOnlyInsideItsLeashAndOnlyWithALockedTarget()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            int engagedTicks = 0;
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    if (!sim.CompanionEngagedAt(slot))
+                    {
+                        continue;
+                    }
+                    engagedTicks += 1;
+                    int targetId = sim.CompanionTargetIdAt(slot);
+                    Assert.That(targetId != 0 || sim.CompanionAttackingAt(slot), Is.True,
+                        $"tick {tick} slot {slot}: engagement without a lock is impossible "
+                        + "unless the pursuit closed and finished the target this tick");
+
+                    float anchorDistance = Iso(
+                        sim.CompanionXAt(slot), sim.CompanionYAt(slot), AnchorX(sim), AnchorY(sim, slot));
+                    Assert.That(anchorDistance,
+                        Is.LessThanOrEqualTo(HackSpec.CompanionLeashRadius + HackSpec.CompanionFollowOffset),
+                        $"A7.2: tick {tick} slot {slot} pursued {anchorDistance:F1} px off its anchor");
+                    Assert.That(sim.CompanionBehaviorAt(slot), Is.EqualTo(CompanionBehavior.Follow),
+                        "a held slot must never engage");
+                }
+            }
+
+            Assert.That(engagedTicks, Is.GreaterThan(0),
+                "A7.2 is a no-op unless the scripted run actually pursues");
+        }
+
+        [Test]
+        public void CompanionAutonomy_ClosesOnItsTargetWithoutTeleportingOrOutrunningTheCap()
+        {
+            string[] roster = { "ember-cohort", "possessed-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            float speed = config.PlayerSpeed;
+            float maxStepX = speed * HackSpec.CompanionPursuitSpeedScale * SimConfig.FixedStep + 1e-3f;
+            float maxStepY = maxStepX * SimConfig.YMoveScale + 1e-3f;
+            var lastX = new float[roster.Length];
+            var lastY = new float[roster.Length];
+            var closingStreak = new int[roster.Length];
+            var lastGap = new float[roster.Length];
+            bool sawClosingPursuit = false;
+
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                lastX[slot] = sim.CompanionXAt(slot);
+                lastY[slot] = sim.CompanionYAt(slot);
+                lastGap[slot] = float.MaxValue;
+            }
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    float x = sim.CompanionXAt(slot);
+                    float y = sim.CompanionYAt(slot);
+                    Assert.That(MathF.Abs(x - lastX[slot]), Is.LessThanOrEqualTo(maxStepX),
+                        $"A7.2: tick {tick} slot {slot} moved faster than the pursuit cap in x");
+                    Assert.That(MathF.Abs(y - lastY[slot]), Is.LessThanOrEqualTo(maxStepY),
+                        $"A7.2: tick {tick} slot {slot} moved faster than the pursuit cap in y");
+                    lastX[slot] = x;
+                    lastY[slot] = y;
+
+                    int targetId = sim.CompanionTargetIdAt(slot);
+                    if (sim.CompanionEngagedAt(slot) && targetId != 0)
+                    {
+                        float gap = IsoDistanceToEnemy(sim, targetId, x, y);
+                        if (gap < lastGap[slot])
+                        {
+                            closingStreak[slot] += 1;
+                            if (closingStreak[slot] >= 3)
+                            {
+                                sawClosingPursuit = true;
+                            }
+                        }
+                        else
+                        {
+                            closingStreak[slot] = 0;
+                        }
+                        lastGap[slot] = gap;
+                    }
+                    else
+                    {
+                        closingStreak[slot] = 0;
+                        lastGap[slot] = float.MaxValue;
+                    }
+                }
+            }
+
+            Assert.That(sawClosingPursuit, Is.True,
+                "A7.2 must actually shrink the distance to a locked target over consecutive ticks");
+        }
+
+        [Test]
+        public void CompanionAutonomy_HoldPinsEverySlotAndSuppressesPursuit()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 240; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+            }
+
+            sim.Tick(new SimInput { CompanionHoldQueued = true });
+            var heldX = new float[roster.Length];
+            var heldY = new float[roster.Length];
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                heldX[slot] = sim.CompanionXAt(slot);
+                heldY[slot] = sim.CompanionYAt(slot);
+            }
+
+            var swings = new int[roster.Length];
+            var attacking = new bool[roster.Length];
+            for (int tick = 0; tick < 600; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick + 240));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    Assert.That(sim.CompanionXAt(slot), Is.EqualTo(heldX[slot]).Within(Tolerance),
+                        $"AMENDMENT #3 still wins: held slot {slot} must not pursue in x");
+                    Assert.That(sim.CompanionYAt(slot), Is.EqualTo(heldY[slot]).Within(Tolerance),
+                        $"AMENDMENT #3 still wins: held slot {slot} must not pursue in y");
+                    Assert.That(sim.CompanionEngagedAt(slot), Is.False,
+                        $"held slot {slot} must never report engagement");
+                    bool nowAttacking = sim.CompanionAttackingAt(slot);
+                    if (nowAttacking && !attacking[slot])
+                    {
+                        swings[slot] += 1;
+                    }
+                    attacking[slot] = nowAttacking;
+                }
+            }
+
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(swings[slot], Is.GreaterThan(0),
+                    $"a held slot {slot} still swings on its cadence (AMENDMENT #3)");
+            }
+        }
+
+        [Test]
+        public void CompanionAutonomy_RecallClearsEngagementAndWalksHomeWithoutTeleporting()
+        {
+            string[] roster = { "ember-cohort", "scout-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            float maxStepX = config.PlayerSpeed * HackSpec.CompanionPursuitSpeedScale * SimConfig.FixedStep + 1e-3f;
+
+            for (int tick = 0; tick < 300; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+            }
+
+            sim.Tick(new SimInput { CompanionHoldQueued = true, CompanionRecallQueued = true });
+            Assert.That(sim.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow),
+                "recall still wins over a simultaneous hold (AMENDMENT #3)");
+
+            // Park the player: with no input the anchor is stationary, so every slot must walk
+            // home step by step and settle on its fan-out.
+            for (int tick = 0; tick < 900; tick += 1)
+            {
+                var before = new float[roster.Length];
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    before[slot] = sim.CompanionXAt(slot);
+                }
+                sim.Tick(Idle);
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    Assert.That(MathF.Abs(sim.CompanionXAt(slot) - before[slot]),
+                        Is.LessThanOrEqualTo(maxStepX), $"slot {slot} must never teleport home");
+                }
+            }
+
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                float anchorDistance = Iso(
+                    sim.CompanionXAt(slot), sim.CompanionYAt(slot), AnchorX(sim), AnchorY(sim, slot));
+                Assert.That(anchorDistance, Is.LessThanOrEqualTo(HackSpec.CompanionAcquireRadius),
+                    $"A7.3: slot {slot} must stay in its anchor neighbourhood, not wander off");
+            }
+        }
+
+        [Test]
+        public void CompanionAutonomy_ThreeSlotsEngageIndependentlyAndReproducibly()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var first = new CinderSim(in config);
+            var second = new CinderSim(in config);
+            bool sawSlotsDisagree = false;
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                var input = HackScriptInput(tick);
+                first.Tick(in input);
+                second.Tick(in input);
+                bool slotZero = first.CompanionEngagedAt(0);
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    Assert.That(second.CompanionEngagedAt(slot), Is.EqualTo(first.CompanionEngagedAt(slot)),
+                        $"§13: tick {tick} slot {slot} engagement must be reproducible");
+                    Assert.That(second.CompanionTargetIdAt(slot), Is.EqualTo(first.CompanionTargetIdAt(slot)),
+                        $"§13: tick {tick} slot {slot} lock must be reproducible");
+                    Assert.That(second.CompanionXAt(slot), Is.EqualTo(first.CompanionXAt(slot)).Within(Tolerance),
+                        $"§13: tick {tick} slot {slot} x must be reproducible");
+                    if (first.CompanionEngagedAt(slot) != slotZero)
+                    {
+                        sawSlotsDisagree = true;
+                    }
+                }
+            }
+
+            AssertSameDigest(first.Digest, second.Digest, "A7 keeps a 3-slot dungeon run deterministic");
+            Assert.That(sawSlotsDisagree, Is.True,
+                "A7.2 is per-slot: slots must be able to engage independently");
+        }
+
+        [Test]
+        public void CompanionAutonomy_NeverCostsTheSlotASwingItCouldMake()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            var cadenceTicks = new int[roster.Length];
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                HackSpec.CompanionStats(
+                    HackSpec.CompanionArchetype(roster[slot]),
+                    out float cadence, out float _, out float _);
+                cadenceTicks[slot] = (int)MathF.Ceiling(cadence / SimConfig.FixedStep);
+            }
+
+            var attacking = new bool[roster.Length];
+            var sinceSwing = new int[roster.Length];
+            var starvedStreak = new int[roster.Length];
+
+            for (int tick = 0; tick < 1800; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+                for (int slot = 0; slot < roster.Length; slot += 1)
+                {
+                    bool nowAttacking = sim.CompanionAttackingAt(slot);
+                    if (nowAttacking && !attacking[slot])
+                    {
+                        sinceSwing[slot] = 0;
+                        starvedStreak[slot] = 0;
+                    }
+                    else
+                    {
+                        sinceSwing[slot] += 1;
+                    }
+                    attacking[slot] = nowAttacking;
+
+                    HackSpec.CompanionStats(
+                        HackSpec.CompanionArchetype(roster[slot]),
+                        out float _, out float range, out float _);
+                    bool enemyInRange = false;
+                    for (int index = 0; index < sim.Enemies.Count; index += 1)
+                    {
+                        EnemyState enemy = sim.Enemies[index];
+                        if (enemy.Dead)
+                        {
+                            continue;
+                        }
+                        if (Iso(enemy.X, enemy.Y, sim.CompanionXAt(slot), sim.CompanionYAt(slot)) <= range)
+                        {
+                            enemyInRange = true;
+                            break;
+                        }
+                    }
+
+                    starvedStreak[slot] = enemyInRange && sinceSwing[slot] > cadenceTicks[slot] + 1
+                        ? starvedStreak[slot] + 1
+                        : 0;
+                    Assert.That(starvedStreak[slot], Is.LessThan(4),
+                        $"A7.4: tick {tick} slot {slot} stood next to a reachable enemy for "
+                        + "4 ticks past its cadence — a lock must never cost a swing");
+                }
+            }
+        }
+
+        [Test]
+        public void CompanionAutonomy_RestartDropsEveryLockAndParksEverySlot()
+        {
+            string[] roster = { "ember-cohort", "scout-echo", "shade-echo" };
+            var config = DungeonSlots(roster, attack: 2, vitality: 1, swiftness: 3, weapon: 1, lantern: 2, cloak: 2);
+            var sim = new CinderSim(in config);
+            for (int tick = 0; tick < 600; tick += 1)
+            {
+                sim.Tick(HackScriptInput(tick));
+            }
+
+            sim.Restart();
+            for (int slot = 0; slot < roster.Length; slot += 1)
+            {
+                Assert.That(sim.CompanionTargetIdAt(slot), Is.EqualTo(0), $"restart clears slot {slot} lock");
+                Assert.That(sim.CompanionEngagedAt(slot), Is.False, $"restart clears slot {slot} engagement");
+                Assert.That(sim.CompanionXAt(slot), Is.EqualTo(AnchorX(sim)).Within(Tolerance),
+                    $"restart parks slot {slot} on its anchor");
+                Assert.That(sim.CompanionYAt(slot), Is.EqualTo(AnchorY(sim, slot)).Within(Tolerance),
+                    $"restart parks slot {slot} on its fan-out");
+            }
+            Assert.That(sim.CompanionBehavior, Is.EqualTo(CompanionBehavior.Follow));
+        }
+
+        [Test]
+        public void CompanionAutonomy_LeavesTheGuardianResonanceAttackTupleAlone()
+        {
+            // AMENDMENT #4 modifies cadence/range/damage only. A7 adds acquisition geometry on
+            // top and must not disturb that tuple for any archetype.
+            AssertArchetypeTuple("ember-cohort", HackSpec.CompanionAttackInterval,
+                HackSpec.CompanionAttackRange, HackSpec.CompanionDamageScale);
+            AssertArchetypeTuple("scout-echo", 0.85f, 240f, 0.50f);
+            AssertArchetypeTuple("shade-echo", 1.30f, 260f, 0.65f);
+            AssertArchetypeTuple("possessed-echo", 1.45f, 150f, 0.80f);
+            Assert.That(HackSpec.CompanionAcquireRadius, Is.LessThan(HackSpec.CompanionLeashRadius),
+                "a slot must never lock a target it is forbidden to reach");
+            Assert.That(HackSpec.CompanionLeashRadius,
+                Is.EqualTo(4f * HackSpec.CompanionFollowOffset).Within(Tolerance),
+                "the leash is expressed in anchor units");
+            Assert.That(HackSpec.CompanionPursuitSpeedScale, Is.GreaterThan(1f),
+                "pursuit must be able to close on a foe walking at player speed");
+            Assert.That(HackSpec.CompanionTargetLockSeconds / SimConfig.FixedStep,
+                Is.EqualTo(120f).Within(Tolerance), "the lock must be an integral tick count");
+        }
+
+        // --- AMENDMENT #7 test helpers ---------------------------------------------
+
+        /// <summary>Ticks until no slot has engaged (A7.2) for 120 consecutive ticks — long enough
+        /// for a slot that was out on its leash to have walked the whole way home. Returns false
+        /// when the field never quiets down inside <paramref name="maxTicks"/>.</summary>
+        private static bool RunUntilEverySlotIsHome(CinderSim sim, int slots, SimInput input, int maxTicks)
+        {
+            int quiet = 0;
+            for (int tick = 0; tick < maxTicks; tick += 1)
+            {
+                sim.Tick(in input);
+                bool anyEngaged = false;
+                for (int slot = 0; slot < slots; slot += 1)
+                {
+                    anyEngaged |= sim.CompanionEngagedAt(slot);
+                }
+                quiet = anyEngaged ? 0 : quiet + 1;
+                if (quiet >= 120)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The follow anchor x: 80 px behind the player's facing (§4).</summary>
+        private static float AnchorX(CinderSim sim)
+        {
+            return sim.Player.X - HackSpec.CompanionFollowOffset * sim.Player.Facing;
+        }
+
+        /// <summary>The follow anchor y for a slot: player y plus its D6.4 fan-out.</summary>
+        private static float AnchorY(CinderSim sim, int slot)
+        {
+            return sim.Player.Y + HackSpec.CompanionSlotFanout[slot];
+        }
+
+        /// <summary>The §2.3 iso metric <c>hypot(dx, dy*1.42)</c> the sim measures with.</summary>
+        private static float Iso(float fromX, float fromY, float toX, float toY)
+        {
+            float deltaX = toX - fromX;
+            float deltaY = (toY - fromY) * SimConfig.IsoY;
+            return MathF.Sqrt(deltaX * deltaX + deltaY * deltaY);
+        }
+
+        /// <summary>Iso distance from a point to the published enemy carrying <paramref name="id"/>,
+        /// or <see cref="float.MaxValue"/> when it is gone.</summary>
+        private static float IsoDistanceToEnemy(CinderSim sim, int id, float x, float y)
+        {
+            for (int index = 0; index < sim.Enemies.Count; index += 1)
+            {
+                if (sim.Enemies[index].Id == id)
+                {
+                    return Iso(sim.Enemies[index].X, sim.Enemies[index].Y, x, y);
+                }
+            }
+            return float.MaxValue;
         }
 
         /// <summary>The scripted dungeon pilot input for one tick. Shared by

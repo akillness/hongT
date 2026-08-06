@@ -204,6 +204,15 @@ namespace CinderCourt.Sim
         private readonly float[] _companionAttackInterval = new float[MaxCompanions];
         private readonly float[] _companionAttackRange = new float[MaxCompanions];
         private readonly float[] _companionDamageScale = new float[MaxCompanions];
+        // AMENDMENT #7 (A7.1-A7.4): per-slot autonomy state. All of it is derived from
+        // counters and fixed-step accumulation — no RNG, so §13 still holds. The target is
+        // stored as an ENEMY ID, never an index: RemoveEnemyAt (CinderSim.cs:2245) shifts
+        // the tail down, so indices are reused while ids from _nextEnemyId never are.
+        private readonly int[] _companionTargetId = new int[MaxCompanions];
+        private readonly float[] _companionLockTimer = new float[MaxCompanions];
+        private readonly float[] _companionReturnGrace = new float[MaxCompanions];
+        private readonly bool[] _companionEngaged = new bool[MaxCompanions];
+
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
         private int _emberRestSeed;
@@ -514,6 +523,10 @@ namespace CinderCourt.Sim
         public bool CompanionAttackingAt(int slot) => _companionShow[ClampCompanionSlot(slot)] > 0f;
         public CompanionBehavior CompanionBehaviorAt(int slot) => _companionBehavior;
         public int CompanionFacingAt(int slot) => _companionFacing[ClampCompanionSlot(slot)];
+        // AMENDMENT #7 (A7.1/A7.2): derived autonomy state. Kept apart from the commanded
+        // CompanionBehavior above so a command can never be read back as a derived state.
+        public bool CompanionEngagedAt(int slot) => _companionEngaged[ClampCompanionSlot(slot)];
+        public int CompanionTargetIdAt(int slot) => _companionTargetId[ClampCompanionSlot(slot)];
 
         private int ClampCompanionSlot(int slot)
         {
@@ -1361,21 +1374,68 @@ namespace CinderCourt.Sim
         {
             // D6.4: lateral fan-out perpendicular to the player's facing. Slot 0 = 0 (frozen §4).
             float fanout = HackSpec.CompanionSlotFanout[slot];
+
+            // AMENDMENT #7: every autonomy radius is measured from the slot's ANCHOR, not from
+            // the slot itself, so §4/D6.3 attack geometry is untouched. A held slot is pinned,
+            // so its own position IS its anchor — that keeps Amendment #3 hold behavior intact
+            // (a held slot never pursues and never loses its swing).
+            bool held = _companionBehavior == CompanionBehavior.Hold;
+            float anchorX = held ? _companionX[slot] : _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+            float anchorY = held ? _companionY[slot] : _player.Y + fanout;
+
+            // A7.1: keep the locked target or acquire a new one from the anchor.
+            int target = ResolveCompanionTarget(slot, anchorX, anchorY, deltaTime);
+
+            bool wasEngaged = _companionEngaged[slot];
+            bool engaged = false;
             if (_companionBehavior == CompanionBehavior.Follow)
             {
-                float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-                float targetY = _player.Y + fanout;
-                float deltaX = targetX - _companionX[slot];
-                float deltaY = targetY - _companionY[slot];
-                float distance = Hypot(deltaX, deltaY);
-                if (distance > MoveEpsilon)
+                float anchorDistance = IsoDistance(_companionX[slot], _companionY[slot], anchorX, anchorY);
+                if (anchorDistance > HackSpec.CompanionLeashRadius)
                 {
-                    float stepX = deltaX / distance * _playerSpeed * deltaTime;
-                    float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
-                    _companionX[slot] += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
-                    _companionY[slot] += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+                    // A7.3: the leash is hard. Drop the lock and walk home this tick.
+                    ClearCompanionTarget(slot);
+                    target = -1;
+                }
+                else if (target >= 0
+                    && _companionReturnGrace[slot] <= 0f
+                    && IsoDistance(
+                        _companionX[slot], _companionY[slot],
+                        _enemies[target].State.X, _enemies[target].State.Y) > _companionAttackRange[slot])
+                {
+                    // A7.2: the locked target is outside this slot's attack range but still inside
+                    // the leash, so close on it instead of trailing the anchor. The return grace
+                    // above is hysteresis: a slot that just came home cannot immediately re-engage,
+                    // which is what stops acquire/return oscillation at the radius edge.
+                    engaged = true;
+                }
+
+                if (engaged)
+                {
+                    StepCompanionToward(
+                        slot,
+                        _enemies[target].State.X,
+                        _enemies[target].State.Y,
+                        _playerSpeed * HackSpec.CompanionPursuitSpeedScale,
+                        deltaTime);
+                }
+                else
+                {
+                    // Frozen §4 follower step. With no target inside the acquire radius this is
+                    // the pre-amendment path, arithmetic included.
+                    StepCompanionToward(slot, anchorX, anchorY, _playerSpeed, deltaTime);
                 }
             }
+
+            // A7.3: an engagement that just ended opens the return grace; otherwise it decays.
+            if (!engaged)
+            {
+                _companionReturnGrace[slot] = wasEngaged
+                    ? HackSpec.CompanionReturnGraceSeconds
+                    : MathF.Max(0f, _companionReturnGrace[slot] - deltaTime);
+            }
+
+            _companionEngaged[slot] = engaged;
 
             _companionShow[slot] = MathF.Max(0f, _companionShow[slot] - deltaTime);
             _companionTimer[slot] = MathF.Max(0f, _companionTimer[slot] - deltaTime);
@@ -1388,7 +1448,19 @@ namespace CinderCourt.Sim
                 return;
             }
 
-            int target = NearestEnemyIndex(_companionX[slot], _companionY[slot], _companionAttackRange[slot]);
+            // A7.4: the swing itself is unchanged §4/D6.3 geometry — per-archetype range from the
+            // slot's OWN position. The locked target is preferred when it is in range; otherwise
+            // the frozen nearest-in-range rule applies, so a lock can never cost the slot a swing.
+            if (target >= 0 && IsoDistance(
+                    _companionX[slot], _companionY[slot],
+                    _enemies[target].State.X, _enemies[target].State.Y) > _companionAttackRange[slot])
+            {
+                target = -1;
+            }
+            if (target < 0)
+            {
+                target = NearestEnemyIndex(_companionX[slot], _companionY[slot], _companionAttackRange[slot]);
+            }
             if (target < 0)
             {
                 _companionFacing[slot] = _player.Facing;
@@ -1404,6 +1476,101 @@ namespace CinderCourt.Sim
             _companionTimer[slot] = _companionAttackInterval[slot];
             _companionShow[slot] = HackSpec.CompanionAttackDisplay;
             DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale[slot]);
+            if (_enemies[target].State.Dead && _enemies[target].State.Id == _companionTargetId[slot])
+            {
+                // A7.1: the slot finished its own target — release the lock in the same tick so the
+                // snapshot never publishes a lock on a corpse.
+                ClearCompanionTarget(slot);
+            }
+        }
+
+        /// <summary>
+        /// A7.1: hold the locked target while it lives, stays inside the leash and the lock has
+        /// not expired; otherwise acquire the nearest living enemy inside
+        /// <see cref="HackSpec.CompanionAcquireRadius"/> of the anchor. Returns the enemy INDEX
+        /// for this tick (indices shift on removal, which is why the lock itself stores the id).
+        /// </summary>
+        private int ResolveCompanionTarget(int slot, float anchorX, float anchorY, float deltaTime)
+        {
+            _companionLockTimer[slot] = MathF.Max(0f, _companionLockTimer[slot] - deltaTime);
+
+            int index = -1;
+            bool released = false;
+            if (_companionTargetId[slot] != 0)
+            {
+                index = EnemyIndexById(_companionTargetId[slot]);
+                bool valid = index >= 0
+                    && !_enemies[index].State.Dead
+                    && _companionLockTimer[slot] > 0f
+                    && IsoDistance(_enemies[index].State.X, _enemies[index].State.Y, anchorX, anchorY)
+                        <= HackSpec.CompanionLeashRadius;
+                if (!valid)
+                {
+                    ClearCompanionTarget(slot);
+                    index = -1;
+                    released = true;
+                }
+            }
+
+            // A release costs one tick before the next acquisition. That single tick is what makes
+            // every lock transition visible on the snapshot (id -> 0 -> id) instead of an invisible
+            // same-tick refresh, and it lets an expired lock be re-contested fairly.
+            if (index < 0 && !released)
+            {
+                int acquired = NearestEnemyIndex(anchorX, anchorY, HackSpec.CompanionAcquireRadius);
+                if (acquired >= 0)
+                {
+                    _companionTargetId[slot] = _enemies[acquired].State.Id;
+                    _companionLockTimer[slot] = HackSpec.CompanionTargetLockSeconds;
+                    index = acquired;
+                }
+            }
+
+            return index;
+        }
+
+        private void ClearCompanionTarget(int slot)
+        {
+            _companionTargetId[slot] = 0;
+            _companionLockTimer[slot] = 0f;
+        }
+
+        /// <summary>
+        /// The frozen §4 follower step, parameterised by speed: normalize, scale Y by
+        /// <see cref="SimConfig.YMoveScale"/>, clamp the overshoot. Called with
+        /// <c>_playerSpeed</c> it is bit-identical to the pre-amendment follow path.
+        /// </summary>
+        private void StepCompanionToward(int slot, float targetX, float targetY, float speed, float deltaTime)
+        {
+            float deltaX = targetX - _companionX[slot];
+            float deltaY = targetY - _companionY[slot];
+            float distance = Hypot(deltaX, deltaY);
+            if (distance > MoveEpsilon)
+            {
+                float stepX = deltaX / distance * speed * deltaTime;
+                float stepY = deltaY / distance * speed * SimConfig.YMoveScale * deltaTime;
+                _companionX[slot] += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
+                _companionY[slot] += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+            }
+        }
+
+        /// <summary>Iso-weighted distance — the §2.3 metric <c>hypot(dx, dy*1.42)</c>.</summary>
+        private static float IsoDistance(float fromX, float fromY, float toX, float toY)
+        {
+            return Hypot(toX - fromX, (toY - fromY) * SimConfig.IsoY);
+        }
+
+        /// <summary>Index of the living-or-dying enemy carrying <paramref name="id"/>, or -1.</summary>
+        private int EnemyIndexById(int id)
+        {
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                if (_enemies[index].State.Id == id)
+                {
+                    return index;
+                }
+            }
+            return -1;
         }
 
 
@@ -2662,6 +2829,12 @@ namespace CinderCourt.Sim
                 _companionX[slot] = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
                 _companionY[slot] = _player.Y + HackSpec.CompanionSlotFanout[slot];
                 _companionFacing[slot] = _player.Facing;
+                // AMENDMENT #7: a restart drops every lock and every pursuit, so a fresh run
+                // always starts in Follow at the anchor (test RestartResetsBehaviorAndTarget).
+                _companionTargetId[slot] = 0;
+                _companionLockTimer[slot] = 0f;
+                _companionReturnGrace[slot] = 0f;
+                _companionEngaged[slot] = false;
             }
         }
 
