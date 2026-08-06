@@ -47,8 +47,8 @@ UI 스케일 개선, 보스 다양화, 인트로→로비→스토리→스테�
 
 | # | 워크스트림 | 상태 | 레인 |
 |---|---|---|---|
-| W1 | 동료 자율성(타깃락·리시 추격·자동 복귀) | 전무. `UpdateCompanionSlot`(`CinderSim.cs:1360-1407`)이 앵커 고정 터렛 | **Sim amendment #7** |
-| W2 | 동료별 고유 스킬 1종 | 전무. AMENDMENT #3이 "No companion skills"를 non-goal로 동결 → supersede 필요 | **Sim amendment** |
+| ~~W1~~ | 동료 자율성(타깃락·리시 추격·자동 복귀) | **완료** — AMENDMENT #7 (`b9a728c`), EditMode 316/316 | ✅ landed |
+| ~~W2~~ | 동료별 고유 스킬 1종 | **완료** — AMENDMENT #8 (`d0fe934`). #3 non-goal 중 "companion skills/cooldowns" 한 줄만 supersede, equipment/persistence는 유지. 4종(Volley/Hex/Quake/Flare)이 쿨·반경·피해·타깃수 **4축 모두** 상이 | ✅ landed |
 | W3 | 모멘텀 게이지(공격할수록 강해짐) | 전무. `HackSpec`/`IHackSnapshot`/`SimEvents` 어디에도 없음 | **Sim amendment** |
 | W4 | 웨이브 포인트 기반 난이도 + DDA | 전무. 현재 `86 + min(140,(wave-1)×11)` 고정식 | **Sim amendment** |
 | W5 | 아이템 등급 드롭테이블 + bad-luck protection | 전무. 현재 보스 확정 + `id%7` 파편뿐(§6) | **Sim amendment** |
