@@ -9,11 +9,18 @@ Sim/balance UNCHANGED — this touches only prop meshes, materials, icons, and t
 - `gti` (god-tibo-imagen): present at
   `/Users/jangyoung/.nvm/versions/node/v22.19.0/bin/gti`; `--dry-run` prints a
   valid request shape.
-- **BLOCKER**: live generation returns **HTTP 429** (private Codex backend rate
-  limit) on every call, including after a 45 s backoff — 2026-08-06 22:53 KST.
-  No concept art could be produced this session. Re-run when the quota resets.
+- Default provider returns **HTTP 429** (private Codex backend rate limit) on
+  every call, even after a 45 s backoff. **WORKAROUND FOUND**: `--provider
+  codex-cli` succeeds — all 3 concept PNGs generated 2026-08-06 ~23:45–23:49 KST
+  (`_workspace/current/design/assets/weapon-concepts/weapon-{dagger,bow,hammer}-concept.png`,
+  valid PNG 1024², recorded in `docs/provenance/weapon-reskin.json`).
 - `ppgen` (perfectpixel): **ABSENT** from PATH (`command -v ppgen` → empty). The
-  2D-sprite/icon step therefore has no tool available regardless of the 429.
+  2D-sprite/icon step therefore has no dedicated tool; icons can be cut from the
+  concept art directly if/when the archetypes are wired.
+- **STILL BLOCKED (mesh)**: no image→3D tool present (meshy/tripo/trellis absent)
+  and Abyssal-Surge ships no dagger/bow/hammer source mesh, so archetype 3D props
+  cannot be produced this session. `convert_equip_props.py` only re-binds the two
+  retained blade/relic GLBs. Concept art is the deliverable this pass.
 
 ## Current weapon presentation [OBSERVED]
 
