@@ -1,0 +1,1451 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="223" result="Passed" total="223" passed="223" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="1.211184">
+  <test-suite type="TestSuite" id="1000" name="Abyssal Lantern — Cinder Court" fullname="Abyssal Lantern — Cinder Court" runstate="Runnable" testcasecount="223" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="1.211184" total="223" passed="223" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1253" name="CinderCourt.Tests.EditMode.dll" fullname="/Users/seokcmin/Desktop/hongT/Library/ScriptAssemblies/CinderCourt.Tests.EditMode.dll" runstate="Runnable" testcasecount="223" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="1.206438" total="223" passed="223" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="24908" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1254" name="CinderCourt" fullname="CinderCourt" runstate="Runnable" testcasecount="223" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="1.205230" total="223" passed="223" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1255" name="Tests" fullname="CinderCourt.Tests" runstate="Runnable" testcasecount="223" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="1.204031" total="223" passed="223" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1001" name="BossFlashYieldTests" fullname="CinderCourt.Tests.BossFlashYieldTests" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.032190" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1009" name="DeathAfterAHit_ReleasesTheFlash_SoTheTintIsNotSuppressedForTheWholeFade" fullname="CinderCourt.Tests.BossFlashYieldTests.DeathAfterAHit_ReleasesTheFlash_SoTheTintIsNotSuppressedForTheWholeFade" methodname="DeathAfterAHit_ReleasesTheFlash_SoTheTintIsNotSuppressedForTheWholeFade" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="373041386" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.019946" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1002" name="FirstSyncAfterRent_LeavesTheFlashDown_EvenAtALowHealthFraction" fullname="CinderCourt.Tests.BossFlashYieldTests.FirstSyncAfterRent_LeavesTheFlashDown_EvenAtALowHealthFraction" methodname="FirstSyncAfterRent_LeavesTheFlashDown_EvenAtALowHealthFraction" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="1978911794" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.002770" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1003" name="HealthDropOnALaterSync_RaisesTheFlashTheBossTintYieldsTo" fullname="CinderCourt.Tests.BossFlashYieldTests.HealthDropOnALaterSync_RaisesTheFlashTheBossTintYieldsTo" methodname="HealthDropOnALaterSync_RaisesTheFlashTheBossTintYieldsTo" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="594363474" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000468" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1006" name="NonDamagingSecondSync_LeavesTheFlashDown" fullname="CinderCourt.Tests.BossFlashYieldTests.NonDamagingSecondSync_LeavesTheFlashDown" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001517" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1004" name="NonDamagingSecondSync_LeavesTheFlashDown(100.0f,&quot;unchanged health is not a hit&quot;)" fullname="CinderCourt.Tests.BossFlashYieldTests.NonDamagingSecondSync_LeavesTheFlashDown(100.0f,&quot;unchanged health is not a hit&quot;)" methodname="NonDamagingSecondSync_LeavesTheFlashDown" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="537605418" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000362" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="NonDamagingSecondSync_LeavesTheFlashDown(120.0f,&quot;a heal is not a hit&quot;)" fullname="CinderCourt.Tests.BossFlashYieldTests.NonDamagingSecondSync_LeavesTheFlashDown(120.0f,&quot;a heal is not a hit&quot;)" methodname="NonDamagingSecondSync_LeavesTheFlashDown" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="1519371607" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000196" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1007" name="ResetForPool_ClearsALiveFlash" fullname="CinderCourt.Tests.BossFlashYieldTests.ResetForPool_ClearsALiveFlash" methodname="ResetForPool_ClearsALiveFlash" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="982656473" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000513" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1008" name="ResetForPool_ReArmsTheRentGuard_SoTheRecycledActorDoesNotFlashOnItsFirstSync" fullname="CinderCourt.Tests.BossFlashYieldTests.ResetForPool_ReArmsTheRentGuard_SoTheRecycledActorDoesNotFlashOnItsFirstSync" methodname="ResetForPool_ReArmsTheRentGuard_SoTheRecycledActorDoesNotFlashOnItsFirstSync" classname="CinderCourt.Tests.BossFlashYieldTests" runstate="Runnable" seed="82664807" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000286" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1010" name="BuildScriptWebGlPostprocessTests" fullname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" classname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.018445" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1011" name="PolishIndexHtml_ResyncsResponsiveBackingStoreBeforeLoader_AndIsIdempotent" fullname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests.PolishIndexHtml_ResyncsResponsiveBackingStoreBeforeLoader_AndIsIdempotent" methodname="PolishIndexHtml_ResyncsResponsiveBackingStoreBeforeLoader_AndIsIdempotent" classname="CinderCourt.Tests.BuildScriptWebGlPostprocessTests" runstate="Runnable" seed="84282115" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.018045" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1012" name="CampaignSimTests" fullname="CinderCourt.Tests.CampaignSimTests" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" testcasecount="19" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.086775" total="19" passed="19" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1028" name="AshWall_TimetableAndTicks" fullname="CinderCourt.Tests.CampaignSimTests.AshWall_TimetableAndTicks" methodname="AshWall_TimetableAndTicks" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="264123603" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.013926" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1015" name="BossWave_Composition_BossPlusEscorts" fullname="CinderCourt.Tests.CampaignSimTests.BossWave_Composition_BossPlusEscorts" methodname="BossWave_Composition_BossPlusEscorts" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="454072030" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.002138" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1023" name="Campaign_Deterministic_SameConfigSameInputs" fullname="CinderCourt.Tests.CampaignSimTests.Campaign_Deterministic_SameConfigSameInputs" methodname="Campaign_Deterministic_SameConfigSameInputs" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="840194238" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.003266" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1016" name="CinderSpan_KitingBot_ClearsStage" fullname="CinderCourt.Tests.CampaignSimTests.CinderSpan_KitingBot_ClearsStage" methodname="CinderSpan_KitingBot_ClearsStage" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1785154909" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.004098" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1027" name="EmberPylon_CombatContract" fullname="CinderCourt.Tests.CampaignSimTests.EmberPylon_CombatContract" methodname="EmberPylon_CombatContract" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="291030487" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.003298" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1019" name="EmberVent_DamagesInsideRadius_WardBlocks" fullname="CinderCourt.Tests.CampaignSimTests.EmberVent_DamagesInsideRadius_WardBlocks" methodname="EmberVent_DamagesInsideRadius_WardBlocks" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1327581624" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000430" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1020" name="EmberVent_Pulse_WardNegatesDamageAndStartsGrace" fullname="CinderCourt.Tests.CampaignSimTests.EmberVent_Pulse_WardNegatesDamageAndStartsGrace" methodname="EmberVent_Pulse_WardNegatesDamageAndStartsGrace" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="2143037111" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000240" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1014" name="EquipmentFormulas_ApplyAtRunStart" fullname="CinderCourt.Tests.CampaignSimTests.EquipmentFormulas_ApplyAtRunStart" methodname="EquipmentFormulas_ApplyAtRunStart" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1067449109" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000193" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1017" name="EquipShard_DropsFromEnemyIdModulo" fullname="CinderCourt.Tests.CampaignSimTests.EquipShard_DropsFromEnemyIdModulo" methodname="EquipShard_DropsFromEnemyIdModulo" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1825853002" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000384" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1031" name="NewStages_MutatedPlacement_ChangesDigest" fullname="CinderCourt.Tests.CampaignSimTests.NewStages_MutatedPlacement_ChangesDigest" methodname="NewStages_MutatedPlacement_ChangesDigest" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1908867098" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.010384" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1030" name="NewStages_SameConfigSameInputs_IdenticalDigests" fullname="CinderCourt.Tests.CampaignSimTests.NewStages_SameConfigSameInputs_IdenticalDigests" methodname="NewStages_SameConfigSameInputs_IdenticalDigests" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1310508494" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.011177" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1021" name="ObsidianPillar_BlocksPlayer" fullname="CinderCourt.Tests.CampaignSimTests.ObsidianPillar_BlocksPlayer" methodname="ObsidianPillar_BlocksPlayer" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1278973502" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000341" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1022" name="RelicAltar_BlessesAfterHold_WithCooldown" fullname="CinderCourt.Tests.CampaignSimTests.RelicAltar_BlessesAfterHold_WithCooldown" methodname="RelicAltar_BlessesAfterHold_WithCooldown" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1822873564" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000677" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1018" name="StageClear_GrantsBossDrop_SlotByStageIndex" fullname="CinderCourt.Tests.CampaignSimTests.StageClear_GrantsBossDrop_SlotByStageIndex" methodname="StageClear_GrantsBossDrop_SlotByStageIndex" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1809423333" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.004423" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1013" name="StageTable_MatchesAmendment" fullname="CinderCourt.Tests.CampaignSimTests.StageTable_MatchesAmendment" methodname="StageTable_MatchesAmendment" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1170007973" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000193" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1024" name="StageTable_MatchesDungeonAmendment" fullname="CinderCourt.Tests.CampaignSimTests.StageTable_MatchesDungeonAmendment" methodname="StageTable_MatchesDungeonAmendment" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="6927593" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001064" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1029" name="Telegraph_CensusUnderBudget" fullname="CinderCourt.Tests.CampaignSimTests.Telegraph_CensusUnderBudget" methodname="Telegraph_CensusUnderBudget" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1370945590" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.024181" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1025" name="TideCurrent_PushesPlayerInsideActiveBand" fullname="CinderCourt.Tests.CampaignSimTests.TideCurrent_PushesPlayerInsideActiveBand" methodname="TideCurrent_PushesPlayerInsideActiveBand" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1827938279" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001905" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1026" name="TideCurrent_SymmetricAndClamped" fullname="CinderCourt.Tests.CampaignSimTests.TideCurrent_SymmetricAndClamped" methodname="TideCurrent_SymmetricAndClamped" classname="CinderCourt.Tests.CampaignSimTests" runstate="Runnable" seed="1201908274" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.002481" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1032" name="CharacterRosterAnimationTests" fullname="CinderCourt.Tests.CharacterRosterAnimationTests" classname="CinderCourt.Tests.CharacterRosterAnimationTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.178498" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1033" name="CharacterRoster_ActorsRenderAndAnimateSharedAttack" fullname="CinderCourt.Tests.CharacterRosterAnimationTests.CharacterRoster_ActorsRenderAndAnimateSharedAttack" methodname="CharacterRoster_ActorsRenderAndAnimateSharedAttack" classname="CinderCourt.Tests.CharacterRosterAnimationTests" runstate="Runnable" seed="1108005626" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.177987" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1034" name="CinderSimTests" fullname="CinderCourt.Tests.CinderSimTests" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.021391" total="20" passed="20" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1051" name="Attack_HitsEnemyInFrontOncePerAttackId" fullname="CinderCourt.Tests.CinderSimTests.Attack_HitsEnemyInFrontOncePerAttackId" methodname="Attack_HitsEnemyInFrontOncePerAttackId" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="2036588364" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001078" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1052" name="Attack_MissesEnemiesBehindTheFacingArc" fullname="CinderCourt.Tests.CinderSimTests.Attack_MissesEnemiesBehindTheFacingArc" methodname="Attack_MissesEnemiesBehindTheFacingArc" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="871847768" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000397" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1053" name="Attack_RangeUsesIsoWeightedDistance" fullname="CinderCourt.Tests.CinderSimTests.Attack_RangeUsesIsoWeightedDistance" methodname="Attack_RangeUsesIsoWeightedDistance" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="580195864" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000372" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1054" name="Boss_SpawnsOnWaveFiveWithSixTimesHealth" fullname="CinderCourt.Tests.CinderSimTests.Boss_SpawnsOnWaveFiveWithSixTimesHealth" methodname="Boss_SpawnsOnWaveFiveWithSixTimesHealth" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1399024193" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001737" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1044" name="Clamp_IsDiamondNotAxisAlignedBox" fullname="CinderCourt.Tests.CinderSimTests.Clamp_IsDiamondNotAxisAlignedBox" methodname="Clamp_IsDiamondNotAxisAlignedBox" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="238158339" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000569" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1043" name="Clamp_KeepsPlayerInsideTheL1Diamond" fullname="CinderCourt.Tests.CinderSimTests.Clamp_KeepsPlayerInsideTheL1Diamond" methodname="Clamp_KeepsPlayerInsideTheL1Diamond" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="116061935" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.007226" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1046" name="Nova_DamagesExactlyTheEnemiesInsideTheIsoRadius" fullname="CinderCourt.Tests.CinderSimTests.Nova_DamagesExactlyTheEnemiesInsideTheIsoRadius" methodname="Nova_DamagesExactlyTheEnemiesInsideTheIsoRadius" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="177956507" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000813" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1045" name="Nova_OutsideRadius_SpendsOilAndLeavesEnemyUntouched" fullname="CinderCourt.Tests.CinderSimTests.Nova_OutsideRadius_SpendsOilAndLeavesEnemyUntouched" methodname="Nova_OutsideRadius_SpendsOilAndLeavesEnemyUntouched" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="456554191" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000304" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1050" name="Pickup_ExpiresAfterTwelveSeconds" fullname="CinderCourt.Tests.CinderSimTests.Pickup_ExpiresAfterTwelveSeconds" methodname="Pickup_ExpiresAfterTwelveSeconds" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1806484059" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000620" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1048" name="Pickup_KindRotatesOnEnemyIdAndMagnetCollectsInstantly" fullname="CinderCourt.Tests.CinderSimTests.Pickup_KindRotatesOnEnemyIdAndMagnetCollectsInstantly" methodname="Pickup_KindRotatesOnEnemyIdAndMagnetCollectsInstantly" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1753664047" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000446" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1049" name="Pickup_RelicMoteAppliesScoreAndRelicWhenWalkedOver" fullname="CinderCourt.Tests.CinderSimTests.Pickup_RelicMoteAppliesScoreAndRelicWhenWalkedOver" methodname="Pickup_RelicMoteAppliesScoreAndRelicWhenWalkedOver" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="184994491" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000340" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1036" name="Restart_AfterGameOver_RewindsRunToWaveOne" fullname="CinderCourt.Tests.CinderSimTests.Restart_AfterGameOver_RewindsRunToWaveOne" methodname="Restart_AfterGameOver_RewindsRunToWaveOne" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="43667368" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000729" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1035" name="Restart_ProducesSpecInitialState" fullname="CinderCourt.Tests.CinderSimTests.Restart_ProducesSpecInitialState" methodname="Restart_ProducesSpecInitialState" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="567446298" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000350" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1039" name="SpawnCountForWave_FollowsSpecFormula" fullname="CinderCourt.Tests.CinderSimTests.SpawnCountForWave_FollowsSpecFormula" methodname="SpawnCountForWave_FollowsSpecFormula" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="321640111" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000153" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1040" name="SpawnPointIndex_FollowsWaveSeedFormula" fullname="CinderCourt.Tests.CinderSimTests.SpawnPointIndex_FollowsWaveSeedFormula" methodname="SpawnPointIndex_FollowsWaveSeedFormula" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1275168414" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000100" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1037" name="Tick_AfterGameOver_FreezesTheRun" fullname="CinderCourt.Tests.CinderSimTests.Tick_AfterGameOver_FreezesTheRun" methodname="Tick_AfterGameOver_FreezesTheRun" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="880015026" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000586" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1038" name="Tick_SameInputScript_ProducesIdenticalRun" fullname="CinderCourt.Tests.CinderSimTests.Tick_SameInputScript_ProducesIdenticalRun" methodname="Tick_SameInputScript_ProducesIdenticalRun" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1135385579" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001482" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1047" name="Ward_RefusesDamageForThreeSecondsButStillBurnsGrace" fullname="CinderCourt.Tests.CinderSimTests.Ward_RefusesDamageForThreeSecondsButStillBurnsGrace" methodname="Ward_RefusesDamageForThreeSecondsButStillBurnsGrace" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1180998634" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001159" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1042" name="WaveClear_KeepsPlayerSkillsAndPickupsTicking" fullname="CinderCourt.Tests.CinderSimTests.WaveClear_KeepsPlayerSkillsAndPickupsTicking" methodname="WaveClear_KeepsPlayerSkillsAndPickupsTicking" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="902465521" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000492" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1041" name="WaveOne_SpawnsFourEnemiesOnTheFormulaSpawnPoints" fullname="CinderCourt.Tests.CinderSimTests.WaveOne_SpawnsFourEnemiesOnTheFormulaSpawnPoints" methodname="WaveOne_SpawnsFourEnemiesOnTheFormulaSpawnPoints" classname="CinderCourt.Tests.CinderSimTests" runstate="Runnable" seed="1873659030" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000398" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1055" name="ClipTableTests" fullname="CinderCourt.Tests.ClipTableTests" classname="CinderCourt.Tests.ClipTableTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.003663" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1059" name="ActionNames_AreUniqueAcrossTheWholeTable" fullname="CinderCourt.Tests.ClipTableTests.ActionNames_AreUniqueAcrossTheWholeTable" methodname="ActionNames_AreUniqueAcrossTheWholeTable" classname="CinderCourt.Tests.ClipTableTests" runstate="Runnable" seed="166254400" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001391" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1056" name="EveryActorAction_ResolvesTheClipRowAtItsOwnIndex" fullname="CinderCourt.Tests.ClipTableTests.EveryActorAction_ResolvesTheClipRowAtItsOwnIndex" methodname="EveryActorAction_ResolvesTheClipRowAtItsOwnIndex" classname="CinderCourt.Tests.ClipTableTests" runstate="Runnable" seed="1845051151" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000421" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1057" name="SimActionCount_MatchesTheActorActionEnumLength" fullname="CinderCourt.Tests.ClipTableTests.SimActionCount_MatchesTheActorActionEnumLength" methodname="SimActionCount_MatchesTheActorActionEnumLength" classname="CinderCourt.Tests.ClipTableTests" runstate="Runnable" seed="294510894" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000137" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1058" name="ViewOnlySubstates_KeepTheIndicesActorViewHardcodes" fullname="CinderCourt.Tests.ClipTableTests.ViewOnlySubstates_KeepTheIndicesActorViewHardcodes" methodname="ViewOnlySubstates_KeepTheIndicesActorViewHardcodes" classname="CinderCourt.Tests.ClipTableTests" runstate="Runnable" seed="370860567" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000260" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1060" name="CompanionCommandParserTests" fullname="CinderCourt.Tests.CompanionCommandParserTests" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.005721" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1098" name="ExtractFirstText_PullsIntentWordFromGeminiJson" fullname="CinderCourt.Tests.CompanionCommandParserTests.ExtractFirstText_PullsIntentWordFromGeminiJson" methodname="ExtractFirstText_PullsIntentWordFromGeminiJson" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1753224666" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000260" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1097" name="FromIntentWord_MapsGeminiReplies" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001482" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1088" name="FromIntentWord_MapsGeminiReplies(&quot;FocusAttack&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;FocusAttack&quot;,FocusAttack)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1128242003" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000568" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1089" name="FromIntentWord_MapsGeminiReplies(&quot;focusattack&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;focusattack&quot;,FocusAttack)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1285175640" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000045" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1090" name="FromIntentWord_MapsGeminiReplies(&quot;  Defend  &quot;,Defend)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;  Defend  &quot;,Defend)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1229279638" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000041" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1091" name="FromIntentWord_MapsGeminiReplies(&quot;SkillNova.&quot;,SkillNova)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;SkillNova.&quot;,SkillNova)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1551434362" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000040" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1092" name="FromIntentWord_MapsGeminiReplies(&quot;Recall\n&quot;,Recall)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;Recall\n&quot;,Recall)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1024838001" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000040" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1093" name="FromIntentWord_MapsGeminiReplies(&quot;PickupInfo&quot;,PickupInfo)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;PickupInfo&quot;,PickupInfo)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="2126894711" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000039" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1094" name="FromIntentWord_MapsGeminiReplies(&quot;banana&quot;,Unknown)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;banana&quot;,Unknown)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1241160268" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000042" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1095" name="FromIntentWord_MapsGeminiReplies(&quot;&quot;,Unknown)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(&quot;&quot;,Unknown)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="2035458360" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000040" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1096" name="FromIntentWord_MapsGeminiReplies(null,Unknown)" fullname="CinderCourt.Tests.CompanionCommandParserTests.FromIntentWord_MapsGeminiReplies(null,Unknown)" methodname="FromIntentWord_MapsGeminiReplies" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="983339575" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000036" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="ParameterizedMethod" id="1081" name="Parse_ClassifiesKnownCommands" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.002742" total="20" passed="20" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1061" name="Parse_ClassifiesKnownCommands(&quot;집중공격&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;집중공격&quot;,FocusAttack)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1472643588" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000379" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1062" name="Parse_ClassifiesKnownCommands(&quot;집중 공격해&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;집중 공격해&quot;,FocusAttack)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="584547831" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000065" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1063" name="Parse_ClassifiesKnownCommands(&quot;저놈 잡아&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;저놈 잡아&quot;,FocusAttack)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="526912390" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000061" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1064" name="Parse_ClassifiesKnownCommands(&quot;방어태세&quot;,Defend)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;방어태세&quot;,Defend)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="368670961" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000060" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1065" name="Parse_ClassifiesKnownCommands(&quot;방어 태세 갖춰&quot;,Defend)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;방어 태세 갖춰&quot;,Defend)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="273823475" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000064" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1066" name="Parse_ClassifiesKnownCommands(&quot;나를 지켜&quot;,Defend)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;나를 지켜&quot;,Defend)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="711915366" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000059" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1067" name="Parse_ClassifiesKnownCommands(&quot;복귀&quot;,Recall)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;복귀&quot;,Recall)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1461982631" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000060" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1068" name="Parse_ClassifiesKnownCommands(&quot;이리와&quot;,Recall)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;이리와&quot;,Recall)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1066178713" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000059" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1069" name="Parse_ClassifiesKnownCommands(&quot;돌아와&quot;,Recall)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;돌아와&quot;,Recall)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1289573931" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000060" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1070" name="Parse_ClassifiesKnownCommands(&quot;아이템 획득&quot;,PickupInfo)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;아이템 획득&quot;,PickupInfo)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="811333727" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000062" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1071" name="Parse_ClassifiesKnownCommands(&quot;저거 주워&quot;,PickupInfo)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;저거 주워&quot;,PickupInfo)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="6004890" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000058" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1072" name="Parse_ClassifiesKnownCommands(&quot;노바&quot;,SkillNova)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;노바&quot;,SkillNova)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1135787937" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000062" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1073" name="Parse_ClassifiesKnownCommands(&quot;잿불 노바 써&quot;,SkillNova)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;잿불 노바 써&quot;,SkillNova)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="458095536" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000058" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1074" name="Parse_ClassifiesKnownCommands(&quot;결계&quot;,SkillAegis)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;결계&quot;,SkillAegis)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="806703994" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000062" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1075" name="Parse_ClassifiesKnownCommands(&quot;방패 올려&quot;,SkillAegis)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;방패 올려&quot;,SkillAegis)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1445149365" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000059" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1076" name="Parse_ClassifiesKnownCommands(&quot;파동&quot;,SkillPulse)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;파동&quot;,SkillPulse)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1685969197" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000074" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1077" name="Parse_ClassifiesKnownCommands(&quot;화살 쏴&quot;,SkillBolt)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;화살 쏴&quot;,SkillBolt)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="700309391" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000059" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1078" name="Parse_ClassifiesKnownCommands(&quot;질주&quot;,SkillDash)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;질주&quot;,SkillDash)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1521028454" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000059" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1079" name="Parse_ClassifiesKnownCommands(&quot;FOCUS the enemy&quot;,FocusAttack)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;FOCUS the enemy&quot;,FocusAttack)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="334115371" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000058" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1080" name="Parse_ClassifiesKnownCommands(&quot;defend me&quot;,Defend)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_ClassifiesKnownCommands(&quot;defend me&quot;,Defend)" methodname="Parse_ClassifiesKnownCommands" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="418750956" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000060" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1082" name="Parse_SkillWordsBeatGenericDefense" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_SkillWordsBeatGenericDefense" methodname="Parse_SkillWordsBeatGenericDefense" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1154189369" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000057" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1087" name="Parse_UnknownAndEmptyFallThrough" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_UnknownAndEmptyFallThrough" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000411" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1083" name="Parse_UnknownAndEmptyFallThrough(null)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_UnknownAndEmptyFallThrough(null)" methodname="Parse_UnknownAndEmptyFallThrough" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="2060582747" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000094" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1084" name="Parse_UnknownAndEmptyFallThrough(&quot;&quot;)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_UnknownAndEmptyFallThrough(&quot;&quot;)" methodname="Parse_UnknownAndEmptyFallThrough" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="445185198" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000022" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1085" name="Parse_UnknownAndEmptyFallThrough(&quot;   &quot;)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_UnknownAndEmptyFallThrough(&quot;   &quot;)" methodname="Parse_UnknownAndEmptyFallThrough" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1703304707" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000021" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1086" name="Parse_UnknownAndEmptyFallThrough(&quot;오늘 날씨 어때&quot;)" fullname="CinderCourt.Tests.CompanionCommandParserTests.Parse_UnknownAndEmptyFallThrough(&quot;오늘 날씨 어때&quot;)" methodname="Parse_UnknownAndEmptyFallThrough" classname="CinderCourt.Tests.CompanionCommandParserTests" runstate="Runnable" seed="1984887247" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000025" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+          </test-suite>
+          <test-suite type="TestFixture" id="1099" name="DungeonGoldenDigestTests" fullname="CinderCourt.Tests.DungeonGoldenDigestTests" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.026295" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1100" name="Golden_ArenaHackLane_IsUnchanged" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_ArenaHackLane_IsUnchanged" methodname="Golden_ArenaHackLane_IsUnchanged" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="877293844" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001514" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1104" name="Golden_ClassicCampaignAnchors_AreUnchanged" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_ClassicCampaignAnchors_AreUnchanged" methodname="Golden_ClassicCampaignAnchors_AreUnchanged" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="1318273470" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.004516" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1101" name="Golden_FrozenArenaConstructor_IsUnchanged" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_FrozenArenaConstructor_IsUnchanged" methodname="Golden_FrozenArenaConstructor_IsUnchanged" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="140228895" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001170" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1105" name="Golden_NewDungeonStages_MatchFirstRecording" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_NewDungeonStages_MatchFirstRecording" methodname="Golden_NewDungeonStages_MatchFirstRecording" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="280424796" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.005586" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1102" name="Golden_Prologue_IsUnchanged" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_Prologue_IsUnchanged" methodname="Golden_Prologue_IsUnchanged" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="24573246" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001416" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1103" name="Golden_SixLogicalStages_AreUnchanged" fullname="CinderCourt.Tests.DungeonGoldenDigestTests.Golden_SixLogicalStages_AreUnchanged" methodname="Golden_SixLogicalStages_AreUnchanged" classname="CinderCourt.Tests.DungeonGoldenDigestTests" runstate="Runnable" seed="2137782538" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.011448" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1106" name="ElementTintTests" fullname="CinderCourt.Tests.ElementTintTests" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.002592" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1110" name="CoincidentCasts_ResolveInDocumentedKitOrder" fullname="CinderCourt.Tests.ElementTintTests.CoincidentCasts_ResolveInDocumentedKitOrder" methodname="CoincidentCasts_ResolveInDocumentedKitOrder" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" seed="240617355" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000958" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1107" name="EachCastEvent_MapsToItsSpecifiedElementColor" fullname="CinderCourt.Tests.ElementTintTests.EachCastEvent_MapsToItsSpecifiedElementColor" methodname="EachCastEvent_MapsToItsSpecifiedElementColor" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" seed="2004404475" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000184" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1108" name="ElementColors_AreMutuallyDistinct" fullname="CinderCourt.Tests.ElementTintTests.ElementColors_AreMutuallyDistinct" methodname="ElementColors_AreMutuallyDistinct" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" seed="225121836" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000248" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1109" name="NoCastBit_ReturnsFalseAndLeavesColorDefault" fullname="CinderCourt.Tests.ElementTintTests.NoCastBit_ReturnsFalseAndLeavesColorDefault" methodname="NoCastBit_ReturnsFalseAndLeavesColorDefault" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" seed="528850461" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000195" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1111" name="RepeatedCalls_AreStableAcrossInterleavedInputs" fullname="CinderCourt.Tests.ElementTintTests.RepeatedCalls_AreStableAcrossInterleavedInputs" methodname="RepeatedCalls_AreStableAcrossInterleavedInputs" classname="CinderCourt.Tests.ElementTintTests" runstate="Runnable" seed="1836470089" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000136" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1112" name="EquipPropTests" fullname="CinderCourt.Tests.EquipPropTests" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.010905" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1113" name="AllSixPropPrefabs_ExistWithRenderers" fullname="CinderCourt.Tests.EquipPropTests.AllSixPropPrefabs_ExistWithRenderers" methodname="AllSixPropPrefabs_ExistWithRenderers" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" seed="662973276" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.006767" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1115" name="EveryProp_HasCharacterScaleWorldSize" fullname="CinderCourt.Tests.EquipPropTests.EveryProp_HasCharacterScaleWorldSize" methodname="EveryProp_HasCharacterScaleWorldSize" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" seed="111157586" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001081" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1114" name="EveryProp_RespectsTriangleBudget" fullname="CinderCourt.Tests.EquipPropTests.EveryProp_RespectsTriangleBudget" methodname="EveryProp_RespectsTriangleBudget" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" seed="1994546742" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000577" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1117" name="PlayerPrefab_IsHumanoidWithAllThreeSocketBones" fullname="CinderCourt.Tests.EquipPropTests.PlayerPrefab_IsHumanoidWithAllThreeSocketBones" methodname="PlayerPrefab_IsHumanoidWithAllThreeSocketBones" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" seed="685707602" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.000632" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1116" name="PropMaterials_UseUrpShaders" fullname="CinderCourt.Tests.EquipPropTests.PropMaterials_UseUrpShaders" methodname="PropMaterials_UseUrpShaders" classname="CinderCourt.Tests.EquipPropTests" runstate="Runnable" seed="1556544597" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.001209" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1118" name="FontCoverageTests" fullname="CinderCourt.Tests.FontCoverageTests" classname="CinderCourt.Tests.FontCoverageTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.008344" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1119" name="HudKorean_CoversEveryKoreanCharacterInViewStrings" fullname="CinderCourt.Tests.FontCoverageTests.HudKorean_CoversEveryKoreanCharacterInViewStrings" methodname="HudKorean_CoversEveryKoreanCharacterInViewStrings" classname="CinderCourt.Tests.FontCoverageTests" runstate="Runnable" seed="1021043976" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:41Z" duration="0.007883" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1120" name="GameDirectorCampaignRouteTests" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="0.505850" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1123" name="BeginBeforeFirstScheduledFrame_InitializesOnePlayerAndDamageHost" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.BeginBeforeFirstScheduledFrame_InitializesOnePlayerAndDamageHost" methodname="BeginBeforeFirstScheduledFrame_InitializesOnePlayerAndDamageHost" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="2088538705" result="Passed" start-time="2026-08-05 10:10:41Z" end-time="2026-08-05 10:10:42Z" duration="0.342324" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1121" name="CampaignClear_PersistsUnlockAndCarriesSelectedOrDeferredRestIntoDirectSuccessor" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CampaignClear_PersistsUnlockAndCarriesSelectedOrDeferredRestIntoDirectSuccessor" methodname="CampaignClear_PersistsUnlockAndCarriesSelectedOrDeferredRestIntoDirectSuccessor" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="2075119659" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.140606" asserts="0">
+              <properties>
+                <property name="_JOINTYPE" value="UnityCombinatorial" />
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1126" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004213" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1124" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(True)" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(True)" methodname="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="243668304" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003443" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1125" name="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(False)" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch(False)" methodname="CompanionOneShot_IsConsumedAfterFirstTickOfCatchUpBatch" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="973462184" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000525" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1122" name="LobbyMotionLabels_UseGlyphsPresentInShippedHudKoreanFont" fullname="CinderCourt.Tests.GameDirectorCampaignRouteTests.LobbyMotionLabels_UseGlyphsPresentInShippedHudKoreanFont" methodname="LobbyMotionLabels_UseGlyphsPresentInShippedHudKoreanFont" classname="CinderCourt.Tests.GameDirectorCampaignRouteTests" runstate="Runnable" seed="753543098" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.017762" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1127" name="HackSimTests" fullname="CinderCourt.Tests.HackSimTests" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" testcasecount="54" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.115133" total="54" passed="54" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1143" name="AshNova_DamagesInsideTheRadiusAndKnocksBack" fullname="CinderCourt.Tests.HackSimTests.AshNova_DamagesInsideTheRadiusAndKnocksBack" methodname="AshNova_DamagesInsideTheRadiusAndKnocksBack" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="10285644" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001939" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1181" name="BossPhase2_MonarchSummonsThreeEscorts" fullname="CinderCourt.Tests.HackSimTests.BossPhase2_MonarchSummonsThreeEscorts" methodname="BossPhase2_MonarchSummonsThreeEscorts" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2100293476" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.006462" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1177" name="BossPhaseIndex_PinsBothBoundaries" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000628" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1171" name="BossPhaseIndex_PinsBothBoundaries(1.0f,0)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(1.0f,0)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="266581662" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000122" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1172" name="BossPhaseIndex_PinsBothBoundaries(0.51f,0)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(0.51f,0)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="364180503" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000026" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1173" name="BossPhaseIndex_PinsBothBoundaries(0.5f,1)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(0.5f,1)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="163637337" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000027" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1174" name="BossPhaseIndex_PinsBothBoundaries(0.21f,1)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(0.21f,1)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1506631158" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000027" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1175" name="BossPhaseIndex_PinsBothBoundaries(0.2f,2)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(0.2f,2)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="994259474" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000024" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1176" name="BossPhaseIndex_PinsBothBoundaries(0.0f,2)" fullname="CinderCourt.Tests.HackSimTests.BossPhaseIndex_PinsBothBoundaries(0.0f,2)" methodname="BossPhaseIndex_PinsBothBoundaries" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1809553252" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000024" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1180" name="BossPhases_FireOnceEachAtTheirThresholds" fullname="CinderCourt.Tests.HackSimTests.BossPhases_FireOnceEachAtTheirThresholds" methodname="BossPhases_FireOnceEachAtTheirThresholds" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="301863426" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002950" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1178" name="BossPhaseTimeBudget_DecreasesMonotonically" fullname="CinderCourt.Tests.HackSimTests.BossPhaseTimeBudget_DecreasesMonotonically" methodname="BossPhaseTimeBudget_DecreasesMonotonically" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="750431617" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000311" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1136" name="Combo_ChainsThreeHitsWithSpecSwingTimesAndActiveWindows" fullname="CinderCourt.Tests.HackSimTests.Combo_ChainsThreeHitsWithSpecSwingTimesAndActiveWindows" methodname="Combo_ChainsThreeHitsWithSpecSwingTimesAndActiveWindows" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1928217182" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001230" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1138" name="Combo_FinisherScalesDamageKnocksBackAndRaisesComboFinisher" fullname="CinderCourt.Tests.HackSimTests.Combo_FinisherScalesDamageKnocksBackAndRaisesComboFinisher" methodname="Combo_FinisherScalesDamageKnocksBackAndRaisesComboFinisher" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2062936655" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001110" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1137" name="Combo_LinkWindowExpiresAfterNinetenthsAndRestartsTheChain" fullname="CinderCourt.Tests.HackSimTests.Combo_LinkWindowExpiresAfterNinetenthsAndRestartsTheChain" methodname="Combo_LinkWindowExpiresAfterNinetenthsAndRestartsTheChain" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="827804388" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001033" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1156" name="Companion_AttackingLeftTarget_PublishesLeftFacing" fullname="CinderCourt.Tests.HackSimTests.Companion_AttackingLeftTarget_PublishesLeftFacing" methodname="Companion_AttackingLeftTarget_PublishesLeftFacing" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1087513497" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000516" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1161" name="Companion_CommandsAreInertOutsideDungeonAndWithoutAnActiveCompanion" fullname="CinderCourt.Tests.HackSimTests.Companion_CommandsAreInertOutsideDungeonAndWithoutAnActiveCompanion" methodname="Companion_CommandsAreInertOutsideDungeonAndWithoutAnActiveCompanion" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="198139913" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003701" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1162" name="Companion_CommandSequencesProduceIdenticalSnapshotsAndDigests" fullname="CinderCourt.Tests.HackSimTests.Companion_CommandSequencesProduceIdenticalSnapshotsAndDigests" methodname="Companion_CommandSequencesProduceIdenticalSnapshotsAndDigests" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="650111483" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001690" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1182" name="Companion_DefaultFollowWithoutCommandsPreservesTheDungeonDigest" fullname="CinderCourt.Tests.HackSimTests.Companion_DefaultFollowWithoutCommandsPreservesTheDungeonDigest" methodname="Companion_DefaultFollowWithoutCommandsPreservesTheDungeonDigest" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1832860707" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003202" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1157" name="Companion_HoldLocksCoordinatesWhileRetainingItsAttackCadence" fullname="CinderCourt.Tests.HackSimTests.Companion_HoldLocksCoordinatesWhileRetainingItsAttackCadence" methodname="Companion_HoldLocksCoordinatesWhileRetainingItsAttackCadence" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1852973680" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000650" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1158" name="Companion_RecallResumesFollowingWithoutTeleporting" fullname="CinderCourt.Tests.HackSimTests.Companion_RecallResumesFollowingWithoutTeleporting" methodname="Companion_RecallResumesFollowingWithoutTeleporting" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2070244004" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000669" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1160" name="Companion_RedundantCommandsAreNoOpsAndRestartResetsFollow" fullname="CinderCourt.Tests.HackSimTests.Companion_RedundantCommandsAreNoOpsAndRestartResetsFollow" methodname="Companion_RedundantCommandsAreNoOpsAndRestartResetsFollow" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1995609655" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000327" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1159" name="Companion_SimultaneousHoldAndRecallResolvesToRecall" fullname="CinderCourt.Tests.HackSimTests.Companion_SimultaneousHoldAndRecallResolvesToRecall" methodname="Companion_SimultaneousHoldAndRecallResolvesToRecall" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1069817513" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000300" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1155" name="Companion_TrailsThePlayerAndAttacksOnItsOwnCadence" fullname="CinderCourt.Tests.HackSimTests.Companion_TrailsThePlayerAndAttacksOnItsOwnCadence" methodname="Companion_TrailsThePlayerAndAttacksOnItsOwnCadence" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1347649492" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000911" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1140" name="Dash_IsInvulnerableForItsWholeDuration" fullname="CinderCourt.Tests.HackSimTests.Dash_IsInvulnerableForItsWholeDuration" methodname="Dash_IsInvulnerableForItsWholeDuration" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="896867278" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002841" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1139" name="Dash_TravelsOneHundredNinetyPixelsAndSpendsOilOnCooldown" fullname="CinderCourt.Tests.HackSimTests.Dash_TravelsOneHundredNinetyPixelsAndSpendsOilOnCooldown" methodname="Dash_TravelsOneHundredNinetyPixelsAndSpendsOilOnCooldown" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2109379771" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000261" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1135" name="DerivedStats_CombineMetaStatsAndEquipTiers" fullname="CinderCourt.Tests.HackSimTests.DerivedStats_CombineMetaStatsAndEquipTiers" methodname="DerivedStats_CombineMetaStatsAndEquipTiers" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1749979438" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000326" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1146" name="DungeonEnemyHealth_UsesTheComboCurveNotTheArenaCurve" fullname="CinderCourt.Tests.HackSimTests.DungeonEnemyHealth_UsesTheComboCurveNotTheArenaCurve" methodname="DungeonEnemyHealth_UsesTheComboCurveNotTheArenaCurve" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="281719894" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000193" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1133" name="ElementCycle_AdvantageIsOneStepAhead" fullname="CinderCourt.Tests.HackSimTests.ElementCycle_AdvantageIsOneStepAhead" methodname="ElementCycle_AdvantageIsOneStepAhead" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="959488397" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000357" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1148" name="Elite_EverySeventhDungeonSpawnIsATripleHealthElite" fullname="CinderCourt.Tests.HackSimTests.Elite_EverySeventhDungeonSpawnIsATripleHealthElite" methodname="Elite_EverySeventhDungeonSpawnIsATripleHealthElite" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="190769303" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001461" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1149" name="Elite_HasTripleHealthAndOneAndAHalfContact" fullname="CinderCourt.Tests.HackSimTests.Elite_HasTripleHealthAndOneAndAHalfContact" methodname="Elite_HasTripleHealthAndOneAndAHalfContact" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2027322854" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001038" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1165" name="EmberRest_ExtendedRoomsAreAvailableAndRepeatTheirOffersDeterministically" fullname="CinderCourt.Tests.HackSimTests.EmberRest_ExtendedRoomsAreAvailableAndRepeatTheirOffersDeterministically" methodname="EmberRest_ExtendedRoomsAreAvailableAndRepeatTheirOffersDeterministically" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="388575491" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003163" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1164" name="EmberRest_LegacyRoomsPersistTheirSelectedOffer" fullname="CinderCourt.Tests.HackSimTests.EmberRest_LegacyRoomsPersistTheirSelectedOffer" methodname="EmberRest_LegacyRoomsPersistTheirSelectedOffer" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1322516576" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002890" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1163" name="EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose" fullname="CinderCourt.Tests.HackSimTests.EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose" methodname="EmberRest_RequiresClearedDungeon_RepeatsOffersAndPersistsSelectionAfterClose" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="673878263" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002970" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1168" name="EmberRestPreparation_GuardianResonanceUsesOnlyItsSelectedCompanionValue" fullname="CinderCourt.Tests.HackSimTests.EmberRestPreparation_GuardianResonanceUsesOnlyItsSelectedCompanionValue" methodname="EmberRestPreparation_GuardianResonanceUsesOnlyItsSelectedCompanionValue" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1447201493" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002565" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1170" name="EmberRestPreparation_IsInertInArenaAndPrologue" fullname="CinderCourt.Tests.HackSimTests.EmberRestPreparation_IsInertInArenaAndPrologue" methodname="EmberRestPreparation_IsInertInArenaAndPrologue" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="133434939" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.015286" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1169" name="EmberRestPreparation_NoneAndInvalidOffersAreExactDungeonNoOps" fullname="CinderCourt.Tests.HackSimTests.EmberRestPreparation_NoneAndInvalidOffersAreExactDungeonNoOps" methodname="EmberRestPreparation_NoneAndInvalidOffersAreExactDungeonNoOps" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1651621249" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.020872" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1167" name="EmberRestPreparation_SkillRuneVariantsMultiplyOnlyTheirSelectedSkillDamage" fullname="CinderCourt.Tests.HackSimTests.EmberRestPreparation_SkillRuneVariantsMultiplyOnlyTheirSelectedSkillDamage" methodname="EmberRestPreparation_SkillRuneVariantsMultiplyOnlyTheirSelectedSkillDamage" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1527678603" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.005399" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1166" name="EmberRestPreparation_StatVariantsApplyOnlyTheirCappedDestinationStat" fullname="CinderCourt.Tests.HackSimTests.EmberRestPreparation_StatVariantsApplyOnlyTheirCappedDestinationStat" methodname="EmberRestPreparation_StatVariantsApplyOnlyTheirCappedDestinationStat" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1552683857" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001246" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1179" name="EveryBossPhase_LastsLongEnoughToRead" fullname="CinderCourt.Tests.HackSimTests.EveryBossPhase_LastsLongEnoughToRead" methodname="EveryBossPhase_LastsLongEnoughToRead" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="611301586" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002950" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1151" name="Extraction_ChannelResetsWhenTheNextWaveLandsAHit" fullname="CinderCourt.Tests.HackSimTests.Extraction_ChannelResetsWhenTheNextWaveLandsAHit" methodname="Extraction_ChannelResetsWhenTheNextWaveLandsAHit" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="39248443" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001417" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1153" name="Extraction_DuplicateVisualPaysThirtyRelics" fullname="CinderCourt.Tests.HackSimTests.Extraction_DuplicateVisualPaysThirtyRelics" methodname="Extraction_DuplicateVisualPaysThirtyRelics" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="187254848" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001341" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1150" name="Extraction_NeedsTwoStationarySecondsInsideNinetyPixels" fullname="CinderCourt.Tests.HackSimTests.Extraction_NeedsTwoStationarySecondsInsideNinetyPixels" methodname="Extraction_NeedsTwoStationarySecondsInsideNinetyPixels" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1480066826" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001160" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1152" name="Extraction_NewVisualJoinsTheRosterAndBuffsRunDamage" fullname="CinderCourt.Tests.HackSimTests.Extraction_NewVisualJoinsTheRosterAndBuffsRunDamage" methodname="Extraction_NewVisualJoinsTheRosterAndBuffsRunDamage" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="348646471" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001168" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1154" name="GravePulse_LastsExactlyThreeSecondsOnADurableTarget" fullname="CinderCourt.Tests.HackSimTests.GravePulse_LastsExactlyThreeSecondsOnADurableTarget" methodname="GravePulse_LastsExactlyThreeSecondsOnADurableTarget" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1396450982" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001032" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1142" name="GravePulse_TicksEveryHalfSecondAndRollsTheElementCycle" fullname="CinderCourt.Tests.HackSimTests.GravePulse_TicksEveryHalfSecondAndRollsTheElementCycle" methodname="GravePulse_TicksEveryHalfSecondAndRollsTheElementCycle" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1395974212" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001204" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1132" name="Prologue_ClearingAllThreeWaves_EndsWithPrologueClear" fullname="CinderCourt.Tests.HackSimTests.Prologue_ClearingAllThreeWaves_EndsWithPrologueClear" methodname="Prologue_ClearingAllThreeWaves_EndsWithPrologueClear" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1331553317" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001044" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1131" name="Prologue_IgnoresSkillAndDashInput" fullname="CinderCourt.Tests.HackSimTests.Prologue_IgnoresSkillAndDashInput" methodname="Prologue_IgnoresSkillAndDashInput" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="934191814" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000667" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1130" name="Prologue_RunsThreeWavesOfFourSixEight_WithNoBoss" fullname="CinderCourt.Tests.HackSimTests.Prologue_RunsThreeWavesOfFourSixEight_WithNoBoss" methodname="Prologue_RunsThreeWavesOfFourSixEight_WithNoBoss" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="322233318" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001253" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1129" name="Regression_CampaignConstructor_StillProducesItsOwnDigest" fullname="CinderCourt.Tests.HackSimTests.Regression_CampaignConstructor_StillProducesItsOwnDigest" methodname="Regression_CampaignConstructor_StillProducesItsOwnDigest" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="616981123" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003195" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1128" name="Regression_HackArenaConfig_ReproducesTheFrozenArenaRun" fullname="CinderCourt.Tests.HackSimTests.Regression_HackArenaConfig_ReproducesTheFrozenArenaRun" methodname="Regression_HackArenaConfig_ReproducesTheFrozenArenaRun" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="562874386" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002213" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1141" name="RiftBolt_HitsTheNearestTargetAndSplashesAtSixtyPercent" fullname="CinderCourt.Tests.HackSimTests.RiftBolt_HitsTheNearestTargetAndSplashesAtSixtyPercent" methodname="RiftBolt_HitsTheNearestTargetAndSplashesAtSixtyPercent" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="2031585316" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001039" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1145" name="Skills_CostsAndCooldownsMatchTheSkillTable" fullname="CinderCourt.Tests.HackSimTests.Skills_CostsAndCooldownsMatchTheSkillTable" methodname="Skills_CostsAndCooldownsMatchTheSkillTable" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="79043365" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000437" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1144" name="VoidAegis_AbsorbsFortyDamageBeforeHealthMoves" fullname="CinderCourt.Tests.HackSimTests.VoidAegis_AbsorbsFortyDamageBeforeHealthMoves" methodname="VoidAegis_AbsorbsFortyDamageBeforeHealthMoves" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="670790917" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001294" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1147" name="Xp_LevellingRaisesDamageHealthAndRegen" fullname="CinderCourt.Tests.HackSimTests.Xp_LevellingRaisesDamageHealthAndRegen" methodname="Xp_LevellingRaisesDamageHealthAndRegen" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="1616001649" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001240" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1134" name="XpCurve_MatchesSpecAndCapsAtTwelve" fullname="CinderCourt.Tests.HackSimTests.XpCurve_MatchesSpecAndCapsAtTwelve" methodname="XpCurve_MatchesSpecAndCapsAtTwelve" classname="CinderCourt.Tests.HackSimTests" runstate="Runnable" seed="387636087" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000140" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1183" name="HudLayoutTests" fullname="CinderCourt.Tests.HudLayoutTests" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.112093" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1189" name="DesktopDungeon_SkillRow_DoesNotCoverReadouts" fullname="CinderCourt.Tests.HudLayoutTests.DesktopDungeon_SkillRow_DoesNotCoverReadouts" methodname="DesktopDungeon_SkillRow_DoesNotCoverReadouts" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="2003182935" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.009539" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1195" name="EmberRest_HideAndRunReset_RemovePanelRaycastsAndDecisionState" fullname="CinderCourt.Tests.HudLayoutTests.EmberRest_HideAndRunReset_RemovePanelRaycastsAndDecisionState" methodname="EmberRest_HideAndRunReset_RemovePanelRaycastsAndDecisionState" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="663305495" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.016185" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1193" name="GameOver_HidesCombatTouchTargets_ClearsTouchInput_AndRestoresOnResume" fullname="CinderCourt.Tests.HudLayoutTests.GameOver_HidesCombatTouchTargets_ClearsTouchInput_AndRestoresOnResume" methodname="GameOver_HidesCombatTouchTargets_ClearsTouchInput_AndRestoresOnResume" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1637993919" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.010650" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1190" name="NonInteractiveGraphics_DoNotEatTaps" fullname="CinderCourt.Tests.HudLayoutTests.NonInteractiveGraphics_DoNotEatTaps" methodname="NonInteractiveGraphics_DoNotEatTaps" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1813013635" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.008007" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1187" name="PhoneArena_InteractiveSurfaces_NoOverlap_And44PxFloor" fullname="CinderCourt.Tests.HudLayoutTests.PhoneArena_InteractiveSurfaces_NoOverlap_And44PxFloor" methodname="PhoneArena_InteractiveSurfaces_NoOverlap_And44PxFloor" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="926482161" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.006462" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1185" name="PhoneDungeon_InteractiveSurfaces_DoNotOverlap" fullname="CinderCourt.Tests.HudLayoutTests.PhoneDungeon_InteractiveSurfaces_DoNotOverlap" methodname="PhoneDungeon_InteractiveSurfaces_DoNotOverlap" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="169915820" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.008104" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1188" name="PhoneDungeon_SkillRow_DoesNotCoverReadouts" fullname="CinderCourt.Tests.HudLayoutTests.PhoneDungeon_SkillRow_DoesNotCoverReadouts" methodname="PhoneDungeon_SkillRow_DoesNotCoverReadouts" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="86989751" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.007775" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1186" name="PhoneDungeon_TouchTargets_AtLeast44CssPx" fullname="CinderCourt.Tests.HudLayoutTests.PhoneDungeon_TouchTargets_AtLeast44CssPx" methodname="PhoneDungeon_TouchTargets_AtLeast44CssPx" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="704346595" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.007831" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1194" name="PhoneEmberRest_OffersThreeEffects_WithReplacementWordingAnd44PxActions" fullname="CinderCourt.Tests.HudLayoutTests.PhoneEmberRest_OffersThreeEffects_WithReplacementWordingAnd44PxActions" methodname="PhoneEmberRest_OffersThreeEffects_WithReplacementWordingAnd44PxActions" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1232917846" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.010796" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1184" name="PrologueToast_DescribesDesktopOrTouchControls" fullname="CinderCourt.Tests.HudLayoutTests.PrologueToast_DescribesDesktopOrTouchControls" methodname="PrologueToast_DescribesDesktopOrTouchControls" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1229259799" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.005552" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1191" name="ReducedMotion_UpdatesPresentationPolicyAndPersists" fullname="CinderCourt.Tests.HudLayoutTests.ReducedMotion_UpdatesPresentationPolicyAndPersists" methodname="ReducedMotion_UpdatesPresentationPolicyAndPersists" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1894366730" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.005087" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1196" name="ResetRunUi_ReseedsHealthBarForNewRun" fullname="CinderCourt.Tests.HudLayoutTests.ResetRunUi_ReseedsHealthBarForNewRun" methodname="ResetRunUi_ReseedsHealthBarForNewRun" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="1310829134" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004609" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1192" name="RetryModalVisible_TracksActivePanel_NotPendingClearCeremony" fullname="CinderCourt.Tests.HudLayoutTests.RetryModalVisible_TracksActivePanel_NotPendingClearCeremony" methodname="RetryModalVisible_TracksActivePanel_NotPendingClearCeremony" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="499823528" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.005191" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1197" name="TierThresholds_ClassifyByEffectiveWidth" fullname="CinderCourt.Tests.HudLayoutTests.TierThresholds_ClassifyByEffectiveWidth" methodname="TierThresholds_ClassifyByEffectiveWidth" classname="CinderCourt.Tests.HudLayoutTests" runstate="Runnable" seed="409567773" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004653" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1198" name="KeyVaultTests" fullname="CinderCourt.Tests.KeyVaultTests" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.010793" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1205" name="LoadKey_MigratesLegacyPlaintextInPlace" fullname="CinderCourt.Tests.KeyVaultTests.LoadKey_MigratesLegacyPlaintextInPlace" methodname="LoadKey_MigratesLegacyPlaintextInPlace" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="1872621117" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004006" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1206" name="LoadKey_UndecryptableValue_ClearsAndAsksAgain" fullname="CinderCourt.Tests.KeyVaultTests.LoadKey_UndecryptableValue_ClearsAndAsksAgain" methodname="LoadKey_UndecryptableValue_ClearsAndAsksAgain" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="1118566914" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.002037" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1199" name="Protect_MarksAndHidesPlaintext" fullname="CinderCourt.Tests.KeyVaultTests.Protect_MarksAndHidesPlaintext" methodname="Protect_MarksAndHidesPlaintext" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="1694527629" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000417" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1200" name="Roundtrip_RestoresOriginal" fullname="CinderCourt.Tests.KeyVaultTests.Roundtrip_RestoresOriginal" methodname="Roundtrip_RestoresOriginal" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="60217274" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001085" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1204" name="StoreKey_NeverWritesPlaintextToPrefs" fullname="CinderCourt.Tests.KeyVaultTests.StoreKey_NeverWritesPlaintextToPrefs" methodname="StoreKey_NeverWritesPlaintextToPrefs" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="1234212261" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000760" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1203" name="Unprotect_EmptyAndNull_AreSafe" fullname="CinderCourt.Tests.KeyVaultTests.Unprotect_EmptyAndNull_AreSafe" methodname="Unprotect_EmptyAndNull_AreSafe" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="1914977180" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000375" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1201" name="Unprotect_PassesLegacyPlaintextThrough" fullname="CinderCourt.Tests.KeyVaultTests.Unprotect_PassesLegacyPlaintextThrough" methodname="Unprotect_PassesLegacyPlaintextThrough" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="857262122" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000378" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1202" name="Unprotect_TamperedCiphertext_ReturnsNull" fullname="CinderCourt.Tests.KeyVaultTests.Unprotect_TamperedCiphertext_ReturnsNull" methodname="Unprotect_TamperedCiphertext_ReturnsNull" classname="CinderCourt.Tests.KeyVaultTests" runstate="Runnable" seed="992005638" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000514" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1207" name="LanternReaverPrefabTests" fullname="CinderCourt.Tests.LanternReaverPrefabTests" classname="CinderCourt.Tests.LanternReaverPrefabTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003329" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1209" name="LanternReaverPrefab_AttackActionMovesHumanoidRightHand" fullname="CinderCourt.Tests.LanternReaverPrefabTests.LanternReaverPrefab_AttackActionMovesHumanoidRightHand" methodname="LanternReaverPrefab_AttackActionMovesHumanoidRightHand" classname="CinderCourt.Tests.LanternReaverPrefabTests" runstate="Runnable" seed="1328983609" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001130" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1208" name="LanternReaverPrefab_IsAUsableHumanoidActor" fullname="CinderCourt.Tests.LanternReaverPrefabTests.LanternReaverPrefab_IsAUsableHumanoidActor" methodname="LanternReaverPrefab_IsAUsableHumanoidActor" classname="CinderCourt.Tests.LanternReaverPrefabTests" runstate="Runnable" seed="1171073227" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001784" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1210" name="PoseResolveTests" fullname="CinderCourt.Tests.PoseResolveTests" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004241" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1212" name="Attack_ResolvesItsComboSubstate_PerTier" fullname="CinderCourt.Tests.PoseResolveTests.Attack_ResolvesItsComboSubstate_PerTier" methodname="Attack_ResolvesItsComboSubstate_PerTier" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="454743533" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000124" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1213" name="ComboSubstates_NeverLeakOntoNonAttackActions" fullname="CinderCourt.Tests.PoseResolveTests.ComboSubstates_NeverLeakOntoNonAttackActions" methodname="ComboSubstates_NeverLeakOntoNonAttackActions" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="877138750" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000248" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1215" name="ComboSwing_OutranksALiveCastWindow" fullname="CinderCourt.Tests.PoseResolveTests.ComboSwing_OutranksALiveCastWindow" methodname="ComboSwing_OutranksALiveCastWindow" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1172114699" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000125" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1217" name="ComboTierOutsideTheSimsRange_StaysInsideTheAnimatorsRows" fullname="CinderCourt.Tests.PoseResolveTests.ComboTierOutsideTheSimsRange_StaysInsideTheAnimatorsRows" methodname="ComboTierOutsideTheSimsRange_StaysInsideTheAnimatorsRows" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="2087776734" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000091" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1219" name="Death_OutranksKnockback" fullname="CinderCourt.Tests.PoseResolveTests.Death_OutranksKnockback" methodname="Death_OutranksKnockback" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1564955852" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000066" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1211" name="EveryAction_ResolvesItsOwnValue_WithNoComboAndNoCastWindow" fullname="CinderCourt.Tests.PoseResolveTests.EveryAction_ResolvesItsOwnValue_WithNoComboAndNoCastWindow" methodname="EveryAction_ResolvesItsOwnValue_WithNoComboAndNoCastWindow" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1391507877" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000150" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1221" name="EveryResolvablePose_OccupiesItsOwnAnimatorValue" fullname="CinderCourt.Tests.PoseResolveTests.EveryResolvablePose_OccupiesItsOwnAnimatorValue" methodname="EveryResolvablePose_OccupiesItsOwnAnimatorValue" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="22009544" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000432" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1218" name="Knockback_OutranksEveryPoseExceptDeath" fullname="CinderCourt.Tests.PoseResolveTests.Knockback_OutranksEveryPoseExceptDeath" methodname="Knockback_OutranksEveryPoseExceptDeath" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1655643351" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000215" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1220" name="KnockbackDefaultsOff_SoExistingCallSitesAreUnchanged" fullname="CinderCourt.Tests.PoseResolveTests.KnockbackDefaultsOff_SoExistingCallSitesAreUnchanged" methodname="KnockbackDefaultsOff_SoExistingCallSitesAreUnchanged" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1498121745" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000138" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1214" name="LiveCastWindow_ReplacesIdleOnly" fullname="CinderCourt.Tests.PoseResolveTests.LiveCastWindow_ReplacesIdleOnly" methodname="LiveCastWindow_ReplacesIdleOnly" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1306836398" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000185" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1222" name="Resolve_IsPure_AcrossRepeatedAndInterleavedCalls" fullname="CinderCourt.Tests.PoseResolveTests.Resolve_IsPure_AcrossRepeatedAndInterleavedCalls" methodname="Resolve_IsPure_AcrossRepeatedAndInterleavedCalls" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1541063035" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001122" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1216" name="UnseededComboTier_IsNotACombo" fullname="CinderCourt.Tests.PoseResolveTests.UnseededComboTier_IsNotACombo" methodname="UnseededComboTier_IsNotACombo" classname="CinderCourt.Tests.PoseResolveTests" runstate="Runnable" seed="1493696997" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000130" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1223" name="PresentationFeedbackTests" fullname="CinderCourt.Tests.PresentationFeedbackTests" classname="CinderCourt.Tests.PresentationFeedbackTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.012557" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1224" name="BossIntro_UsesProvidedName_AndResetsTransientInputSafeElements" fullname="CinderCourt.Tests.PresentationFeedbackTests.BossIntro_UsesProvidedName_AndResetsTransientInputSafeElements" methodname="BossIntro_UsesProvidedName_AndResetsTransientInputSafeElements" classname="CinderCourt.Tests.PresentationFeedbackTests" runstate="Runnable" seed="711501967" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.005925" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1225" name="CampaignStageClear_StartsCeremonyWithoutPrematureOrDuplicateTerminalPanel" fullname="CinderCourt.Tests.PresentationFeedbackTests.CampaignStageClear_StartsCeremonyWithoutPrematureOrDuplicateTerminalPanel" methodname="CampaignStageClear_StartsCeremonyWithoutPrematureOrDuplicateTerminalPanel" classname="CinderCourt.Tests.PresentationFeedbackTests" runstate="Runnable" seed="387043880" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.006233" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1226" name="StageCatalogTests" fullname="CinderCourt.Tests.StageCatalogTests" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.017382" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1231" name="CompositeHazards_MatchPlacementAndClearanceContracts" fullname="CinderCourt.Tests.StageCatalogTests.CompositeHazards_MatchPlacementAndClearanceContracts" methodname="CompositeHazards_MatchPlacementAndClearanceContracts" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="840755200" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001425" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1227" name="Entries_AreNineOrderedUniqueLogicalStages" fullname="CinderCourt.Tests.StageCatalogTests.Entries_AreNineOrderedUniqueLogicalStages" methodname="Entries_AreNineOrderedUniqueLogicalStages" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="1315194319" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001116" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1229" name="Entries_FormStrictPrerequisiteChain" fullname="CinderCourt.Tests.StageCatalogTests.Entries_FormStrictPrerequisiteChain" methodname="Entries_FormStrictPrerequisiteChain" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="945374396" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000770" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1230" name="Entries_ReferenceOnlyExistingSharedTerrainResources" fullname="CinderCourt.Tests.StageCatalogTests.Entries_ReferenceOnlyExistingSharedTerrainResources" methodname="Entries_ReferenceOnlyExistingSharedTerrainResources" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="2119153321" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.004941" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1228" name="Entries_ResolveFrozenAnchorWithoutChangingAnchorStageId" fullname="CinderCourt.Tests.StageCatalogTests.Entries_ResolveFrozenAnchorWithoutChangingAnchorStageId" methodname="Entries_ResolveFrozenAnchorWithoutChangingAnchorStageId" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="1315896850" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000922" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1235" name="IsUnlocked_DirectlyClearedLegacyAnchorRemainsEnterable" fullname="CinderCourt.Tests.StageCatalogTests.IsUnlocked_DirectlyClearedLegacyAnchorRemainsEnterable" methodname="IsUnlocked_DirectlyClearedLegacyAnchorRemainsEnterable" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="1972090848" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000976" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1233" name="Load_LegacyClearedIdsMapToAnchorBits" fullname="CinderCourt.Tests.StageCatalogTests.Load_LegacyClearedIdsMapToAnchorBits" methodname="Load_LegacyClearedIdsMapToAnchorBits" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="1501549701" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000960" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1237" name="Load_LegacySixBitMask_LoadsIdentically" fullname="CinderCourt.Tests.StageCatalogTests.Load_LegacySixBitMask_LoadsIdentically" methodname="Load_LegacySixBitMask_LoadsIdentically" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="1089307014" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001268" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1236" name="MarkCleared_Index8_SurvivesSaveLoadRoundTrip" fullname="CinderCourt.Tests.StageCatalogTests.MarkCleared_Index8_SurvivesSaveLoadRoundTrip" methodname="MarkCleared_Index8_SurvivesSaveLoadRoundTrip" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="413352602" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001416" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1232" name="NewStageAnchors_CarryNoOverrideAndClearRadialHazards" fullname="CinderCourt.Tests.StageCatalogTests.NewStageAnchors_CarryNoOverrideAndClearRadialHazards" methodname="NewStageAnchors_CarryNoOverrideAndClearRadialHazards" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="35047338" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001063" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1234" name="Save_RoundTripsSixBitMaskAndPreservesMetaWithoutLegacyShape" fullname="CinderCourt.Tests.StageCatalogTests.Save_RoundTripsSixBitMaskAndPreservesMetaWithoutLegacyShape" methodname="Save_RoundTripsSixBitMaskAndPreservesMetaWithoutLegacyShape" classname="CinderCourt.Tests.StageCatalogTests" runstate="Runnable" seed="960638109" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001233" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1238" name="StageDressingTests" fullname="CinderCourt.Tests.StageDressingTests" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.003341" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1239" name="DressedStages_HaveNonEmptyDistinctTables" fullname="CinderCourt.Tests.StageDressingTests.DressedStages_HaveNonEmptyDistinctTables" methodname="DressedStages_HaveNonEmptyDistinctTables" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" seed="1550731249" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000442" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1242" name="Placements_ClearEveryStageHazard" fullname="CinderCourt.Tests.StageDressingTests.Placements_ClearEveryStageHazard" methodname="Placements_ClearEveryStageHazard" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" seed="799390421" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000997" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1240" name="Placements_ReferenceExistingLibraryFeatureOrPropChildren" fullname="CinderCourt.Tests.StageDressingTests.Placements_ReferenceExistingLibraryFeatureOrPropChildren" methodname="Placements_ReferenceExistingLibraryFeatureOrPropChildren" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" seed="2136301231" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000773" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1241" name="Placements_StayOutsideTheCombatPlane" fullname="CinderCourt.Tests.StageDressingTests.Placements_StayOutsideTheCombatPlane" methodname="Placements_StayOutsideTheCombatPlane" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" seed="71062063" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000182" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1243" name="Tables_AreDeterministic" fullname="CinderCourt.Tests.StageDressingTests.Tables_AreDeterministic" methodname="Tables_AreDeterministic" classname="CinderCourt.Tests.StageDressingTests" runstate="Runnable" seed="172860396" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000281" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1244" name="TerrainPartsTests" fullname="CinderCourt.Tests.TerrainPartsTests" classname="CinderCourt.Tests.TerrainPartsTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000738" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1245" name="AbyssChancel_CarriesSplitPartsAndIntactFloor" fullname="CinderCourt.Tests.TerrainPartsTests.AbyssChancel_CarriesSplitPartsAndIntactFloor" methodname="AbyssChancel_CarriesSplitPartsAndIntactFloor" classname="CinderCourt.Tests.TerrainPartsTests" runstate="Runnable" seed="289863183" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000260" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1246" name="EchoThrone_StaysSlabOnly_BillboardNonGoal" fullname="CinderCourt.Tests.TerrainPartsTests.EchoThrone_StaysSlabOnly_BillboardNonGoal" methodname="EchoThrone_StaysSlabOnly_BillboardNonGoal" classname="CinderCourt.Tests.TerrainPartsTests" runstate="Runnable" seed="130096259" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000139" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1247" name="WaveTelegraphTests" fullname="CinderCourt.Tests.WaveTelegraphTests" classname="CinderCourt.Tests.WaveTelegraphTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.001139" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1250" name="EverySpawnPoint_SitsInsideTheArena" fullname="CinderCourt.Tests.WaveTelegraphTests.EverySpawnPoint_SitsInsideTheArena" methodname="EverySpawnPoint_SitsInsideTheArena" classname="CinderCourt.Tests.WaveTelegraphTests" runstate="Runnable" seed="383932424" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000161" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1248" name="SpawnPointIndex_IsPureAndInRange" fullname="CinderCourt.Tests.WaveTelegraphTests.SpawnPointIndex_IsPureAndInRange" methodname="SpawnPointIndex_IsPureAndInRange" classname="CinderCourt.Tests.WaveTelegraphTests" runstate="Runnable" seed="696117137" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000434" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1249" name="TelegraphRings_LandOnDistinctPointsWithinAWave" fullname="CinderCourt.Tests.WaveTelegraphTests.TelegraphRings_LandOnDistinctPointsWithinAWave" methodname="TelegraphRings_LandOnDistinctPointsWithinAWave" classname="CinderCourt.Tests.WaveTelegraphTests" runstate="Runnable" seed="1510413998" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.000169" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1251" name="WebGlTextureCapTests" fullname="CinderCourt.Tests.WebGlTextureCapTests" classname="CinderCourt.Tests.WebGlTextureCapTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.019313" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1252" name="TextureImporters_DefaultAndWebGlCapsDoNotExceed1024" fullname="CinderCourt.Tests.WebGlTextureCapTests.TextureImporters_DefaultAndWebGlCapsDoNotExceed1024" methodname="TextureImporters_DefaultAndWebGlCapsDoNotExceed1024" classname="CinderCourt.Tests.WebGlTextureCapTests" runstate="Runnable" seed="1313140684" result="Passed" start-time="2026-08-05 10:10:42Z" end-time="2026-08-05 10:10:42Z" duration="0.019096" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[Saving results to: /Users/seokcmin/Library/Application Support/HongT/Abyssal Lantern — Cinder Court/TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

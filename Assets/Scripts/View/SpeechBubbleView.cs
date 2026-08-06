@@ -212,17 +212,20 @@ namespace CinderCourt.View
             return text;
         }
 
-        static Color SpeakerColor(string speaker)
+        /// <summary>
+        /// Palette lookup. The speaker->voice mapping belongs to StoryCatalog
+        /// (which owns every speaker constant); this side only paints. Public
+        /// so the EditMode presentation test can pin the mapping without
+        /// building a world-space canvas.
+        /// </summary>
+        public static Color SpeakerColor(string speaker)
         {
-            if (string.IsNullOrEmpty(speaker)) return WatcherColor;
-            // Boss houses: CINDER WARDEN / VEIL TACTICIAN / GATE SOVEREIGN.
-            if (speaker.StartsWith("CINDER", System.StringComparison.Ordinal) ||
-                speaker.StartsWith("VEIL", System.StringComparison.Ordinal) ||
-                speaker.StartsWith("GATE", System.StringComparison.Ordinal))
-                return EmberColor;
-            if (speaker.StartsWith("DUSK", System.StringComparison.Ordinal))
-                return WardenColor;
-            return WatcherColor;   // watcher narration and anything ambient
+            switch (StoryCatalog.VoiceOf(speaker))
+            {
+                case SpeakerVoice.Boss: return EmberColor;
+                case SpeakerVoice.Warden: return WardenColor;
+                default: return WatcherColor;
+            }
         }
     }
 }

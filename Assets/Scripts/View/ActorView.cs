@@ -32,10 +32,16 @@ namespace CinderCourt.View
         static readonly Color PlayerFlashColor = new Color(1f, 0.35f, 0.3f);
         static readonly Color EnemyFlashColor = new Color(1f, 0.45f, 0.2f);   // ember tone
         static readonly Color EliteGold = new Color(1f, 0.78f, 0.25f);
+        // Retune R2: pylon-aura shield read. Slight >1 blue lifts it toward
+        // additive — a rim pass would need a new material (PROHIBITED: the
+        // single-material MPB BaseColor path is the proven grammar here).
+        static readonly Color ShieldCyan = new Color(0.45f, 1f, 1.15f);
         float _lastHealth = float.MaxValue;   // enemy health-delta cache (spec #5)
         float _deathPop;                      // kill pop timer (spec #4)
         Color _elementTint;                   // §K3 skill-element hit color (a=0 off)
         bool _eliteTint;                      // gold pulse marker (spec #14)
+        bool _shieldTint;                     // R2 pylon-aura cyan (GameView judges)
+        bool _shieldApplied;                  // falling-edge restore latch
         Color _flashColor = PlayerFlashColor;
         TrailRenderer _swingTrail;            // player-only (spec #8)
         // 16-direction display yaw (§M1): previous sim position, NaN = unseeded.
@@ -288,6 +294,16 @@ namespace CinderCourt.View
         /// <summary>Elite marker (spec #14): pulsing gold tint through the
         /// shared MaterialPropertyBlock path. Cleared by ResetForPool.</summary>
         public void SetEliteTint(bool on) => _eliteTint = on;
+
+        /// <summary>Retune R2: cyan shield tint while a live pylon aura covers
+        /// this enemy. GameView judges coverage per frame (sim-mirrored iso
+        /// test); steady tint — persistent state marker, reduced-motion safe
+        /// by construction (it never pulses).</summary>
+        public void SetShieldTint(bool on) => _shieldTint = on;
+
+        /// <summary>True while the shield tint owns this actor's MPB — the
+        /// boss catalog tint yields to it (same contract as FlashLive).</summary>
+        internal bool ShieldLive => _shieldTint;
 
         /// <summary>§P2: equip-rank glow from the three T0-T5 ranks (0..15 sum).
         /// BaseColor modulation — the proven MPB path (elite tint / hit flash);
@@ -814,6 +830,17 @@ namespace CinderCourt.View
                 }
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
+                _shieldApplied = false;   // flash write overwrote any cyan
+            }
+            else if (_shieldTint)
+            {
+                // Retune R2 shield read — steady cyan, outranks elite gold:
+                // "-60% damage taken" is a live tactical fact, the elite
+                // marker is permanent and returns the frame coverage ends.
+                _block.SetColor(BaseColorId, ShieldCyan);
+                for (var i = 0; i < _renderers.Length; i++)
+                    _renderers[i].SetPropertyBlock(_block);
+                _shieldApplied = true;
             }
             else if (_eliteTint)
             {
@@ -823,17 +850,29 @@ namespace CinderCourt.View
                     EliteGold.r * glow, EliteGold.g * glow, EliteGold.b * glow));
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
+                _shieldApplied = false;
             }
             else if (_equipGlow > 0f)
             {
                 // §P2 rank glow: whole-body ember-gold ramp (single material
                 // per character — part-split needs P1), 0.8 s soft pulse.
-                // Priority: hit flash > elite gold > rank glow (spec #14 rule).
+                // Priority: hit flash > shield cyan > elite gold > rank glow.
                 var pulse = 0.9f + 0.1f * Mathf.PingPong(Time.time * 2.5f, 1f);
                 _block.SetColor(BaseColorId,
                     Color.Lerp(Color.white, EliteGold, _equipGlow * pulse));
                 for (var i = 0; i < _renderers.Length; i++)
                     _renderers[i].SetPropertyBlock(_block);
+                _shieldApplied = false;
+            }
+            else if (_shieldApplied)
+            {
+                // Shield falling edge with no other block owner: restore the
+                // resting state once, or the last cyan write sticks forever
+                // (MPBs persist until overwritten).
+                _block.Clear();
+                for (var i = 0; i < _renderers.Length; i++)
+                    _renderers[i].SetPropertyBlock(_block);
+                _shieldApplied = false;
             }
 
             if (!Mathf.Approximately(healthFraction, _healthFraction))
@@ -873,6 +912,8 @@ namespace CinderCourt.View
             _prevSimX = float.NaN;
             _prevSimY = float.NaN;
             _eliteTint = false;
+            _shieldTint = false;      // R2: pooled actors never keep a shield read
+            _shieldApplied = false;   // pool reset below rewrites the block anyway
             _flashColor = PlayerFlashColor;
             _flashDuration = 0.13f;
             _equipGlow = 0f;

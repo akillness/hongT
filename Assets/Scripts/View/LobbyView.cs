@@ -6,6 +6,7 @@
 // Style tokens (original web lobby): panel rgba(5,4,9,0.72), border line
 // rgba(128,216,255,0.34), accents cyan #2CADD6 / ember #F3592C / gold
 // #DDC869, eyebrow pattern (EN kicker above, KR title below).
+using CinderCourt.Sim;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -24,6 +25,12 @@ namespace CinderCourt.View
         public System.Action<string> OnBuyEquip;
         /// <summary>Companion id, or "" for none.</summary>
         public System.Action<string> OnSelectCompanion;
+        /// <summary>v1.5: unlock a sigil for relics. Arg = SigilKind as int.</summary>
+        public System.Action<int> OnBuySigil;
+        /// <summary>v1.5: equip/flip/unequip. Args = (SigilKind, SigilFace) as ints.</summary>
+        public System.Action<int, int> OnEquipSigil;
+        /// <summary>v1.6: enter a training trial. Args = (trial index, tier).</summary>
+        public System.Action<int, int> OnStartTrial;
     }
 
     public sealed class LobbyView : MonoBehaviour
@@ -44,11 +51,53 @@ namespace CinderCourt.View
         const int EquipCap = 5;
         static readonly string[] StatIds = { "attack", "vitality", "swiftness" };
         static readonly string[] StatNames = { "공격", "체력", "이속" };
-        static readonly string[] StatEffects = { "+3%/pt", "+8 HP/pt", "+2%/pt" };
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
-        static readonly string[] EquipEffects = { "+6%/T", "+8%/T", "+8HP/T" };
         static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };  // relics for T(i)->T(i+1)
+
+        // --- v1.5 sigils (AMENDMENT #6 · design/sigil-spec.md) ------------------
+        const int TabCount = 4;
+        /// <summary>Relics to unlock one sigil, once. Internal so the economy
+        /// test pins it and a negotiation can move it in one line.</summary>
+        internal const int SigilCost = 12;
+        /// <summary>Catalog order. Index 0 is deliberately the inert None so the
+        /// stored ints are the SigilKind enum values with no remapping.</summary>
+        internal static readonly SigilKind[] SigilOrder =
+        {
+            SigilKind.Countercurrent, SigilKind.Verdict, SigilKind.Executioner,
+            SigilKind.Ignition, SigilKind.Witness,
+        };
+        static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
+        /// <summary>Which gimmick each sigil binds — the line that tells the
+        /// player WHERE it matters, not just what number moves.</summary>
+        static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
+        // Face copy: [kind][face]. A = survive the gimmick, B = turn it on them.
+        static readonly string[][] SigilFaceNames =
+        {
+            new[] { "역류 저항", "와류" },
+            new[] { "관통 판결", "파쇄" },
+            new[] { "집행 저항", "처형" },
+            new[] { "재점화", "연쇄" },
+            new[] { "속기", "증폭" },
+        };
+        static readonly string[][] SigilFaceEffects =
+        {
+            new[] { "내가 받는 해류 밀기 절반", "적이 받는 해류 밀기 1.5배" },
+            new[] { "방벽주 실드 40% → 70%", "방벽주에 주는 피해 2배" },
+            new[] { "벽이 나에게 주는 피해 10 → 6", "벽이 적에게 주는 피해 10 → 18" },
+            new[] { "분출구에 맞으면 기름 +12", "분출구가 적에게 피해 14" },
+            new[] { "제단 채널 1.2초 → 0.8초", "제단 기름 +18 → +30" },
+        };
+
+        // v1.3 M2: tier narrative names (court vocabulary — worldview.md
+        // '메타 서사 (v1.3)' is the single source). [slot][tier], slot order
+        // = EquipIds, T0..T5. Internal so the catalog test can glyph-audit.
+        internal static readonly string[][] EquipTierNames =
+        {
+            new[] { "잿날", "담금날", "벼림날", "선고날", "심판날", "판결인" },
+            new[] { "잿등", "밀랍등", "서약등", "기록등", "증언등", "진실등" },
+            new[] { "잿천", "무명포", "증인포", "기록포", "선고포", "집행포" },
+        };
 
         // Roster slots are pre-built for every obtainable companion (boss
         // unlocks + elite extraction echoes) so Refresh never re-instantiates.
@@ -56,6 +105,10 @@ namespace CinderCourt.View
             { "ember-cohort", "shade-echo", "possessed-echo", "scout-echo", "ember-cohort-echo" };
         static readonly string[] CompanionNames =
             { "잿불 사도", "그림자 메아리", "홀린 자 메아리", "정찰꾼 메아리", "잿불 메아리" };
+        // v1.3 M4: one-line identity epithets (court grammar, worldview.md
+        // '메타 서사'): origin function of each echo, indexes CompanionIds.
+        static readonly string[] CompanionEpithets =
+            { "첫 서약의 증인", "성당의 메아리", "왕좌의 메아리", "행진의 메아리", "정예의 잿불" };
 
         LobbyCallbacks _callbacks;
         Font _font;
@@ -75,6 +128,15 @@ namespace CinderCourt.View
         readonly Text[] _stageStatus = new Text[StageCatalog.Entries.Count];
         readonly Button[] _stageButtons = new Button[StageCatalog.Entries.Count];
         readonly CanvasGroup[] _stageGroups = new CanvasGroup[StageCatalog.Entries.Count];
+        readonly Text[] _stageSubLabels = new Text[StageCatalog.Entries.Count];
+        // v1.3 M3b: 서약 toggles — one per stage card, revealed when cleared.
+        readonly Text[] _pactLabels = new Text[StageCatalog.Entries.Count];
+        readonly Image[] _pactBackgrounds = new Image[StageCatalog.Entries.Count];
+        readonly GameObject[] _pactButtons = new GameObject[StageCatalog.Entries.Count];
+        // Session-only opt-in state (meta-fun-pass-spec §세이브 스키마: NEVER
+        // saved — re-armed per session, Hades-heat opt-in grammar).
+        readonly System.Collections.Generic.Dictionary<string, bool> _pactArmed =
+            new System.Collections.Generic.Dictionary<string, bool>();
         // cycle2 B3: prologue card border lines pulse ember until PrologueDone.
         Image[] _prologueBorder;
         bool _prologueGuide;
@@ -83,11 +145,24 @@ namespace CinderCourt.View
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
 
+        // v1.5 각인 rows (AMENDMENT #6). Built once, Refresh flips state only.
+        readonly Text[] _sigilTitles = new Text[5];
+        readonly Text[] _sigilEffects = new Text[5];
+        readonly GameObject[] _sigilBuyButtons = new GameObject[5];
+        readonly Text[] _sigilBuyLabels = new Text[5];
+        readonly GameObject[,] _sigilFaceButtons = new GameObject[5, 2];
+        readonly Image[,] _sigilFaceBackgrounds = new Image[5, 2];
+        readonly Text[,] _sigilFaceLabels = new Text[5, 2];
+        Text _sigilFooter;
+
         // Growth rows.
         readonly Text[] _statValues = new Text[3];
         readonly Button[] _statButtons = new Button[3];
         readonly CanvasGroup[] _statGroups = new CanvasGroup[3];
         Text _pointsLeftText;
+        // v1.3 M1: per-stat derived-value lines + honest 3-value summary.
+        readonly Text[] _statDerived = new Text[3];
+        Text _growthSummary;
         // cycle2 B4: 모션 약함 toggle label (ViewPrefs-backed).
         Text _motionLabel;
 
@@ -96,6 +171,8 @@ namespace CinderCourt.View
         readonly Text[] _equipButtonLabels = new Text[3];
         readonly Button[] _equipButtons = new Button[3];
         readonly CanvasGroup[] _equipGroups = new CanvasGroup[3];
+        // v1.3 M2: per-slot rank/effect lines ("T3 • 공격 +18%").
+        readonly Text[] _equipDerived = new Text[3];
 
         // Legion grid (index 0 = "none", 1.. = CompanionIds).
         readonly Text[] _rosterLabels = new Text[CompanionIds.Length + 1];
@@ -122,7 +199,7 @@ namespace CinderCourt.View
             canvasObject.AddComponent<GraphicRaycaster>();
             _root = canvasObject;
 
-            if (FindFirstObjectByType<EventSystem>() == null)
+            if (FindAnyObjectByType<EventSystem>() == null)
             {
                 var eventSystem = new GameObject("EventSystem");
                 eventSystem.AddComponent<EventSystem>();
@@ -146,11 +223,15 @@ namespace CinderCourt.View
             _pointText.text = $"포인트 {data.Points}";
 
             // --- sortie: prologue gates everything, stages unlock in order ----
-            _prologueStatus.text = data.PrologueDone ? "재훈련 가능" : "필수 훈련";
+            // v1.6: the repeat visit is no longer a replay of the three waves —
+            // it is the training ground below, so the cleared state points there
+            // instead of promising the same tutorial again.
+            _prologueStatus.text = data.PrologueDone ? "훈련장 개방" : "필수 훈련";
             _prologueStatus.color = data.PrologueDone ? Gold : Ember;
             _prologueButtonLabel.text = data.PrologueDone ? "재훈련" : "점화 훈련";
             // cycle2 B3: first-run guide — ember border pulse until done.
             SetPrologueGuide(!data.PrologueDone);
+            RefreshTrials(in data);
 
             for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
@@ -161,10 +242,39 @@ namespace CinderCourt.View
                 _stageStatus[i].color = cleared ? Gold : unlocked ? Cyan : Lock;
                 _stageButtons[i].interactable = unlocked;
                 _stageGroups[i].alpha = unlocked ? 1f : 0.45f;
+
+                // v1.3 M3b: 서약 toggle appears once the stage is cleared. The
+                // cleared card drops its redeemed '보상:' tail at the same
+                // moment, so the toggle never covers live reward text.
+                _pactButtons[i].SetActive(cleared);
+                if (cleared)
+                {
+                    _stageSubLabels[i].text = entry.Epithet;
+                    SyncPactVisual(i, IsPactArmed(entry.Id));
+                }
             }
 
-            // --- growth --------------------------------------------------------
             _pointsLeftText.text = $"남은 포인트 {data.Points}";
+            // v1.3 M1: real effective values through the sim's OWN derived-stat
+            // properties (§5/§6 closed forms live in HackConfig; the view
+            // composes no formula, so mirror drift is structurally impossible).
+            // Probe configs are stack structs — no allocation.
+            var probe = Probe(in data, 0, 0, 0);
+            var attackDelta = Probe(in data, 1, 0, 0).PlayerDamage - probe.PlayerDamage;
+            var vitalityDelta = Probe(in data, 0, 1, 0).PlayerMaxHealth - probe.PlayerMaxHealth;
+            var swiftnessDelta = Probe(in data, 0, 0, 1).PlayerSpeed - probe.PlayerSpeed;
+            _statDerived[0].text = data.Attack >= StatCap
+                ? $"공격력 {probe.PlayerDamage:F1} • 숙련"
+                : $"공격력 {probe.PlayerDamage:F1} (+{attackDelta:F1})";
+            _statDerived[1].text = data.Vitality >= StatCap
+                ? $"최대 체력 {probe.PlayerMaxHealth:F0} • 숙련"
+                : $"최대 체력 {probe.PlayerMaxHealth:F0} (+{vitalityDelta:F0})";
+            _statDerived[2].text = data.Swiftness >= StatCap
+                ? $"이동 {probe.PlayerSpeed:F0} • 숙련"
+                : $"이동 {probe.PlayerSpeed:F0} (+{swiftnessDelta:F1})";
+            // Honest 3-value summary — no invented aggregate score (spec M1).
+            _growthSummary.text =
+                $"공격력 {probe.PlayerDamage:F1} • 최대 체력 {probe.PlayerMaxHealth:F0} • 이동 {probe.PlayerSpeed:F0}";
             for (var i = 0; i < 3; i++)
             {
                 var value = i == 0 ? data.Attack : i == 1 ? data.Vitality : data.Swiftness;
@@ -175,14 +285,19 @@ namespace CinderCourt.View
             }
             RefreshMotionLabel();
 
-            // --- equipment -------------------------------------------------------
+            // v1.3 M2: tier narrative + real rank effect + buy delta, all from
+            // the same probe properties (weapon→PlayerDamage, lantern→
+            // LanternRegenPerSecond, cloak→PlayerMaxHealth). The rank line's
+            // percentage is a single frozen constant scaled by rank — the only
+            // spot the view touches a sim constant directly, never composed.
             for (var i = 0; i < 3; i++)
             {
                 var tier = i == 0 ? data.Weapon : i == 1 ? data.Lantern : data.Cloak;
                 _equipValues[i].text = $"T{tier}/T{EquipCap}";
+                _equipDerived[i].text = EquipRankLine(i, tier);
                 var maxed = tier >= EquipCap;
                 var cost = maxed ? 0 : EquipCosts[tier];
-                _equipButtonLabels[i].text = maxed ? "만렙" : $"구매 ({cost} 유물)";
+                _equipButtonLabels[i].text = maxed ? "만렙" : BuyLine(in data, i, cost);
                 var can = !maxed && data.Relics >= cost;
                 _equipButtons[i].interactable = can;
                 _equipGroups[i].alpha = can ? 1f : 0.45f;
@@ -205,6 +320,50 @@ namespace CinderCourt.View
                 _rosterButtons[i + 1].interactable = owned;
 
             }
+
+            // --- 각인 (v1.5) -------------------------------------------------
+            // Locked row shows the price; owned row shows the A/B pair with the
+            // equipped face lit. Slot pressure is stated, never hidden: the footer
+            // always says how many of the two slots are spent.
+            var equipped0 = data.SigilSlot0;
+            var equipped1 = data.SigilSlot1;
+            var used = (equipped0 != 0 ? 1 : 0) + (equipped1 != 0 ? 1 : 0);
+            for (var i = 0; i < SigilOrder.Length; i++)
+            {
+                var kind = (int)SigilOrder[i];
+                var owned = (data.SigilsOwned & (1 << kind)) != 0;
+                var slotted = equipped0 == kind || equipped1 == kind;
+                var face = (data.SigilFaces & (1 << kind)) != 0 ? 1 : 0;
+
+                _sigilTitles[i].color = slotted ? Gold : owned ? Cyan : Lock;
+                _sigilEffects[i].text = owned
+                    ? SigilFaceEffects[i][face]
+                    : $"{SigilGimmicks[i]} 기믹에 걸리는 각인";
+
+                _sigilBuyButtons[i].SetActive(!owned);
+                if (!owned)
+                {
+                    var affordable = data.Relics >= SigilCost;
+                    _sigilBuyLabels[i].text = $"유물 {SigilCost} → 해금";
+                    _sigilBuyLabels[i].color = affordable ? Gold : Lock;
+                    _sigilBuyButtons[i].GetComponent<Button>().interactable = affordable;
+                }
+
+                for (var f = 0; f < 2; f++)
+                {
+                    _sigilFaceButtons[i, f].SetActive(owned);
+                    if (!owned) continue;
+                    var lit = slotted && face == f;
+                    _sigilFaceLabels[i, f].text = SigilFaceNames[i][f];
+                    _sigilFaceLabels[i, f].color = lit ? Ember : InkDim;
+                    _sigilFaceBackgrounds[i, f].color = lit
+                        ? new Color(Ember.r, Ember.g, Ember.b, 0.22f)
+                        : ButtonBack;
+                }
+            }
+            _sigilFooter.text = used >= SigilLoadout.Slots
+                ? $"슬롯 {used}/{SigilLoadout.Slots} — 새로 끼우면 먼저 낀 각인이 빠진다."
+                : $"슬롯 {used}/{SigilLoadout.Slots} — 면 전환은 무료다.";
         }
 
         void RefreshMotionLabel()
@@ -212,6 +371,88 @@ namespace CinderCourt.View
             if (_motionLabel == null) return;
             _motionLabel.text = ViewPrefs.ReducedMotion ? "모션: 약함" : "모션: 보통";
             _motionLabel.color = ViewPrefs.ReducedMotion ? Gold : Cyan;
+        }
+        // ------------------------------------------------- v1.3 meta helpers --
+
+        /// <summary>
+        /// Inert probe config carrying the lobby's meta at an offset: the four
+        /// derived-stat properties (§5/§6) are pure functions of MetaStats/
+        /// EquipTiers, so a stack-allocated HackConfig IS the mirror — the view
+        /// never re-composes 58×(1+…) itself. Deltas = probe(x+1) − probe(x);
+        /// the properties clamp internally, so a cap probe simply flattens
+        /// (the UI shows 숙련 instead of a delta at the cap).
+        /// </summary>
+        static HackConfig Probe(in CampaignData data, int attackPlus, int vitalityPlus, int swiftnessPlus)
+            => new HackConfig
+            {
+                MetaStats = MetaStats.Of(
+                    data.Attack + attackPlus, data.Vitality + vitalityPlus, data.Swiftness + swiftnessPlus),
+                EquipTiers = EquipTiers.Of(data.Weapon, data.Lantern, data.Cloak),
+            };
+
+        /// <summary>
+        /// M2 rank line: "판결인 T5 • 공격 +30%". The percentage is the frozen
+        /// per-rank constant scaled by rank — read, not composed (the composed
+        /// truth lives in the probe properties above).
+        /// </summary>
+        static string EquipRankLine(int slot, int tier)
+        {
+            var name = EquipTierNames[slot][tier];
+            switch (slot)
+            {
+                case 0: return $"{name} • 공격 +{CampaignSpec.WeaponDamagePerRank * tier * 100f:F0}%";
+                case 1: return $"{name} • 재생 +{CampaignSpec.LanternRegenPerRank * tier * 100f:F0}%";
+                default: return $"{name} • 체력 +{CampaignSpec.CloakHealthPerRank * tier:F0}";
+            }
+        }
+
+        /// <summary>
+        /// M2 buy line: "유물 7 → 공격 +4.5" — the REAL next-tier delta from the
+        /// probe properties (equip contribution composes with allocated stats,
+        /// so the number is what the player will actually gain).
+        /// </summary>
+        static string BuyLine(in CampaignData data, int slot, int cost)
+        {
+            var current = Probe(in data, 0, 0, 0);
+            var next = current;
+            switch (slot)
+            {
+                case 0: next.EquipTiers.Weapon++; break;
+                case 1: next.EquipTiers.Lantern++; break;
+                default: next.EquipTiers.Cloak++; break;
+            }
+            switch (slot)
+            {
+                case 0: return $"유물 {cost} → 공격 +{next.PlayerDamage - current.PlayerDamage:F1}";
+                case 1: return $"유물 {cost} → 재생 +{next.LanternRegenPerSecond - current.LanternRegenPerSecond:F2}";
+                default: return $"유물 {cost} → 체력 +{next.PlayerMaxHealth - current.PlayerMaxHealth:F0}";
+            }
+        }
+
+        /// <summary>M3b: is the verdict pact armed for a stage this session?
+        /// Read by GameDirector when routing a sortie. Session-only state —
+        /// never persisted (meta-fun-pass-spec §세이브 스키마).</summary>
+        public bool IsPactArmed(string stageId)
+            => _pactArmed.TryGetValue(stageId, out var armed) && armed;
+
+        void TogglePact(int index)
+        {
+            var id = StageCatalog.Entries[index].Id;
+            var armed = !IsPactArmed(id);
+            _pactArmed[id] = armed;
+            SyncPactVisual(index, armed);
+        }
+
+        /// <summary>Armed = ember accent (risk grammar) on the stateful flat
+        /// fill; off = the plain roster/tab idle look.</summary>
+        void SyncPactVisual(int index, bool armed)
+        {
+            // "•" (U+2022) — NanumBarunGothic lacks U+2713; bullet is already in the subset.
+            _pactLabels[index].text = armed ? "서약 •" : "서약";
+            _pactLabels[index].color = armed ? Ember : InkDim;
+            _pactBackgrounds[index].color = armed
+                ? new Color(Ember.r, Ember.g, Ember.b, 0.22f)
+                : ButtonBack;
         }
 
 
@@ -384,6 +625,14 @@ namespace CinderCourt.View
             var prologueSub = Label(prologue.transform, 12, -62, 220, 18,
                 "2D 디펜스 • 웨이브 3 • 스킬 없음", 12, TextAnchor.MiddleLeft);
             prologueSub.color = InkDim;
+            // v1.6 mastery line. It lives HERE and not on the tier card because
+            // the tier card carries three buttons: measured, that leaves 76 u of
+            // clear width beside them and no useful Korean string fits — the
+            // first build put it there and the browser showed the text running
+            // straight under 견습. This card is 100 u tall with ONE button, so
+            // the row at -82 has 232 u clear to the button's left edge.
+            _trialMasteryLabel = Label(prologue.transform, 12, -82, 230, 16, "", 10,
+                TextAnchor.MiddleLeft);
             _prologueStatus = Label(prologue.transform, -12, -10, 120, 20, "", 13, TextAnchor.MiddleRight);
             AnchorTopRight(_prologueStatus.rectTransform);
             var prologueButton = TextButton(prologue.transform, new Vector2(1, 0), new Vector2(-12, 10),
@@ -392,11 +641,51 @@ namespace CinderCourt.View
             prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
-            // Six logical stages share the same compact card grammar.
+            // Cycle-2: nine logical stages no longer fit the fixed panel at
+            // the 70 u card pitch (9*70+174 > 620), and compressing the pitch
+            // would sink the 강하 button below the 44 CSS px touch floor
+            // (HudLayoutTests contract). The list scrolls instead: pitch,
+            // card height and every touch target keep their audited sizes.
+            var stageViewport = new GameObject("StageScroll");
+            stageViewport.transform.SetParent(panel.transform, false);
+            var viewportImage = stageViewport.AddComponent<Image>();
+            viewportImage.color = Color.clear;      // drag surface, invisible
+            viewportImage.raycastTarget = true;      // ScrollRect needs the hits
+            stageViewport.AddComponent<RectMask2D>();
+            var viewportRect = stageViewport.GetComponent<RectTransform>();
+            viewportRect.anchorMin = new Vector2(0f, 0f);
+            viewportRect.anchorMax = new Vector2(1f, 1f);
+            viewportRect.pivot = new Vector2(0.5f, 1f);
+            viewportRect.offsetMin = new Vector2(0f, 12f);
+            viewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
+
+            var stageContent = new GameObject("StageContent");
+            stageContent.transform.SetParent(stageViewport.transform, false);
+            var contentRect = stageContent.AddComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            // 9 stage cards + 1 tier-selector card + 5 trial cards at the 70 u
+            // pitch + trailing margin. The training rows sit BELOW the stages so
+            // every audited stage-card coordinate keeps the value the layout
+            // tests froze.
+            contentRect.sizeDelta = new Vector2(
+                0f, (StageCatalog.Entries.Count + 1 + TrainingTrials.Ids.Length) * 70f + 8f);
+
+            var scroll = stageViewport.AddComponent<ScrollRect>();
+            scroll.content = contentRect;
+            scroll.viewport = viewportRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+
+            // Nine logical stages share the same compact card grammar.
             for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
                 var entry = StageCatalog.Entries[i];
-                var card = Card(panel.transform, -174 - i * 70, 68);
+                var card = Card(stageContent.transform, -6 - i * 70, 68);
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
                 var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)
@@ -417,9 +706,17 @@ namespace CinderCourt.View
                 var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
                     ? "동행 없음"
                     : CompanionNameFor(entry.CompanionReward);
+                // Fun-pass v1.2: gimmick epithet leads the reward line (spec
+                // "기존 보상 라인 문법에 기믹 별칭 추가"). Merged instead of a new
+                // row: the 68 u card has no vertical slack between the reward
+                // band (-44..-60) and the 강하 button (bottom 6..34), and a new
+                // row would break the audited pitch/44 px touch floor. The
+                // hazard glyph at (12,-44) already sits directly left of this
+                // label, so it doubles as the epithet's gimmick marker.
                 var sub = Label(card.transform, 34, -44, 220, 16,
-                    $"보상: {rewardText}", 10, TextAnchor.MiddleLeft);
+                    $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
+                _stageSubLabels[i] = sub;
                 _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
@@ -428,7 +725,148 @@ namespace CinderCourt.View
                     () => _callbacks.OnSortie?.Invoke(entry.Id));
                 button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
                 _stageButtons[i] = button.GetComponent<Button>();
+
+                // v1.3 M3b: 서약 toggle — left of 강하, same audited 28 u height
+                // (card grammar; 28 u ≥ the 강하 button's own touch-floor
+                // audit at phone scale). Flat fill (plated:false): armed state
+                // drives Image.color, the stateful-button grammar tabs/roster
+                // use. Hidden until the stage is cleared (Refresh), so the
+                // reward text it would cover is gone by the time it appears
+                // (cleared cards drop the redeemed '보상:' tail).
+                var pactIndex = i;
+                var pact = TextButton(card.transform, new Vector2(1, 0), new Vector2(-104, 6),
+                    new Vector2(84, 28), "서약", 12,
+                    () => TogglePact(pactIndex), plated: false);
+                pact.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _pactButtons[i] = pact;
+                _pactBackgrounds[i] = pact.GetComponent<Image>();
+                _pactLabels[i] = pact.GetComponentInChildren<Text>();
+                pact.SetActive(false);   // revealed by Refresh on clear
+
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
+            }
+
+            BuildTrialCards(stageContent.transform, StageCatalog.Entries.Count);
+        }
+
+        // ----------------------------------------------------- training ground --
+        /// <summary>Trial display names, catalog order (AMENDMENT #7).</summary>
+        public static readonly string[] TrialNames =
+            { "불씨 시련", "해류 시련", "방벽 시련", "행진 시련", "증언 시련" };
+        /// <summary>Tier names — the ladder the survey's T3 archetype asks for.</summary>
+        public static readonly string[] TierNames = { "견습", "숙련", "판결" };
+        static readonly string[] TrialLessons =
+        {
+            "예고를 읽고 링 밖으로",
+            "순류와 역류의 이동 감각",
+            "3기 파괴 순서와 이동선",
+            "침식 타이밍 암기",
+            "리듬 사이 채널 유지",
+        };
+
+        readonly Text[] _trialStatus = new Text[TrainingTrials.Ids.Length];
+        readonly Button[] _trialButtons = new Button[TrainingTrials.Ids.Length];
+        readonly CanvasGroup[] _trialGroups = new CanvasGroup[TrainingTrials.Ids.Length];
+        Button[] _tierButtons = System.Array.Empty<Button>();
+        Image[] _tierBackgrounds = System.Array.Empty<Image>();
+        Text _trialMasteryLabel;
+        int _selectedTier;
+
+        /// <summary>
+        /// A shared tier selector card, then one card per trial carrying exactly
+        /// one stage-grammar button.
+        ///
+        /// The first draft put three tier buttons on EVERY trial card. The layout
+        /// gate measured them at 28.3 x 13.7 CSS px — narrower than any existing
+        /// lobby control (the previous worst was 강하 at 41.0 x 13.7), fifteen of
+        /// them at once. A new smallest touch target is a defect, not a frozen-
+        /// table update, so the tier choice moved to one shared row and every
+        /// button here now matches the audited stage-card button exactly.
+        /// </summary>
+        void BuildTrialCards(Transform content, int rowOffset)
+        {
+            var tierCard = Card(content, -6 - rowOffset * 70, 68);
+            Eyebrow(tierCard.transform, 12, -6, "TRAINING", "훈련장 • 등급");
+            // Only 76 u is clear beside three buttons, so this row carries the
+            // tier COUNT and nothing else. The mastery line is on the prologue
+            // card, which has the width for a sentence.
+            var tierHint = Label(tierCard.transform, 12, -44, 76, 16,
+                $"{HackSpec.TrainingTiers}단", 10, TextAnchor.MiddleLeft);
+            tierHint.color = InkDim;
+            _tierButtons = new Button[HackSpec.TrainingTiers];
+            _tierBackgrounds = new Image[HackSpec.TrainingTiers];
+            for (var tier = 0; tier < HackSpec.TrainingTiers; tier++)
+            {
+                var tierIndex = tier;
+                var button = TextButton(tierCard.transform, new Vector2(1, 0),
+                    new Vector2(-12 - (HackSpec.TrainingTiers - 1 - tier) * 92, 6),
+                    new Vector2(84, 28), TierNames[tier], 13,
+                    () => SelectTier(tierIndex), plated: false);
+                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _tierButtons[tier] = button.GetComponent<Button>();
+                _tierBackgrounds[tier] = button.GetComponent<Image>();
+            }
+
+            for (var i = 0; i < TrainingTrials.Ids.Length; i++)
+            {
+                var card = Card(content, -6 - (rowOffset + 1 + i) * 70, 68);
+                Eyebrow(card.transform, 12, -6, "TRIAL", TrialNames[i]);
+                var lesson = Label(card.transform, 12, -44, 230, 16, TrialLessons[i], 10,
+                    TextAnchor.MiddleLeft);
+                lesson.color = InkDim;
+                _trialStatus[i] = Label(card.transform, -12, -8, 110, 18, "잠김", 11,
+                    TextAnchor.MiddleRight);
+                AnchorTopRight(_trialStatus[i].rectTransform);
+
+                var trialIndex = i;
+                var enter = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
+                    new Vector2(84, 28), "수련", 13,
+                    () => _callbacks.OnStartTrial?.Invoke(trialIndex, _selectedTier));
+                enter.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _trialButtons[i] = enter.GetComponent<Button>();
+
+                _trialGroups[i] = card.AddComponent<CanvasGroup>();
+            }
+        }
+
+        /// <summary>Session-only tier choice — never persisted, the same grammar
+        /// the verdict pact toggle uses (a run-scoped decision, re-made per visit).</summary>
+        void SelectTier(int tier)
+        {
+            _selectedTier = tier;
+            for (var t = 0; t < _tierBackgrounds.Length; t++)
+            {
+                PlateStateful(_tierBackgrounds[t], t == _selectedTier);
+            }
+        }
+
+        /// <summary>Trial row state. Locked until the prologue is cleared, then
+        /// each row shows its best tier and the mastery line states the one-time
+        /// grant (negotiation entry 7) instead of implying a repeatable payout.</summary>
+        void RefreshTrials(in CampaignData data)
+        {
+            var open = data.PrologueDone;
+            for (var i = 0; i < TrainingTrials.Ids.Length; i++)
+            {
+                var best = CampaignStore.BestTier(in data, i);
+                _trialStatus[i].text = !open
+                    ? "잠김"
+                    : (best < 0 ? "미도전" : $"최고 {TierNames[best]}");
+                _trialStatus[i].color = !open ? Lock : (best < 0 ? InkDim : Gold);
+                _trialGroups[i].alpha = open ? 1f : 0.45f;
+                _trialButtons[i].interactable = open;
+            }
+            for (var tier = 0; tier < _tierButtons.Length; tier++)
+            {
+                _tierButtons[tier].interactable = open;
+            }
+            SelectTier(_selectedTier);
+            if (_trialMasteryLabel != null)
+            {
+                _trialMasteryLabel.text = data.TrainingMasteryClaimed
+                    ? "숙달 보상 수령됨"
+                    : $"5시련 판결 완주 → 유물 +{HackSpec.TrainingMasteryRelics} (1회)";
+                _trialMasteryLabel.color = data.TrainingMasteryClaimed ? InkDim : Gold;
             }
         }
 
@@ -442,15 +880,20 @@ namespace CinderCourt.View
 
             Eyebrow(panel.transform, 16, -12, "SANCTUM", "성소 정비");
 
-            // Segmented tab buttons.
-            string[] tabNames = { "성장", "장비", "군단" };
-            _tabContents = new GameObject[3];
-            _tabBackgrounds = new Image[3];
-            for (var i = 0; i < 3; i++)
+            // Segmented tab buttons. v1.5 adds 각인 as a fourth tab; the strip
+            // re-divides the same 400 u panel (4 x 91 u, pitch 95) instead of
+            // growing, so the sanctum keeps its audited footprint. Width 91 u
+            // = 44.4 CSS px at the worst phone scale, which CLEARS the touch
+            // floor on that axis — the 44 u height debt is untouched and stays
+            // the designer+pm item it already was (LobbyLayoutTests ratchet).
+            string[] tabNames = { "성장", "장비", "군단", "각인" };
+            _tabContents = new GameObject[TabCount];
+            _tabBackgrounds = new Image[TabCount];
+            for (var i = 0; i < TabCount; i++)
             {
                 var tabIndex = i;
                 var tab = TextButton(panel.transform, new Vector2(0, 1),
-                    new Vector2(16 + i * 124, -60), new Vector2(120, 44), tabNames[i], 16,
+                    new Vector2(16 + i * 95, -60), new Vector2(91, 44), tabNames[i], 15,
                     () => SelectTab(tabIndex), plated: false);
                 _tabBackgrounds[i] = tab.GetComponent<Image>();
             }
@@ -458,6 +901,7 @@ namespace CinderCourt.View
             _tabContents[0] = BuildGrowthTab(panel.transform);
             _tabContents[1] = BuildEquipTab(panel.transform);
             _tabContents[2] = BuildLegionTab(panel.transform);
+            _tabContents[3] = BuildSigilTab(panel.transform);
         }
 
         GameObject TabContent(Transform parent)
@@ -484,8 +928,10 @@ namespace CinderCourt.View
                     new Vector2(16, -36 - i * 72), new Vector2(368, 64), new Color(1f, 1f, 1f, 0.04f));
                 RowIcon(row.transform, "stat-" + StatIds[i]);
                 Label(row.transform, 52, -8, 120, 24, StatNames[i], 17, TextAnchor.MiddleLeft);
-                var effect = Label(row.transform, 52, -34, 140, 18, StatEffects[i], 11, TextAnchor.MiddleLeft);
-                effect.color = InkDim;
+                // v1.3 M1: the static "+3%/pt" line becomes the live derived
+                // line ("공격력 75.4 (+2.2)") — content owned by Refresh.
+                _statDerived[i] = Label(row.transform, 52, -34, 200, 18, "", 11, TextAnchor.MiddleLeft);
+                _statDerived[i].color = Gold;
                 _statValues[i] = Label(row.transform, 170, 0, 90, 64, "0/10", 17, TextAnchor.MiddleCenter);
                 _statValues[i].color = Cyan;
 
@@ -502,6 +948,11 @@ namespace CinderCourt.View
             var hint = Label(content.transform, 16, -258, 360, 36,
                 "공격 +3%/pt • 체력 +8HP/pt • 이속 +2%/pt (캡 10)\n던전 강하에만 적용된다.", 11, TextAnchor.UpperLeft);
             hint.color = InkDim;
+
+            // v1.3 M1: honest bottom summary — the three effective values,
+            // no invented aggregate score (spec: 허수 지표 금지).
+            _growthSummary = Label(content.transform, 16, -300, 360, 22, "", 12, TextAnchor.MiddleLeft);
+            _growthSummary.color = Gold;
 
             var motionButton = TextButton(content.transform, new Vector2(0, 1),
                 new Vector2(16, -344), new Vector2(368, 92), "모션: 보통", 15,
@@ -527,8 +978,10 @@ namespace CinderCourt.View
                     new Vector2(16, -36 - i * 72), new Vector2(368, 64), new Color(1f, 1f, 1f, 0.04f));
                 RowIcon(row.transform, "equip-" + EquipIds[i]);
                 Label(row.transform, 52, -8, 120, 24, EquipNames[i], 17, TextAnchor.MiddleLeft);
-                var effect = Label(row.transform, 52, -34, 140, 18, EquipEffects[i], 11, TextAnchor.MiddleLeft);
-                effect.color = InkDim;
+                // v1.3 M2: tier narrative + real rank effect ("판결인 T5 •
+                // 공격 +30%") — content owned by Refresh.
+                _equipDerived[i] = Label(row.transform, 52, -34, 200, 18, "", 11, TextAnchor.MiddleLeft);
+                _equipDerived[i].color = Gold;
                 _equipValues[i] = Label(row.transform, 150, 0, 90, 64, "T0/T5", 16, TextAnchor.MiddleCenter);
                 _equipValues[i].color = Cyan;
 
@@ -571,6 +1024,24 @@ namespace CinderCourt.View
                 _rosterBackgrounds[slot] = button.GetComponent<Image>();
                 _rosterButtons[slot] = button.GetComponent<Button>();
                 _rosterLabels[slot] = button.GetComponentInChildren<Text>();
+
+                // v1.3 M4: one-line identity epithet under the name (stage-
+                // epithet grammar). Name keeps the top band so the state
+                // colors (Refresh) stay legible; epithet is static text —
+                // built once, never touched again. Slot 0 (없음) has none.
+                if (slot > 0)
+                {
+                    _rosterLabels[slot].rectTransform.offsetMin = new Vector2(0f, 14f);
+                    var epithet = Label(button.transform, 0, 0, 180, 16,
+                        CompanionEpithets[slot - 1], 9, TextAnchor.MiddleCenter);
+                    epithet.color = InkDim;
+                    var epithetRect = epithet.rectTransform;
+                    epithetRect.anchorMin = new Vector2(0f, 0f);
+                    epithetRect.anchorMax = new Vector2(1f, 0f);
+                    epithetRect.pivot = new Vector2(0.5f, 0f);
+                    epithetRect.anchoredPosition = new Vector2(0f, 4f);
+                    epithetRect.sizeDelta = new Vector2(0f, 14f);
+                }
             }
 
             var note = Label(content.transform, 16, -224, 360, 36,
@@ -579,9 +1050,78 @@ namespace CinderCourt.View
             return content;
         }
 
+        /// <summary>
+        /// v1.5 각인 tab. One row per sigil: name + bound gimmick, then either a
+        /// buy button (locked) or the A/B face pair (owned). Rows are built once;
+        /// Refresh only flips text, colour and interactable — the same contract
+        /// every other tab keeps.
+        /// </summary>
+        GameObject BuildSigilTab(Transform parent)
+        {
+            var content = TabContent(parent);
+            var hint = Label(content.transform, 16, -6, 360, 22,
+                $"기믹에 걸리는 각인. {SigilLoadout.Slots}개까지 장착", 13, TextAnchor.MiddleLeft);
+            hint.color = InkDim;
+
+            for (var i = 0; i < SigilOrder.Length; i++)
+            {
+                var row = i;
+                var y = -32 - i * 74;
+
+                var title = Label(content.transform, 16, y, 150, 18,
+                    $"{SigilNames[i]} • {SigilGimmicks[i]}", 13, TextAnchor.MiddleLeft);
+                title.color = Gold;
+                _sigilTitles[i] = title;
+
+                var effect = Label(content.transform, 16, y - 18, 210, 16, "", 10, TextAnchor.MiddleLeft);
+                effect.color = InkDim;
+                _sigilEffects[i] = effect;
+
+                // Buy (locked state) — replaced in place by the face pair once owned.
+                var buy = TextButton(content.transform, new Vector2(0, 1),
+                    new Vector2(232, y - 6), new Vector2(140, 30), "", 12,
+                    () => BuySigil(row), plated: false);
+                _sigilBuyButtons[i] = buy;
+                _sigilBuyLabels[i] = buy.GetComponentInChildren<Text>();
+
+                for (var f = 0; f < 2; f++)
+                {
+                    var face = f;
+                    var button = TextButton(content.transform, new Vector2(0, 1),
+                        new Vector2(232 + face * 72, y - 6), new Vector2(68, 30), "", 11,
+                        () => ToggleSigil(row, (SigilFace)face), plated: false);
+                    _sigilFaceButtons[i, f] = button;
+                    _sigilFaceBackgrounds[i, f] = button.GetComponent<Image>();
+                    _sigilFaceLabels[i, f] = button.GetComponentInChildren<Text>();
+                }
+            }
+
+            _sigilFooter = Label(content.transform, 16, -406, 360, 32, "", 11, TextAnchor.UpperLeft);
+            _sigilFooter.color = InkDim;
+            return content;
+        }
+
+        /// <summary>Unlocks a sigil for relics. One-time, no refund path — the
+        /// FACE is what stays free to change (spec §형태).</summary>
+        void BuySigil(int row)
+        {
+            _callbacks.OnBuySigil?.Invoke((int)SigilOrder[row]);
+        }
+
+        /// <summary>
+        /// Equip/unequip, or flip an equipped sigil to its other face. Pressing the
+        /// face already showing removes the sigil; pressing the other face swaps to
+        /// it. Equipping past the slot limit evicts the oldest — a full loadout must
+        /// never silently swallow the tap.
+        /// </summary>
+        void ToggleSigil(int row, SigilFace face)
+        {
+            _callbacks.OnEquipSigil?.Invoke((int)SigilOrder[row], (int)face);
+        }
+
         void SelectTab(int index)
         {
-            for (var i = 0; i < 3; i++)
+            for (var i = 0; i < TabCount; i++)
             {
                 _tabContents[i].SetActive(i == index);
                 // Sprite swap, not tint — see PlateStateful. Colour stays

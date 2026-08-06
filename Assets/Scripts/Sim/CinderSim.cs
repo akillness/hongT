@@ -70,9 +70,13 @@ namespace CinderCourt.Sim
         /// <summary>Mutable per-hazard bookkeeping (config stays immutable/shared).</summary>
         private struct HazardRuntime
         {
-            public int Cycle;      // last completed ember-vent cycle index
-            public float Hold;     // relic-altar dwell seconds
-            public float Cooldown; // relic-altar cooldown seconds
+            public int Cycle;          // last completed vent cycle / current activation / wall cycle
+            public float Hold;         // relic-altar dwell seconds
+            public float Cooldown;     // relic-altar cooldown seconds
+            // --- amendment #5 (docs/SIM_SPEC_DUNGEONS.md) ---
+            public float Hp;           // ember-pylon remaining hp (0 = destroyed)
+            public int Tick;           // last completed ash-wall damage tick index
+            public int LastHitAttack;  // ember-pylon one-hit-per-attackId guard
         }
 
         private static readonly HazardConfig[] NoHazards = new HazardConfig[0];
@@ -204,6 +208,46 @@ namespace CinderCourt.Sim
         private readonly float[] _companionAttackInterval = new float[MaxCompanions];
         private readonly float[] _companionAttackRange = new float[MaxCompanions];
         private readonly float[] _companionDamageScale = new float[MaxCompanions];
+        // --- AMENDMENT #6 sigils: resolved ONCE at construction, so the per-tick
+        // cost is a field read and an unequipped run keeps every original constant
+        // (the 15 golden rows prove it). Initializers are the pre-amendment values,
+        // which is what the arena and classic-campaign constructors keep.
+        private float _sigilCurrentPlayerPushMult = 1f;
+        private float _sigilCurrentEnemyPushMult = 1f;
+        private float _sigilPylonAuraMult = CampaignSpec.PylonAuraDamageTakenMult;
+        private float _sigilPylonStrikeMult = 1f;
+        private float _sigilWallPlayerTick = CampaignSpec.WallTickDamage;
+        private float _sigilWallEnemyTick = CampaignSpec.WallTickDamage;
+        private float _sigilVentOilRefund;                     // 0 = no refund
+        private float _sigilVentEnemyDamage;                   // 0 = vents stay player-only
+        private float _sigilAltarHoldSeconds = CampaignSpec.AltarHoldSeconds;
+        private float _sigilAltarOilBurst = CampaignSpec.AltarOilBurst;
+        // --- AMENDMENT #7 surge: two deterministic windows, different axes.
+        // Peril slows the hazard CLOCK (only ever lengthens a telegraph); surge
+        // multiplies hazard damage dealt to ENEMIES (never touches timing). Both
+        // are inert in a run that never trips them, so the goldens do not move.
+        private readonly bool _surgeEnabled;
+        private float _perilTimer;                             // >0 = peril window open
+        private int _perilUsed;                                // run cap (HackSpec.PerilRunCap)
+        private bool _perilArmed = true;                       // hysteresis latch
+        private float _surgeTimer;                             // >0 = surge window open
+        private int _surgeKillMark;                            // last kill count that opened one
+        private bool _surgeUsedThisWave;
+        private float _sigilSurgeEnemyHazardMult = HackSpec.SurgeEnemyHazardMult;
+        private bool _sigilSurgeEnemyBoost;                    // 점화인 surge clause gate
+        private bool _sigilPerilCurrentSuppress;               // 역류인 peril clause
+        private bool _sigilPerilWallHalf;                      // 집행인 peril clause
+        private bool _sigilPerilAltarInstant;                  // 증언인 peril clause
+        private bool _sigilSurgePylonAuraStop;                 // 판결인 surge clause
+        // --- AMENDMENT #7 training: a fixed-length trial with no spawn table.
+        private readonly bool _training;
+        // 1, NOT default(float). The arena/classic-campaign constructors never
+        // touch this field, and a 0 here freezes the hazard clock for every
+        // non-hack run — which is exactly what it did before the gate caught it
+        // (7 hazard tests + a golden row).
+        private readonly float _trainingRate = 1f;             // hazard clock scale by tier
+        private float _trainingTimer;
+        private int _trainingHits;                             // trial score: fewer is better
         private bool _emberRestOpen;
         private int _emberRestRoomIndex;
         private int _emberRestSeed;
@@ -277,8 +321,13 @@ namespace CinderCourt.Sim
             _gameMode = config.Mode;
             _prologue = config.Mode == GameMode.Prologue;
             _dungeon = config.Mode == GameMode.Dungeon;
+            _training = config.Mode == GameMode.Training;
             _campaign = _dungeon;
             _appliedPreparationInput = _dungeon ? config.PreparationOffer : default;
+            // Surge is dungeon-only: a trial is where you learn the gimmick
+            // unaided, and the arena/prologue goldens must not gain a new branch.
+            _surgeEnabled = _dungeon;
+            _trainingRate = _training ? HackSpec.TrainingTierRate(config.TrainingTier) : 1f;
 
             HackConfig configured = config;
             float boltDamage = HackSpec.BoltDamage;
@@ -328,17 +377,90 @@ namespace CinderCourt.Sim
             _config = _dungeon ? configured.ToCampaignConfig() : default;
             _companionActive = _companionCount > 0;
 
-            _hazards = _dungeon ? (_config.Hazards ?? NoHazards) : NoHazards;
+            ResolveSigils(_dungeon ? configured.Sigils : default);
+            // AMENDMENT #7: a trial carries its hazards on the config directly
+            // (there is no campaign table for it), so the routing gains a third
+            // arm. The dungeon and non-dungeon arms are main's, unchanged.
+            _hazards = _dungeon
+                ? (_config.Hazards ?? NoHazards)
+                : (_training ? (configured.Hazards ?? NoHazards) : NoHazards);
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
             _stageId = _prologue
                 ? HackSpec.PrologueStageId
-                : (_dungeon ? (_config.StageId ?? string.Empty) : string.Empty);
+                : (_dungeon ? (_config.StageId ?? string.Empty)
+                    : (_training ? (configured.StageId ?? string.Empty) : string.Empty));
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 _hazardView.Add(default);
             }
             Restart();
+        }
+
+        /// <summary>
+        /// Turns the equipped loadout into the per-run gimmick constants
+        /// (AMENDMENT #6 · design/sigil-spec.md). Called once from the hack
+        /// constructor; an empty loadout writes nothing, so every field keeps the
+        /// pre-amendment initializer and the run is byte-identical.
+        ///
+        /// Every branch is a constant swap — no probability, no per-tick state.
+        /// That is survey rule 2 (predictability is the product identity) enforced
+        /// structurally: there is nowhere for randomness to enter.
+        /// </summary>
+        private void ResolveSigils(in SigilLoadout loadout)
+        {
+            if (loadout.Has(SigilKind.Countercurrent, SigilFace.A))
+                _sigilCurrentPlayerPushMult = HackSpec.SigilCurrentPlayerPushMult;
+            if (loadout.Has(SigilKind.Countercurrent, SigilFace.B))
+                _sigilCurrentEnemyPushMult = HackSpec.SigilCurrentEnemyPushMult;
+
+            if (loadout.Has(SigilKind.Verdict, SigilFace.A))
+                _sigilPylonAuraMult = HackSpec.SigilPylonAuraRelief;
+            if (loadout.Has(SigilKind.Verdict, SigilFace.B))
+                _sigilPylonStrikeMult = HackSpec.SigilPylonStrikeMult;
+
+            if (loadout.Has(SigilKind.Executioner, SigilFace.A))
+                _sigilWallPlayerTick = HackSpec.SigilWallPlayerTick;
+            if (loadout.Has(SigilKind.Executioner, SigilFace.B))
+                _sigilWallEnemyTick = HackSpec.SigilWallEnemyTick;
+
+            if (loadout.Has(SigilKind.Ignition, SigilFace.A))
+                _sigilVentOilRefund = HackSpec.SigilVentOilRefund;
+            if (loadout.Has(SigilKind.Ignition, SigilFace.B))
+                _sigilVentEnemyDamage = HackSpec.SigilVentEnemyDamage;
+
+            if (loadout.Has(SigilKind.Witness, SigilFace.A))
+                _sigilAltarHoldSeconds = HackSpec.SigilAltarHoldSeconds;
+            if (loadout.Has(SigilKind.Witness, SigilFace.B))
+                _sigilAltarOilBurst = HackSpec.SigilAltarOilBurst;
+
+            // --- AMENDMENT #7 surge clauses. Face-independent: the clause is the
+            // sigil waking up inside a window, not the face doing more.
+            //
+            // The three PERIL clauses are the ones that looked like immunity in
+            // the draft. The director's arithmetic (negotiation entry 8) found
+            // only one that actually was: the wall exemption avoided 100 damage
+            // in 6 s, 100% of base HP. It is a HALVED TICK for 3 s here (25, 25%).
+            // Countercurrent and Witness were cleared unchanged — the current
+            // deals no direct damage and the altar grants oil, so neither one
+            // avoids damage at all.
+            //
+            // No-stacking (entry 8 cap 2): only the peril clause of the sigil in
+            // the LOWER slot fires, so two peril sigils cannot compound.
+            SigilKind perilOwner = loadout.PerilPriority(
+                SigilKind.Countercurrent, SigilKind.Executioner, SigilKind.Witness);
+            _sigilPerilCurrentSuppress = perilOwner == SigilKind.Countercurrent;
+            _sigilPerilWallHalf = perilOwner == SigilKind.Executioner;
+            _sigilPerilAltarInstant = perilOwner == SigilKind.Witness;
+
+            _sigilSurgePylonAuraStop = loadout.HasKind(SigilKind.Verdict);
+            // 점화인 owns the enemy-damage clause. Gate AND magnitude both live
+            // here, so an unequipped run never multiplies anything and the 15
+            // golden digests stay byte-identical (the probe proved the cost of
+            // getting this wrong: a plain run's wall tick would have doubled).
+            _sigilSurgeEnemyBoost = loadout.HasKind(SigilKind.Ignition);
+            if (_sigilSurgeEnemyBoost)
+                _sigilSurgeEnemyHazardMult = HackSpec.SigilSurgeEnemyHazardMult;
         }
 
         /// <summary>
@@ -456,6 +578,18 @@ namespace CinderCourt.Sim
         public SimEvents Events => _events;
         public float NovaX => _novaX;
         public float NovaY => _novaY;
+
+        // --- AMENDMENT #7 surge / training (view-read only) -------------------
+        /// <summary>Seconds left in the peril window (0 = closed).</summary>
+        public float PerilRemaining => _perilTimer;
+        /// <summary>Seconds left in the surge window (0 = closed).</summary>
+        public float SurgeRemaining => _surgeTimer;
+        /// <summary>Peril windows spent this run (cap HackSpec.PerilRunCap).</summary>
+        public int PerilUsed => _perilUsed;
+        /// <summary>Seconds elapsed in the current trial.</summary>
+        public float TrainingElapsed => _trainingTimer;
+        /// <summary>Gimmick hits taken this trial — the score, lower is better.</summary>
+        public int TrainingHits => _trainingHits;
 
         public RunDigest Digest => new RunDigest
         {
@@ -632,7 +766,8 @@ namespace CinderCourt.Sim
         /// </summary>
         public bool BeginEmberRest(int roomIndex, int rewardSeed)
         {
-            if (!_dungeon || !_stageCleared || _emberRestOpen || roomIndex < 1 || roomIndex > 5)
+            if (!_dungeon || !_stageCleared || _emberRestOpen
+                || roomIndex < 1 || roomIndex > CampaignSpec.MaxEmberRestRoomIndex)
             {
                 return false;
             }
@@ -756,7 +891,15 @@ namespace CinderCourt.Sim
             {
                 UpdateBossPhase();
             }
-            if (_campaign && _mode != SimMode.GameOver)
+            // AMENDMENT #7: surge windows resolve BEFORE the hazards they modify,
+            // so a window that opens this tick is already in force for this tick's
+            // hazard arithmetic (no one-tick lag between "you dropped below 35%"
+            // and "the clock slowed").
+            if (_surgeEnabled && _mode != SimMode.GameOver)
+            {
+                UpdateSurge(dt);
+            }
+            if ((_campaign || _training) && _mode != SimMode.GameOver)
             {
                 UpdateHazards(dt);
             }
@@ -772,7 +915,14 @@ namespace CinderCourt.Sim
                     // full window rather than losing one tick of it.
                     UpdateGrowthOffer(dt, in input);
                 }
-                UpdateWave(dt);
+                if (_training)
+                {
+                    UpdateTraining(dt);
+                }
+                else
+                {
+                    UpdateWave(dt);
+                }
             }
 
             Publish();
@@ -1571,6 +1721,7 @@ namespace CinderCourt.Sim
                 _player.Moving = false;
             }
 
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, deltaTime, PlayerCurrentPushMult);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             if (_dungeon)
@@ -1626,6 +1777,11 @@ namespace CinderCourt.Sim
                     DamageEnemy(ref enemy, _playerDamage);
                 }
             }
+
+            if (_campaign)
+            {
+                StrikePylons(_playerDamage); // amendment #5: same swing, same attackId guard
+            }
         }
 
         /// <summary>
@@ -1639,6 +1795,7 @@ namespace CinderCourt.Sim
             _player.X += _dashDirX * speed * step;
             _player.Y += _dashDirY * speed * SimConfig.YMoveScale * step;
             ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
+            ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, step, PlayerCurrentPushMult);
             ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
             _player.Moving = true;
             _player.ActionTime += deltaTime;
@@ -1872,6 +2029,11 @@ namespace CinderCourt.Sim
                 DamageEnemy(ref enemy, damage);
             }
 
+            if (_campaign)
+            {
+                landed |= StrikePylons(damage); // amendment #5: pylon-only hits still land
+            }
+
             if (landed && finisher && !_comboLanded)
             {
                 _events |= SimEvents.ComboFinisher;
@@ -2092,6 +2254,7 @@ namespace CinderCourt.Sim
                 }
             }
 
+            ApplyCurrents(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp, deltaTime, _sigilCurrentEnemyPushMult);
             ApplyPillars(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
 
             if (MathF.Abs(deltaX) > EnemyFacingDeadzone)
@@ -2198,6 +2361,8 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // Amendment #5: live pylon aura shields enemies inside it (×0.60, non-stacking).
+            amount *= PylonAuraMultiplier(enemy.State.X, enemy.State.Y);
             enemy.State.Health = MathF.Max(0f, enemy.State.Health - amount);
             _events |= SimEvents.EnemyHit;
 
@@ -2362,6 +2527,9 @@ namespace CinderCourt.Sim
             _spawnTimer = SimConfig.FirstSpawnDelay;
             _intermission = 0f;
             _mode = SimMode.Running;
+            // AMENDMENT #7: the surge cap is per wave, so a new wave re-arms it.
+            // Peril's cap is per RUN and deliberately not touched here.
+            _surgeUsedThisWave = false;
 
             // The original only plays the wave cue from wave 2 on.
             if (waveNumber > 1)
@@ -2505,17 +2673,37 @@ namespace CinderCourt.Sim
             _stageTime = 0f;
             _stageCleared = false;
             _livingBosses = 0;
+            // AMENDMENT #7: both windows and both caps are run-scoped.
+            _perilTimer = 0f;
+            _perilUsed = 0;
+            _perilArmed = true;
+            _surgeTimer = 0f;
+            _surgeKillMark = 0;
+            _surgeUsedThisWave = false;
+            _trainingTimer = 0f;
+            _trainingHits = 0;
 
             for (int index = 0; index < _hazardRuntime.Length; index += 1)
             {
                 _hazardRuntime[index] = default;
+                // Amendment #5: pylons start alive; one-hit guard starts unclaimed.
+                if (_hazards[index].Kind == HazardKind.EmberPylon)
+                {
+                    _hazardRuntime[index].Hp = _hazards[index].Hp;
+                }
+                _hazardRuntime[index].LastHitAttack = -1;
+                _hazardRuntime[index].Tick = -1;
             }
 
             if (_hack)
             {
                 // §5/§6: meta stats and equipment tiers apply to dungeon runs only —
                 // the prologue and the arena keep the frozen SIM_SPEC numbers.
-                if (_dungeon)
+                //
+                // AMENDMENT #7: a trial rides them too. The point of the training
+                // ground is to practise the gimmick at YOUR numbers; a trial run
+                // at stock stats would teach the wrong spacing.
+                if (_dungeon || _training)
                 {
                     _weaponRank = CampaignSpec.ClampRank(_hackConfig.EquipTiers.Weapon);
                     _lanternRank = CampaignSpec.ClampRank(_hackConfig.EquipTiers.Lantern);
@@ -2722,12 +2910,139 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
+        /// Deterministic surge windows (AMENDMENT #7 · design/training-and-surge-spec.md).
+        ///
+        /// Two doors, both opened by state the sim already keeps, neither by a
+        /// clock and neither by chance. The survey found the genre builds surges
+        /// out of clocks (3/13) and out of nothing else, because an RNG run
+        /// cannot reproduce a health threshold or a kill count well enough to
+        /// learn. Ours reproduces both exactly.
+        ///
+        /// Peril: the FIRST tick health crosses below 35%. The crossing test is
+        /// edge-based on the previous tick's value, so a single huge hit that
+        /// skips the threshold still opens exactly one window (the Elden Ring
+        /// skip-the-phase failure the QA plan calls out as T2.4). Re-arms only
+        /// after health climbs back past 50% — hysteresis, so hovering at the
+        /// line cannot chain windows. Capped at 2 per run.
+        ///
+        /// Surge: every 12th cumulative kill, at most once per wave.
+        /// </summary>
+        private void UpdateSurge(float deltaTime)
+        {
+            if (_perilTimer > 0f)
+            {
+                _perilTimer = MathF.Max(0f, _perilTimer - deltaTime);
+            }
+            if (_surgeTimer > 0f)
+            {
+                _surgeTimer = MathF.Max(0f, _surgeTimer - deltaTime);
+            }
+
+            float maxHealth = _playerMaxHealth <= 0f ? SimConfig.PlayerMaxHealth : _playerMaxHealth;
+            float fraction = _player.Health / maxHealth;
+
+            // Re-arm first: a heal past 50% this tick may legitimately be followed
+            // by a drop below 35% on a later tick, never on this one.
+            if (!_perilArmed && fraction >= HackSpec.PerilRearmFraction)
+            {
+                _perilArmed = true;
+            }
+            else if (_perilArmed
+                     && fraction < HackSpec.PerilHealthFraction
+                     && _player.Health > 0f
+                     && _perilUsed < HackSpec.PerilRunCap)
+            {
+                _perilArmed = false;
+                _perilUsed += 1;
+                _perilTimer = HackSpec.PerilSeconds;
+                _events |= SimEvents.PerilOpened;
+            }
+            else if (_perilArmed && fraction < HackSpec.PerilHealthFraction)
+            {
+                // Cap reached (or dead on this tick): consume the arm anyway so the
+                // run cannot bank a window by bobbing across the line.
+                _perilArmed = false;
+            }
+
+            // CROSSING, not an exact multiple. A nova can kill three enemies on
+            // one tick, so the count steps 11 -> 14 and a `% 12 == 0` test never
+            // sees the boundary — a measured run reached 14 kills and opened zero
+            // windows. This is the same skip-the-threshold failure the QA plan
+            // raised for peril (T2.4); the guard belongs on BOTH doors.
+            if (!_surgeUsedThisWave && _kills >= _surgeKillMark + HackSpec.SurgeKillInterval)
+            {
+                // Snap to the highest boundary already passed so one huge tick
+                // still opens exactly one window, never a backlog of them.
+                _surgeKillMark = _kills - (_kills % HackSpec.SurgeKillInterval);
+                _surgeUsedThisWave = true;
+                _surgeTimer = HackSpec.SurgeSeconds;
+                _events |= SimEvents.SurgeOpened;
+            }
+        }
+
+        /// <summary>Hazard clock scale for this tick.
+        ///
+        /// Peril does NOT appear here. The first implementation slowed the clock
+        /// as a base effect of the window and a probe caught what that costs: a
+        /// plain unequipped ash-march run opened a peril window, the clock
+        /// slowed, and all 15 golden digests would have moved. The window is
+        /// therefore SIM STATE ONLY — every mechanical consequence is owned by an
+        /// equipped sigil clause, which is also what §4 of the spec promised and
+        /// what negotiation entry 9 signed ("돌발 자체는 상태 변화만").
+        /// </summary>
+        private float HazardRate => _trainingRate;
+
+        /// <summary>Hazard damage multiplier against ENEMIES for this tick. Gated
+        /// on 점화인: an unequipped run keeps every constant, so the goldens hold.</summary>
+        private float SurgeEnemyMult
+            => _surgeTimer > 0f && _sigilSurgeEnemyBoost ? _sigilSurgeEnemyHazardMult : 1f;
+
+        /// <summary>
+        /// A trial is a fixed 60 s window with no spawn table (AMENDMENT #7).
+        /// It ends by the clock, never by a wave count, and it never spawns an
+        /// enemy — so no kill can drop a relic here and the training ground
+        /// cannot feed the economy (negotiation entry 7).
+        /// </summary>
+        private void UpdateTraining(float deltaTime)
+        {
+            _trainingTimer += deltaTime;
+            if (_trainingTimer < HackSpec.TrainingSeconds)
+            {
+                return;
+            }
+
+            ClearRun(HackSpec.TrainingClearReason);
+        }
+
+        /// <summary>
+        /// Current push on the PLAYER for this tick. 역류인's peril clause pins it
+        /// to zero for the window.
+        ///
+        /// Cleared by the director's arithmetic unchanged (negotiation entry 8):
+        /// the current deals no direct damage, so suppressing it avoids none and
+        /// cannot register on the comeback band. It buys three seconds of
+        /// footing, not three seconds of safety.
+        /// </summary>
+        private float PlayerCurrentPushMult
+            => _perilTimer > 0f && _sigilPerilCurrentSuppress ? 0f : _sigilCurrentPlayerPushMult;
+
+        /// <summary>
         /// Ember vents pulse on the cycle boundary and relic altars count dwell time.
-        /// Both run on stage time, so they keep ticking through the wave intermission.
+        /// Amendment #5: tide-currents raise their activation cue, ash-walls raise a
+        /// telegraph cue and apply band damage on the global 0.6 s tick grid. All run
+        /// on stage time, so they keep ticking through the wave intermission.
+        ///
+        /// AMENDMENT #7: <see cref="HazardRate"/> scales how fast stage time
+        /// accumulates — peril halves it, a trial tier tightens it. Everything
+        /// downstream reads <see cref="_stageTime"/>, so ONE multiply moves every
+        /// gimmick together and the monotonic cycle guards stay valid: time still
+        /// only ever moves forward. That is the whole reason this is a rate and
+        /// not the phase shift the first draft proposed — a phase shift can send
+        /// a cycle counter backwards, and the guard would then skip forever.
         /// </summary>
         private void UpdateHazards(float deltaTime)
         {
-            _stageTime += deltaTime;
+            _stageTime += deltaTime * HazardRate;
 
             for (int index = 0; index < _hazards.Length; index += 1)
             {
@@ -2745,10 +3060,118 @@ namespace CinderCourt.Sim
                     _events |= SimEvents.HazardPulse;
                     if (IsoWithin(hazard.X, hazard.Y, _player.X, _player.Y, hazard.Radius))
                     {
-                        // Gimmicks are player risk only.
+                        // Vents are player risk by default (SIM_SPEC_CAMPAIGN).
+                        // 점화인 A does NOT soften the hit — it pays oil for taking
+                        // it. Buying resource off pain, never safety (AMENDMENT #6).
+                        float healthBefore = _player.Health;
                         DamagePlayer(CampaignSpec.VentDamage);
+                        if (_sigilVentOilRefund > 0f && _player.Health < healthBefore)
+                        {
+                            _charge = MathF.Min(SimConfig.LanternMax, _charge + _sigilVentOilRefund);
+                        }
+                        if (_training)
+                        {
+                            _trainingHits += 1;
+                        }
+                    }
+                    // 점화인 B opts vents INTO the symmetric doctrine the current and
+                    // the wall already follow — but only while equipped, so the
+                    // default asymmetry (and every golden row) is untouched.
+                    if (_sigilVentEnemyDamage > 0f)
+                    {
+                        for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
+                        {
+                            ref Enemy ventEnemy = ref _enemies[enemyIndex];
+                            if (ventEnemy.State.Dead
+                                || !IsoWithin(hazard.X, hazard.Y, ventEnemy.State.X, ventEnemy.State.Y, hazard.Radius))
+                            {
+                                continue;
+                            }
+                            DamageEnemy(ref ventEnemy, _sigilVentEnemyDamage * SurgeEnemyMult);
+                        }
                     }
                     continue;
+                }
+
+                if (hazard.Kind == HazardKind.TideCurrent)
+                {
+                    // One HazardPulse per activation boundary (t crosses telegraph end).
+                    float shifted = _stageTime + hazard.Phase - CampaignSpec.CurrentTelegraph;
+                    int activation = shifted < 0f
+                        ? 0
+                        : 1 + (int)MathF.Floor(shifted / CampaignSpec.CurrentPeriod);
+                    if (activation > runtime.Cycle)
+                    {
+                        runtime.Cycle = activation;
+                        _events |= SimEvents.HazardPulse;
+                    }
+                    continue;
+                }
+
+                if (hazard.Kind == HazardKind.AshWall)
+                {
+                    // One HazardPulse per telegraph entry (t crosses WallRest).
+                    float shifted = _stageTime + hazard.Phase - CampaignSpec.WallRest;
+                    int cycle = shifted < 0f
+                        ? 0
+                        : 1 + (int)MathF.Floor(shifted / CampaignSpec.WallPeriod);
+                    if (cycle > runtime.Cycle)
+                    {
+                        runtime.Cycle = cycle;
+                        _events |= SimEvents.HazardPulse;
+                    }
+
+                    // Damage rides the global 0.6 s tick grid; the band is symmetric.
+                    int tick = (int)MathF.Floor((_stageTime + hazard.Phase) / CampaignSpec.WallTickPeriod);
+                    if (tick <= runtime.Tick)
+                    {
+                        continue;
+                    }
+                    runtime.Tick = tick;
+                    float depth = WallDepthAt(hazard.Phase, _stageTime);
+                    if (depth <= 0f)
+                    {
+                        continue;
+                    }
+                    // Edge encoding (spec v1.1): PushX +1 = left wall, −1 = right wall.
+                    bool fromRight = hazard.PushX < 0f;
+                    if (WallCovers(fromRight, depth, _player.X))
+                    {
+                        // 집행인 A: 10 -> 6. Still a tick you must walk out of —
+                        // the wall keeps owning the space (AMENDMENT #6).
+                        //
+                        // AMENDMENT #7 peril clause: HALVED for the window, not
+                        // waived. The draft waived it and the director's
+                        // arithmetic killed that: 6 s of exemption avoids 100
+                        // damage, 100% of base HP — reversal grade. Halved for
+                        // 3 s avoids 25, and the wall still hurts every tick, so
+                        // survey rule 1 ("does the hazard still change your
+                        // behaviour") is answered yes by the number itself.
+                        float playerTick = _perilTimer > 0f && _sigilPerilWallHalf
+                            ? _sigilWallPlayerTick * 0.5f
+                            : _sigilWallPlayerTick;
+                        DamagePlayer(playerTick);
+                        if (_training)
+                        {
+                            _trainingHits += 1;
+                        }
+                    }
+                    for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
+                    {
+                        ref Enemy enemy = ref _enemies[enemyIndex];
+                        if (!enemy.State.Dead && WallCovers(fromRight, depth, enemy.State.X))
+                        {
+                            // 집행인 B: 10 -> 18 on the enemy side. Herding into the
+                            // wall was always legal; this makes it a build.
+                            DamageEnemy(ref enemy, _sigilWallEnemyTick * SurgeEnemyMult);
+                        }
+                    }
+                    continue;
+                }
+
+                if (hazard.Kind == HazardKind.EmberPylon)
+                {
+                    continue; // passive: struck via StrikePylons, aura via PylonAuraMultiplier
                 }
 
                 if (hazard.Kind != HazardKind.RelicAltar)
@@ -2770,14 +3193,26 @@ namespace CinderCourt.Sim
                 }
 
                 runtime.Hold += deltaTime;
-                if (runtime.Hold < CampaignSpec.AltarHoldSeconds)
+                // 증언인 A shortens the channel (1.2 -> 0.8): still a window the
+                // gimmick rhythm has to allow, just a narrower one. AMENDMENT #6.
+                //
+                // AMENDMENT #7 peril clause: the channel completes instantly.
+                // Cleared by the director's arithmetic unchanged — the altar
+                // grants OIL, so this avoids no damage and never touches the
+                // comeback band. What it buys is a resource you still have to
+                // spend correctly.
+                float holdNeeded = _perilTimer > 0f && _sigilPerilAltarInstant
+                    ? 0f
+                    : _sigilAltarHoldSeconds;
+                if (runtime.Hold < holdNeeded)
                 {
                     continue;
                 }
 
                 runtime.Hold = 0f;
                 runtime.Cooldown = CampaignSpec.AltarCooldown;
-                _charge = MathF.Min(SimConfig.LanternMax, _charge + CampaignSpec.AltarOilBurst);
+                // 증언인 B pays more for the same window (18 -> 30).
+                _charge = MathF.Min(SimConfig.LanternMax, _charge + _sigilAltarOilBurst);
                 _events |= SimEvents.AltarBlessing;
             }
         }
@@ -2817,6 +3252,162 @@ namespace CinderCourt.Sim
                 x = hazard.X + deltaX / distance * target;
                 y = hazard.Y + deltaY / distance * target / SimConfig.IsoY;
             }
+        }
+
+        // --- Amendment #5 helpers (docs/SIM_SPEC_DUNGEONS.md) ------------------
+
+        /// <summary>Ash-wall encroachment depth at <paramref name="stageTime"/> (0 = idle).</summary>
+        private static float WallDepthAt(float phase, float stageTime)
+        {
+            float t = (stageTime + phase) % CampaignSpec.WallPeriod;
+            float advanceStart = CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+            float holdStart = advanceStart + CampaignSpec.WallAdvance;
+            float recedeStart = holdStart + CampaignSpec.WallHold;
+            if (t < advanceStart)
+            {
+                return 0f;
+            }
+            if (t < holdStart)
+            {
+                return (t - advanceStart) * CampaignSpec.WallSpeed;
+            }
+            if (t < recedeStart)
+            {
+                return CampaignSpec.WallDepthMax;
+            }
+            return CampaignSpec.WallDepthMax - (t - recedeStart) * CampaignSpec.WallSpeed;
+        }
+
+        /// <summary>Band test for a wall's edge orientation (spec v1.1).</summary>
+        private static bool WallCovers(bool fromRight, float depth, float x)
+            => fromRight
+                ? x > CampaignSpec.WallEdgeRightX - depth
+                : x < CampaignSpec.WallEdgeX + depth;
+
+        /// <summary>Leading edge published to the view (edge X when idle).</summary>
+        private static float WallFrontAt(bool fromRight, float depth)
+            => fromRight
+                ? CampaignSpec.WallEdgeRightX - depth
+                : CampaignSpec.WallEdgeX + depth;
+
+        /// <summary>Tide-current push window test at <paramref name="stageTime"/>.</summary>
+        private static bool CurrentActiveAt(float phase, float stageTime)
+        {
+            float t = (stageTime + phase) % CampaignSpec.CurrentPeriod;
+            return t >= CampaignSpec.CurrentTelegraph
+                && t < CampaignSpec.CurrentTelegraph + CampaignSpec.CurrentActive;
+        }
+
+        /// <summary>
+        /// Active tide-currents push any actor inside their rect band (symmetric —
+        /// player and enemies alike). Runs after the actor's own move + clamp and
+        /// before pillar push-out; re-clamps when it moved the actor. Reads the
+        /// previous tick's <see cref="_stageTime"/> by contract (1-tick latency).
+        ///
+        /// <paramref name="pushMult"/> is the 역류인 seam (AMENDMENT #6): 1 for an
+        /// unequipped run, so the arithmetic is bit-identical to before the sigil.
+        /// The defensive face HALVES the shove rather than cancelling it — 100 px/s
+        /// against a 218 move still displaces you, which is the survey's
+        /// no-immunity line.
+        /// </summary>
+        private void ApplyCurrents(ref float x, ref float y, float clampMargin, float deltaTime,
+                                   float pushMult)
+        {
+            bool pushed = false;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.TideCurrent
+                    || !CurrentActiveAt(hazard.Phase, _stageTime))
+                {
+                    continue;
+                }
+                if (MathF.Abs(x - hazard.X) > hazard.HalfW || MathF.Abs(y - hazard.Y) > hazard.HalfH)
+                {
+                    continue;
+                }
+                x += hazard.PushX * pushMult * deltaTime;
+                y += hazard.PushY * pushMult * deltaTime;
+                pushed = true;
+            }
+            if (pushed)
+            {
+                ClampToArena(ref x, ref y, clampMargin);
+            }
+        }
+
+        /// <summary>
+        /// One basic-attack/combo swing against every live pylon in range. Same
+        /// range/arc/one-hit-per-attackId rules as enemies, body radius widens the
+        /// reach. Skills never strike pylons (§Gimmick 2). Returns true if any hit.
+        /// </summary>
+        private bool StrikePylons(float damage)
+        {
+            bool landed = false;
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.EmberPylon)
+                {
+                    continue;
+                }
+                ref HazardRuntime runtime = ref _hazardRuntime[index];
+                if (runtime.Hp <= 0f || runtime.LastHitAttack == _player.AttackId)
+                {
+                    continue;
+                }
+                float deltaX = hazard.X - _player.X;
+                float deltaY = (hazard.Y - _player.Y) * SimConfig.IsoY;
+                float reach = SimConfig.PlayerAttackRange + hazard.Radius;
+                if (deltaX * _player.Facing < SimConfig.FacingArcTolerance
+                    || deltaX * deltaX + deltaY * deltaY > reach * reach)
+                {
+                    continue;
+                }
+                runtime.LastHitAttack = _player.AttackId;
+                // 판결인 B doubles what a swing takes off the body (AMENDMENT #6).
+                runtime.Hp = MathF.Max(0f, runtime.Hp - damage * _sigilPylonStrikeMult);
+                landed = true;
+                _events |= SimEvents.EnemyHit;
+                if (runtime.Hp <= 0f)
+                {
+                    _events |= SimEvents.PylonDown;
+                }
+            }
+            return landed;
+        }
+
+        /// <summary>
+        /// Damage-taken multiplier for an enemy inside any live pylon aura;
+        /// stacking is non-cumulative (§Gimmick 2). 1 when no pylon applies.
+        /// The multiplier is ×0.40 by default and ×0.70 under 판결인 A — the
+        /// shield THINS, it never lifts, so the target-priority puzzle survives
+        /// the upgrade (AMENDMENT #6, no-immunity rule).
+        /// </summary>
+        private float PylonAuraMultiplier(float enemyX, float enemyY)
+        {
+            // AMENDMENT #7 판결인 surge clause: inside a surge window the aura
+            // stops entirely. This IS a full lift, and it is allowed where the
+            // peril clauses were not, for one reason the arithmetic settles: the
+            // aura protects ENEMIES, so lifting it costs the player nothing in
+            // safety and cannot register on the comeback band. Survey rule 1
+            // guards the player's relationship with a hazard, not the enemy's.
+            if (_surgeTimer > 0f && _sigilSurgePylonAuraStop)
+            {
+                return 1f;
+            }
+
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind == HazardKind.EmberPylon
+                    && _hazardRuntime[index].Hp > 0f
+                    && IsoWithin(hazard.X, hazard.Y, enemyX, enemyY, CampaignSpec.PylonAuraRadius))
+                {
+                    return _sigilPylonAuraMult;
+                }
+            }
+            return 1f;
         }
 
         /// <summary>Iso-weighted containment test (docs/SIM_SPEC.md distance rule).</summary>
@@ -2893,6 +3484,27 @@ namespace CinderCourt.Sim
                 else if (hazard.Kind == HazardKind.RelicAltar)
                 {
                     state.CooldownT = _hazardRuntime[index].Cooldown;
+                }
+                else if (hazard.Kind == HazardKind.TideCurrent)
+                {
+                    float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.CurrentPeriod;
+                    state.CycleT = cycleT;
+                    state.Telegraphing = cycleT < CampaignSpec.CurrentTelegraph;
+                    state.Active = CurrentActiveAt(hazard.Phase, _stageTime);
+                }
+                else if (hazard.Kind == HazardKind.AshWall)
+                {
+                    float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.WallPeriod;
+                    state.CycleT = cycleT;
+                    state.Telegraphing = cycleT >= CampaignSpec.WallRest
+                        && cycleT < CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+                    float depth = WallDepthAt(hazard.Phase, _stageTime);
+                    state.FrontX = WallFrontAt(hazard.PushX < 0f, depth);
+                    state.Active = depth > 0f;
+                }
+                else if (hazard.Kind == HazardKind.EmberPylon)
+                {
+                    state.Hp = _hazardRuntime[index].Hp;
                 }
                 _hazardView[index] = state;
             }

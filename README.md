@@ -87,6 +87,8 @@ python3 -m http.server 4173 --directory build-webgl
 
 ## 문서
 
+- [docs/DUNGEON_GUIDE.md](docs/DUNGEON_GUIDE.md) — **던전 9종 가이드**:
+  스테이지별 배치·기믹·버전별 변경 (자연어)
 - [docs/SIM_SPEC.md](docs/SIM_SPEC.md) — 동결 수치 계약 (아레나)
 - [docs/SIM_SPEC_CAMPAIGN.md](docs/SIM_SPEC_CAMPAIGN.md) — 캠페인 증보 (v0.1)
 - [docs/SIM_SPEC_HACKSLASH.md](docs/SIM_SPEC_HACKSLASH.md) — 핵앤슬래시 증보 (v0.2)

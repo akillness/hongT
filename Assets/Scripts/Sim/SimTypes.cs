@@ -111,6 +111,12 @@ namespace CinderCourt.Sim
         ExtractionComplete = 1 << 19,
         BossPhase2 = 1 << 20,
         ComboFinisher = 1 << 21,
+        // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
+        PylonDown = 1 << 22,
+
+        // --- surge amendment (docs/SIM_SPEC_DUNGEONS.md §14) ---
+        PerilOpened = 1 << 23,
+        SurgeOpened = 1 << 24,
     }
 
     public struct RunDigest
