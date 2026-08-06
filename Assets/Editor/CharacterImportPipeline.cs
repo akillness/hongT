@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using CinderCourt.Sim;
+using CinderCourt.View;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace CinderCourt.EditorTools
         // Bones are renamed to Unity-canonical humanoid names by
         // tools/blender/reskin_character.py; Mecanim auto-maps them.
 
-        // action -> (bench fbx base name, loop)
+        // action -> (bench fbx base name, loop, window)
         //
         // ORDER IS A CONTRACT. BuildController uses the ARRAY INDEX as the
         // animator's "action" condition value, so rows 0..10 MUST stay aligned
@@ -31,30 +32,69 @@ namespace CinderCourt.EditorTools
         // state it already owns (combo index), which is how #9/#4 land without
         // amending the frozen contract. Append only; never reorder.
         // ClipTableTests pins the alignment.
-        static readonly (string action, string file, bool loop)[] Clips =
+        //
+        // WINDOW is the authoritative number of seconds the pose is actually
+        // held — the sim's action window for sim-driven rows, the View's pose
+        // timer for View-owned rows. 0 means "no window": loops, and `die`,
+        // whose clip is meant to run at authored speed under the shrink fade.
+        //
+        // Why it exists: the bench clips are Mixamo takes of 0.75-5.75 s, but
+        // the frozen sim holds a swing for 0.30 s. Playing them at speed 1
+        // meant the animator entered the state, showed the WIND-UP, and was
+        // yanked back to idle by the next `action` write before the strike
+        // frame ever rendered — measured: `attack` reached 24% of its clip,
+        // `attack3` 10%. The authored motion was never on screen. Numbers are
+        // the gate, and the sim's numbers are frozen, so the VIEW retimes:
+        // BuildController fits each state's speed to its window.
+        static readonly (string action, string file, bool loop, float window)[] Clips =
         {
-            ("idle", "Unarmed Idle", true),
-            ("move", "Walking", true),
-            ("run", "Running", true),
-            ("hit", "Standing React Small From Left", false),
-            ("bighit", "Receive Uppercut To The Face", false),
-            ("attack", "Punching", false),
-            ("critical", "Illegal Elbow Punch", false),
-            ("avoid", "Dodging", false),
-            ("defence", "Body Block", false),
-            ("die", "Dying", false),
-            ("show", "Mutant Roaring", false),
+            ("idle", "Unarmed Idle", true, 0f),
+            ("move", "Walking", true, 0f),
+            ("run", "Running", true, 0f),
+            // Player recoil is gated by the damage grace, the only window that
+            // outlives the single tick the sim leaves `Hit` set.
+            ("hit", "Standing React Small From Left", false, SimConfig.PlayerHitGrace),
+            // Launch reaction: the View infers it from step velocity and holds
+            // it for the sim's knockback time. The enemy value (0.18) is the
+            // common case; the 0.26 boss slam simply holds the last frame.
+            ("bighit", "Receive Uppercut To The Face", false, HackSpec.ComboKnockbackTime),
+            // `attack` serves BOTH the arena/prologue swing (5/12 s) and dungeon
+            // combo hits 0-1 (0.30 s). Fitted to the SHORTER one so the clip
+            // completes in every mode it plays in.
+            ("attack", "Punching", false, HackSpec.ComboSwing[0]),
+            // Launcher finisher and the charged heavy both run the last swing.
+            ("critical", "Illegal Elbow Punch", false, HackSpec.ComboSwing[HackSpec.ComboLength - 1]),
+            ("avoid", "Dodging", false, HackSpec.DashTime),
+            ("defence", "Body Block", false, SimConfig.WardDuration),
+            // No window: the player's death plays out at authored speed behind
+            // the game-over panel, and an enemy's is carried by the 0.34 s
+            // shrink fade, not by the clip. Fitting either would be a blur.
+            ("die", "Dying", false, 0f),
+            ("show", "Mutant Roaring", false, ActorView.RoarDuration),
             // --- View-only substates (index > ActorAction range) ---
-            ("attack2", "Hook Punch", false),                        // #9 combo 2nd
-            ("attack3", "Standing Melee Combo Attack Ver. 2", false), // #9 combo 3rd
-            ("cast", "Standing 2H Magic Attack 01", false),           // #4 skill cast
+            ("attack2", "Hook Punch", false, HackSpec.ComboSwing[1]),                        // #9 combo 2nd
+            ("attack3", "Standing Melee Combo Attack Ver. 2", false, HackSpec.ComboSwing[2]), // #9 combo 3rd
+            ("cast", "Standing 2H Magic Attack 01", false, ActorView.CastPoseDuration),       // #4 skill cast
         };
+
+        /// <summary>Above this, a window-fitted clip stops reading as motion and
+        /// starts reading as a blur. Not a clamp — the speed is still applied,
+        /// because a legible-but-fast strike beats a wind-up that never lands.
+        /// It marks the row as MISCAST so the log names the clips that need a
+        /// shorter source take rather than hiding them behind a silent cap.</summary>
+        internal const float LegibleSpeedCeiling = 5f;
 
         /// <summary>Index of the first View-only substate — everything below is
         /// an <see cref="ActorAction"/> the sim can emit.</summary>
         internal const int SimActionCount = 11;
         internal static string ActionNameAt(int index) => Clips[index].action;
+        internal static float WindowAt(int index) => Clips[index].window;
         internal static int ClipCount => Clips.Length;
+
+        /// <summary>The speed a state must run at for its clip to finish exactly
+        /// when its window closes. 0-window rows keep authored speed.</summary>
+        internal static float FitSpeed(float clipLength, float window)
+            => window <= 0f || clipLength <= 0f ? 1f : clipLength / window;
 
         [MenuItem("CinderCourt/Import All Characters And Clips")]
         public static void ImportAll()
@@ -72,6 +112,30 @@ namespace CinderCourt.EditorTools
             catch (Exception error)
             {
                 Debug.LogError($"[CharacterImportPipeline] FAILED: {error}");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+                throw;
+            }
+        }
+
+        /// <summary>Rebuild ONLY the animator controller from clips that are
+        /// already imported. The state speeds are derived from the sim windows,
+        /// so retuning a window must not force a multi-minute FBX reimport (and
+        /// must not touch the .meta files that reimport rewrites).
+        /// Unity -batchmode -executeMethod
+        /// CinderCourt.EditorTools.CharacterImportPipeline.RebuildController</summary>
+        [MenuItem("CinderCourt/Rebuild Animator Controller")]
+        public static void RebuildController()
+        {
+            try
+            {
+                BuildController();
+                AssetDatabase.SaveAssets();
+                Debug.Log("[CharacterImportPipeline] CONTROLLER DONE");
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+            }
+            catch (Exception error)
+            {
+                Debug.LogError($"[CharacterImportPipeline] CONTROLLER FAILED: {error}");
                 if (Application.isBatchMode) EditorApplication.Exit(1);
                 throw;
             }
@@ -235,7 +299,7 @@ namespace CinderCourt.EditorTools
 
         static void ReimportClips()
         {
-            foreach (var (action, file, loop) in Clips)
+            foreach (var (action, file, loop, _) in Clips)
             {
                 var path = $"{ClipDir}/{file}.fbx";
                 var importer = (ModelImporter)AssetImporter.GetAtPath(path);
@@ -270,7 +334,7 @@ namespace CinderCourt.EditorTools
 
         static AnimationClip LoadClip(string action)
         {
-            var (_, file, _) = Clips.First(c => c.action == action);
+            var (_, file, _, _) = Clips.First(c => c.action == action);
             var assets = AssetDatabase.LoadAllAssetsAtPath($"{ClipDir}/{file}.fbx");
             var clip = assets.OfType<AnimationClip>()
                 .FirstOrDefault(c => c.name == action && !c.name.StartsWith("__preview__"));
@@ -289,10 +353,22 @@ namespace CinderCourt.EditorTools
 
             var actions = Clips.Select(c => c.action).ToArray();
             var states = new Dictionary<string, AnimatorState>();
-            foreach (var action in actions)
+            foreach (var (action, _, _, window) in Clips)
             {
                 var state = machine.AddState(action);
-                state.motion = LoadClip(action);
+                var clip = LoadClip(action);
+                state.motion = clip;
+                // Retime to the authoritative window (see the Clips table). Left
+                // at 1, the state is cut off the moment the sim rewrites
+                // `action` — the strike frame never renders.
+                var speed = FitSpeed(clip.length, window);
+                state.speed = speed;
+                if (window > 0f)
+                {
+                    var miscast = speed > LegibleSpeedCeiling ? "  MISCAST" : string.Empty;
+                    Debug.Log($"[Controller] {action} clip={clip.length:F3}s " +
+                              $"window={window:F3}s speed={speed:F2}x{miscast}");
+                }
                 states[action] = state;
             }
             machine.defaultState = states["idle"];

@@ -55,7 +55,13 @@ namespace CinderCourt.View
         // §M: the roar clip's readable length. Long enough that the entrance
         // registers, short enough that the boss is not a free target — it can
         // still turn and attack the instant its AI decides to.
-        const float RoarDuration = 1.1f;
+        //
+        // PUBLIC because the animator's clip retiming reads it: the `show`
+        // state's speed is fitted to this window so the authored clip finishes
+        // inside it instead of being cut mid-roar (CharacterImportPipeline).
+        public const float RoarDuration = 1.1f;
+        /// <summary>§M/#4 cast pose window — the `cast` state's fit target.</summary>
+        public const float CastPoseDuration = 0.30f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
         float _roarTime;                      // §M boss entrance roar window
@@ -559,8 +565,7 @@ namespace CinderCourt.View
                     anchor = _animator.GetBoneTransform(HumanBodyBones.RightHand);
                 if (anchor == null) return;   // tint floor for non-humanoid rigs
                 var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                var collider = glow.GetComponent<Collider>();
-                if (collider != null) Destroy(collider);
+                RemovePrimitiveCollider(glow);
                 glow.name = "CastGlow";
                 glow.transform.SetParent(anchor, false);
                 glow.transform.localPosition = new Vector3(0.02f, 0.05f, 0f);
@@ -579,7 +584,7 @@ namespace CinderCourt.View
             // so the View holds a short pose window off the same cast event that
             // drives the glow. Deliberately a touch longer than the glow so the
             // body reads as "casting" rather than twitching.
-            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
+            _castPoseTime = Mathf.Max(_castPoseTime, CastPoseDuration);
         }
 
         void UpdateCastGlow(float deltaTime)
