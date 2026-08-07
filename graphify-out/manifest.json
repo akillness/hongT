@@ -1,7 +1,7 @@
 {
   "/Users/jangyoung/orca/workspaces/HongT/main/tools/deploy/deploy_pages.sh": {
-    "mtime": 1785824172.735019,
-    "ast_hash": "57f749e206ade2d9ac607b13d4e71ad0",
+    "mtime": 1785855685.7481363,
+    "ast_hash": "5eb24f592e31a12b526bcedd4878e5a3",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/tools/audio/gen_sfx.py": {
@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/tools/blender/reskin_all.sh": {
-    "mtime": 1785825760.1602807,
-    "ast_hash": "3cfbd997d85ae1aceb264a7fca39841a",
+    "mtime": 1785878408.5297518,
+    "ast_hash": "28038e030a3e95f8b8fafcfd17d05685",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/tools/blender/reskin_character.py": {
@@ -45,18 +45,18 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Packages/manifest.json": {
-    "mtime": 1785821221.7869074,
-    "ast_hash": "4b2c979632cd81d0fefb35a5fb3003de",
+    "mtime": 1785921261.9942682,
+    "ast_hash": "cb29f66647dafc5f57234526dfb28a0a",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Packages/packages-lock.json": {
-    "mtime": 1785821221.78718,
-    "ast_hash": "ac2d063be27801692e6c923de74fdf5c",
+    "mtime": 1785921269.4351084,
+    "ast_hash": "6fc9876dcfff6926d42135a4d65f50f6",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/.vscode/settings.json": {
-    "mtime": 1785821221.6263673,
-    "ast_hash": "d89dac291e90bdd09a8da56bd21e6b73",
+    "mtime": 1785826698.2225125,
+    "ast_hash": "dd61874cc69721717c4fe1a46fcec6ec",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/.vscode/extensions.json": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/SimTypes.cs": {
-    "mtime": 1785823609.2812603,
-    "ast_hash": "bda5106807b1b0b163cf2f46b7325c22",
+    "mtime": 1786076037.9761374,
+    "ast_hash": "c14d30e3b236ccb9ea79bf78689cc4a2",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/TutorialInfo/Scripts/Readme.cs": {
@@ -85,18 +85,18 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/CharacterImportPipeline.cs": {
-    "mtime": 1785824711.4912243,
-    "ast_hash": "a054df39bcbdbf9c20c70d5be05e920b",
+    "mtime": 1786000985.912847,
+    "ast_hash": "f06f94b6f982340c5f2c20192cdf17c7",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/SceneBuilder.cs": {
-    "mtime": 1785824730.4477282,
-    "ast_hash": "3b9538ee7b95af0c362a63819cc91815",
+    "mtime": 1785927170.1827915,
+    "ast_hash": "f2b2fa78046f94daffeebd162af51953",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/BuildScript.cs": {
-    "mtime": 1785826059.801746,
-    "ast_hash": "addf49ec3c2c6746b7cd9ac72be7196a",
+    "mtime": 1786073435.196548,
+    "ast_hash": "5dda953318fb70fc7f89aa39294b014c",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/.pi/agent/goal-state/session-019fcb3d-6331-7b87-ae3c-98626fa96f63/state.json": {
@@ -110,7 +110,7 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/WATCHDOG.yml": {
-    "mtime": 1785824027.530827,
+    "mtime": 1785931927.547261,
     "ast_hash": "52e6d570a867f48aef7da37e89bcdfea",
     "semantic_hash": ""
   },
@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/CLAUDE.md": {
-    "mtime": 1785824029.104013,
-    "ast_hash": "19cbc612fa4b439c38f0a0ef20448790",
+    "mtime": 1786068396.4972982,
+    "ast_hash": "08dd363de7a84ce18c618eb5298022bc",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/ProjectSettings/ProjectVersion.txt": {
@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/docs/SIM_SPEC.md": {
-    "mtime": 1785826181.4262683,
-    "ast_hash": "c6e207be998b0f9c033ec95707becacf",
+    "mtime": 1785929224.2376368,
+    "ast_hash": "b05f42fbbad840be0d6c1b306bb526b6",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/docs/RUNTIME_ANIMATION_CONTRACT.md": {
@@ -149,19 +149,14 @@
     "ast_hash": "f0f66b2c76d1dec964e087567bda3f05",
     "semantic_hash": ""
   },
-  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/gjc-sim-lane.md": {
-    "mtime": 1785824269.4201179,
-    "ast_hash": "0cbe6b25e46df09869b354d574f05b8b",
-    "semantic_hash": ""
-  },
   "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/log.md": {
-    "mtime": 1785824559.9968011,
-    "ast_hash": "92285e82e913034ff7d502eedb5fd530",
+    "mtime": 1786085054.6125717,
+    "ast_hash": "449eb8810afab1eda13d2ab72b573fad",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/index.md": {
-    "mtime": 1785824559.996666,
-    "ast_hash": "4f976bca4dbc0de707334e8fc01e8e1b",
+    "mtime": 1786085054.6120324,
+    "ast_hash": "0be02c94cbff8264a970887ee95df849",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Textures/cinder-court-backdrop.png": {
@@ -175,13 +170,13 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/audio.json": {
-    "mtime": 1785826189.0887995,
-    "ast_hash": "bde3d477a0eda0c36cbf960b736e332e",
+    "mtime": 1786023388.139435,
+    "ast_hash": "16504eb3fd8f9342e78c6d5cc31b5941",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/tools/unity_batch.sh": {
-    "mtime": 1785824572.806833,
-    "ast_hash": "9e597c76aa2b9c1b60be991131322d69",
+    "mtime": 1786068396.6918144,
+    "ast_hash": "8aea4bff3e2e139658ce1befb1ac2ae9",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/.jeo/memory/raw/session-1785824619717-59363.json": {
@@ -220,78 +215,3563 @@
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/CinderSim.cs": {
-    "mtime": 1785825006.1175382,
-    "ast_hash": "d36095e28a414453e7b80e6f46ef4ab1",
-    "semantic_hash": ""
-  },
-  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/gjc-sim-lane-report.md": {
-    "mtime": 1785825643.3851614,
-    "ast_hash": "3d4c8394f293a7cc6b6c1387f42e5a83",
-    "semantic_hash": ""
-  },
-  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/jeo-view-lane.md": {
-    "mtime": 1785826205.2622316,
-    "ast_hash": "2aeaa8b8da9350f6f75b3efabc0d54f8",
+    "mtime": 1786085953.9820638,
+    "ast_hash": "8d379ffd11a64df4c7b4a3ceb5be3a98",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-nova.mp3": {
-    "mtime": 1785826173.2139337,
-    "ast_hash": "c5fd8af0fbf25090a33ef7bbf40b84fe",
+    "mtime": 1786023367.4582453,
+    "ast_hash": "07c83ead1a9498f788a26450f041da50",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-hit.mp3": {
-    "mtime": 1785826169.82024,
-    "ast_hash": "882fbf32a85f79cad905260d0306ad1d",
+    "mtime": 1786023363.628111,
+    "ast_hash": "526f98d3dcb1b47fa310d7bb4cb3af8d",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-gameover.mp3": {
-    "mtime": 1785826180.9813793,
-    "ast_hash": "bda280f843bbe3cef490b1c63cbacbeb",
+    "mtime": 1786023379.9535303,
+    "ast_hash": "780237b58efffdb28a0fe7d395dc4de9",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-wave.mp3": {
-    "mtime": 1785826179.0459547,
-    "ast_hash": "14eb9438e155db85c53198e48cda6e10",
+    "mtime": 1786023377.3213568,
+    "ast_hash": "677f7451506d4e96fbddb4b3b429adc1",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-pickup.mp3": {
-    "mtime": 1785826177.3889704,
-    "ast_hash": "0c8c13de71a83582664c2884025d6f16",
+    "mtime": 1786023371.1435444,
+    "ast_hash": "dcecd56fadd5ab2314df56f823ca8a9d",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-strike.mp3": {
-    "mtime": 1785826168.0792408,
-    "ast_hash": "7275ded3ec12bcd20983dba715afbf71",
+    "mtime": 1786023361.4595826,
+    "ast_hash": "61010bb2d048108e7ae5f82e4a46ddce",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-ward.mp3": {
-    "mtime": 1785826175.3365808,
-    "ast_hash": "77fe2e80ca76a12220fce99a21fc6284",
+    "mtime": 1786023369.1166961,
+    "ast_hash": "9bc85d3dd1f5fa1bf5554687a9d3c853",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-kill.mp3": {
-    "mtime": 1785826171.444762,
-    "ast_hash": "f9d5190135d0514df6d02528dd6a62a8",
-    "semantic_hash": ""
-  },
-  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/ViewCommon.cs": {
-    "mtime": 1785826301.9736183,
-    "ast_hash": "99e8a6ef74793c29c7befa476f1038dd",
+    "mtime": 1786023365.7181377,
+    "ast_hash": "6968f4550bf7ef5de81f2df87e450799",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-lore.mp3": {
-    "mtime": 1785826183.0052083,
-    "ast_hash": "c32fde710372519ab61c450736124fa1",
+    "mtime": 1786023381.992032,
+    "ast_hash": "e4be29932920fccd4464bcc598dc2d9d",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Audio/cue-bgm.mp3": {
-    "mtime": 1785826189.0875845,
-    "ast_hash": "164dbdabb49ea6dc989dd32e7d7abdf8",
+    "mtime": 1786023388.1382918,
+    "ast_hash": "fab3cff666cc9cc9219d502ade55751a",
     "semantic_hash": ""
   },
   "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/ActorView.cs": {
-    "mtime": 1785826339.382536,
-    "ast_hash": "ed57c093b4f5aae49de5599031474a5b",
+    "mtime": 1786076037.936949,
+    "ast_hash": "0582e2b89fcb891b73fc701ee2a76b76",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/gen_hud_font.sh": {
+    "mtime": 1785832981.5218904,
+    "ast_hash": "a7e8f5da8fc6dc8dfa7051c7fb49d32b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/setup-icon-integration.sh": {
+    "mtime": 1785980082.6499288,
+    "ast_hash": "9c4ec5d62ad7e9c089dc1992ab7b027f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/ui/gen_ui_plates.py": {
+    "mtime": 1785924966.6013203,
+    "ast_hash": "b69cad90667f4ef0c6f64e4972c784bc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/capture-unity-play.mjs": {
+    "mtime": 1785940267.05226,
+    "ast_hash": "a3a5a48433d337b1c46843ec2be8427a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/package.json": {
+    "mtime": 1785837654.842584,
+    "ast_hash": "fbe3faa0c266926a3d28d5f940154c9a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/tsconfig.json": {
+    "mtime": 1785837661.5153906,
+    "ast_hash": "99f544e7b72de820ade952646dd11505",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/src/BrandBumper.tsx": {
+    "mtime": 1785837719.0169284,
+    "ast_hash": "a7876bd29d435c430de8ef83eff88ef7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/src/Root.tsx": {
+    "mtime": 1785837669.80292,
+    "ast_hash": "cbd0094d9e5c09572c1eb324f7417f06",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/src/index.ts": {
+    "mtime": 1785837665.529368,
+    "ast_hash": "1b4f5b5c5a9b7ca005ceb8cf57ea58cc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/docs/build-nan2026-pdf.mjs": {
+    "mtime": 1785940427.9444141,
+    "ast_hash": "5f81705c2547c817cab379c864b4c940",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/icons/gen_icons.sh": {
+    "mtime": 1785844291.8333511,
+    "ast_hash": "7e4855f43a076ae4e4db7cb34dc704ec",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/icons/batch-generate-icons.py": {
+    "mtime": 1785979924.9845605,
+    "ast_hash": "fd21e3556a447cd4ad5bbeeac6b7cc82",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/icons/mat_icons.py": {
+    "mtime": 1785844220.4921644,
+    "ast_hash": "f602b51bdaf28478c03dcac8fc1ba17c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/icons/apply-icons-to-hud.cs": {
+    "mtime": 1785979949.8344953,
+    "ast_hash": "34cf8eb7b6527d52108dbc9d51f0245e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/icons/create-icon-materials.py": {
+    "mtime": 1785980299.0376935,
+    "ast_hash": "d39be81b4f90c0d9a61e727e1016e59a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/blender/convert_terrain.py": {
+    "mtime": 1785893668.7617457,
+    "ast_hash": "c37107c2d6743455f77aed32f09176f2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/blender/convert_equip_props.py": {
+    "mtime": 1785891962.436093,
+    "ast_hash": "e56ff5fdd6978e0552d2bcebbde53fd6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/ProjectSettings/SceneTemplateSettings.json": {
+    "mtime": 1785826968.2869122,
+    "ast_hash": "eeb26e313b89cd9334b828428a4847ef",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/ProjectSettings/Packages/com.unity.probuilder/Settings.json": {
+    "mtime": 1786068291.8296316,
+    "ast_hash": "abe966b4a90ee7e2f294a2cd004ab04b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/icon-integration-setup.json": {
+    "mtime": 1785980105.4019246,
+    "ast_hash": "18c7bdc8384bb72a48457588cc3905f6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/cinder-court-link-preview.json": {
+    "mtime": 1785855676.7494605,
+    "ast_hash": "20738c15525722f084e5f9897c66da03",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/scene-synopsis-art.json": {
+    "mtime": 1785984330.7383666,
+    "ast_hash": "07100942ba08be82a793b580b568c59b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/icon-materials-generated.json": {
+    "mtime": 1785980309.8793766,
+    "ast_hash": "27102c9ae7a1d7604bf0d078281434ee",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/lantern-reaver-reskin.json": {
+    "mtime": 1785855808.2679467,
+    "ast_hash": "51694dbc18fe1438e17182e52b0230ac",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/ui-icons.json": {
+    "mtime": 1785978996.2339764,
+    "ast_hash": "c4e9d1454627e3aa4e3b0002a082db94",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/assets/diagrams/config.json": {
+    "mtime": 1785922552.78415,
+    "ast_hash": "1e44ba8188f74c302856d733bae0d842",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/icon-generation-prompts.json": {
+    "mtime": 1785979793.777368,
+    "ast_hash": "7b402701fd90631e609a10c27441c5c5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/reskin/lantern-reaver-character.json": {
+    "mtime": 1785855104.8485076,
+    "ast_hash": "73788f262071075c5671154a4159c8b4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/metrics.json": {
+    "mtime": 1785861757.2164109,
+    "ast_hash": "f10c5169cf6caa05b422478d3ccae6b8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/session.json": {
+    "mtime": 1785861410.6644537,
+    "ast_hash": "cbdc7814f394cd0c96d0a05be22dd920",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/tmux-hook-state.json": {
+    "mtime": 1785861757.274397,
+    "ast_hash": "2f9f7997f24d3318e186d3859dd58511",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/subagent-tracking.json": {
+    "mtime": 1785861757.2132723,
+    "ast_hash": "6053be9e1f7b382794dad9182eeb85e6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/current-task-baseline.json": {
+    "mtime": 1785861757.346045,
+    "ast_hash": "3cf777935e003cfa6b5f1aab3c8d6a3c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/native-stop-state.json": {
+    "mtime": 1785861756.4365258,
+    "ast_hash": "5b3250623af3ab634746451fff26c102",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/sessions/019fcda2-50be-79d0-a055-b988fb408204/prompt-routing-state.json": {
+    "mtime": 1785861410.8194225,
+    "ast_hash": "5c1e552a66dbce84a6db38482954ea2b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/sessions/019fcda2-50be-79d0-a055-b988fb408204/notify-hook-state.json": {
+    "mtime": 1785861757.2114236,
+    "ast_hash": "c79ea8ec30d0897694c0460c8e32a9ac",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.omx/state/sessions/019fcda2-50be-79d0-a055-b988fb408204/hud-state.json": {
+    "mtime": 1785861757.2556148,
+    "ast_hash": "978723d8a6b02e4677d7942a71a33274",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/.state/ingest-prompt.json": {
+    "mtime": 1785861411.1574018,
+    "ast_hash": "d0f91687cdc49f2be189b0fabe3ecb7f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Data/Plugins/lib_burst_generated.cpp": {
+    "mtime": 1785973230.269215,
+    "ast_hash": "25a0c7538c7fd5c48b4cd07092230559",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Plugins/NuGet/.nuget-installed.json": {
+    "mtime": 1785920757.9573896,
+    "ast_hash": "dc4d360cca1db52a69dca7445f5c2391",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-cinder-span.albedo.json": {
+    "mtime": 1785839500.0762107,
+    "ast_hash": "addd3e3f896c77d38e3827a22ace2c23",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-abyss-chancel.albedo.json": {
+    "mtime": 1785893683.639547,
+    "ast_hash": "820d3aae509af6d3916151d2bfbba9f7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-echo-throne.albedo.json": {
+    "mtime": 1785839501.5877118,
+    "ast_hash": "9ef81807011565751b94647267c48f7e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/WebGlTextureCapTests.cs": {
+    "mtime": 1785881519.8156896,
+    "ast_hash": "65187bcd65a4d4d4c9d42e1397bca8bd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/EquipPropTests.cs": {
+    "mtime": 1785892708.9507747,
+    "ast_hash": "109b0e030d41bbb37d05c641f8c1699d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/StageDressingTests.cs": {
+    "mtime": 1786068396.4943233,
+    "ast_hash": "5261454bc83f05f5024f6b6f3ad6281e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CompanionCommandParserTests.cs": {
+    "mtime": 1786059863.7627494,
+    "ast_hash": "f514a6eae7584942574b728f73cc50e5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/KeyVaultTests.cs": {
+    "mtime": 1785890800.5026696,
+    "ast_hash": "0dcf64a49f8ca9700b268409b5077c43",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/BuildScriptWebGlPostprocessTests.cs": {
+    "mtime": 1785875240.424686,
+    "ast_hash": "f67b22597b849ce903f06a3b693d0ff3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/PoseResolveTests.cs": {
+    "mtime": 1785920235.374628,
+    "ast_hash": "d08ee9992ac5e12622f9a072979f4dcc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/LanternReaverPrefabTests.cs": {
+    "mtime": 1785857150.9027886,
+    "ast_hash": "621fa55cd4ef7f4226886bffbcffc5e7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/AdditiveMaterialTests.cs": {
+    "mtime": 1785973066.8190598,
+    "ast_hash": "e48cef694393819d9d46d649d6d9559c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/BossFlashYieldTests.cs": {
+    "mtime": 1785911394.3635817,
+    "ast_hash": "0660d7476745e79a0f257fc923bd546b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/PresentationFeedbackTests.cs": {
+    "mtime": 1786068396.492772,
+    "ast_hash": "83e3e6c77d676c50342aecb7febe91c5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CampaignSimTests.cs": {
+    "mtime": 1786076011.024325,
+    "ast_hash": "9cf789c824805de954a7ffc0b681747d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/FontCoverageTests.cs": {
+    "mtime": 1785896955.2581725,
+    "ast_hash": "dbd45b1b50bf43487bdfca69d766af99",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/ClipTableTests.cs": {
+    "mtime": 1785913174.6692226,
+    "ast_hash": "4c54e51e7c1b96a40beaf7f9125def40",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CharacterRosterAnimationTests.cs": {
+    "mtime": 1785878758.2586668,
+    "ast_hash": "e2c74ff915ef664687e3c6b76bcddfe7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/HackSimTests.cs": {
+    "mtime": 1786068396.4903882,
+    "ast_hash": "e89b63fa463588705733912fe88eb995",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/AudioPitchJitterTests.cs": {
+    "mtime": 1785934650.3336096,
+    "ast_hash": "da5ff640ab6b12e8b94ac6b7627f73b4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/WaveTelegraphTests.cs": {
+    "mtime": 1785907793.2173643,
+    "ast_hash": "4c1e66b2d0182f54338da0d803606df2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/GameDirectorCampaignRouteTests.cs": {
+    "mtime": 1786068396.488741,
+    "ast_hash": "eefefc36cb6ae024b5bba7efbb599a1f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/StageCatalogTests.cs": {
+    "mtime": 1786068396.4940012,
+    "ast_hash": "4dd25976c20c818467800256b0124420",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/HudLayoutTests.cs": {
+    "mtime": 1786073607.8735776,
+    "ast_hash": "486700249fa0ce056c0946c005186619",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/ElementTintTests.cs": {
+    "mtime": 1785909867.3813663,
+    "ast_hash": "1436c73aab918d99e3ee1b6f06376ca1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/TerrainPartsTests.cs": {
+    "mtime": 1785893990.4730647,
+    "ast_hash": "e3f838c4ae69b027045138a1850819d8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/GameBootstrap.cs": {
+    "mtime": 1785993412.2636368,
+    "ast_hash": "8281c04df531fe5f5e120679711ddaa0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/AudioDirector.cs": {
+    "mtime": 1785934557.189881,
+    "ast_hash": "27db0acc9eea2abd91244a2fbe3d1c95",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/CompanionCommandParser.cs": {
+    "mtime": 1786059620.8230782,
+    "ast_hash": "5581ace2126dda744e41e534dd8e122a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/HudView.cs": {
+    "mtime": 1786076037.9475832,
+    "ast_hash": "ccd6cc75e1e04bc00f22d5df7197cddb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/GameView.cs": {
+    "mtime": 1786086784.649542,
+    "ast_hash": "bcad31803b79eb92a46e88ceca128e49",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/AssemblyInfo.cs": {
+    "mtime": 1785850220.5181978,
+    "ast_hash": "77a6eef0ea464f83e53716dcd23a5f2a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/KeyVault.cs": {
+    "mtime": 1785890721.3777032,
+    "ast_hash": "f7aaf55e1299f0fbb74981ea7088d263",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/DamageNumberPool.cs": {
+    "mtime": 1785869171.935754,
+    "ast_hash": "eda14ec2258edd1711aa98d939bc0872",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/StageCatalog.cs": {
+    "mtime": 1786076037.9458902,
+    "ast_hash": "d0dc0c8a1966fdb96918acc75a3ff44a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/VfxDirector.cs": {
+    "mtime": 1786068396.4843307,
+    "ast_hash": "9eced78e278af080b7757f0025416f8c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/GameDirector.cs": {
+    "mtime": 1786075474.7965138,
+    "ast_hash": "a3929a529b29bd4e7cc8fa43a68fc9b1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/ViewWorld.cs": {
+    "mtime": 1785936955.5338721,
+    "ast_hash": "52a6350147d2c955666cefd9b55ad153",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/HudView.Integration.cs": {
+    "mtime": 1785982927.3757515,
+    "ast_hash": "bfc954e82bca631dd1c4ad59c6ba1552",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/GeminiCommandClient.cs": {
+    "mtime": 1786058890.1224253,
+    "ast_hash": "9e0d206bdd11f0378312f8b68ff5e7f9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/LobbyStaging.cs": {
+    "mtime": 1786068396.4812827,
+    "ast_hash": "a8a623d5cffe2f379e71c6741e409ad4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/CameraRig.cs": {
+    "mtime": 1786024028.050428,
+    "ast_hash": "06ec8ccbe4a4ba3dcd7982ea11905039",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/StoryCatalog.cs": {
+    "mtime": 1786072772.8248265,
+    "ast_hash": "c9645e8518960a1558e4e8335684ecb1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/LobbyView.cs": {
+    "mtime": 1786072722.617275,
+    "ast_hash": "4cc950bbb9820532ad8d105fec262a72",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/PostFxGate.cs": {
+    "mtime": 1785895164.7101836,
+    "ast_hash": "1e80d91845d7be92e64609a481fa18ca",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/ViewPrefs.cs": {
+    "mtime": 1786073426.8115067,
+    "ast_hash": "0178fa588a9037fc619661ae9a900005",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/HudIconIntegration.cs": {
+    "mtime": 1785986288.1858947,
+    "ast_hash": "b4559697e263984144c20ea9a27c3b97",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/CampaignStore.cs": {
+    "mtime": 1786068396.478122,
+    "ast_hash": "124702a9fea3be7c81df3aba989e639d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/CutsceneView.cs": {
+    "mtime": 1785981622.2974386,
+    "ast_hash": "d6fc2a7288f0916e36911ae5abbefba5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/WebGLStorage.cs": {
+    "mtime": 1785833814.3958852,
+    "ast_hash": "a5f872aa2b00eceb78978fa928792bf8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/SpeechBubbleView.cs": {
+    "mtime": 1786068396.4824576,
+    "ast_hash": "d8bbb07c6fb8bf8024dd06c7bbf9e2c6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/InputAdapter.cs": {
+    "mtime": 1786058554.4743369,
+    "ast_hash": "c1b401af8a6c0a0b0dac50ef93402b30",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/RunPreparationSnapshot.cs": {
+    "mtime": 1785855279.8905323,
+    "ast_hash": "4fe2d0e6a8919d33ee12ce44f144f7e4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/AssemblyInfo.cs": {
+    "mtime": 1785923861.9260995,
+    "ast_hash": "6c4473948bdd9e0a25d72287ca7ca638",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/GrowthChoiceSnapshot.cs": {
+    "mtime": 1785928176.340767,
+    "ast_hash": "5468392046e2710b70ae54ae51a90deb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/CharacterRoster.cs": {
+    "mtime": 1785861055.7883248,
+    "ast_hash": "78d5678f71e7d75f20f196fef5c90925",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/CampaignTypes.cs": {
+    "mtime": 1786068396.473776,
+    "ast_hash": "35763deab22da1b9148042c8de134df1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/HackTypes.cs": {
+    "mtime": 1786085339.4105744,
+    "ast_hash": "4d0ed42c7bb81ee9a49204f33173dc1d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/TerrainImportPipeline.cs": {
+    "mtime": 1785839391.0916066,
+    "ast_hash": "06a479305c545071abb56fd712afefbd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/RuntimeMaterialSeeds.cs": {
+    "mtime": 1785840970.0363688,
+    "ast_hash": "92dc9a3140441c9a478026f70649da5c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/PropImportPipeline.cs": {
+    "mtime": 1785892803.9573543,
+    "ast_hash": "176f6c1f3cc45c7f2e00734207b66598",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/CreateIconMaterials.cs": {
+    "mtime": 1785983074.3195636,
+    "ast_hash": "9f7645d9c1363ddb874fa8a8b776e6ef",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/IconImportPipeline.cs": {
+    "mtime": 1786002721.5941777,
+    "ast_hash": "e9c8b058f7ff39637ef4675eceecd1fe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/AutoInitializeIconMaterials.cs": {
+    "mtime": 1785980131.450025,
+    "ast_hash": "aaeb396a868a0c0b65e0fef0b4aafe24",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/InitializeIconMaterialsBatch.cs": {
+    "mtime": 1785980228.4080803,
+    "ast_hash": "5a1d6c830ff149a9a78f7a712c396857",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/README.md": {
+    "mtime": 1786068396.4979732,
+    "ast_hash": "b1af60420ca9695957cc4966f0f47818",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/web/campaign.html": {
+    "mtime": 1785833217.377988,
+    "ast_hash": "1472a6b1b30195250cb827ed720cd2be",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-create-folder/SKILL.md": {
+    "mtime": 1786064611.231606,
+    "ast_hash": "a8f638948d267ef15a72c268e8f1bf98",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-heights/SKILL.md": {
+    "mtime": 1786064611.3318086,
+    "ast_hash": "edf86e3c9547aa05b9a1c7d31026517d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-get/SKILL.md": {
+    "mtime": 1786064611.2899826,
+    "ast_hash": "704a83874fa4c1e0e8d071fac4ab3b72",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-tree-prototypes/SKILL.md": {
+    "mtime": 1786064611.3337777,
+    "ast_hash": "dbf6ffaeaead8c2c5b506e53a111d29c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-list/SKILL.md": {
+    "mtime": 1786064611.326158,
+    "ast_hash": "d9baac720716ed5475807da71bb04efd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-get/SKILL.md": {
+    "mtime": 1786064611.3144073,
+    "ast_hash": "5ae123b7e47649fd5d2815bb641551ec",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-bevel/SKILL.md": {
+    "mtime": 1786064611.3015974,
+    "ast_hash": "f5ff3970fc578ff2218a4eb45dbee7b0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-open/SKILL.md": {
+    "mtime": 1786064611.269756,
+    "ast_hash": "6b71be58a940f38f715b8fd2028f74c7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-track-remove/SKILL.md": {
+    "mtime": 1786064611.3593562,
+    "ast_hash": "f228d2fdfe87876565aca29f426447a6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-get-component/SKILL.md": {
+    "mtime": 1786064611.3256319,
+    "ast_hash": "29e97c42ba4f5eaedf254662b69b5e33",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-component-add/SKILL.md": {
+    "mtime": 1786064611.2424734,
+    "ast_hash": "a6cf3c43b69da701debb907dbe7f2302",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-subdivide-edges/SKILL.md": {
+    "mtime": 1786064611.3107357,
+    "ast_hash": "96102ed8f1d9682817ce20cd50902cda",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-modify/SKILL.md": {
+    "mtime": 1786064611.2944412,
+    "ast_hash": "1e1e4ea0530f5feb19e492418ef1d496",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-binding-composite-add/SKILL.md": {
+    "mtime": 1786064611.2845378,
+    "ast_hash": "fee7454dabcee9976d622dcb48202ddc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-find/SKILL.md": {
+    "mtime": 1786064611.2496643,
+    "ast_hash": "6ca105b229ab153aa119015a08e6c9f9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-lens/SKILL.md": {
+    "mtime": 1786064611.228828,
+    "ast_hash": "5d7b5af15b09fd50183cc09b8da6cac6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-box-fill/SKILL.md": {
+    "mtime": 1786064611.3349597,
+    "ast_hash": "d312bf0561f0c6c8b210dcaabbf37c85",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/ping/SKILL.md": {
+    "mtime": 1786064611.3595822,
+    "ast_hash": "4a1f06f9dfd4bf9a142fe475b4e68910",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-list/SKILL.md": {
+    "mtime": 1786064611.3167033,
+    "ast_hash": "0dee61293a0027f5f05445bca4226054",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/unity-initial-setup/SKILL.md": {
+    "mtime": 1786064611.362377,
+    "ast_hash": "aafe9a565fef8ebee9138a2a568fc54f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animator-modify/SKILL.md": {
+    "mtime": 1786064611.2188463,
+    "ast_hash": "5a3ad12bf1a111d4ad7fb66b01cd9727",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/package-search/SKILL.md": {
+    "mtime": 1786064611.25813,
+    "ast_hash": "636b95a68814aac8d9e757e632e97419",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-create/SKILL.md": {
+    "mtime": 1786064611.3542683,
+    "ast_hash": "bb55a1ad292af6f0448f54abfaac3f2b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-save/SKILL.md": {
+    "mtime": 1786064611.270295,
+    "ast_hash": "cf5bd977952d9a252a0b27a65a1bca85",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-track-add/SKILL.md": {
+    "mtime": 1786064611.357568,
+    "ast_hash": "133ad70f5e0e26db6209df5f8fed1d6f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-set-knot/SKILL.md": {
+    "mtime": 1786064611.3198214,
+    "ast_hash": "7b068363a9bd78f39e45d933e849c6b0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-modify-component/SKILL.md": {
+    "mtime": 1786064611.3270657,
+    "ast_hash": "383224a8a734542986236bb5f2b32d88",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-modify/SKILL.md": {
+    "mtime": 1786064611.2873673,
+    "ast_hash": "227edae33c2e2f57cecaeb80ad8850ca",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-list/SKILL.md": {
+    "mtime": 1786064611.2917182,
+    "ast_hash": "9cc34a5f3d4d6d5684fe7a72b87f457a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-targets/SKILL.md": {
+    "mtime": 1786064611.2307765,
+    "ast_hash": "de094a5ac33fd6c2862fb4e1035aff1b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/object-get-data/SKILL.md": {
+    "mtime": 1786064611.254242,
+    "ast_hash": "38ac7ed1dd1dc4496af541cedfc1b894",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tests-run/SKILL.md": {
+    "mtime": 1786064611.2771175,
+    "ast_hash": "99ccdf37f0cef4834f1bfabf7f7c68b5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-set-bake-settings/SKILL.md": {
+    "mtime": 1786064611.2953086,
+    "ast_hash": "146cb46fea3cb40b5012fa0e4d54c5a0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-modify/SKILL.md": {
+    "mtime": 1786064611.2346768,
+    "ast_hash": "1439520647d9c3629245f827b58c7ec6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-add-layer/SKILL.md": {
+    "mtime": 1786064611.321476,
+    "ast_hash": "30309041a5ac14c128aa3ab4f7eaeb48",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/package-add/SKILL.md": {
+    "mtime": 1786064611.2565186,
+    "ast_hash": "fa3b9801f664fb29136c1b26d1ea5d57",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-binding-set/SKILL.md": {
+    "mtime": 1786064611.2857509,
+    "ast_hash": "dc25872a6e5df6488575ed716fee11e3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/editor-selection-get/SKILL.md": {
+    "mtime": 1786064611.2413483,
+    "ast_hash": "8a90650f4a53caccd92e6ebb1dcaa7d2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-create/SKILL.md": {
+    "mtime": 1786064611.2468226,
+    "ast_hash": "fc383029ddd8de597a2a9df4db5815f6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-set-tile-flags/SKILL.md": {
+    "mtime": 1786064611.3511794,
+    "ast_hash": "5673f683a7dfede9f25526fd965a02fa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/script-delete/SKILL.md": {
+    "mtime": 1786064611.2742674,
+    "ast_hash": "a289b4d5e17aabd9d02a961295bbb1e0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-prefab-create/SKILL.md": {
+    "mtime": 1786064611.2371542,
+    "ast_hash": "033a51cf11b636bcfeaadb727130c1de",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-surface-bake/SKILL.md": {
+    "mtime": 1786064611.2972198,
+    "ast_hash": "5950fdfa5f6a10c5f341e8a84977a8ae",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animation-modify/SKILL.md": {
+    "mtime": 1786064611.2157383,
+    "ast_hash": "1051adffff1d328ee908e54cfe46b859",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-shader-list-all/SKILL.md": {
+    "mtime": 1786064611.2397344,
+    "ast_hash": "bea00a2c3a5982d226fd9f606d37bfed",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-clip-set-timing/SKILL.md": {
+    "mtime": 1786064611.353816,
+    "ast_hash": "e8a1d2b5b39795eade2d7d533b0dc6c5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-create/SKILL.md": {
+    "mtime": 1786064611.3224607,
+    "ast_hash": "f659a454ee4567699f9cd71000da33f1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/script-update-or-create/SKILL.md": {
+    "mtime": 1786064611.275832,
+    "ast_hash": "efd0a2bb08d930699c7de849de726ed0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-bridge/SKILL.md": {
+    "mtime": 1786064611.3024428,
+    "ast_hash": "757ed874b80bb0d7d55ce5fcf7c3cf45",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/particle-system-modify/SKILL.md": {
+    "mtime": 1786064611.300694,
+    "ast_hash": "def7632b824962a107449650052f1c81",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-modify/SKILL.md": {
+    "mtime": 1786064611.224897,
+    "ast_hash": "4a5f3ca8dc0a90bb151c9cf9c6449782",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-neighbors/SKILL.md": {
+    "mtime": 1786064611.3324063,
+    "ast_hash": "2c5c6e8ec7ed7ac39fd3842b675b0444",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-binding-remove/SKILL.md": {
+    "mtime": 1786064611.2851524,
+    "ast_hash": "271bd7b4c79316ef59e27cb009739ee4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-action-remove/SKILL.md": {
+    "mtime": 1786064611.2823641,
+    "ast_hash": "7c90c937426dd5e4f0ba1ce591d445df",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/editor-application-set-state/SKILL.md": {
+    "mtime": 1786064611.2408922,
+    "ast_hash": "00768ef7f7c3ec1ed0cfff7617c88043",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-add-spline/SKILL.md": {
+    "mtime": 1786064611.3121808,
+    "ast_hash": "0c3aaf7096a5b32a03725cd1a5e8a6a2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-unload/SKILL.md": {
+    "mtime": 1786064611.2716076,
+    "ast_hash": "5da2a551dbad85d6baf594a880ee2a45",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/console-clear-logs/SKILL.md": {
+    "mtime": 1786064611.2399542,
+    "ast_hash": "fb5f7dbc2a8c5a13985f3b4aad9237a1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-noise/SKILL.md": {
+    "mtime": 1786064611.229464,
+    "ast_hash": "19a2511cec49a4bff8a1ef8c9c4d25e9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-prefab-open/SKILL.md": {
+    "mtime": 1786064611.23816,
+    "ast_hash": "619639ea7cdbc62e9605a57b2c14b292",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-get-status/SKILL.md": {
+    "mtime": 1786064611.2613287,
+    "ast_hash": "0cea27c39c3d7c9d2e7543bb8e135b79",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-save/SKILL.md": {
+    "mtime": 1786064611.2877975,
+    "ast_hash": "af3f31f104a157e0f79be60c4392a8bd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-camera-create/SKILL.md": {
+    "mtime": 1786064611.221576,
+    "ast_hash": "7ed50b3cc0087e7fbb13ca0ed85ebc0b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-load-data/SKILL.md": {
+    "mtime": 1786064611.262128,
+    "ast_hash": "eadb01b11ee742f58d320a07c7c0d33c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-merge-objects/SKILL.md": {
+    "mtime": 1786064611.3073962,
+    "ast_hash": "9c38535c969d752f4e9b49cee9fb08c2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/particle-system-get/SKILL.md": {
+    "mtime": 1786064611.2990289,
+    "ast_hash": "19b0ee9376a4a3be1061b7923a632cbc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-list-modules/SKILL.md": {
+    "mtime": 1786064611.261731,
+    "ast_hash": "24ea3d11e5e7c68ff55f5c00db18525d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animation-get-data/SKILL.md": {
+    "mtime": 1786064611.2143815,
+    "ast_hash": "f391d83187c0b51e13baf7b15e029efc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/unity-skill-create/SKILL.md": {
+    "mtime": 1786064611.3599396,
+    "ast_hash": "114610b06bdb9872800f3adfc6eafe21",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-get-data/SKILL.md": {
+    "mtime": 1786064611.2334275,
+    "ast_hash": "b15ce5560c2105013cc48ed04e6f900e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-agent-add/SKILL.md": {
+    "mtime": 1786064611.288545,
+    "ast_hash": "ad8a78db0d364189e7d00fbe0b48db6b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-paint-layer/SKILL.md": {
+    "mtime": 1786064611.3277116,
+    "ast_hash": "a2eccd88183218538cd4a1403dfa28ec",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-move/SKILL.md": {
+    "mtime": 1786064611.2353644,
+    "ast_hash": "1bf877403557e0b9dda83e1ff055842d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/screenshot-scene-view/SKILL.md": {
+    "mtime": 1786064611.2739613,
+    "ast_hash": "92e18ae2c680c9305bf18e8d99a0acd0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-get/SKILL.md": {
+    "mtime": 1786064611.3554199,
+    "ast_hash": "9c687eb94374a5cd96f549aa72d46986",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-create-tile-asset/SKILL.md": {
+    "mtime": 1786064611.3377676,
+    "ast_hash": "df918a4257e4dc7973221496b289d382",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-delete/SKILL.md": {
+    "mtime": 1786064611.2318528,
+    "ast_hash": "c1aa1ee813dda8adeca05b81b93547b5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-actionmap-add/SKILL.md": {
+    "mtime": 1786064611.2808619,
+    "ast_hash": "b34928987723706f88d126fb6797f0c6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-evaluate/SKILL.md": {
+    "mtime": 1786064611.3132887,
+    "ast_hash": "1c6b8cbd3dbb3d380cd4cb912f5175b5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-get-data/SKILL.md": {
+    "mtime": 1786064611.2688494,
+    "ast_hash": "ffd7b14410ecea5582bb1b0273829343",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-set-tile/SKILL.md": {
+    "mtime": 1786064611.3499534,
+    "ast_hash": "4a8a85750fe8e546a36a4da6f3e31fe3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/console-get-logs/SKILL.md": {
+    "mtime": 1786064611.2403147,
+    "ast_hash": "7e4ae00d63c2d332b92db218544e1545",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-modify/SKILL.md": {
+    "mtime": 1786064611.3436997,
+    "ast_hash": "3c42b4de57a846bfbef91f19307b52b1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-get-tile/SKILL.md": {
+    "mtime": 1786064611.339345,
+    "ast_hash": "14706c56fef085f4b7ce5630f0802f3b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-connect-edges/SKILL.md": {
+    "mtime": 1786064611.3033195,
+    "ast_hash": "f0bfc5a6d9b9617faed425635ee0f9b5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-capture-frame/SKILL.md": {
+    "mtime": 1786064611.2587843,
+    "ast_hash": "49cdf105ab3d5ddbb3a12e15b7535f59",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-prefab-close/SKILL.md": {
+    "mtime": 1786064611.2364688,
+    "ast_hash": "d21187bb7757d0216b207d1f8b1eace0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-sample-heights/SKILL.md": {
+    "mtime": 1786064611.3297608,
+    "ast_hash": "bad04955575c48f5f88ab9b8b00803e7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tool-set-enabled-state/SKILL.md": {
+    "mtime": 1786064611.2785323,
+    "ast_hash": "1d0b3ab7a9ce4f813e1ef70465dc7d30",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/editor-application-get-state/SKILL.md": {
+    "mtime": 1786064611.2405698,
+    "ast_hash": "5a40a0c54481fd9823e171cd0a408eaf",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/object-modify/SKILL.md": {
+    "mtime": 1786064611.255348,
+    "ast_hash": "a026a9215f7b1954c1514e20e99ea7e9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-get-knots/SKILL.md": {
+    "mtime": 1786064611.3150895,
+    "ast_hash": "a04533a6068d6517e28b1fa847954afc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-get/SKILL.md": {
+    "mtime": 1786064611.2867205,
+    "ast_hash": "293442b2de40a9c20cc90b4bdcc747cf",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-prefab-save/SKILL.md": {
+    "mtime": 1786064611.2384157,
+    "ast_hash": "aa9616b1578fbbd3f7e2e03875143d51",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-binding-add/SKILL.md": {
+    "mtime": 1786064611.2835565,
+    "ast_hash": "9443504d2c75f01de15cce0ff8d813e1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-surface-add/SKILL.md": {
+    "mtime": 1786064611.2963045,
+    "ast_hash": "03fd9190a8e925d06271454854fb8681",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-create-rule-tile/SKILL.md": {
+    "mtime": 1786064611.3369915,
+    "ast_hash": "5b54f92084eab36ccf6169c82de92553",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-create-shape/SKILL.md": {
+    "mtime": 1786064611.3041162,
+    "ast_hash": "5544bc16375dbd1b424f183c84c66f27",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-action-add/SKILL.md": {
+    "mtime": 1786064611.2803302,
+    "ast_hash": "f9e9eac8c4783385642d8b6e68a2766c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-set-face-material/SKILL.md": {
+    "mtime": 1786064611.3093777,
+    "ast_hash": "e1ac37b7d8542d13158071526560d1ff",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-prefab-instantiate/SKILL.md": {
+    "mtime": 1786064611.2377007,
+    "ast_hash": "14253e8670cbdc07fc49bd338fd31a7a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-controlscheme-add/SKILL.md": {
+    "mtime": 1786064611.2862346,
+    "ast_hash": "da19047c37e8ec428f4ad834d1ae4a52",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-set-closed/SKILL.md": {
+    "mtime": 1786064611.3189914,
+    "ast_hash": "a0d7bcaea32c0de456c1a94b2b9d1576",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-insert-knot/SKILL.md": {
+    "mtime": 1786064611.3160903,
+    "ast_hash": "12f461b90f5dbf62836ad42e9d5562da",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/screenshot-game-view/SKILL.md": {
+    "mtime": 1786064611.2726297,
+    "ast_hash": "ca1f0f8cb5b967016b59afc68d394198",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/editor-selection-set/SKILL.md": {
+    "mtime": 1786064611.2419178,
+    "ast_hash": "59a526055cde58767eceb1f59d60a73a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-add-knot/SKILL.md": {
+    "mtime": 1786064611.3116724,
+    "ast_hash": "87319bdef217d698d7b6c2df8fe3cf07",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-destroy/SKILL.md": {
+    "mtime": 1786064611.2476518,
+    "ast_hash": "f5d29881c80c6e512b3385ea6747e832",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-component-list-all/SKILL.md": {
+    "mtime": 1786064611.2445605,
+    "ast_hash": "c9f32ed7c4dc2707e7a93e11f980d21d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-track-bind/SKILL.md": {
+    "mtime": 1786064611.3584712,
+    "ast_hash": "4aa053d5911cb667c0a334b6dc05818a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-copy/SKILL.md": {
+    "mtime": 1786064611.2312326,
+    "ast_hash": "a50123677cac30d8e3732232438b7d6f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/reflection-method-find/SKILL.md": {
+    "mtime": 1786064611.2666516,
+    "ast_hash": "4fef0b8991d87beb481e6f367e0465c2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-size/SKILL.md": {
+    "mtime": 1786064611.3331416,
+    "ast_hash": "d405fd9370a629efeb1a49e3d3889fae",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-create/SKILL.md": {
+    "mtime": 1786064611.2674935,
+    "ast_hash": "76cbc23a78d1e5851a9db5f2f4e334b7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-find/SKILL.md": {
+    "mtime": 1786064611.232177,
+    "ast_hash": "c842f1095aea90a81260a06ee7a8fe18",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-flip-normals/SKILL.md": {
+    "mtime": 1786064611.3060508,
+    "ast_hash": "f471123b7c84a02b11b448a0c4b6244b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animator-create/SKILL.md": {
+    "mtime": 1786064611.2162561,
+    "ast_hash": "287b1c312f5de9152d3af471c5c9a628",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-clip-add/SKILL.md": {
+    "mtime": 1786064611.3517478,
+    "ast_hash": "c1b91c8f365bf2f5d1d4e434e0071431",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-add-extension/SKILL.md": {
+    "mtime": 1786064611.2197511,
+    "ast_hash": "9dcc42c6323de5f5b947528a7bc04fea",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-priority/SKILL.md": {
+    "mtime": 1786064611.2300336,
+    "ast_hash": "f682a41cc795f23bb8a2a43fdf3c712e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-get-rendering-stats/SKILL.md": {
+    "mtime": 1786064611.2606468,
+    "ast_hash": "20d251836f174c3bcc8df1528f6068ac",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-set-tangent-mode/SKILL.md": {
+    "mtime": 1786064611.3204448,
+    "ast_hash": "98ec56ab0f55dae73502d87fcc80960f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-asset-create/SKILL.md": {
+    "mtime": 1786064611.2830062,
+    "ast_hash": "3193a4f040087d4b9d0be8cd8e1d0470",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-start/SKILL.md": {
+    "mtime": 1786064611.2629707,
+    "ast_hash": "b2a895e483e645e2fea8b6f69c07b069",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-list-opened/SKILL.md": {
+    "mtime": 1786064611.2692606,
+    "ast_hash": "edfbe7f57a895866b068fa35d26b6b85",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-modify/SKILL.md": {
+    "mtime": 1786064611.3568294,
+    "ast_hash": "881d7d9ba9a52274b9a43083daf6506b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-modify/SKILL.md": {
+    "mtime": 1786064611.3177583,
+    "ast_hash": "90cda117a18472f2a988e53a95d3743f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-extrude/SKILL.md": {
+    "mtime": 1786064611.3054528,
+    "ast_hash": "e4d0ffa7d58b38b3263fe8b4148327cb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-set-pivot/SKILL.md": {
+    "mtime": 1786064611.3100536,
+    "ast_hash": "8ed52538f0675d29d4a5522218d2398a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animator-get-data/SKILL.md": {
+    "mtime": 1786064611.2177148,
+    "ast_hash": "c90d92f79e02b6a612f7891f3187a5ba",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/package-list/SKILL.md": {
+    "mtime": 1786064611.2571769,
+    "ast_hash": "dfd3d8adb3f47e282b11ed94aa8c36c3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-aim/SKILL.md": {
+    "mtime": 1786064611.225632,
+    "ast_hash": "9577eace43d4132776711516e62c8c2c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/unity-skill-generate/SKILL.md": {
+    "mtime": 1786064611.3601882,
+    "ast_hash": "ac5ce9a44a051654d1066ef347ebf8ff",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/script-execute/SKILL.md": {
+    "mtime": 1786064611.2749934,
+    "ast_hash": "11c0ca1066dad4bf4ccf3840fffc2cbd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-list/SKILL.md": {
+    "mtime": 1786064611.3558497,
+    "ast_hash": "e821b8ee3b4e237494c7b0ac4fc03af1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-brain-ensure/SKILL.md": {
+    "mtime": 1786064611.2204978,
+    "ast_hash": "910dd0a38f8e24bea8c766f52692a0a4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-list/SKILL.md": {
+    "mtime": 1786064611.3401856,
+    "ast_hash": "e0981edb17de815952f1c51e86fbbf5b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/animation-create/SKILL.md": {
+    "mtime": 1786064611.2132444,
+    "ast_hash": "8ce9254618998287b26a8b64cdc9a608",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-stop/SKILL.md": {
+    "mtime": 1786064611.263583,
+    "ast_hash": "f92f7bb768b2a75790c7349993a37d02",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-refresh/SKILL.md": {
+    "mtime": 1786064611.2359796,
+    "ast_hash": "ff23f1c5cead4d0f4b4a0e11dae2307a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-camera-list/SKILL.md": {
+    "mtime": 1786064611.223101,
+    "ast_hash": "952acb4e8c099261dd70312bc95279a0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-modify/SKILL.md": {
+    "mtime": 1786064611.252005,
+    "ast_hash": "17fc76b52d4ab67709240af238990004",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/package-remove/SKILL.md": {
+    "mtime": 1786064611.2575684,
+    "ast_hash": "6dfabd924f34d3b00ebd51db28d03fa5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-camera-get/SKILL.md": {
+    "mtime": 1786064611.222537,
+    "ast_hash": "3effd34073a3fcbf3e14d5b941499af4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/unity-tool-list/SKILL.md": {
+    "mtime": 1786064611.2780442,
+    "ast_hash": "73bb53729374ed764098ae08518e2a86",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-clear/SKILL.md": {
+    "mtime": 1786064611.3358035,
+    "ast_hash": "cd3c8dfe6c20fd749ce7e2ffa3398988",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-modifier-add/SKILL.md": {
+    "mtime": 1786064611.2924976,
+    "ast_hash": "763b277198058d736c8466e52e1e28cf",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-duplicate/SKILL.md": {
+    "mtime": 1786064611.2483008,
+    "ast_hash": "252bb2f0f1210fd3a25b55b4fb40636f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/scene-set-active/SKILL.md": {
+    "mtime": 1786064611.2710729,
+    "ast_hash": "7d08ab3f11fb72d27a2856995142e3a4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-body/SKILL.md": {
+    "mtime": 1786064611.226362,
+    "ast_hash": "6abac6dac1b7a2455360b0f62dd6c493",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/reflection-method-call/SKILL.md": {
+    "mtime": 1786064611.2656608,
+    "ast_hash": "88b3f883d8ed657a12960621f578d2fb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-remove-knot/SKILL.md": {
+    "mtime": 1786064611.3184054,
+    "ast_hash": "ab839a803cb4bd0853740f8380dd7f8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-create-poly-shape/SKILL.md": {
+    "mtime": 1786064611.3081825,
+    "ast_hash": "f26ced808292a394b6ae2814384ceae6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-detail-prototypes/SKILL.md": {
+    "mtime": 1786064611.3304098,
+    "ast_hash": "fb9b5d370a423a897d7c0dee47d601b6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-get-mesh-info/SKILL.md": {
+    "mtime": 1786064611.3067918,
+    "ast_hash": "e1e88640fef4a34905f18debcc575103",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/inputsystem-actionmap-remove/SKILL.md": {
+    "mtime": 1786064611.2814238,
+    "ast_hash": "2d79b7352fcdcaf2357dc8469bc0f915",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-remove-layer/SKILL.md": {
+    "mtime": 1786064611.3289814,
+    "ast_hash": "a42c3e02354c10ae604af3b4b0c15ce6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-set-collider-type/SKILL.md": {
+    "mtime": 1786064611.3445547,
+    "ast_hash": "df258e2a94bf8db87db161bb9f317f67",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-clear-data/SKILL.md": {
+    "mtime": 1786064611.2592177,
+    "ast_hash": "366bb1ed676526e286a5df1edee1c227",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-modifier-volume-add/SKILL.md": {
+    "mtime": 1786064611.2934873,
+    "ast_hash": "429c45f9126e499fb2294adb45e2cb6b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-component-modify/SKILL.md": {
+    "mtime": 1786064611.2456446,
+    "ast_hash": "71cb048d9b8344555ac3a20ac85008fa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-get-memory-stats/SKILL.md": {
+    "mtime": 1786064611.2599075,
+    "ast_hash": "316599e390a721c2227b0ff7f9b2b0fd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-get/SKILL.md": {
+    "mtime": 1786064611.2239258,
+    "ast_hash": "e9894bb09fc39ff859c168ba71fbbbe9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/type-get-json-schema/SKILL.md": {
+    "mtime": 1786064611.279425,
+    "ast_hash": "0149bc2babf8618fbe1bc68e308f6299",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/cinemachine-set-default-blend/SKILL.md": {
+    "mtime": 1786064611.2280803,
+    "ast_hash": "9e2c94d4e726f2ec9ce047cb5b946abd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-set-heightmap-resolution/SKILL.md": {
+    "mtime": 1786064611.3310134,
+    "ast_hash": "a641697892cab3e3a27c25f15c913e42",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-set-orientation/SKILL.md": {
+    "mtime": 1786064611.3460276,
+    "ast_hash": "8f4506dccfd629cc541812ff43237671",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-component-get/SKILL.md": {
+    "mtime": 1786064611.2441487,
+    "ast_hash": "02971af46ddb32a960c0cfd5316c94b0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-agent-set-destination/SKILL.md": {
+    "mtime": 1786064611.2892237,
+    "ast_hash": "c73d0796422ba88ecef7a373aa62bc7a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-save-data/SKILL.md": {
+    "mtime": 1786064611.262515,
+    "ast_hash": "e0a23fdc64b97f31bb0b605b88da2240",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/splines-container-create/SKILL.md": {
+    "mtime": 1786064611.312658,
+    "ast_hash": "1a5e6e689cb4073dc6181b7b3a93d6ab",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/navigation-link-add/SKILL.md": {
+    "mtime": 1786064611.290955,
+    "ast_hash": "f4c38403aaac56995a09b6eda213f7de",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-track-list/SKILL.md": {
+    "mtime": 1786064611.3589532,
+    "ast_hash": "81d3468d330ddad0cb1e8cf942490a25",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-enable-module/SKILL.md": {
+    "mtime": 1786064611.2595174,
+    "ast_hash": "6b84552da2b085987e2f33aae3e63f43",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-get/SKILL.md": {
+    "mtime": 1786064611.324369,
+    "ast_hash": "57b95907234229019561e41c1aa515e9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-create/SKILL.md": {
+    "mtime": 1786064611.3365026,
+    "ast_hash": "88ae802efa0b8bd344894dde68ecac94",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-clip-move/SKILL.md": {
+    "mtime": 1786064611.353166,
+    "ast_hash": "2c035ac2750e097ea36cb15349ccfd7e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/screenshot-isolated/SKILL.md": {
+    "mtime": 1786064611.2736096,
+    "ast_hash": "3d11ff6ee2021cf401d5f96433585646",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/terrain-place-trees/SKILL.md": {
+    "mtime": 1786064611.3284805,
+    "ast_hash": "8d19d5a1c3855099fb443a53a4d679f3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-marker-add/SKILL.md": {
+    "mtime": 1786064611.3562615,
+    "ast_hash": "6a27f9067935cbd8b9e3e98123d407c2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/script-read/SKILL.md": {
+    "mtime": 1786064611.2755268,
+    "ast_hash": "442660ef9ecc0d9cde669fb05fda0fbb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/profiler-get-script-stats/SKILL.md": {
+    "mtime": 1786064611.2610066,
+    "ast_hash": "aa339fca1af96199c676f41260999d4f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-shader-get-data/SKILL.md": {
+    "mtime": 1786064611.2394636,
+    "ast_hash": "fa3b2b2777d12d29699633e0a6355a2d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/timeline-director-bind/SKILL.md": {
+    "mtime": 1786064611.3548732,
+    "ast_hash": "96327e62d80c473247328f11c2d12b67",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-find-built-in/SKILL.md": {
+    "mtime": 1786064611.232685,
+    "ast_hash": "a32586e66a5f4ae36952a2d1c5b2a716",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/screenshot-camera/SKILL.md": {
+    "mtime": 1786064611.2720697,
+    "ast_hash": "d3fbf04ff53205f2b6a3ebcdeb55f95b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-set-parent/SKILL.md": {
+    "mtime": 1786064611.2533455,
+    "ast_hash": "16da5c70f379a87a3660bab8e63bdc7f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/gameobject-component-destroy/SKILL.md": {
+    "mtime": 1786064611.2431407,
+    "ast_hash": "92fd496afcafe574b204212ecc0c3a8c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/assets-material-create/SKILL.md": {
+    "mtime": 1786064611.2338345,
+    "ast_hash": "2a594e921dc7177682905b73b7eb5587",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/probuilder-delete-faces/SKILL.md": {
+    "mtime": 1786064611.3046968,
+    "ast_hash": "13607781c491764553ef758a668da648",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.claude/skills/tilemap-get/SKILL.md": {
+    "mtime": 1786064611.3385813,
+    "ast_hash": "b9e56ad191fb3e902ba83366d2db8085",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/SIM_SPEC_HACKSLASH.md": {
+    "mtime": 1786086345.2478237,
+    "ast_hash": "2106b65cfd681541862a6ca48c6db753",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/RELEASE_NOTES.md": {
+    "mtime": 1785935139.9688761,
+    "ast_hash": "fd81b9a9cb91250645f052ad82e8c6cc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ICON_INTEGRATION_GUIDE.md": {
+    "mtime": 1785980456.2252672,
+    "ast_hash": "6f0d450c85a7fc2030e0e55aa8f8e0e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/SIM_SPEC_CAMPAIGN.md": {
+    "mtime": 1785922169.9128828,
+    "ast_hash": "2ab495fb2810d542f20c151ae543a39b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/03-team-roles.md": {
+    "mtime": 1785942772.2348003,
+    "ast_hash": "55fe884adf30a07d7e71241cbe16e5ff",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/00-submission-guide.md": {
+    "mtime": 1785940654.7407875,
+    "ast_hash": "644a984527c02b33456f045518852b79",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/02-ai-tech.md": {
+    "mtime": 1785942218.0071964,
+    "ast_hash": "7427327d294c6223173d1ed46603ec03",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/01-game-overview.md": {
+    "mtime": 1785941605.9390366,
+    "ast_hash": "ddb0c6034eda542307558b12a57da8b0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/04-scene-synopsis.md": {
+    "mtime": 1785994311.569962,
+    "ast_hash": "d770ae64284f07596e5ed8c63828b54d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/README.md": {
+    "mtime": 1785943178.5079193,
+    "ast_hash": "8384f24977cee771a6a4d37705ca77bd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/conflicts.md": {
+    "mtime": 1786076309.321724,
+    "ast_hash": "ff854cb81696f543e00e1d9d16544176",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/terrain-shell-survey.md": {
+    "mtime": 1785925028.71277,
+    "ast_hash": "21e5903602a22e70192f9009e8953020",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/audio-time-input-unity-docs.md": {
+    "mtime": 1785934604.0255127,
+    "ast_hash": "c7ebf114d6e6dbc9a8d1d01cce8aea7e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/boss-phase-metric-research.md": {
+    "mtime": 1785922386.377737,
+    "ast_hash": "11fbdaa4d783f0947561d3cc3ec8f7ef",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/motion-clip-survey.md": {
+    "mtime": 1785923378.2474403,
+    "ast_hash": "10e9786c9a11f00764121b19053fbeb6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/boss-numeric-survey.md": {
+    "mtime": 1785922207.0414104,
+    "ast_hash": "090c2254c98b7d39076f2fe1dca6ac24",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/research/ui-tone-audit.md": {
+    "mtime": 1785923595.6559708,
+    "ast_hash": "ed9a837b693d61ba701cad7c75b65054",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/integrated-combat-vfx-spec.md": {
+    "mtime": 1785919297.3787856,
+    "ast_hash": "9ba543d6e760f69bad7845fbafef7f1e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/icon-redesign-plan.md": {
+    "mtime": 1785979732.9747376,
+    "ast_hash": "dfb0a885e0deebe2ab4c80ffa6e6c1ea",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/input-depth-spec.md": {
+    "mtime": 1785929721.9734986,
+    "ast_hash": "ebc70bf200810675ba438b0efa66d90c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/boss-phase-metric-definition.md": {
+    "mtime": 1785923009.4160028,
+    "ast_hash": "430836fd68984dbd88201aa89f4f6b9c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/deep-interview-cinder-court-dungeon-revival.md": {
+    "mtime": 1785886959.847471,
+    "ast_hash": "26a01d18de986114163b6b0d96955d98",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/improvement-brainstorm.md": {
+    "mtime": 1785937315.2104857,
+    "ast_hash": "a216b6c01fe0920554b2c14e50274d72",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/integrated-campaign-level-spec.md": {
+    "mtime": 1785919297.3782413,
+    "ast_hash": "1ef1e0b00345e6f48e78e160a6250a94",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/combat-feel-boss-phase-spec.md": {
+    "mtime": 1785906834.3825889,
+    "ast_hash": "7ea203992143128d5956ec77b3ccbe1e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/integrated-ui-input-spec.md": {
+    "mtime": 1785919297.3792222,
+    "ast_hash": "cc9cacc9187fbc8983b90064e2244715",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/threat-arrow-visual-verification.md": {
+    "mtime": 1785921952.7599337,
+    "ast_hash": "72d0d29d5b6702fa4facca9ed1fa68c9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/intake/production-brief.md": {
+    "mtime": 1786068396.6790965,
+    "ast_hash": "f0e8d1d01a39ce9e550363a5e98fa376",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/retrospectives/2026-08-04-release-cycles.md": {
+    "mtime": 1785887709.1929972,
+    "ast_hash": "2ea8c5c1fc0062add313ee3844984fea",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/retrospectives/cycle-1-retrospective.md": {
+    "mtime": 1785862270.5361304,
+    "ast_hash": "e8cd0551e0a2722ebe94c210ad48d512",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icon-integration-summary.md": {
+    "mtime": 1785980648.851261,
+    "ast_hash": "c8b950862a131f2512210e52d7d0f42c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md": {
+    "mtime": 1786067562.841568,
+    "ast_hash": "3d45297094f15d2a3ba308dfb768a5e0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md": {
+    "mtime": 1786067562.840723,
+    "ast_hash": "cc3ee83f9a06f683f10daf5ff8ae1305",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md": {
+    "mtime": 1785861411.1580205,
+    "ast_hash": "558961f9eb58680a1485de4730dd6087",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/pdf/00-submission-guide.pdf": {
+    "mtime": 1785943921.1140902,
+    "ast_hash": "12ed9d3d105d1be72645dffd7aa1d2fa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/pdf/02-ai-tech.pdf": {
+    "mtime": 1785943931.8641608,
+    "ast_hash": "a3a89bc1cf64cd221deeb0ab3192797a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/pdf/03-team-roles.pdf": {
+    "mtime": 1785943937.2986817,
+    "ast_hash": "325eeb97c40086e622ac9cfc7d650572",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/pdf/01-game-overview.pdf": {
+    "mtime": 1785943926.5152667,
+    "ast_hash": "017d3aa0ecc92dd12e62ae1cfeb514d1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/video/brand/public/app-lantern.png": {
+    "mtime": 1785837725.0125928,
+    "ast_hash": "9e32178af250008c44e7ca85285cad8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/web/app-icon-192.png": {
+    "mtime": 1785837212.113315,
+    "ast_hash": "5749f0f91d20765b1d5981967af6e346",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/branding/cinder-court-link-preview.png": {
+    "mtime": 1785855568.2713559,
+    "ast_hash": "940c83de981047eec60841599e109742",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/branding/cinder-court-link-preview-source.png": {
+    "mtime": 1785855549.9898942,
+    "ast_hash": "fe6d0cbb65fbdbaecf7f9b54a2aeb1cb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/capture-authenticity.svg": {
+    "mtime": 1785830716.140003,
+    "ast_hash": "5b421c3c1a922279b528fbefec395d7c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/team-lanes.svg": {
+    "mtime": 1785830716.1407487,
+    "ast_hash": "39158be50e5319a2c77fa5c069479286",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/ai-pipeline.svg": {
+    "mtime": 1785830716.1413243,
+    "ast_hash": "7ad7dc5a0ea1a4c95fc99e2109b3ab3b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/range-asymmetry.svg": {
+    "mtime": 1785830716.1418262,
+    "ast_hash": "fb920b723cdac833c95d6824faddb934",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/core-loop.svg": {
+    "mtime": 1785830716.1422606,
+    "ast_hash": "dc72a9f4054523bf93c7a5663c2528f2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/scenes/04-boss-entry.png": {
+    "mtime": 1785979093.1488922,
+    "ast_hash": "8a725da14c009aaa627ee14c15b30180",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/scenes/01-intro.png": {
+    "mtime": 1785978860.2324255,
+    "ast_hash": "dbd560894064588e34acc7c471d032f2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/scenes/02-stage-entry.png": {
+    "mtime": 1785978923.9568315,
+    "ast_hash": "b25ab4792f40b58ab626e372fd8c2d20",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/scenes/03-transition.png": {
+    "mtime": 1785979004.1065562,
+    "ast_hash": "17b0259ccbe479a395171b6dcd38d9a4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/assets/diagrams/hackslash-flow.svg": {
+    "mtime": 1785922972.404628,
+    "ast_hash": "f0f24758f70a8106f42ad8b22facf116",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/assets/diagrams/game-flow.svg": {
+    "mtime": 1785922972.4042242,
+    "ast_hash": "141194e4ccbb6eb0e8fee25dbf78abd5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/assets/vfx-command-flow.svg": {
+    "mtime": 1785922972.4053884,
+    "ast_hash": "ac1446b681475e96dc9e9739e93f6043",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/threat-arrow-evidence/idle-static-frames.png": {
+    "mtime": 1785921908.716551,
+    "ast_hash": "d93ddd3bf64593016c88ada5b040935b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/threat-arrow-evidence/moving-frames-no-arrow.png": {
+    "mtime": 1785921908.7186732,
+    "ast_hash": "727847ef98d51fbf80eb8c28ce164e17",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/threat-arrow-evidence/arrow-6x-taper.png": {
+    "mtime": 1785921908.7150052,
+    "ast_hash": "fcc44452c9d7458ee390008a0db1eee9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/w-telegraph-quad-defect-diff.png": {
+    "mtime": 1785909342.7885666,
+    "ast_hash": "7b6287ba6adbce52b16eb26e3760845f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-w-telegraph-contract.png": {
+    "mtime": 1785909342.7389016,
+    "ast_hash": "2a22cc1e984785c5dd652cb1730eb7a4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/portrait-lore-fixed.png": {
+    "mtime": 1785906643.382443,
+    "ast_hash": "b18029cceb13a30986acb2a4872961bd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-k3-element-compare.png": {
+    "mtime": 1785910602.2783227,
+    "ast_hash": "4a4a14711c2dca70c70a679814c62513",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-prologue-side-camera.png": {
+    "mtime": 1785907131.9841635,
+    "ast_hash": "4e51e883bb360f6ec1ece886a4cb6d1f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-tooling-equip.png": {
+    "mtime": 1785935080.2529457,
+    "ast_hash": "052e14cbff6e82fa5fd420d89bbe59d3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-k3-element-flash.png": {
+    "mtime": 1785911893.5438063,
+    "ast_hash": "9199eba9e2cc022347a14bf6ff91734b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/deployed-w-telegraph-rings.png": {
+    "mtime": 1785909342.6898217,
+    "ast_hash": "5ce8736bfaf44916aab3b9f57bf36482",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/contact-sheet.png": {
+    "mtime": 1785836951.8825521,
+    "ast_hash": "a40f305238907e5f93d66316c5812a0d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-ward.png": {
+    "mtime": 1785836736.1703246,
+    "ast_hash": "9b9f63fd72b23e98e5e650cfb880b213",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-dash.png": {
+    "mtime": 1785836686.029441,
+    "ast_hash": "12b172238d41f2fbda4c579ec6f19330",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/pickup-ember.png": {
+    "mtime": 1785839996.0891252,
+    "ast_hash": "3cbfd3472c088233ab69b5d505a9d612",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-aegis.png": {
+    "mtime": 1785836699.1460495,
+    "ast_hash": "758f92b2c94f0dc152fc1c242cace43d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/app-lantern.png": {
+    "mtime": 1785836913.7345824,
+    "ast_hash": "53e4a3aaf0eb9dd366cd275b382bf0a7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/equip-cloak.png": {
+    "mtime": 1785836834.86394,
+    "ast_hash": "ca77da47ca676e55457536663af19fe4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/ui-button.png": {
+    "mtime": 1785837293.6017554,
+    "ast_hash": "e69847c28e9db883c36fde951e8cecac",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-bolt.png": {
+    "mtime": 1785836619.5829563,
+    "ast_hash": "bad3425705c5a479857dd5c6b8f91877",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/stat-swiftness.png": {
+    "mtime": 1785836910.4092484,
+    "ast_hash": "6fca3d987c3a646f586098d286b180f6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/equip-weapon.png": {
+    "mtime": 1785836769.2986887,
+    "ast_hash": "0ebb802d4580f32e7052a09aca344b8c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/ui-joystick.png": {
+    "mtime": 1785844091.027038,
+    "ast_hash": "e1e8ccc0b8cea997a9c6ebace8594fe8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-strike.png": {
+    "mtime": 1785836652.7307603,
+    "ast_hash": "eb3218e705a47be66326ac7c68d3f755",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/pickup-flask.png": {
+    "mtime": 1785840061.3907182,
+    "ast_hash": "0b7cea611ede4a52f7f0a60bea60cb46",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/stat-attack.png": {
+    "mtime": 1785836839.113045,
+    "ast_hash": "784577844c856faf4fcdf1bfe8bf58e1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/equip-lantern.png": {
+    "mtime": 1785836770.415122,
+    "ast_hash": "a8f5ac8f3b1bfbd58e16074add5cc10e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/stat-vitality.png": {
+    "mtime": 1785836847.7403839,
+    "ast_hash": "9fc7c9f986f0afdc674e59ac1fc7b911",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/pickup-relic.png": {
+    "mtime": 1785840030.2851293,
+    "ast_hash": "9b6b2b15ca67f51d37849c878a228e23",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-nova.png": {
+    "mtime": 1785836593.2366729,
+    "ast_hash": "1a959999ee907df0d8a0e0fdfd7d100e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/icons/raw/skill-pulse.png": {
+    "mtime": 1785836591.8986847,
+    "ast_hash": "33bb186fcb5ee125b80eb446f58e2c6d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-echo-throne-textures/albedo-mat-echo-throne-apron.png": {
+    "mtime": 1785893735.343673,
+    "ast_hash": "6c10238fb4741c9fafaa59f58c3fe840",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-abyss-chancel-textures/albedo-mat-abyss-chancel-apron.png": {
+    "mtime": 1785893731.7502155,
+    "ast_hash": "6314afdc502c54726f9f671675c926f1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-abyss-chancel-textures/albedo-abyss-chancel-terrain-albedo-cleaned.png": {
+    "mtime": 1785893731.7521386,
+    "ast_hash": "74c09cb8d07aaa2fcb4fac0bfa61649a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-cinder-span-textures/albedo-cinder-span-feature-pbr.png": {
+    "mtime": 1785893733.5614824,
+    "ast_hash": "bf2d3a4f669a89f12112d203313d0b8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-cinder-span-textures/albedo-mat-cinder-span-apron.png": {
+    "mtime": 1785893733.5572808,
+    "ast_hash": "3b047a045c0a9aca9c0f555e156f5e8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Terrain/terrain-cinder-span-textures/albedo-cinder-span-prop-pbr.png": {
+    "mtime": 1785893733.567057,
+    "ast_hash": "06201e9fe2a7de4c2f1905d2e0efc67f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/shade-textures/texture_diffuse_001.png": {
+    "mtime": 1785912452.8586328,
+    "ast_hash": "21bc5dced0fef89517a2d5c610639f96",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/shade-textures/texture_normal_001.png": {
+    "mtime": 1785912452.8645487,
+    "ast_hash": "2fbf18d8dd776f7b04214515f5453927",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/broken-court-monarch-boss-textures/texture_diffuse_001.png": {
+    "mtime": 1785912448.7912943,
+    "ast_hash": "d4b246f086a7cba0b72a08b1cf8a95cd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/broken-court-monarch-boss-textures/texture_normal_001.png": {
+    "mtime": 1785912448.798999,
+    "ast_hash": "9ae7cdac9e444ca5abbe7fc42aef07ae",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/shadow-commander-boss-textures/texture_diffuse_001.png": {
+    "mtime": 1785912453.3970191,
+    "ast_hash": "44ddd71f26eebc9b2a1a6ca9eeae92e8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/shadow-commander-boss-textures/texture_normal_001.png": {
+    "mtime": 1785912453.4036193,
+    "ast_hash": "4a2459130ff7fc6045af3ae4577f7f8a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/guard-textures/texture_diffuse.png": {
+    "mtime": 1785912450.50813,
+    "ast_hash": "5479a9e96824bd2d307f4cec2c43a3dc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/guard-textures/texture_normal.png": {
+    "mtime": 1785912450.5141997,
+    "ast_hash": "4b446b957417c99faa898e0ede201c94",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/scout-textures/texture_diffuse_001.png": {
+    "mtime": 1785912452.2873492,
+    "ast_hash": "e87bf89896e97d78b5fe6569cb0ec58d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/scout-textures/texture_normal_001.png": {
+    "mtime": 1785912452.2935674,
+    "ast_hash": "7ace69ceada71b9ad9be79ae2f434eee",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/ember-cohort-textures/texture_diffuse.png": {
+    "mtime": 1785912449.8946664,
+    "ast_hash": "2b92b25f835db076dc3ccbf4ee80c43d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/ember-cohort-textures/texture_normal.png": {
+    "mtime": 1785912449.8993776,
+    "ast_hash": "498a8e2ced2426b6ad06ca3f39c960a2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/possessed-textures/texture_diffuse_001.png": {
+    "mtime": 1785912451.705804,
+    "ast_hash": "df7ebdc8caf2e39a982bf66744eb0005",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/possessed-textures/texture_normal_001.png": {
+    "mtime": 1785912451.7103202,
+    "ast_hash": "1606048496fc84fc4c246421c382878e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/lantern-reaver-textures/texture_diffuse_001.png": {
+    "mtime": 1785912451.097681,
+    "ast_hash": "968b374ffc4cef71e2b68cddb869b502",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/lantern-reaver-textures/texture_normal_001.png": {
+    "mtime": 1785912451.104602,
+    "ast_hash": "27458abed57940d6e6cae8b3947e338b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Scenes/scene-boss-entry.png": {
+    "mtime": 1785980215.0516737,
+    "ast_hash": "8a725da14c009aaa627ee14c15b30180",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Scenes/scene-intro.png": {
+    "mtime": 1785980215.040175,
+    "ast_hash": "dbd560894064588e34acc7c471d032f2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Scenes/scene-transition.png": {
+    "mtime": 1785980215.0478957,
+    "ast_hash": "17b0259ccbe479a395171b6dcd38d9a4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Scenes/scene-stage-entry.png": {
+    "mtime": 1785980215.043418,
+    "ast_hash": "b25ab4792f40b58ab626e372fd8c2d20",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/ui-button-active.png": {
+    "mtime": 1785924973.5724146,
+    "ast_hash": "18e465f4a3f52e051b78a59ad7cf2834",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-ward.png": {
+    "mtime": 1785844230.9572353,
+    "ast_hash": "91c5f45fc303604a2499454ea20bfb6a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-dash.png": {
+    "mtime": 1785844230.0984921,
+    "ast_hash": "c657ced85a08c23dc9dcc1c0ce9865ff",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/ui-joystick-base.png": {
+    "mtime": 1785844232.0681896,
+    "ast_hash": "23a6d801dc7c6dedbf82b75da8ef05c3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/pickup-ember.png": {
+    "mtime": 1785844228.954861,
+    "ast_hash": "c530bb77fc8125555dffd4babd135ebe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/ui-joystick-nub.png": {
+    "mtime": 1785844232.0754979,
+    "ast_hash": "ea3f23329a78865a7c1b11ce80b9874d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-aegis.png": {
+    "mtime": 1785844229.621535,
+    "ast_hash": "bea1ebab7281b1d27d1a0ca578314b73",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/app-lantern.png": {
+    "mtime": 1785844228.0351183,
+    "ast_hash": "9e32178af250008c44e7ca85285cad8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/equip-cloak.png": {
+    "mtime": 1785844228.2537096,
+    "ast_hash": "dfd71904c3dd80b03551910e679cdbcc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/ui-button.png": {
+    "mtime": 1785924973.5702252,
+    "ast_hash": "b8feeb4c45750bb3197e61ee7c3f1414",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-bolt.png": {
+    "mtime": 1785844229.8607097,
+    "ast_hash": "3ed40e46f59ef2b51777dcf59e582b9b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/stat-swiftness.png": {
+    "mtime": 1785844231.4206583,
+    "ast_hash": "c494487a17978f5f8101fbf21ab48665",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/equip-weapon.png": {
+    "mtime": 1785844228.7222872,
+    "ast_hash": "a61e349b60c04f22c7a29fe489072387",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-strike.png": {
+    "mtime": 1785844230.7513645,
+    "ast_hash": "0da0c630ffd23865ad5e4c4099fd286e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/pickup-flask.png": {
+    "mtime": 1785844229.1802123,
+    "ast_hash": "a18760699b9b4ba9bb43f25401b22156",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/stat-attack.png": {
+    "mtime": 1785844231.1918385,
+    "ast_hash": "7fe8ac9e75259b1b105fdafb116c51e1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/equip-lantern.png": {
+    "mtime": 1785844228.4780648,
+    "ast_hash": "9009f9848477fb2886de23680e8933dd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/stat-vitality.png": {
+    "mtime": 1785844231.6380663,
+    "ast_hash": "bd337a4164f23be1a19fb0330de28069",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/pickup-relic.png": {
+    "mtime": 1785844229.4042096,
+    "ast_hash": "48dbbbe6ded37cc70e43c1c8d20827df",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-nova.png": {
+    "mtime": 1785844230.3131511,
+    "ast_hash": "6676b918568e0f003eb0c89adefb295e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/ui-button-disabled.png": {
+    "mtime": 1785924973.573878,
+    "ast_hash": "4b94f63616a937a7428901e51a46e412",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/skill-pulse.png": {
+    "mtime": 1785844230.526248,
+    "ast_hash": "6f2ef2fdd489cf861d777a1c2adba799",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/ui-pause.png": {
+    "mtime": 1785978963.611616,
+    "ast_hash": "e91cb4114f3856b508da0269dbeb007b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/ui-settings.png": {
+    "mtime": 1785978963.6454563,
+    "ast_hash": "4a1f82b330aab30ef22950eedaabd79f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/stat-oil-energy.png": {
+    "mtime": 1785978963.677352,
+    "ast_hash": "cd6dbfc13f71ef5901d29f9ab8d35d43",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/ui-play.png": {
+    "mtime": 1785978963.7075617,
+    "ast_hash": "f6e9eb3dec83d055e21046046aa1db38",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/skill-cooldown-ring.png": {
+    "mtime": 1785978963.7376645,
+    "ast_hash": "37ca1368d78c1995e953d1fa9a0aef2c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/skill-highlight.png": {
+    "mtime": 1785978963.7713337,
+    "ast_hash": "2b0ee9c5b519cfbca9e00ef425033d6e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/generated/ui-restart.png": {
+    "mtime": 1785978963.8040638,
+    "ast_hash": "05c11499696e90d409687ff777b8a1eb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/ui-button-active.png": {
+    "mtime": 1785980043.006531,
+    "ast_hash": "18e465f4a3f52e051b78a59ad7cf2834",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-ward.png": {
+    "mtime": 1785980043.0054362,
+    "ast_hash": "91c5f45fc303604a2499454ea20bfb6a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-dash.png": {
+    "mtime": 1785980043.0037932,
+    "ast_hash": "c657ced85a08c23dc9dcc1c0ce9865ff",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/ui-joystick-base.png": {
+    "mtime": 1785980043.007299,
+    "ast_hash": "23a6d801dc7c6dedbf82b75da8ef05c3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/pickup-ember.png": {
+    "mtime": 1785980043.0024655,
+    "ast_hash": "c530bb77fc8125555dffd4babd135ebe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/ui-joystick-nub.png": {
+    "mtime": 1785980043.0075598,
+    "ast_hash": "ea3f23329a78865a7c1b11ce80b9874d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-aegis.png": {
+    "mtime": 1785980043.003282,
+    "ast_hash": "bea1ebab7281b1d27d1a0ca578314b73",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/app-lantern.png": {
+    "mtime": 1785980043.001317,
+    "ast_hash": "9e32178af250008c44e7ca85285cad8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/equip-cloak.png": {
+    "mtime": 1785980043.001642,
+    "ast_hash": "dfd71904c3dd80b03551910e679cdbcc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/ui-button.png": {
+    "mtime": 1785980043.0070276,
+    "ast_hash": "b8feeb4c45750bb3197e61ee7c3f1414",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-bolt.png": {
+    "mtime": 1785980043.0035434,
+    "ast_hash": "3ed40e46f59ef2b51777dcf59e582b9b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/stat-swiftness.png": {
+    "mtime": 1785980043.0059483,
+    "ast_hash": "c494487a17978f5f8101fbf21ab48665",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/equip-weapon.png": {
+    "mtime": 1785980043.002203,
+    "ast_hash": "a61e349b60c04f22c7a29fe489072387",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-strike.png": {
+    "mtime": 1785980043.005132,
+    "ast_hash": "0da0c630ffd23865ad5e4c4099fd286e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/pickup-flask.png": {
+    "mtime": 1785980043.002738,
+    "ast_hash": "a18760699b9b4ba9bb43f25401b22156",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/stat-attack.png": {
+    "mtime": 1785980043.0057023,
+    "ast_hash": "7fe8ac9e75259b1b105fdafb116c51e1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/equip-lantern.png": {
+    "mtime": 1785980043.0019314,
+    "ast_hash": "9009f9848477fb2886de23680e8933dd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/stat-vitality.png": {
+    "mtime": 1785980043.0061932,
+    "ast_hash": "bd337a4164f23be1a19fb0330de28069",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/pickup-relic.png": {
+    "mtime": 1785980043.0030115,
+    "ast_hash": "48dbbbe6ded37cc70e43c1c8d20827df",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-nova.png": {
+    "mtime": 1785980043.0041077,
+    "ast_hash": "6676b918568e0f003eb0c89adefb295e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/ui-button-disabled.png": {
+    "mtime": 1785980043.0067844,
+    "ast_hash": "4b94f63616a937a7428901e51a46e412",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/regenerated/skill-pulse.png": {
+    "mtime": 1785980043.0047529,
+    "ast_hash": "6f2ef2fdd489cf861d777a1c2adba799",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/video/hongt-brand-bumper.mp4": {
+    "mtime": 1785837826.0989783,
+    "ast_hash": "495ad112fae00cff42000e7bcf6cc98e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/video/nan2026-cinder-court-unity-play.mp4": {
+    "mtime": 1785943888.0973237,
+    "ast_hash": "b8aa27e177a7bb276c22a0059ace5eb5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/HudIconIntegrationTests.cs": {
+    "mtime": 1785986454.170628,
+    "ast_hash": "a58e554091e6390ab83142b4723ce8b9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/scenario.md": {
+    "mtime": 1786002755.4510174,
+    "ast_hash": "f171fdfca5976e923bc5f6b80c7658e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/gen.sh": {
+    "mtime": 1786002755.4516664,
+    "ast_hash": "25dc79397e1093190b7239becd79429d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/frames/frame01.png": {
+    "mtime": 1785992942.3827035,
+    "ast_hash": "26d4c234029c845673bc3ec356fc37e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/IntroVideoView.cs": {
+    "mtime": 1786002755.4513307,
+    "ast_hash": "cd59ab27caeb2e8076432706ec35aa48",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/frames/frame02.png": {
+    "mtime": 1785993188.793134,
+    "ast_hash": "90923bd977b4acbe71eb0cc95f08d90d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/frames/frame03.png": {
+    "mtime": 1785993312.3523679,
+    "ast_hash": "c9db0197dbf3d8d47afd557dd3daa4bc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/frames/frame04.png": {
+    "mtime": 1785993450.306262,
+    "ast_hash": "5b129787122f49214215df1b2d66ce35",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/IntroVideoViewTests.cs": {
+    "mtime": 1785997124.2123823,
+    "ast_hash": "c598ad67326661ce4d502b6e3ade2a3e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/frames/frame05.png": {
+    "mtime": 1785993599.350967,
+    "ast_hash": "f57066f3e34d07213f850d297e284c5c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/intro-video/assemble.sh": {
+    "mtime": 1786002545.1275666,
+    "ast_hash": "2d784822eb211e2d59b26c4668454a87",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/nan2026/assets/video/cinder-court-intro.mp4": {
+    "mtime": 1786002562.0962617,
+    "ast_hash": "5c86c0015fb32c4d07936473275f82f1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/StreamingAssets/Video/cinder-court-intro.mp4": {
+    "mtime": 1786002562.0745513,
+    "ast_hash": "5c86c0015fb32c4d07936473275f82f1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/t0.5.png": {
+    "mtime": 1785993888.354392,
+    "ast_hash": "7fa60e51379bbc1204703880b43be684",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/t6.2.png": {
+    "mtime": 1785993888.6931179,
+    "ast_hash": "80b5ce0b6903fa98efe3435809a52a26",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/t3.5.png": {
+    "mtime": 1785993888.5183735,
+    "ast_hash": "8ccdce9e99d777cb9562a48daa4eab65",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/t7.2.png": {
+    "mtime": 1785993888.8851001,
+    "ast_hash": "686bcd37e395b2dc93d72eb8d5dd2d5e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/intro-video.json": {
+    "mtime": 1786002727.9401057,
+    "ast_hash": "abd667047a5bc82ee25993000f49e0fb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/amendment6-d67-companion-slot-proof.md": {
+    "mtime": 1785996020.7216103,
+    "ast_hash": "279bc15d7ec4e1695ad1b1975412e9f5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/mcp/paused-midintro.png": {
+    "mtime": 1785996883.5391848,
+    "ast_hash": "d78992edee42f333f484d9637f89c6c8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/CommandConsoleBuffer.cs": {
+    "mtime": 1785997089.6040087,
+    "ast_hash": "abc7f69cc7ea33c64e06dc5113de0366",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CommandConsoleBufferTests.cs": {
+    "mtime": 1785997326.8465497,
+    "ast_hash": "f31592c55946e8c96a9862a51e8c563e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/intro-video/mcp-playmode-verification.md": {
+    "mtime": 1786002798.5611205,
+    "ast_hash": "aec07aa70b7bdb26c3e6bf89561826cc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CommandConsoleFieldTests.cs": {
+    "mtime": 1785997714.038017,
+    "ast_hash": "339b4e280a1fc18a95f9fc4af8f331f8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/command-console-hangul-duplication.md": {
+    "mtime": 1785998024.7684755,
+    "ast_hash": "da04ad0f51c67e27bb3b2d9b563f52d6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/slice.sh": {
+    "mtime": 1785998727.775894,
+    "ast_hash": "96b7ef996cf83aff068745aac4ba8c4c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/hud-atlas-source.png": {
+    "mtime": 1785998360.996838,
+    "ast_hash": "f11515f29e0f2b2cc0a71c487b547502",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-hp-bar-frame.png": {
+    "mtime": 1785998747.299673,
+    "ast_hash": "a0b5c627ed62245bfefca2f13eaed5a0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-oil-bar-frame.png": {
+    "mtime": 1785998747.5257156,
+    "ast_hash": "6441553e2f3abd498c1a0e3ebf0aba57",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-stats-panel-bg.png": {
+    "mtime": 1785998748.140301,
+    "ast_hash": "17d6e410b3dee54ccbca99ba31c56901",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-hp-bar-fill.png": {
+    "mtime": 1785998747.41365,
+    "ast_hash": "aa1b5247265a17db9723fe2a65478456",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-shield-readout-frame.png": {
+    "mtime": 1785998749.120066,
+    "ast_hash": "5980e06c23d8c90f4ed0afdbade8f1a6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-boss-bar-frame.png": {
+    "mtime": 1785998748.5442595,
+    "ast_hash": "63f7d57b0bf87d564bfc40e800309886",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-meters-panel-bg.png": {
+    "mtime": 1785998748.0073922,
+    "ast_hash": "4c78d2a4e24c9effac3ca52551cb9f9b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-extraction-ring-frame.png": {
+    "mtime": 1785998748.789628,
+    "ast_hash": "27bcc6c24758d5b789ef356cbb5075f8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-xp-bar-fill.png": {
+    "mtime": 1785998747.869719,
+    "ast_hash": "54195ff5ff8ea206453ef6acad2276cc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-boss-bar-fill.png": {
+    "mtime": 1785998748.6690743,
+    "ast_hash": "1b3346df55a8c2861216a819d559cf61",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-xp-bar-frame.png": {
+    "mtime": 1785998747.7540035,
+    "ast_hash": "388d2f0f502b6f17e2f721fc31d424f7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-skill-card-frame-ready.png": {
+    "mtime": 1785998748.426034,
+    "ast_hash": "106a199fda7e3151ecf5f434c1250a8d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-oil-bar-fill.png": {
+    "mtime": 1785998747.6412845,
+    "ast_hash": "4dfee04301247a32723b5376ecbcb2cd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-combo-pip-gem.png": {
+    "mtime": 1785998749.0048406,
+    "ast_hash": "ebce1261f050f08a65fa0d363a00b4bb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-extraction-ring-fill.png": {
+    "mtime": 1785998748.9010937,
+    "ast_hash": "e8eb32ff200dc0f02b4975e977a87748",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/hud-atlas/test-slices/hud-skill-card-frame.png": {
+    "mtime": 1785998748.2747302,
+    "ast_hash": "7c0725addc49f9402e62447f650fe8ba",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-hp-bar-frame.png": {
+    "mtime": 1785998771.9509895,
+    "ast_hash": "0a9d81115a0f799f729b31a8ee7210e3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-oil-bar-frame.png": {
+    "mtime": 1785998772.1796134,
+    "ast_hash": "388663ba1cec37229e814e7a2866cd1f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-stats-panel-bg.png": {
+    "mtime": 1785998772.7835443,
+    "ast_hash": "7be096e0251d59d68c69e4af3ea9eeeb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-hp-bar-fill.png": {
+    "mtime": 1785998772.067752,
+    "ast_hash": "47fec0078888113a6297866917d360fd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-shield-readout-frame.png": {
+    "mtime": 1785998773.7470217,
+    "ast_hash": "73c3a2488458b5a565f19fd9342c79b1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-boss-bar-frame.png": {
+    "mtime": 1785998773.1768122,
+    "ast_hash": "e698f2e28e200d7240c15be528cbb7e4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-meters-panel-bg.png": {
+    "mtime": 1785998772.6495678,
+    "ast_hash": "ed3a9ba4ce3474c6aa082927e3a85a67",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-extraction-ring-frame.png": {
+    "mtime": 1785998773.4114301,
+    "ast_hash": "23d4c84c4ee10b0239271b8f4fc321e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-xp-bar-fill.png": {
+    "mtime": 1785998772.511284,
+    "ast_hash": "abf3415d14b73a895e444954392c9264",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-boss-bar-fill.png": {
+    "mtime": 1785998773.2938821,
+    "ast_hash": "8a23e160cbd51976b59618904663f4a8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-xp-bar-frame.png": {
+    "mtime": 1785998772.3982434,
+    "ast_hash": "e221a5cf38a7c9cfda6db5498522fcb7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-skill-card-frame-ready.png": {
+    "mtime": 1785998773.057882,
+    "ast_hash": "65bd48f2195125711867132c995982bb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-oil-bar-fill.png": {
+    "mtime": 1785998772.287848,
+    "ast_hash": "32b18673162899b17c7ce62cbcff704b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-combo-pip-gem.png": {
+    "mtime": 1785998773.629459,
+    "ast_hash": "92774fd09f3e437161cf15b40810e836",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-extraction-ring-fill.png": {
+    "mtime": 1785998773.5231154,
+    "ast_hash": "bad0d3aaa2a4e353b929afc32b975a50",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Resources/Icons/hud-skill-card-frame.png": {
+    "mtime": 1785998772.9190793,
+    "ast_hash": "967722cec008ff7659d0c93d19532fee",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/hud-atlas.json": {
+    "mtime": 1786002890.3089073,
+    "ast_hash": "4e6aad129f7782f5cb329f5ffbaad595",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/SwingPacingTests.cs": {
+    "mtime": 1786000250.254372,
+    "ast_hash": "1821d4da31fce3ecc78a5783834202c7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/attack-nt053-contact.png": {
+    "mtime": 1786001520.9724367,
+    "ast_hash": "f0112acaa993bb70d7d808a3ddc9723a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/idle-between-swings.png": {
+    "mtime": 1786001521.348519,
+    "ast_hash": "f98346ac74bb518217348f9a8821fd23",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/attack-nt078-followthrough.png": {
+    "mtime": 1786001521.1606243,
+    "ast_hash": "8afc6a19fedec8e8e8f46154ea7cab06",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/attack-nt022-windup.png": {
+    "mtime": 1786001520.7932327,
+    "ast_hash": "a86bf786525a956f5eafc04e99752b5a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/mcp-playmode-verification.md": {
+    "mtime": 1786004123.095025,
+    "ast_hash": "d23cb28190efd98c2b4e087ff889ce52",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/hud-atlas-editmode-verification.md": {
+    "mtime": 1786002922.3238726,
+    "ast_hash": "893c78c2a00280b3cb0c2e8d6820b96b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/swing-motion/deployed-pages-boot.png": {
+    "mtime": 1786004042.0202837,
+    "ast_hash": "1aa33c9a5b39b2c758d6ce008d4b1276",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/companion-autonomy-amendment-proposal.md": {
+    "mtime": 1786057650.6065485,
+    "ast_hash": "b98c3ac93316bdbb130cdc771b90d2e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/assets/weapon-reskin-plan.md": {
+    "mtime": 1786029025.710236,
+    "ast_hash": "f3e5f6cb286503a21eeac4301051c9ee",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/assets/weapon-concepts/weapon-dagger-concept.png": {
+    "mtime": 1786027525.8536282,
+    "ast_hash": "20557d512a1946991c92d13a4ba8293c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/assets/weapon-concepts/weapon-hammer-concept.png": {
+    "mtime": 1786027793.3687148,
+    "ast_hash": "8d39f092d4fa8bc4282c4f145b97b38b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/assets/weapon-concepts/weapon-bow-concept.png": {
+    "mtime": 1786027659.258083,
+    "ast_hash": "a2d832ada242a056d32122defe18f0c5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/weapon-reskin.json": {
+    "mtime": 1786028994.0316257,
+    "ast_hash": "d59fc1081e717d8f644178a2dd64a535",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/tools/blender/mcp_client.py": {
+    "mtime": 1786054784.2185383,
+    "ast_hash": "24f08fcc753975154509600970ebf17a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/intake/reference-ui-ocr.txt": {
+    "mtime": 1786055023.6180754,
+    "ast_hash": "2c48310e7f482f858b0e48d865e657fe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/intake/deep-interview-seed-ui-vfx-flow.md": {
+    "mtime": 1786063556.6830766,
+    "ast_hash": "f2148ff59470edbd628e9e31b3e5e845",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CompanionAutonomyTests.cs": {
+    "mtime": 1786062587.7136757,
+    "ast_hash": "9d03bbe958a8ee790e68a3a3d3e23898",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/CompanionSkillTests.cs": {
+    "mtime": 1786062587.7141466,
+    "ast_hash": "0f29a29a32e6d69ed16bfcacbfa43132",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/MomentumTests.cs": {
+    "mtime": 1786062442.2655153,
+    "ast_hash": "3b87ad5fa70af986c5c11b7cd9bb4011",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/raw/sources/2026-08-07-hackslash-design-guide-reference.md": {
+    "mtime": 1786065540.6163456,
+    "ast_hash": "3bc7839f0906f9617ff9ef5445714264",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/sources/2026-08-07-hackslash-design-guide-reference.md": {
+    "mtime": 1786067562.8420436,
+    "ast_hash": "b6a6d012e23f769ac9b444852878594e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/RoomObjectiveTests.cs": {
+    "mtime": 1786065825.1745455,
+    "ast_hash": "85fd6a5a8b027b205bfa2705bd3ba387",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/AGENTS.md": {
+    "mtime": 1786067618.431462,
+    "ast_hash": "d36cf050c465dd586c9aa407a2fbf445",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/audit-20260807/audit-AuditCoreSystems.md": {
+    "mtime": 1786067293.7395248,
+    "ast_hash": "973b695c3ec6af4a7631d1e62f90dddc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/audit-20260807/audit-AuditLootDrops.md": {
+    "mtime": 1786067293.7399464,
+    "ast_hash": "c0f5c75745d76bb3506fe501b944fa5b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/audit-20260807/audit-AuditPresentation.md": {
+    "mtime": 1786067293.7402847,
+    "ast_hash": "8171349ad6b5e25fcd9f33b04d802bba",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/audit-20260807/audit-AuditLevelDesign.md": {
+    "mtime": 1786067293.7416594,
+    "ast_hash": "0fcce4b31e4207b05c2aaa7800d062fa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/audit-20260807/audit-AuditBossPlayer.md": {
+    "mtime": 1786067293.741041,
+    "ast_hash": "c74f5973684bddfd150ce45ff0685c95",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/reports/2026-08-07-spec-vs-impl-audit.md": {
+    "mtime": 1786072727.2123742,
+    "ast_hash": "7283ac9c993977c4335349e58da6090e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/concepts/hongt-momentum-gauge-amendment-9.md": {
+    "mtime": 1786063609.557344,
+    "ast_hash": "dde232fdb74067edaf88741c3e8047fe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/concepts/hongt-companion-signature-skills-amendment-8.md": {
+    "mtime": 1786060637.230911,
+    "ast_hash": "6cb4b1939813121729bd501918ffa669",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/concepts/hongt-companion-autonomy-tick-order-trap.md": {
+    "mtime": 1786057451.1379948,
+    "ast_hash": "80a1a9acccb6c0a3b2ec61d21b064542",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/jeo-view-room-objective-report.md": {
+    "mtime": 1786068039.6953185,
+    "ast_hash": "bf6ee334557f36658a44f0e1fdf8b01d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/ViewColliderStripConventionTests.cs": {
+    "mtime": 1786068396.494801,
+    "ast_hash": "f36d82ee6aca7583dd730386110385ba",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/SkillShapeVocabularyTests.cs": {
+    "mtime": 1786068396.4932601,
+    "ast_hash": "121c3f4b30eb7d3cdf9d52a629ca4953",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/TrainingSurgeTests.cs": {
+    "mtime": 1786068396.4945474,
+    "ast_hash": "4bbf192689f9cbf4aaf6d4ca6a6c7729",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/LootEconomyTests.cs": {
+    "mtime": 1786075409.2354782,
+    "ast_hash": "a325432a8b7fb2ec96d39a60bc902653",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/LobbyEconomyTests.cs": {
+    "mtime": 1786075506.3673277,
+    "ast_hash": "ed06dda797fbf3be6ada503fb7adad1f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/DungeonGoldenDigestTests.cs": {
+    "mtime": 1786076011.0251834,
+    "ast_hash": "b51216f424dd2e5e7d15c4a6cd55c4e7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/SigilTests.cs": {
+    "mtime": 1786068396.4929209,
+    "ast_hash": "a156a56f402690a8831aa87d52a51d78",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/LobbyLayoutTests.cs": {
+    "mtime": 1786068396.4915776,
+    "ast_hash": "f7a6ed3ce99093c03884ad61e89ec419",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/WebGlReducedMotionSeedTests.cs": {
+    "mtime": 1786073535.9331686,
+    "ast_hash": "eac2346b86139e4382734403abd09095",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/AutoPlayOnce.cs": {
+    "mtime": 1786068396.357295,
+    "ast_hash": "13313ce05f9b2d770435bee59f614278",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/GoldenDigestRecorder.cs": {
+    "mtime": 1786068396.3577442,
+    "ast_hash": "515159d216d557527b7e40b57ee408c0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/DevUnlockMenu.cs": {
+    "mtime": 1786068396.3574634,
+    "ast_hash": "4b9906f56de6dfce2c4a92456deef599",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Editor/WebGlReducedMotionSeed.cs": {
+    "mtime": 1786073385.219369,
+    "ast_hash": "226eaf591da151343c4261826b4d82bd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/DUNGEON_GUIDE.md": {
+    "mtime": 1786068396.6896188,
+    "ast_hash": "9ae4ede9e700d690d87bb9cf1ed00c89",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/SIM_SPEC_DUNGEONS.md": {
+    "mtime": 1786068396.689899,
+    "ast_hash": "cdd6171817dae3f071bbdfcbc90c9a73",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/mobile-layout-spec.md": {
+    "mtime": 1786068396.5003197,
+    "ast_hash": "4f90c43b245a75c71d58b8b179bada26",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/view-vfx-research.md": {
+    "mtime": 1786068396.5013337,
+    "ast_hash": "67af03cf6ce99c8d65abdf94a5cc2182",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/achilles-visual-overhaul-spec.md": {
+    "mtime": 1786068396.4988518,
+    "ast_hash": "ef9065272c0294d60662a0b6cbad186a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/cycle2-spec.md": {
+    "mtime": 1786068396.4994063,
+    "ast_hash": "4243fedc95e2a62115b0a866a101ea81",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/deep-interview-vfx-terrain-command-hardening.md": {
+    "mtime": 1786068396.4999115,
+    "ast_hash": "6f5a39c1ae0984a1e68760fb999817c4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/design/presentation-impact-spec.md": {
+    "mtime": 1786068396.500818,
+    "ast_hash": "e2d32f940d1e10c8aa8e33b6d2ed6a36",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/qa/deployed-release-verification.md": {
+    "mtime": 1786068396.6560805,
+    "ast_hash": "9ecc96df4453d5ed09578dbc28c8078e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/intake/production-brief.md": {
+    "mtime": 1786068396.6557007,
+    "ast_hash": "494d4df1cdc4534cb3ff2413ba9b455c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gjc-sim-lane.md": {
+    "mtime": 1786068396.6105022,
+    "ast_hash": "0cbe6b25e46df09869b354d574f05b8b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gate-evidence-20260804.md": {
+    "mtime": 1786068396.6095986,
+    "ast_hash": "ac4954fc98e2fc0530fb73a663c27bc3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gjc-sim-lane-report.md": {
+    "mtime": 1786068396.6103911,
+    "ast_hash": "3d4c8394f293a7cc6b6c1387f42e5a83",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gjc-hackslash-lane.md": {
+    "mtime": 1786068396.6101873,
+    "ast_hash": "9222d0e716ae5f4569074b366a055ec7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/jeo-view-lane.md": {
+    "mtime": 1786068396.61069,
+    "ast_hash": "2aeaa8b8da9350f6f75b3efabc0d54f8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gjc-hackslash-lane-report.md": {
+    "mtime": 1786068396.6099362,
+    "ast_hash": "849fd55dd47608f2cecd65a66ea6a71e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/gjc-campaign-lane.md": {
+    "mtime": 1786068396.6097562,
+    "ast_hash": "719b58ba3b936fe3a572f49ced04088a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/pm/reward-bands.md": {
+    "mtime": 1786068396.6799064,
+    "ast_hash": "5a1b01f620da52841424f88a4621e095",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/pm/negotiation-record.md": {
+    "mtime": 1786068396.6796477,
+    "ast_hash": "65dd4e05ee526fb5306f45b866de4084",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/pm/revenue-map.md": {
+    "mtime": 1786068396.679777,
+    "ast_hash": "dfdb538dd0cf754e10cd2665b77962d7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/meta-fun-pass-spec.md": {
+    "mtime": 1786068396.6574922,
+    "ast_hash": "07b0b2391ad13e0d886a70cd31a8167c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/training-and-surge-spec.md": {
+    "mtime": 1786068396.6578982,
+    "ast_hash": "31b281989217eb90bd8c5845c8a91ff1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/sigil-spec.md": {
+    "mtime": 1786068396.6577542,
+    "ast_hash": "02f7b8357492cfd90580af1bfb853ea4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/novelty-scorecard.md": {
+    "mtime": 1786068396.657576,
+    "ast_hash": "c286467779de0e919c4030d8fff3fd17",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/balance-sheet.md": {
+    "mtime": 1786068396.6566956,
+    "ast_hash": "18d607410b324b4863c3cfc2df9659ea",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/core-loop.md": {
+    "mtime": 1786068396.656965,
+    "ast_hash": "09fc83bcb6a63b1ef45a0e4162971987",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/gimmick-retune-spec.md": {
+    "mtime": 1786068396.657317,
+    "ast_hash": "70e2e49e76e0a1975b88dadc55f7d608",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/worldview.md": {
+    "mtime": 1786068396.6584978,
+    "ast_hash": "0fcd19187977a54defd29d570d5e88c2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/campaign-fun-pass-spec.md": {
+    "mtime": 1786068396.6568696,
+    "ast_hash": "35fbe76f607abf689b8884208983e89d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/dungeon-roster-spec.md": {
+    "mtime": 1786068396.6571484,
+    "ast_hash": "3d121c9aba7ca3181d64a2cfc246f9b6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/trend-survey/training-and-upgrade.md": {
+    "mtime": 1786068396.6582968,
+    "ast_hash": "c35a85d399d607e54868baf5f684abc4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/trend-survey/dungeon-gimmick-trends.md": {
+    "mtime": 1786068396.658124,
+    "ast_hash": "d639176a4a3038935d85ad0778da9f2f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/benchmark-notes.md": {
+    "mtime": 1786068396.681309,
+    "ast_hash": "bc76a2916e1a756ac0993c57e6ab9c3f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/golden-rows-unity.md": {
+    "mtime": 1786076011.0339777,
+    "ast_hash": "6fd201a2fd23e53a0fc73ff110a8f9eb",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/skill-vfx-frame-cost.md": {
+    "mtime": 1786068396.6848505,
+    "ast_hash": "ebeb9fb4a0019174d6e1d05cca45c1b3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/skill-vfx-mode-coverage.md": {
+    "mtime": 1786068396.6850405,
+    "ast_hash": "3e30e7248e8f2d15657b7e0d142aa32e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/golden-digests-cycle2.md": {
+    "mtime": 1786068396.6817722,
+    "ast_hash": "7b8eecd0ae7b8efe0e8c9853fc107059",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/discovery-notes.md": {
+    "mtime": 1786068396.68142,
+    "ast_hash": "63ff200b3de052b40344b786f620f7a5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/playtest-report.md": {
+    "mtime": 1786068396.6840746,
+    "ast_hash": "8b5cd7e29ea6321ee4ccbefb0315ec14",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/test-lane-cycle2.md": {
+    "mtime": 1786068396.6870222,
+    "ast_hash": "98731aeff9365a260530ee14bebbda46",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/gate-measurements.md": {
+    "mtime": 1786068396.6815503,
+    "ast_hash": "5ce542d4c103308e6356f649283ee669",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/test-plan.md": {
+    "mtime": 1786068396.687614,
+    "ast_hash": "72b099469337f2ef236faa86308a64b2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/retrospectives/cycle-3-retrospective.md": {
+    "mtime": 1786068396.689228,
+    "ast_hash": "947aa7223caf14f08a947a6d854fd9e2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/retrospectives/cycle-2-retrospective.md": {
+    "mtime": 1786068396.6890986,
+    "ast_hash": "0f866e0d8ce301df08a5db0c84fc0dba",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/production/task-manifest.md": {
+    "mtime": 1786068396.6810002,
+    "ast_hash": "9045dca2ef30ced285eee64eea72a6e1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/production/design-analysis.md": {
+    "mtime": 1786068396.6805468,
+    "ast_hash": "b690e90afed09066fb481f7cfeb69615",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/production/change-summary-cycle2.md": {
+    "mtime": 1786068396.6801555,
+    "ast_hash": "4374558b2099e59c654799a8a287cddd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/production/gate-reviews/stage1-gates.md": {
+    "mtime": 1786068396.6809015,
+    "ast_hash": "702060290701fe3b549f5662d98268fa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/production/gate-reviews/stage1-gates-v16.md": {
+    "mtime": 1786068396.6808007,
+    "ast_hash": "24d25e5e2715186dac176ca3562bf316",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/ops/telemetry-contract.md": {
+    "mtime": 1786068396.6794343,
+    "ast_hash": "11927ac089056669301ef1f44966dfcd",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/dungeon-code-map.md": {
+    "mtime": 1786068396.658701,
+    "ast_hash": "488f06288a93d58e49f9e1d5e20795af",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/view-lane-cycle2.md": {
+    "mtime": 1786068396.6785972,
+    "ast_hash": "a8dd767984d9d36f3baf347b48136c46",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/resource-manifest.md": {
+    "mtime": 1786068396.6588516,
+    "ast_hash": "adbee5865c1530c6219f7e0e3388f7c3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/skill-vfx-intensity/solutions.md": {
+    "mtime": 1786068396.3570077,
+    "ast_hash": "78e5b82167e40158c2e038a9cb99055f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/skill-vfx-intensity/context.md": {
+    "mtime": 1786068396.3568037,
+    "ast_hash": "baef55089678a6649a4faa7cd843df1e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/skill-vfx-intensity/triage.md": {
+    "mtime": 1786068396.3571029,
+    "ast_hash": "1a5d8f5d5d70d2bf6820c7dbc0da9b1d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/dungeon-gimmick-trends/solutions.md": {
+    "mtime": 1786068396.3551364,
+    "ast_hash": "2f3277c244f2d9c0ff39c29f926901e7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/dungeon-gimmick-trends/context.md": {
+    "mtime": 1786068396.354944,
+    "ast_hash": "7a323812124ddb5618f8c53cc5474cb9",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/dungeon-gimmick-trends/triage.md": {
+    "mtime": 1786068396.3552575,
+    "ast_hash": "93384b2646565a97f6ed917c50f19e93",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/roguelike-training-and-surge/solutions.md": {
+    "mtime": 1786068396.3564177,
+    "ast_hash": "644da3ec5ffa9a5cb6f2bea58168c221",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/roguelike-training-and-surge/context.md": {
+    "mtime": 1786068396.356259,
+    "ast_hash": "fb01e7bee62e6820ee61aac3d2de866f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/roguelike-training-and-surge/triage.md": {
+    "mtime": 1786068396.3565316,
+    "ast_hash": "b455efaf0b4e15e4b3556e4fb5c87482",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/meta-upgrade-gimmick-interaction/solutions.md": {
+    "mtime": 1786068396.355629,
+    "ast_hash": "476895896941b542ed13e352e6784bbf",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/meta-upgrade-gimmick-interaction/context.md": {
+    "mtime": 1786068396.3555038,
+    "ast_hash": "546e4190dac29234ff91b5ab1f5d9b7c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/.survey/meta-upgrade-gimmick-interaction/triage.md": {
+    "mtime": 1786068396.3560398,
+    "ast_hash": "b4e0594ebcc110d0f176807c9c580bab",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/dressing-ember-gallery.png": {
+    "mtime": 1786068396.5905063,
+    "ast_hash": "f095082f061140034c083cec565868c0",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-tb-abyss-parts.png": {
+    "mtime": 1786068396.5420635,
+    "ast_hash": "e7c91263a62bfe625e2c8f865201e11c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/lanep-props-basic-closeup.png": {
+    "mtime": 1786068396.6117601,
+    "ast_hash": "341e76b46726478f221d8aa4eac2917d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-arena-combat.png": {
+    "mtime": 1786068396.547559,
+    "ast_hash": "c342eb6ba55259a87caaeedd57cf6f82",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-v2-vent-fill.png": {
+    "mtime": 1786068396.5680072,
+    "ast_hash": "e6181ab4ccec0a258a4a7b7f9c95ccc3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-v3-nova-debris.png": {
+    "mtime": 1786068396.5765376,
+    "ast_hash": "729acfaa21047f73910e3be5b764d9b1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-post-cap-desktop-lobby.png": {
+    "mtime": 1786068396.5388315,
+    "ast_hash": "7c3afda6c6a9abe1add5cd2307207a4d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-dressing-ember-gallery.png": {
+    "mtime": 1786068396.5181856,
+    "ast_hash": "046c255244f340b2865442e44105b366",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-mobile-font-normal.png": {
+    "mtime": 1786068396.529504,
+    "ast_hash": "5fd29fc62ef7739e287d86c7a7ed58aa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/post-cap-desktop-combat.png": {
+    "mtime": 1786068396.619296,
+    "ast_hash": "a6e65e1bdea24a4e02cde6e9231cdf81",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-mobile-font-weak.png": {
+    "mtime": 1786068396.5328324,
+    "ast_hash": "3cf4b825cc72445899fcc55b258423aa",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-console-mobile-lobby.png": {
+    "mtime": 1786068396.509941,
+    "ast_hash": "2b22f1e8060b55f78fd344f0dccf7f7a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-console-nova.png": {
+    "mtime": 1786068396.5123403,
+    "ast_hash": "d4050e0cfb6c09f4bf3a3d9c86f4f1a6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-lanep-props.png": {
+    "mtime": 1786068396.5244777,
+    "ast_hash": "154fa7c6f9689ee93823145ab8e7363e",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-mobile-combat.png": {
+    "mtime": 1786068396.5630167,
+    "ast_hash": "cfa43a5fb22c2ed4d92e7be2f04a60a7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-v4-post-lobby.png": {
+    "mtime": 1786068396.5842614,
+    "ast_hash": "7d9f5a9ae0b4c26be8de384accc0e42c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/finalqa-mobile-combat.png": {
+    "mtime": 1786068396.6068187,
+    "ast_hash": "05c666bda0623fdb3f521710590c4e6a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/finalqa-ash-verdict.png": {
+    "mtime": 1786068396.6004694,
+    "ast_hash": "6dffd0e88bf11a3338fc67f58c041716",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/post-cap-mobile-combat.png": {
+    "mtime": 1786068396.6214619,
+    "ast_hash": "ca35db12afb2e3bcaf94bce453a879b7",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/finalqa-witness-well.png": {
+    "mtime": 1786068396.6091943,
+    "ast_hash": "a40f1c5f892e3338c57f279651562ef1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/dressing-ash-verdict.png": {
+    "mtime": 1786068396.5879738,
+    "ast_hash": "730a73875c3834eed57363b944197140",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/tb-abyss-chancel-parts.png": {
+    "mtime": 1786068396.6249018,
+    "ast_hash": "9d6658289639bb538f69ffdd8bebf8bc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-v3-aegis-flash.png": {
+    "mtime": 1786068396.5741448,
+    "ast_hash": "73d34872b9b793034d812525453194d6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/dressing-witness-well.png": {
+    "mtime": 1786068396.5945506,
+    "ast_hash": "0d76b6d0a6d1855e93a11ef993b1b730",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-console-mobile-dungeon.png": {
+    "mtime": 1786068396.507963,
+    "ast_hash": "b4dc20258de9df46add9e76f1320d6f2",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/finalqa-arena.png": {
+    "mtime": 1786068396.5971906,
+    "ast_hash": "2ca80813343a9a7adbcf6b7f48f6c0a5",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-console-mobile-combat.png": {
+    "mtime": 1786068396.5058603,
+    "ast_hash": "202a784fac52e26b8016c4e2a86d3db6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-campaign-stage1-combat.png": {
+    "mtime": 1786068396.5501652,
+    "ast_hash": "f607129f14af29d18e2ca60287773176",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/lanep-props-fine.png": {
+    "mtime": 1786068396.6139588,
+    "ast_hash": "dfdd14bb29fa39930ba70ed1a6642ea1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-desktop-combat.png": {
+    "mtime": 1786068396.5559938,
+    "ast_hash": "9b3128362536185e73e675d5f58b5302",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-post-cap-desktop-combat.png": {
+    "mtime": 1786068396.5370893,
+    "ast_hash": "5131a83d8b604cee24542d33ca8154f6",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-campaign-stage1.png": {
+    "mtime": 1786068396.553107,
+    "ast_hash": "f90c77b014ef47fa6b16436968af221b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-mobile-lobby.png": {
+    "mtime": 1786068396.565031,
+    "ast_hash": "c4158560ec763427e83a054d714ac240",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-lanek-key-toast.png": {
+    "mtime": 1786068396.5214953,
+    "ast_hash": "49235cbcf35beb5348c50fff5a8e9d25",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-texcap-desktop-lobby.png": {
+    "mtime": 1786068396.5608819,
+    "ast_hash": "fa5ff33a83da9aa5ef745da49541c047",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/archive/20260805-visible-impact/engineering/deployed-v4-post-combat.png": {
+    "mtime": 1786068396.5798109,
+    "ast_hash": "a22520cab8a2c348e41c48f19f3893fc",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-ash-march.webp": {
+    "mtime": 1786068397.665935,
+    "ast_hash": "4e6bb86b44df05f2aed6206a91649ae1",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v13-growth-tab.webp": {
+    "mtime": 1786068398.6902297,
+    "ast_hash": "2dad38e52ed0c56fcada756c8ab3da22",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/smoke-ember-bastion.webp": {
+    "mtime": 1786068398.2051418,
+    "ast_hash": "41170626eb00d92a073b1fb61128e660",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v12-lobby-cards.webp": {
+    "mtime": 1786068398.188133,
+    "ast_hash": "c489d1ec7a2fe3697355da7a5049c219",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-sluice-result.webp": {
+    "mtime": 1786068398.4873393,
+    "ast_hash": "2911fa08b804fbf5c9c783ab54ed3d31",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v13-pact-clear.webp": {
+    "mtime": 1786068398.3507311,
+    "ast_hash": "033503936421ee48fa970d7dba1e1a9b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/retune-sluice.webp": {
+    "mtime": 1786068398.121647,
+    "ast_hash": "09dafb376feca2a5e72d81aa3e8f96fe",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/smoke-cinder-sluice.webp": {
+    "mtime": 1786068398.4694946,
+    "ast_hash": "9724ae484a0bc63281a2cff16718c67f",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/smoke-ash-march-wall.webp": {
+    "mtime": 1786068397.9191718,
+    "ast_hash": "5eca76f2bae157cf339088f43c4c2d5c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/smoke-ash-march.webp": {
+    "mtime": 1786068397.9836707,
+    "ast_hash": "56c53c1d9efc0fdb7c91f1d5c134d696",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-ember-bastion.webp": {
+    "mtime": 1786068397.9429507,
+    "ast_hash": "2b6b27747242d8dad29a80c05ba66c7d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-final-lobby.webp": {
+    "mtime": 1786068398.2583551,
+    "ast_hash": "3c2a702d2eb580d13fa93ca266e242f4",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-ash-march-boss.webp": {
+    "mtime": 1786068398.1701424,
+    "ast_hash": "7c46896283bb5c55839cd388006b2b1c",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/retune-march-right.webp": {
+    "mtime": 1786068397.8888385,
+    "ast_hash": "19507ee7b108d96a7972596616275056",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v13-pact-run.webp": {
+    "mtime": 1786068398.191925,
+    "ast_hash": "68793af4df2194ea9c913308e31939a8",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v13-equip-tab.webp": {
+    "mtime": 1786068398.2316136,
+    "ast_hash": "037365b533f8cb91350f829c2b052a06",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/play-cinder-sluice.webp": {
+    "mtime": 1786068397.9054222,
+    "ast_hash": "6c26125654364111ade37a5ce83626e3",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/retune-march-left.webp": {
+    "mtime": 1786068397.9049861,
+    "ast_hash": "fdef18442396d99bd2fcb1738495512d",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/v12-witness-well.webp": {
+    "mtime": 1786068397.9779668,
+    "ast_hash": "59ce666a3678f5b1761f210a4b95e154",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ai-native-builder/ai-native-builder-flow.html": {
+    "mtime": 1786084770.9140797,
+    "ast_hash": "06535eddbf17a52f63d6a880a2723907",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ai-native-builder/ai-native-builder-flow.md": {
+    "mtime": 1786084762.5144794,
+    "ast_hash": "8e3937b2cb3aa3748018c5880253597a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ai-native-builder/ai-native-builder-flow.pdf": {
+    "mtime": 1786084774.334556,
+    "ast_hash": "7b032104267072c9a301868f48a13d73",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ai-native-builder/ai-native-builder-flow.svg": {
+    "mtime": 1786084739.6494808,
+    "ast_hash": "aea88947986bb7ebe04b4f3f08cd18cf",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/ai-native-builder/ai-native-builder-flow.png": {
+    "mtime": 1786084750.1603491,
+    "ast_hash": "62cd237dcd45aea0e104832fb8235a3a",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/llm-wiki/wiki/concepts/stale-branch-merges-clean-but-lies.md": {
+    "mtime": 1786085033.5235639,
+    "ast_hash": "809814c4e68b4db1d1f7c937a94a5f92",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/Sim/DifficultySpec.cs": {
+    "mtime": 1786085474.5594962,
+    "ast_hash": "1f4494a1d4d3704148b3f0d65279c20b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Tests/EditMode/DifficultyGroupAiTests.cs": {
+    "mtime": 1786086337.1345866,
+    "ast_hash": "8bd2ebf6a097ee89937e1b31d9dab626",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/design/video-review-analysis-amendment11.md": {
+    "mtime": 1786086368.2744522,
+    "ast_hash": "5219a52f6fbf6a4e15f237fe828dc32b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/docs/provenance/video-analysis-wbDv6nawEeY.md": {
+    "mtime": 1786086396.2118218,
+    "ast_hash": "7315c4cbd79268af7bc329da44beb95b",
+    "semantic_hash": ""
+  },
+  "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Scripts/View/ImpactBudget.cs": {
+    "mtime": 1786086628.9061236,
+    "ast_hash": "729d02a297286d993a2cd5f074a16e9d",
     "semantic_hash": ""
   }
 }

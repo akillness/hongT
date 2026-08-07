@@ -7,7 +7,7 @@
       "label": "Log",
       "source_file": "log.md",
       "id": "log",
-      "community": 1,
+      "community": 3,
       "norm_label": "log"
     },
     {
@@ -16,9 +16,179 @@
       "id": "index",
       "community": 0,
       "norm_label": "index"
+    },
+    {
+      "label": "[RAW] \ud575\uc564\uc2ac\ub798\uc2dc \uac8c\uc784 \ub514\uc790\uc778 \uc0c1\uc138 \uc124\uacc4 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4)",
+      "source_file": "raw/sources/2026-08-07-hackslash-design-guide-reference.md",
+      "id": "raw/sources/2026-08-07-hackslash-design-guide-reference",
+      "community": 4,
+      "norm_label": "[raw] \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1100\u1166\u110b\u1175\u11b7 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1109\u1161\u11bc\u1109\u1166 \u1109\u1165\u11af\u1100\u1168 \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173)"
+    },
+    {
+      "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
+      "source_file": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
+      "id": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m",
+      "community": 1,
+      "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
+      "source_file": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
+      "id": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
+      "community": 1,
+      "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "HongT \u2014 AMENDMENT #9 momentum gauge: scoping a buff so the frozen contract survives",
+      "source_file": "wiki/concepts/hongt-momentum-gauge-amendment-9.md",
+      "id": "wiki/concepts/hongt-momentum-gauge-amendment-9",
+      "community": 0,
+      "norm_label": "hongt \u2014 amendment #9 momentum gauge: scoping a buff so the frozen contract survives"
+    },
+    {
+      "label": "HongT \u2014 AMENDMENT #8 companion signature skills: what the gates had to be",
+      "source_file": "wiki/concepts/hongt-companion-signature-skills-amendment-8.md",
+      "id": "wiki/concepts/hongt-companion-signature-skills-amendment-8",
+      "community": 0,
+      "norm_label": "hongt \u2014 amendment #8 companion signature skills: what the gates had to be"
+    },
+    {
+      "label": "HongT \u2014 \uacb0\uc815\ub860 \uc2ec \ud14c\uc2a4\ud2b8\uc5d0\uc11c \ubc18\ubcf5 \uc7ac\ud604\ub418\ub294 \"\uc575\ucee4 \uc624\ud504\ubc14\uc774\uc6d0\" \ud568\uc815",
+      "source_file": "wiki/concepts/hongt-companion-autonomy-tick-order-trap.md",
+      "id": "wiki/concepts/hongt-companion-autonomy-tick-order-trap",
+      "community": 2,
+      "norm_label": "hongt \u2014 \u1100\u1167\u11af\u110c\u1165\u11bc\u1105\u1169\u11ab \u1109\u1175\u11b7 \u1110\u1166\u1109\u1173\u1110\u1173\u110b\u1166\u1109\u1165 \u1107\u1161\u11ab\u1107\u1169\u11a8 \u110c\u1162\u1112\u1167\u11ab\u1103\u116c\u1102\u1173\u11ab \"\u110b\u1162\u11bc\u110f\u1165 \u110b\u1169\u1111\u1173\u1107\u1161\u110b\u1175\u110b\u116f\u11ab\" \u1112\u1161\u11b7\u110c\u1165\u11bc"
+    },
+    {
+      "label": "\uc624\ub798 \ubc29\uce58\ub41c \ube0c\ub79c\uce58\ub294 \"\ucda9\ub3cc \uc5c6\uc774\" \ubcd1\ud569\ub418\uba74\uc11c \uac70\uc9d3\ub9d0\uc744 \ub4e4\uc5ec\uc628\ub2e4",
+      "source_file": "wiki/concepts/stale-branch-merges-clean-but-lies.md",
+      "id": "wiki/concepts/stale-branch-merges-clean-but-lies",
+      "community": 0,
+      "norm_label": "\u110b\u1169\u1105\u1162 \u1107\u1161\u11bc\u110e\u1175\u1103\u116c\u11ab \u1107\u1173\u1105\u1162\u11ab\u110e\u1175\u1102\u1173\u11ab \"\u110e\u116e\u11bc\u1103\u1169\u11af \u110b\u1165\u11b9\u110b\u1175\" \u1107\u1167\u11bc\u1112\u1161\u11b8\u1103\u116c\u1106\u1167\u11ab\u1109\u1165 \u1100\u1165\u110c\u1175\u11ba\u1106\u1161\u11af\u110b\u1173\u11af \u1103\u1173\u11af\u110b\u1167\u110b\u1169\u11ab\u1103\u1161"
+    },
+    {
+      "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
+      "source_file": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
+      "id": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
+      "community": 1,
+      "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "\uc18c\uc2a4: \ud575\uc564\uc2ac\ub798\uc2dc \ub514\uc790\uc778 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4, 2026-08-07)",
+      "source_file": "wiki/sources/2026-08-07-hackslash-design-guide-reference.md",
+      "id": "wiki/sources/2026-08-07-hackslash-design-guide-reference",
+      "community": 2,
+      "norm_label": "\u1109\u1169\u1109\u1173: \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173, 2026-08-07)"
+    },
+    {
+      "label": "\uae30\ud68d-\uad6c\ud604 \ub300\uc870 \uac10\uc0ac \uc885\ud569 (2026-08-07)",
+      "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
+      "id": "wiki/reports/2026-08-07-spec-vs-impl-audit",
+      "community": 2,
+      "norm_label": "\u1100\u1175\u1112\u116c\u11a8-\u1100\u116e\u1112\u1167\u11ab \u1103\u1162\u110c\u1169 \u1100\u1161\u11b7\u1109\u1161 \u110c\u1169\u11bc\u1112\u1161\u11b8 (2026-08-07)"
     }
   ],
-  "links": [],
+  "links": [
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/concepts/hongt-companion-autonomy-tick-order-trap"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/concepts/hongt-companion-signature-skills-amendment-8"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/concepts/hongt-momentum-gauge-amendment-9"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/concepts/stale-branch-merges-clean-but-lies"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-07-hackslash-design-guide-reference"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/reports/2026-08-07-spec-vs-impl-audit"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
+      "source": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m",
+      "target": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
+      "source": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
+      "target": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
+      "source": "wiki/concepts/hongt-companion-autonomy-tick-order-trap",
+      "target": "wiki/reports/2026-08-07-spec-vs-impl-audit"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
+      "source": "wiki/sources/2026-08-07-hackslash-design-guide-reference",
+      "target": "wiki/reports/2026-08-07-spec-vs-impl-audit"
+    }
+  ],
   "hyperedges": [],
-  "built_at_commit": "8b9c188eb7852bfe76598cfc472b5f041fa0f4dc"
+  "built_at_commit": "c1ee4c794e3208eff28e02cff06b4fa6f33ad22e"
 }
