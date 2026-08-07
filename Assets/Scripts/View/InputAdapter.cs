@@ -4,7 +4,8 @@
 //
 //   Arena    : Q=Nova  E=Ward                     R=Restart  Space=Attack
 //   Dungeon  : Q=Bolt  E=Pulse  R=Nova  F=Ward  G=Companion Hold
-//              H=Companion Recall Shift=Dash Space=Combo
+//              H=Companion Recall V=Companion Skill (AMENDMENT #8)
+//              Shift=Dash Space=Combo
 //              (restart is panel-button only — R is a skill)
 using CinderCourt.Sim;
 using UnityEngine;
@@ -49,6 +50,9 @@ namespace CinderCourt.View
         bool _restartLatch;
         bool _companionHoldLatch;
         bool _companionRecallLatch;
+        // AMENDMENT #8 (A8.3): one-shot commanded cast. Global like hold/recall —
+        // one key orders every ready slot, so the binding does not grow with slot count.
+        bool _companionSkillLatch;
 
         void Update()
         {
@@ -80,6 +84,7 @@ namespace CinderCourt.View
                         keyboard.rightShiftKey.wasPressedThisFrame) _dashLatch = true;
                     if (keyboard.gKey.wasPressedThisFrame) _companionHoldLatch = true;
                     if (keyboard.hKey.wasPressedThisFrame) _companionRecallLatch = true;
+                    if (keyboard.vKey.wasPressedThisFrame) _companionSkillLatch = true;
                     break;
             }
         }
@@ -99,6 +104,7 @@ namespace CinderCourt.View
         public void QueueRestart() => _restartLatch = true;
         public void QueueCompanionHold() => _companionHoldLatch = true;
         public void QueueCompanionRecall() => _companionRecallLatch = true;
+        public void QueueCompanionSkill() => _companionSkillLatch = true;
         /// <summary>Clears held on-screen movement when a modal removes its
         /// pointer targets. A captured finger will not necessarily receive
         /// PointerUp after the modal intercepts it.</summary>
@@ -119,6 +125,7 @@ namespace CinderCourt.View
             _dashLatch = false;
             _companionHoldLatch = false;
             _companionRecallLatch = false;
+            _companionSkillLatch = false;
             _growthLatch = 0;   // §5: a stuck latch would eat every later offer
         }
 
@@ -180,6 +187,7 @@ namespace CinderCourt.View
                 RestartQueued = _restartLatch,
                 CompanionHoldQueued = _companionHoldLatch,
                 CompanionRecallQueued = _companionRecallLatch,
+                CompanionSkillQueued = _companionSkillLatch,
                 AttackHeld = attackHeld,
                 GrowthChoice = growthChoice,
             };
@@ -197,6 +205,7 @@ namespace CinderCourt.View
             _restartLatch = false;
             _companionHoldLatch = false;
             _companionRecallLatch = false;
+            _companionSkillLatch = false;
             _growthLatch = 0;
         }
     }

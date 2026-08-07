@@ -576,6 +576,176 @@ Proof map — `Assets/Tests/EditMode/HackSimTests.cs`:
 
 ---
 
+> **번호 충돌 갱신 (머지 시점).** main이 `Amendment #7`(동료 자율)과
+> `Amendment #8`(동료 시그니처 스킬)을 가져갔고, 이 레인은 `#7`을 훈련장·돌발에
+> 쓰고 있었다. **내용은 어디에서도 겹치지 않는다** — 동료 AI와 훈련장은 서로
+> 다른 서브시스템이다. 겹치는 것은 번호뿐이다. 양쪽 절을 모두 보존하며
+> **재번호는 병합자가 정한다.** 아래 순서는 main → 이 레인이다.
+> `SimEvents` 비트는 실제로 충돌했고(둘 다 `1 << 22`), 거기서는 main에 22를
+> 넘기고 이 레인의 셋을 23/24/25로 올렸다 — 숫자를 직접 참조하는 코드가
+> 하나도 없어 이동이 무해했다.
+
+## Frozen Contract Amendment #7 — Companion autonomy (2026-08-07)
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/CinderSim.cs`
+`UpdateCompanionSlot`/`ResolveCompanionTarget`, `HackSpec` A7 constants), gated by
+`Assets/Tests/EditMode/CompanionAutonomyTests.cs`. Amends §4, §12, §13 and
+Amendments #3/#6 only as specified. Preserves all frozen `Arena`, `Prologue` and
+**zero-companion** `Dungeon` behavior byte-for-byte; runs *with* companions
+change, which is the point of the amendment.
+
+### A7.1 Target lock
+
+- A slot locks an enemy **id** (never an index — `RemoveEnemyAt` compacts the
+  array). `CompanionTargetLockSeconds = 2` holds that lock against a nearer late
+  arrival. The lock is dropped when the target dies, when the lock expires, when
+  the target leaves the leash, or when the slot itself leaves the leash.
+- A release costs **one tick** before the next acquisition, so every transition is
+  visible on the snapshot as `id -> 0 -> id`.
+
+### A7.2 Anchor-relative acquisition and leashed pursuit
+
+- Every autonomy radius is measured from the slot's **follow anchor**, never from
+  the slot itself, so §4/D6.3 attack geometry is untouched.
+  `CompanionAcquireRadius = 300`, `CompanionLeashRadius = 320`
+  (= 4 × `CompanionFollowOffset`), and `AcquireRadius < LeashRadius` guarantees a
+  slot can always reach what it is allowed to lock.
+- A slot whose locked target sits outside its own D6.3 attack range but inside the
+  leash **closes on it** at `_playerSpeed × CompanionPursuitSpeedScale (1.05)`.
+  Otherwise it walks the frozen §4 follow step at exactly `_playerSpeed`.
+
+### A7.3 Return grace
+
+- `CompanionReturnGraceSeconds = 0.35` after an engagement ends. During the grace
+  a slot cannot re-engage, which is the hysteresis that stops acquire/return
+  oscillation at the radius edge.
+
+### A7.4 Swing, snapshot and determinism
+
+- The swing itself is unchanged §4/D6.3 geometry from the slot's own position. The
+  locked target is preferred **when it is in range**; otherwise the frozen
+  nearest-in-range rule applies, so a lock can never cost a slot a swing.
+- Additive snapshot surface only: `CompanionEngagedAt(slot)`,
+  `CompanionTargetIdAt(slot)`. `CompanionBehavior` stays the Amendment #3 pair
+  `{Follow, Hold}` — engagement is **derived**, so it is deliberately not a third
+  enum member. `SimInput` gains nothing. A held slot never pursues.
+- §13 holds: every quantity is a compile-time constant compared against
+  fixed-step accumulation. No RNG.
+- **Tick-order invariants** (both are gated, both cost a rewrite when ignored —
+  `llm-wiki/wiki/hongt-companion-autonomy-tick-order-trap.md`): at tick T a slot's
+  anchor uses the player position **after** `UpdatePlayer` of tick T while the
+  enemy positions it sees are from the end of tick T−1; and slots update in index
+  order, so an earlier slot can kill a later slot's locked target within one tick.
+
+## Frozen Contract Amendment #8 — Companion signature skills (2026-08-07)
+
+**Status: implemented and proven** (`HackSpec.CompanionSkill`,
+`CinderSim.UpdateCompanionSkill`/`CastCompanionSkill`), gated by
+`Assets/Tests/EditMode/CompanionSkillTests.cs`. Amends §4, §12, §13 and
+Amendments #3/#6/#7 only as specified.
+
+**This amendment supersedes exactly one line of Amendment #3's "Explicit
+non-goals": "No companion skills, equipment, persistence, or cooldowns" is
+narrowed to "no companion equipment or persistence".** Skills and their cooldowns
+are now in scope; equipment and persistence remain out of scope, and every other
+Amendment #3 clause (hold/recall semantics, untargetability, neutral damage)
+stays in force.
+
+### A8.1 Scope
+
+- Companion skills exist only where companions exist: `Dungeon` runs with at
+  least one active slot. `Arena`, `Prologue` and zero-companion `Dungeon` runs are
+  **unchanged, byte-for-byte in digest**, and their snapshot reports
+  `CompanionSkillId.None`, cooldown 0, casting false.
+- Each archetype owns **exactly one** skill. There is no fallback-to-inert
+  archetype: unlike D6.3 there is no frozen §4 tuple to preserve, so
+  `ember-cohort` gets a real skill of its own.
+
+### A8.2 The table (the numeric gate)
+
+Keyed by the same `EnemyVisual` archetype as the D6.3 combat tuple, so a slot's
+skill and its stats can never disagree about which companion it is.
+
+| archetype (id) | skill | cooldown | radius | damage ×player | max targets | min auto targets | knockback |
+|---|---|---|---|---|---|---|---|
+| Scout (`scout-echo`) | `Volley` | 6.0 s | 240 | 0.55 | 3 | 2 | 0 |
+| Shade (`shade-echo`) | `Hex` | 8.0 s | 260 | 0.40 | 8 | 2 | 0 |
+| Possessed (`possessed-echo`) | `Quake` | 9.0 s | 170 | 0.70 | 6 | 2 | 90 |
+| EmberCohort (`ember-cohort`, fallback) | `Flare` | 7.0 s | 200 | 1.10 | 1 | 1 | 0 |
+
+- The four archetypes differ from one another on **all four** of cooldown,
+  radius, damage scale and target count. That pairwise distinctness is the
+  machine-checkable form of "each companion has its own skill".
+- Targets are the **nearest first**, measured from the companion, using the frozen
+  `NearestEnemyIndex` comparison (lowest index wins a tie) with already-struck
+  indices excluded. Selection is therefore a pure function of geometry.
+- `CompanionSkillFlashSeconds = 0.35`; `CompanionSkillTargetCap = 8` bounds the
+  sim's selection scratch buffer, so a cast never allocates.
+
+### A8.3 Trigger
+
+- The cooldown **starts full** at run start and after every restart, so no run can
+  open with a free cast. First possible cast time is therefore the cooldown itself.
+- **Auto-fire**: when the cooldown reaches 0 and at least `MinAutoTargets` living
+  enemies stand inside the skill radius.
+- **Commanded fire**: `SimInput.CompanionSkillQueued` is a one-shot, **global**
+  input (like Amendment #3 hold/recall — no per-slot input is added). It orders
+  every ready slot to cast now, bypassing `MinAutoTargets`; a cast still needs at
+  least one living enemy in radius. A slot on cooldown ignores the command and
+  **the command is never buffered**, matching Amendment #3's no-op rule.
+- A **held** slot may cast: Amendment #3 suspends locomotion only, never the
+  slot's offensive behavior.
+
+### A8.4 Ordering
+
+Inside a tick a slot resolves in this order: targeting → movement →
+**skill** → §4 swing. Moving first means the skill fires from where the companion
+actually is (the same geometry the swing uses); firing before the swing means the
+cadence timer can never swallow a cast that was legally ready this tick.
+
+### A8.5 Snapshot and events
+
+- Additive: `CompanionSkillIdAt(slot)` (constant for the run),
+  `CompanionSkillCooldownAt(slot)`, `CompanionSkillCastingAt(slot)`.
+- `SimEvents.CompanionSkillCast = 1 << 22` fires on any tick at least one slot
+  cast. It is a run-wide mask, so the **per-slot** flash flag is what tells the
+  view which slot cast — that is what keeps two simultaneous casts from
+  collapsing into one cue.
+- §11 persistence is unchanged: skills are neither saved nor restored.
+
+### A8.6 Damage model and determinism
+
+- Skill damage is **neutral**: it does not roll the §2.4 element cycle, exactly
+  like the companion's ordinary swing.
+- `GuardianResonance` (Amendment #4 preparation) deliberately does **not** scale
+  skills; it keeps scaling only the D6.3 cadence/range/damage tuple.
+- §13 holds: no RNG. Cooldowns are fixed-step accumulation and every threshold is
+  a compile-time constant.
+
+### A8.7 Required deterministic proof
+
+Proof map — `Assets/Tests/EditMode/CompanionSkillTests.cs`:
+
+| A8 clause | Test |
+|---|---|
+| A8.2 pairwise distinctness | `CompanionSkill_TableIsPairwiseDistinctOnEveryAxis` |
+| A8.2 archetype ↔ id mapping | `CompanionSkill_EachArchetypeResolvesItsOwnSkill` |
+| A8.1 frozen digests | `CompanionSkill_RunsWithoutCompanionsPreserveTheirFrozenDigests` |
+| A8.1 inert snapshot | `CompanionSkill_RunsWithoutCompanionsReportNoSkill` |
+| A8.3 cooldown starts full | `CompanionSkill_CooldownStartsFullAndNoSlotCastsBeforeIt` |
+| A8.3 auto threshold | `CompanionSkill_AutoFiresOnlyWithEnoughTargetsInRadius` |
+| A8.3 commanded cast + no buffering | `CompanionSkill_CommandCastsEveryReadySlotAndIsNeverBuffered` |
+| A8.2 nearest-first, capped | `CompanionSkill_StrikesTheNearestTargetsUpToTheArchetypeCap` |
+| A8.2 knockback ownership | `CompanionSkill_OnlyQuakeShovesAndItShovesAwayFromTheCompanion` |
+| A8.3 hold still casts | `CompanionSkill_HeldSlotStillCasts` |
+| A8.3 restart re-arms | `CompanionSkill_RestartRefillsTheCooldown` |
+| A8.5 event + per-slot flash | `CompanionSkill_EventAndPerSlotFlashAgreeOnWhoCast` |
+| A8.6 neutral damage | `CompanionSkill_DamageIsNeutralAndScalesWithPlayerDamage` |
+| §13 determinism | `CompanionSkill_IdenticalInputsYieldIdenticalDigestAndCooldowns` |
+
+
+---
+
 # AMENDMENT #6 — 각인 (Sigils): 기믹에 걸리는 메타 강화
 
 **Additive only.** 기존 수치 0개 변경. 미장착 런은 이 증보 이전과 바이트

@@ -453,9 +453,62 @@ namespace CinderCourt.Tests
             Assert.Fail("the campaign route pilot did not clear cinder-span");
         }
 
+        /// <summary>
+        /// The route pilot: kite the nearest live enemy, but detour onto a dropped
+        /// pickup whenever one is on the floor.
+        ///
+        /// The detour is not decoration. Relic motes are only collected by walking
+        /// inside <see cref="SimConfig.PickupMagnetRadius"/>, and a pilot that only
+        /// ever chases enemies collects relics purely by accident — the whole run
+        /// banked 0 or 1 relic depending on where bodies happened to fall. That made
+        /// every haul assertion a coin flip: merging an unrelated sim amendment
+        /// nudged positions and flipped a passing 1 into a failing 0. Steering at
+        /// the pickup makes the haul a property of the RULES (drops happen, walking
+        /// over them banks them) instead of a property of the layout.
+        ///
+        /// Enemy kiting still wins while no pickup exists, so clear behaviour and
+        /// the tick-for-tick determinism check at the top of this file are unchanged
+        /// in shape: both sims still receive one identical input stream.
+        /// </summary>
         private static SimInput CombatInput(CinderSim sim)
         {
             var player = sim.Player;
+            var input = new SimInput
+            {
+                AttackQueued = true,
+                BoltQueued = true,
+                PulseQueued = true,
+                NovaQueued = true,
+                WardQueued = true,
+            };
+
+            // A pickup on the floor outranks combat spacing: it expires on a timer,
+            // so the only way to prove the payout rule is to actually go get it.
+            var pickups = sim.Pickups;
+            var bestPickup = -1;
+            var bestPickupDistanceSquared = float.MaxValue;
+            for (var index = 0; index < pickups.Count; index += 1)
+            {
+                var pickup = pickups[index];
+                var px = pickup.X - player.X;
+                var py = (pickup.Y - player.Y) * SimConfig.IsoY;
+                var distanceSquared = px * px + py * py;
+                if (distanceSquared >= bestPickupDistanceSquared) continue;
+                bestPickupDistanceSquared = distanceSquared;
+                bestPickup = index;
+            }
+
+            if (bestPickup >= 0)
+            {
+                var pickup = pickups[bestPickup];
+                var toX = pickup.X - player.X;
+                var toY = pickup.Y - player.Y;
+                var length = Mathf.Max(0.001f, Mathf.Sqrt(toX * toX + toY * toY));
+                input.MoveX = toX / length;
+                input.MoveY = toY / length;
+                return input;
+            }
+
             var bestDistanceSquared = float.MaxValue;
             var deltaX = 0f;
             var deltaY = 0f;
@@ -473,27 +526,19 @@ namespace CinderCourt.Tests
                 deltaY = enemy.Y - player.Y;
             }
 
-            var input = new SimInput
-            {
-                AttackQueued = true,
-                BoltQueued = true,
-                PulseQueued = true,
-                NovaQueued = true,
-                WardQueued = true,
-            };
             if (bestDistanceSquared == float.MaxValue) return input;
 
             var distance = Mathf.Sqrt(bestDistanceSquared);
-            var length = Mathf.Max(0.001f, Mathf.Sqrt(deltaX * deltaX + deltaY * deltaY));
+            var toEnemyLength = Mathf.Max(0.001f, Mathf.Sqrt(deltaX * deltaX + deltaY * deltaY));
             if (distance < 120f)
             {
-                input.MoveX = -deltaX / length;
-                input.MoveY = -deltaY / length;
+                input.MoveX = -deltaX / toEnemyLength;
+                input.MoveY = -deltaY / toEnemyLength;
             }
             else if (distance > 150f)
             {
-                input.MoveX = deltaX / length;
-                input.MoveY = deltaY / length;
+                input.MoveX = deltaX / toEnemyLength;
+                input.MoveY = deltaY / toEnemyLength;
             }
             return input;
         }

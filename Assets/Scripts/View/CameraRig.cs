@@ -33,9 +33,14 @@ namespace CinderCourt.View
 
         Profile _profile = Profile.Arena;
         float _profileTime;
-        // Dungeon distance tiers (spec §10): calm 17, big-wave/boss 21.
-        float _dungeonDistance = 17f;
-        float _dungeonTargetDistance = 17f;
+        // Dungeon distance tiers — spec §10 baseline was calm 17 / big-wave 21;
+        // character-shrink decision (2026-08, camera-distance-only) scales both
+        // tiers ~×1.17 so actors read smaller while arena coords stay untouched.
+        const float DungeonCalmDistance = 20f;
+        const float DungeonCrowdDistance = 24.5f;
+        float _dungeonDistance = DungeonCalmDistance;
+        float _dungeonTargetDistance = DungeonCalmDistance;
+
         // Outskirt fog offsets from the live orbit distance. Derived from the
         // measured floor geometry at pitch 55: the far playable edge sits
         // ~1.7 u beyond the focus depth and the apron rim ~5.5 u beyond, so
@@ -124,7 +129,8 @@ namespace CinderCourt.View
                 case Profile.Dungeon:
                     _camera.orthographic = false;
                     _camera.fieldOfView = 42f;    // original-verified combat FOV
-                    _dungeonDistance = _dungeonTargetDistance = 17f;
+                    _dungeonDistance = _dungeonTargetDistance = DungeonCalmDistance;
+
                     ApplyAspect(true);
                     break;
             }
@@ -132,7 +138,8 @@ namespace CinderCourt.View
 
         /// <summary>Dungeon crowd tier: big wave / boss pulls the camera out.</summary>
         public void SetDungeonCrowd(bool bigWave)
-            => _dungeonTargetDistance = bigWave ? 21f : 17f;
+            => _dungeonTargetDistance = bigWave ? DungeonCrowdDistance : DungeonCalmDistance;
+
 
         public void OnEvents(SimEvents events)
         {
@@ -217,7 +224,8 @@ namespace CinderCourt.View
                     _revealT = Mathf.Clamp01(_profileTime / 2.2f);
                     var eased = 1f - Mathf.Pow(1f - _revealT, 3f);
                     var pitch = Mathf.Lerp(ProloguePitch, 55f, eased);
-                    var distance = Mathf.Lerp(9.4f, 17f, eased) * _aspectWiden;
+                    var distance = Mathf.Lerp(9.4f, DungeonCalmDistance, eased) * _aspectWiden;
+
                     PlaceOrbit(pitch, distance, ArenaCenter);
                     break;
                 }
@@ -243,7 +251,10 @@ namespace CinderCourt.View
                     }
                     PlaceOrbit(55f, _dungeonDistance * _aspectWiden, focus);
                     // Outskirt fog must TRACK the orbit, not sit at a baked
-                    // distance. The dungeon has two tiers (calm 17, big-wave/
+                    // distance. The dungeon has two tiers (calm/big-wave-boss,
+                    // see DungeonCalmDistance/DungeonCrowdDistance), and a static
+                    // 19/22.5 band tuned for calm fogs
+
                     // boss 21), and a static 19/22.5 band tuned for calm fogs
                     // the arena centre 57% and the far playable edge 100% once
                     // the camera pulls back — the boss would dissolve into the

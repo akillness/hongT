@@ -14,8 +14,57 @@ namespace CinderCourt.Sim
     /// </summary>
     public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2, Training = 3 }
 
-    /// <summary>Active dungeon companion locomotion mode.</summary>
+    /// <summary>Active dungeon companion locomotion mode. This is the COMMANDED mode and
+    /// stays exactly the frozen Amendment #3 pair: the AMENDMENT #7 autonomy state is a
+    /// derived per-slot flag (<c>IHackSnapshot.CompanionEngagedAt</c>), deliberately not a
+    /// third member here, so a command surface can never be confused with a derived one.</summary>
     public enum CompanionBehavior { Follow = 0, Hold = 1 }
+
+    /// <summary>AMENDMENT #8: the signature skill a companion archetype owns. Exactly one
+    /// per archetype, append-only, <see cref="None"/> = the slot has no skill (never
+    /// produced by <see cref="HackSpec.CompanionSkill"/>, which always resolves a skill).</summary>
+    public enum CompanionSkillId { None = 0, Volley = 1, Hex = 2, Quake = 3, Flare = 4 }
+
+    /// <summary>AMENDMENT #8 (A8.2): one archetype's signature-skill tuple. Immutable value
+    /// type so the sim can copy it per slot at construction and never re-resolve it.</summary>
+    public readonly struct CompanionSkillSpec
+    {
+        public readonly CompanionSkillId Id;
+        /// <summary>Seconds between casts. Also the value the cooldown starts at, so no slot
+        /// can open a run with a free cast.</summary>
+        public readonly float Cooldown;
+        /// <summary>Iso radius, measured from the COMPANION (not its anchor) — a skill is a
+        /// swing, so it uses swing geometry.</summary>
+        public readonly float Radius;
+        /// <summary>Damage per hit as a multiple of the player's current damage. Neutral:
+        /// A8.6 keeps companion skills out of the §2.4 element cycle.</summary>
+        public readonly float DamageScale;
+        /// <summary>Upper bound on enemies struck by one cast, nearest first.</summary>
+        public readonly int MaxTargets;
+        /// <summary>Living enemies required inside <see cref="Radius"/> before the skill
+        /// AUTO-fires. A commanded cast bypasses this and needs only one.</summary>
+        public readonly int MinAutoTargets;
+        /// <summary>Push applied away from the companion, 0 for skills that do not shove.</summary>
+        public readonly float Knockback;
+
+        public CompanionSkillSpec(
+            CompanionSkillId id,
+            float cooldown,
+            float radius,
+            float damageScale,
+            int maxTargets,
+            int minAutoTargets,
+            float knockback)
+        {
+            Id = id;
+            Cooldown = cooldown;
+            Radius = radius;
+            DamageScale = damageScale;
+            MaxTargets = maxTargets;
+            MinAutoTargets = minAutoTargets;
+            Knockback = knockback;
+        }
+    }
 
     /// <summary>
     /// Elemental cycle (docs/SIM_SPEC_HACKSLASH.md §2.4):
@@ -402,10 +451,25 @@ namespace CinderCourt.Sim
         float CompanionYAt(int slot);
         /// <summary>D6.5: slot i visible-attack flag.</summary>
         bool CompanionAttackingAt(int slot);
-        /// <summary>D6.5: slot i locomotion behavior.</summary>
+        /// <summary>D6.5: slot i commanded locomotion behavior (global hold/recall).</summary>
         CompanionBehavior CompanionBehaviorAt(int slot);
         /// <summary>D6.5: slot i target-facing (+1/-1).</summary>
         int CompanionFacingAt(int slot);
+        /// <summary>A7.2: true while slot i is closing on its locked target instead of
+        /// trailing its anchor. Derived per tick — a held slot never reports it.</summary>
+        bool CompanionEngagedAt(int slot);
+        /// <summary>A7.1: enemy id this slot has locked, or 0 when it holds no target.
+        /// Ids are unique and never reused, so this survives enemy-array compaction.</summary>
+        int CompanionTargetIdAt(int slot);
+        /// <summary>A8.5: slot i's signature skill. Constant for the run — it is a property
+        /// of the archetype, not of the slot's state.</summary>
+        CompanionSkillId CompanionSkillIdAt(int slot);
+        /// <summary>A8.5: seconds until slot i can cast again; 0 = ready. Starts at the full
+        /// cooldown, so a run never opens with a free cast.</summary>
+        float CompanionSkillCooldownAt(int slot);
+        /// <summary>A8.5: true for the brief display window after slot i casts, so the view
+        /// has a cue without reading SimEvents (which is a per-tick, run-wide mask).</summary>
+        bool CompanionSkillCastingAt(int slot);
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }
@@ -585,6 +649,28 @@ namespace CinderCourt.Sim
         public const float CompanionDamageScale = 0.6f;
         public const float CompanionAttackDisplay = 0.25f;
 
+        // --- §4 companion autonomy (AMENDMENT #7 — docs/SIM_SPEC_HACKSLASH.md A7) ---
+        // Every quantity is a compile-time constant compared against accumulated
+        // fixed-step floats, so §13 (no RNG anywhere) still holds. The relations are
+        // chosen, not tasted: AcquireRadius < LeashRadius guarantees a slot can always
+        // reach a target it is allowed to lock; LeashRadius = 4 x FollowOffset keeps the
+        // leash in anchor units; PursuitSpeedScale > 1 is the only way to close on a foe
+        // that walks at player speed, and stays low enough that a slot never leads.
+        /// <summary>A7.4: target acquisition radius, measured from the follow anchor
+        /// (not from the companion) so §4/D6.3 attack geometry is untouched.</summary>
+        public const float CompanionAcquireRadius = 300f;
+        /// <summary>A7.2: hard leash from the follow anchor. A locked target beyond it is
+        /// dropped and the slot returns; a slot beyond it never pursues.</summary>
+        public const float CompanionLeashRadius = 320f;
+        /// <summary>A7.2: pursuit speed as a multiple of the player's current speed.</summary>
+        public const float CompanionPursuitSpeedScale = 1.05f;
+        /// <summary>A7.1: seconds a locked target is retained against a nearer late arrival
+        /// (120 ticks at the 1/60 fixed step — integral, so the lock is frame-exact).</summary>
+        public const float CompanionTargetLockSeconds = 2f;
+        /// <summary>A7.3: dwell after an engagement ends before walking back to the anchor;
+        /// suppresses acquire/return oscillation at the radius edge.</summary>
+        public const float CompanionReturnGraceSeconds = 0.35f;
+
         // --- §4 companion multi-slot (AMENDMENT #6 — docs/SIM_SPEC_HACKSLASH.md D6.3/D6.4) ---
         /// <summary>D6.4: lateral fan-out per slot, perpendicular to facing.
         /// slot 0 = 0 (identical to the frozen §4 follower), slot 1 = +64, slot 2 = -64.</summary>
@@ -636,6 +722,40 @@ namespace CinderCourt.Sim
                 case "possessed": return EnemyVisual.Possessed;
                 case "ember-cohort":
                 default: return EnemyVisual.EmberCohort;
+            }
+        }
+
+        // --- §4 companion signature skills (AMENDMENT #8 — docs/SIM_SPEC_HACKSLASH.md A8) ---
+        /// <summary>A8.5: seconds the cast cue stays up on the snapshot.</summary>
+        public const float CompanionSkillFlashSeconds = 0.35f;
+        /// <summary>A8.2: hard cap over every archetype's MaxTargets — sizes the sim's
+        /// selection scratch buffer, so no cast can allocate.</summary>
+        public const int CompanionSkillTargetCap = 8;
+
+        /// <summary>
+        /// A8.2 per-archetype signature skill — the numeric gate. Keyed by the same
+        /// <see cref="EnemyVisual"/> archetype as the D6.3 combat tuple, so a companion's
+        /// skill and its stats can never disagree about what it is.
+        /// Every archetype differs from every other on ALL FOUR of cooldown, radius,
+        /// damage scale and target count; that pairwise distinctness is the machine-checkable
+        /// form of "each companion has its own skill" and is asserted by
+        /// <c>CompanionSkill_TableIsPairwiseDistinctOnEveryAxis</c>.
+        /// Unlike D6.3 there is no §4 fallback tuple to preserve: skills are new surface,
+        /// so ember-cohort gets a real skill of its own instead of an inert default.
+        /// </summary>
+        public static CompanionSkillSpec CompanionSkill(EnemyVisual visual)
+        {
+            switch (visual)
+            {
+                case EnemyVisual.Scout:      // scout-echo — fast, shallow, multi-target
+                    return new CompanionSkillSpec(CompanionSkillId.Volley, 6f, 240f, 0.55f, 3, 2, 0f);
+                case EnemyVisual.Shade:      // shade-echo — widest net, weakest per hit
+                    return new CompanionSkillSpec(CompanionSkillId.Hex, 8f, 260f, 0.40f, 8, 2, 0f);
+                case EnemyVisual.Possessed:  // possessed-echo — tight shockwave, only shove
+                    return new CompanionSkillSpec(CompanionSkillId.Quake, 9f, 170f, 0.70f, 6, 2, 90f);
+                case EnemyVisual.EmberCohort: // ember-cohort — single focused nuke
+                default:
+                    return new CompanionSkillSpec(CompanionSkillId.Flare, 7f, 200f, 1.10f, 1, 1, 0f);
             }
         }
 

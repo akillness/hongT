@@ -89,10 +89,11 @@ namespace CinderCourt.View
             var prompt =
                 "You classify a Korean or English game command for a summoned guardian. " +
                 "Reply with EXACTLY one word from this list and nothing else: " +
-                "FocusAttack, Defend, Recall, PickupInfo, SkillBolt, SkillPulse, SkillNova, SkillAegis, SkillDash, Unknown. " +
+                "FocusAttack, Defend, Recall, PickupInfo, CompanionSkill, SkillBolt, SkillPulse, SkillNova, SkillAegis, SkillDash, Unknown. " +
                 "FocusAttack = order the guardian to hold position and keep attacking enemies. " +
                 "Defend/Recall = order the guardian back to escort the player. " +
                 "PickupInfo = asking the guardian to fetch items. " +
+                "CompanionSkill = order the guardian to use its OWN signature skill (특기/필살기/고유기). " +
                 "Skill* = the player wants to cast that skill (bolt=화살, pulse=파동, nova=노바/폭발, aegis=결계/방패, dash=질주). " +
                 "Command: " + text;
 

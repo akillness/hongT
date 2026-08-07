@@ -434,6 +434,24 @@ namespace CinderCourt.View
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
                 _pickupCollectedFlag = true;
+            // AMENDMENT #8: a companion signature skill fired. The event is a run-wide
+            // mask, so the per-slot flash flag on the snapshot says WHICH slot cast —
+            // reading it here is what keeps two simultaneous casts from collapsing into
+            // one burst. Colour is per skill so the four archetypes stay tellable apart
+            // at a glance, which is the whole point of giving each one its own skill.
+            if ((events & SimEvents.CompanionSkillCast) != 0 && sim is IHackSnapshot hackSkills)
+            {
+                for (var slot = 0; slot < hackSkills.CompanionCount; slot++)
+                {
+                    if (!hackSkills.CompanionSkillCastingAt(slot)) continue;
+                    SpawnBurst(
+                        hackSkills.CompanionXAt(slot),
+                        hackSkills.CompanionYAt(slot),
+                        CompanionSkillColor(hackSkills.CompanionSkillIdAt(slot)),
+                        CompanionSkillBurstRadius(hackSkills.CompanionSkillIdAt(slot)),
+                        0.4f);
+                }
+            }
             // Extraction corpse marker (#16): cache the freshest dead elite
             // position. Corpse TTL is sim-owned (10 s) — marker is decoration.
             if ((events & SimEvents.EliteDown) != 0)
@@ -590,6 +608,30 @@ namespace CinderCourt.View
         // Separate from _bursts/_sparks so a wave telegraph never evicts a live
         // skill or hit ring, and vice versa.
         readonly Burst[] _waveWarnings = new Burst[4];
+
+        /// <summary>AMENDMENT #8 cast colours — one per signature skill, matched to the
+        /// existing per-skill colour language (warm = fast, cold = wide, ember = heavy).</summary>
+        static Color CompanionSkillColor(CompanionSkillId id) => id switch
+        {
+            CompanionSkillId.Volley => new Color(0.98f, 0.85f, 0.35f, 0.55f),
+            CompanionSkillId.Hex => new Color(0.55f, 0.45f, 0.95f, 0.55f),
+            CompanionSkillId.Quake => new Color(0.90f, 0.40f, 0.25f, 0.55f),
+            _ => new Color(0.95f, 0.60f, 0.25f, 0.55f),
+        };
+
+        /// <summary>Burst radius in WORLD units, i.e. the sim radius scaled by
+        /// <see cref="ViewWorld.Scale"/>, so the ring is drawn at the size the skill
+        /// actually reaches instead of an invented one.</summary>
+        static float CompanionSkillBurstRadius(CompanionSkillId id) =>
+            HackSpec.CompanionSkill(ArchetypeOfSkill(id)).Radius * ViewWorld.Scale;
+
+        static EnemyVisual ArchetypeOfSkill(CompanionSkillId id) => id switch
+        {
+            CompanionSkillId.Volley => EnemyVisual.Scout,
+            CompanionSkillId.Hex => EnemyVisual.Shade,
+            CompanionSkillId.Quake => EnemyVisual.Possessed,
+            _ => EnemyVisual.EmberCohort,
+        };
 
         void SpawnBurst(float simX, float simY, Color color, float maxRadiusWorld, float life)
         {
