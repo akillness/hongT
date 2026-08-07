@@ -180,6 +180,21 @@ namespace CinderCourt.EditorTools
             // the 4x cliff. Deliberately still DARKER than the apron - the
             // arena must stay the bright centre (E0.5 readability, and the
             // key art's own composition).
+            // VISIBILITY, measured after the fact so nobody re-invests here:
+            // baking this quad magenta and capturing the deploy showed it
+            // renders 0.25% of the frame (1616 of 655360 px). Both the grain
+            // and the tone below moved the frame's dominant colour bucket
+            // 0.0 pt. They are kept because the tone is a CORRECTNESS fix
+            // regardless of coverage — the multiply below was wrong, and if the
+            // camera is ever pushed out or the fog band widened this surface
+            // becomes visible with the right value already in place — but do
+            // not expect a visual return from tuning it further. The dark mass
+            // in frame is ground past fogEnd, which linear fog replaces
+            // wholesale, so the levers on it are the fog band width
+            // (FogEndOffset moves the boundary: 5.5 -> 9.6 u from focus,
+            // 9.0 -> 15.7 u, independent of camera distance), the camera
+            // distance (footprint scales with it), and FogColor(accent).
+            // Not this quad's albedo.
             const float voidTextureMeanLuma = 0.336f;
             const float voidSeamCorrection = 1.36f;
             var voidTone = new Color(0.105f, 0.092f, 0.125f, 1f)

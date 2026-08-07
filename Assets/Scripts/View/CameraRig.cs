@@ -75,10 +75,21 @@ namespace CinderCourt.View
         // flat mass is ground past fogEnd, which linear fog replaces wholesale
         // with one colour, so no texture or tone work can reach it (proved by
         // baking VoidFloor magenta: it renders 0.25% of the frame, and both the
-        // grain and tone passes moved the dominant colour bucket 0.0 pt). The
-        // only lever left is AREA: the ground footprint scales with distance
-        // while the fog band is a fixed 3.5 u, so pulling in shrinks the
-        // flat-fog region and enlarges the arena at the same time.
+        // grain and tone passes moved the dominant colour bucket 0.0 pt).
+        //
+        // CORRECTION (2026-08-08): an earlier version of this comment said
+        // "the only lever left is AREA". That is FALSE — the fog BAND is a
+        // lever too, and a better-behaved one. fogStart/fogEnd are
+        // _dungeonDistance * _aspectWiden + FogStart/EndOffset, so the flat
+        // region begins at a horizontal distance FogEndOffset / cos(55) from
+        // the focus: 5.5 -> 9.6 u today, 9.0 -> 15.7 u. That is INDEPENDENT of
+        // camera distance, so widening the band shrinks the flat area without
+        // taking any arena off screen. FogColor(accent) is a third lever.
+        //
+        // Pulling in still works and is what shipped: the ground footprint
+        // scales with distance (D*tan21*1.5 = 11.52 u at 20, 10.08 at 17.5)
+        // while the fog boundary stays put, so less of the frame is past it.
+        // It is simply not the only option.
         //
         // Cost, stated plainly: less of the arena is on screen, so combat sight
         // lines shorten. The tiers keep their ratio (1.229) so the calm/crowd
