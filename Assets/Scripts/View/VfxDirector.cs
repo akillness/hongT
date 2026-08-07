@@ -341,6 +341,20 @@ namespace CinderCourt.View
                         0.4f);
                 }
             }
+            // AMENDMENT #9: a momentum promotion. Edge-triggered in the sim, so this is
+            // exactly one burst per tier gained — the burst grows and brightens with the
+            // tier so the player reads "stronger", not merely "something happened".
+            if ((events & SimEvents.MomentumTierUp) != 0 && sim is IHackSnapshot hackMomentum)
+            {
+                var tier = hackMomentum.MomentumTier;
+                SpawnBurst(
+                    sim.Player.X,
+                    sim.Player.Y,
+                    MomentumTierColor(tier),
+                    0.5f + 0.25f * tier,
+                    0.28f + 0.06f * tier);
+            }
+
             // Extraction corpse marker (#16): cache the freshest dead elite
             // position. Corpse TTL is sim-owned (10 s) — marker is decoration.
             if ((events & SimEvents.EliteDown) != 0)
@@ -471,6 +485,18 @@ namespace CinderCourt.View
             CompanionSkillId.Quake => new Color(0.90f, 0.40f, 0.25f, 0.55f),
             _ => new Color(0.95f, 0.60f, 0.25f, 0.55f),
         };
+
+        /// <summary>AMENDMENT #9: one colour per momentum tier, ascending in heat. Kept in
+        /// step with HudView.MomentumTierColor on purpose — the bar and the burst have to
+        /// read as the same signal.</summary>
+        static Color MomentumTierColor(int tier) => tier switch
+        {
+            1 => new Color(0.95f, 0.55f, 0.24f, 0.75f),
+            2 => new Color(0.99f, 0.78f, 0.30f, 0.85f),
+            3 => new Color(1f, 0.95f, 0.72f, 0.95f),
+            _ => new Color(0.42f, 0.48f, 0.62f, 0.6f),
+        };
+
 
         /// <summary>Burst radius in WORLD units, i.e. the sim radius scaled by
         /// <see cref="ViewWorld.Scale"/>, so the ring is drawn at the size the skill

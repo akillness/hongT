@@ -721,3 +721,128 @@ Proof map — `Assets/Tests/EditMode/CompanionSkillTests.cs`:
 | A8.5 event + per-slot flash | `CompanionSkill_EventAndPerSlotFlashAgreeOnWhoCast` |
 | A8.6 neutral damage | `CompanionSkill_DamageIsNeutralAndScalesWithPlayerDamage` |
 | §13 determinism | `CompanionSkill_IdenticalInputsYieldIdenticalDigestAndCooldowns` |
+## Frozen Contract Amendment #9 — Momentum gauge (2026-08-08)
+
+**Status: implemented and proven** (`HackSpec.Momentum*`,
+`CinderSim.UpdateMomentumDecay`/`GainMomentum`/`SpendMomentumOnHurt`), gated by
+`Assets/Tests/EditMode/MomentumTests.cs`. Amends §2.1, §12, §13. No earlier
+amendment is superseded.
+
+The requirement is "attacking makes you stronger". A flat permanent buff would
+say the same thing while removing every decision, so momentum is a **bounded,
+decaying gauge**: it is earned by connecting, it is lost by disengaging or by
+getting hit, and it pays out as a melee multiplier while it is held.
+
+### A9.1 Scope — dungeon only
+
+- The gauge moves only in `Dungeon` runs. `Arena` and `Prologue` are unchanged
+  **byte-for-byte in digest**, report `Momentum = 0`, tier 0, multiplier 1, and
+  never raise `MomentumTierUp`.
+- This matches where the rest of the §12.1 input depth already lives (charge,
+  finisher variants, growth): the frozen §2 arena contract stays frozen.
+- The **dungeon digest does move**, and that is the amendment. Measured on the
+  §12 script: score/wave/kills/relics stay `3350/3/13/3` and health remaining
+  moves `89.5 → 71.5`. The same run kills the same enemies for the same score and
+  simply trades differently on the way there.
+- Mechanically the gate is single-sourced: `UpdateCombo` — the only path that can
+  reach `SwingCombo`/`ReleaseCharge`, and therefore the only path that can feed
+  the gauge — is already `_dungeon`-gated at `CinderSim.cs`'s `UpdatePlayer`. The
+  `!_dungeon` early-out inside `GainMomentum` is defence in depth for a future
+  non-dungeon melee path; no black-box test can distinguish its removal today
+  (see A9.7).
+
+### A9.2 Filling — melee only (the numeric gate)
+
+| quantity | value | meaning |
+|---|---|---|
+| `MomentumMax` | 100 | ceiling; the gauge is a percentage by construction |
+| `MomentumPerHit` | 9 | per **enemy struck**, not per swing |
+| `MomentumPerKill` | 14 | paid **on top** when that hit was the killing blow |
+
+- Only the player's **melee** feeds the gauge: the three combo hits and the
+  charged heavy. Bolt, Grave Pulse, Ash Nova, Void Aegis, companion swings and
+  companion signature skills (A8) contribute **nothing**.
+- Per-enemy rather than per-swing means cutting through a crowd fills the bar
+  fastest, which is the behaviour the mechanic is supposed to reward.
+- The kill bonus makes finishing worth more than flailing at full-health targets.
+
+### A9.3 Losing it
+
+| quantity | value | meaning |
+|---|---|---|
+| `MomentumGraceSeconds` | 1.6 | no decay for this long after any gain |
+| `MomentumDecayPerSecond` | 12 | drain once the grace lapses |
+| `MomentumHurtPenalty` | 25 | flat cost when the player takes damage |
+
+- The grace sits just above the 1.22 s enemy attack cadence, so a fair trade of
+  blows holds the bar while genuinely disengaging does not.
+- From a full gauge, doing nothing empties it in 1.6 + 100/12 ≈ 9.9 s.
+- Taking damage costs a quarter of the bar **and cancels the grace**, so the
+  drain resumes on the very next tick. Getting hit costs twice.
+- A restart re-opens on an empty gauge. §11 persistence is unchanged: momentum is
+  never banked across runs.
+
+### A9.4 Paying out — tiers
+
+| tier | gauge ≥ | melee ×damage |
+|---|---|---|
+| 0 | 0 | 1.00 |
+| 1 | 30 | 1.08 |
+| 2 | 60 | 1.18 |
+| 3 | 90 | 1.30 |
+
+- Thresholds are **inclusive** and the tier function is total: values below 0
+  clamp to tier 0, values above the last threshold clamp to tier 3.
+- Tier 0 multiplying by exactly 1 is what makes a run that never builds momentum
+  identical to the pre-amendment sim.
+- Discrete tiers rather than a continuous curve so the HUD can state the buff
+  ("기세 x1.18") instead of asking the player to read a bar's length.
+- The multiplier is **sampled once per swing**, before that swing's own hits feed
+  the gauge, so a swing can never buff its own later targets.
+
+### A9.5 Snapshot and events
+
+- Additive on `IHackSnapshot`: `Momentum`, `MomentumTier`,
+  `MomentumDamageMultiplier`.
+- `SimEvents.MomentumTierUp = 1 << 23` is **edge-triggered on the tier**, not on
+  the raw value: exactly one cue per promotion, none while the bar wobbles inside
+  a tier, and none on the way down. A tick that crosses two thresholds still
+  raises one.
+- The decay runs **before** the tick's swing resolves, so the damage a swing
+  deals is the tier the HUD showed when the player committed to it.
+
+### A9.6 Damage model and determinism
+
+- The gauge is a **melee** multiplier and nothing else. It does not touch skill
+  damage, companion damage, the §2.4 element cycle, movement speed or cooldowns.
+- §13 holds: no RNG. Every gain, drain and threshold is a compile-time constant
+  applied over the fixed step.
+
+### A9.7 Required deterministic proof
+
+Proof map — `Assets/Tests/EditMode/MomentumTests.cs`:
+
+| A9 clause | Test |
+|---|---|
+| A9.4 tier table shape | `Momentum_TierTableIsAscendingAndOpensNeutral` |
+| A9.2–A9.4 constants ↔ `HackSpec` | `Momentum_ContractMatchesHackSpec` |
+| A9.4 boundaries and totality | `Momentum_TierOfIsTotalAndLandsExactlyOnEveryBoundary` |
+| A9.1 arena/prologue frozen | `Momentum_ArenaAndPrologueNeverBuildItAndKeepTheirFrozenDigests` |
+| A9.1 amended dungeon digest | `Momentum_DungeonDigestSitsAtTheAmendedValue` |
+| A9.2 melee-only intake | `Momentum_OpensEmptyAndIsNotFedBySkills` |
+| A9.2 fill and ceiling | `Momentum_FillsFromMeleeHitsAndStopsAtTheCeiling` |
+| A9.3 grace then fixed drain | `Momentum_HoldsForTheGraceWindowThenDrainsAtTheFixedRate` |
+| A9.3 hurt penalty cancels grace | `Momentum_TakingDamageCostsAFlatSliceAndCancelsTheGrace` |
+| A9.4 multiplier, sampled once | `Momentum_MeleeDamageMatchesTheTierMultiplierAndIsSampledOncePerSwing` |
+| A9.6 skills unscaled | `Momentum_SkillDamageIgnoresTheGauge` |
+| A9.5 edge-triggered cue | `Momentum_TierUpFiresOncePerPromotionAndNeverOnDecay` |
+| A9.3 restart empties | `Momentum_RestartEmptiesTheGauge` |
+| §13 determinism | `Momentum_IdenticalInputsYieldIdenticalGaugeAndDigest` |
+
+**Mutation record (2026-08-08).** Ten mutants, one Unity run each: `perHit 9→3`,
+`perKill 14→0`, `decay 12→4`, `grace 1.6→0.4`, `hurt 25→0`, flat tier
+multipliers, `threshold 30→20`, "skills ride the buff", "tier cue
+level-triggered" were all **killed**, each by at least one behaviour test and not
+merely by the constants cross-check. The tenth, "drop the `!_dungeon` guard in
+`GainMomentum`", **survived and is equivalent**: `UpdateCombo` is already
+dungeon-gated, so no non-dungeon melee path exists for it to guard (A9.1).

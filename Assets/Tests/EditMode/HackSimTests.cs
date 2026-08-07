@@ -1390,7 +1390,14 @@ namespace CinderCourt.Tests
             AssertNextSwingDamage(sim, expected);
         }
 
-        /// <summary>Swing once and check the first combo hit lands for the given damage.</summary>
+        /// <summary>Swing once and check the first combo hit lands for the given damage.
+        /// AMENDMENT #9: the kills that set these fixtures up leave momentum on the gauge,
+        /// and momentum multiplies melee, so the tier live at the moment of the swing is
+        /// folded into the expectation below. <paramref name="expected"/> stays the pure
+        /// level/extraction/growth curve — the gauge's own numbers are gated by
+        /// MomentumTests, not here. (Waiting for the gauge to drain instead does NOT work:
+        /// a stationary player surrounded by the wave-2 pack dies, and a GameOver tick
+        /// returns before the decay runs, so the gauge would never reach 0.)</summary>
         private static void AssertNextSwingDamage(CinderSim sim, float expected)
         {
             var faceAndWait = new SimInput { MoveX = -1f };
@@ -1413,7 +1420,10 @@ namespace CinderCourt.Tests
                 }
             }
             Assert.That(targetId, Is.GreaterThan(0), "the next wave must walk into range");
+            Assert.That(sim.Mode, Is.EqualTo(SimMode.Running),
+                "the fixture must still be a live run when the measured swing happens");
 
+            float momentumMultiplier = sim.MomentumDamageMultiplier;
             float before = EnemyById(sim, targetId).Health;
             sim.Tick(new SimInput { AttackQueued = true });
             for (int tick = 0; tick < 30 && (sim.Events & SimEvents.EnemyHit) == 0; tick += 1)
@@ -1421,7 +1431,7 @@ namespace CinderCourt.Tests
                 sim.Tick(Idle);
             }
             float dealt = before - EnemyById(sim, targetId).Health;
-            Assert.That(dealt, Is.EqualTo(expected).Within(1e-2f));
+            Assert.That(dealt, Is.EqualTo(expected * momentumMultiplier).Within(1e-2f));
         }
 
         /// <summary>Swing at the in-range first-wave fixture without waiting for a new spawn.</summary>
@@ -1441,6 +1451,11 @@ namespace CinderCourt.Tests
             }
 
             Assert.That(targetId, Is.GreaterThan(0), "the in-range fixture must retain an untouched target");
+            // A9: this fixture swings at the opening wave with nothing killed yet, so the
+            // gauge must still be empty. Asserted rather than assumed: if a future change
+            // ever fed it earlier, the number below would silently absorb a tier.
+            Assert.That(sim.Momentum, Is.EqualTo(0f),
+                "A9: the in-range fixture must not have banked momentum before the measured swing");
             EnemyState target = EnemyById(sim, targetId);
             sim.Tick(new SimInput { MoveX = target.X > sim.Player.X ? 1f : -1f });
             target = EnemyById(sim, targetId);

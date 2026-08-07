@@ -258,7 +258,11 @@ namespace CinderCourt.Tests
             // leaked outside a companion run these three numbers would be the first to move.
             AssertFrozenDigest(HackConfig.Arena(), 6600, 4, 21, 4, 90f, string.Empty, "arena");
             AssertFrozenDigest(HackConfig.Prologue(), 5500, 3, 18, 6, 73f, "prologue-clear", "prologue");
-            AssertFrozenDigest(DungeonScalar(null), 3350, 3, 13, 3, 89.5f, string.Empty, "companion-less dungeon");
+            // AMENDMENT #9 moved the health term of this row and nothing else: momentum
+            // multiplies player melee, so the same script kills the same 13 enemies for the
+            // same 3350 but trades differently on the way there. Score/wave/kills/relics are
+            // still the pre-A9 numbers, which is the part that proves nothing else drifted.
+            AssertFrozenDigest(DungeonScalar(null), 3350, 3, 13, 3, 71.5f, string.Empty, "companion-less dungeon");
         }
 
         private static void AssertFrozenDigest(

@@ -358,6 +358,15 @@ namespace CinderCourt.Sim
         /// <summary>A8.5: true for the brief display window after slot i casts, so the view
         /// has a cue without reading SimEvents (which is a per-tick, run-wide mask).</summary>
         bool CompanionSkillCastingAt(int slot);
+        /// <summary>A9.5: the momentum gauge, 0..<see cref="HackSpec.MomentumMax"/>.
+        /// Always 0 outside a dungeon run.</summary>
+        float Momentum { get; }
+        /// <summary>A9.5: momentum tier 0..3, derived from <see cref="Momentum"/>.</summary>
+        int MomentumTier { get; }
+        /// <summary>A9.5: the melee damage multiplier the current tier grants; exactly 1
+        /// at tier 0, so a run that never builds momentum is unaffected.</summary>
+        float MomentumDamageMultiplier { get; }
+
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }
@@ -643,6 +652,70 @@ namespace CinderCourt.Sim
                     return new CompanionSkillSpec(CompanionSkillId.Flare, 7f, 200f, 1.10f, 1, 1, 0f);
             }
         }
+
+        // --- §2 momentum gauge (AMENDMENT #9 — docs/SIM_SPEC_HACKSLASH.md A9) ---
+        // "Attacking makes you stronger" expressed as a bounded, decaying gauge.
+        // Dungeon-only, exactly like the §12.1 charge/growth depth, so the frozen
+        // arena and prologue contracts keep their numbers bit for bit.
+
+        /// <summary>A9.1: gauge ceiling. The gauge is a percentage by construction so
+        /// the view never needs a separate normalisation constant.</summary>
+        public const float MomentumMax = 100f;
+
+        /// <summary>A9.2: gained per ENEMY struck by a player melee swing (not per
+        /// swing), so cutting through a crowd is what fills the bar fastest.</summary>
+        public const float MomentumPerHit = 9f;
+
+        /// <summary>A9.2: paid ON TOP of <see cref="MomentumPerHit"/> when that melee
+        /// hit is the killing blow. Finishing beats flailing.</summary>
+        public const float MomentumPerKill = 14f;
+
+        /// <summary>A9.3: seconds of protection after any gain. Sized just above the
+        /// 1.22 s enemy attack cadence so a fair trade of blows holds the bar.</summary>
+        public const float MomentumGraceSeconds = 1.6f;
+
+        /// <summary>A9.3: drain per second once the grace lapses. At the ceiling the
+        /// bar is fully gone in 100/12 = 8.33 s of not connecting.</summary>
+        public const float MomentumDecayPerSecond = 12f;
+
+        /// <summary>A9.3: taking damage costs a quarter of the bar AND cancels the
+        /// grace, so a hit both burns momentum and starts the drain immediately.</summary>
+        public const float MomentumHurtPenalty = 25f;
+
+        /// <summary>A9.4: gauge value at which each tier starts. Ascending, index 0 = 0,
+        /// so <see cref="MomentumTierOf"/> is total over the whole 0..Max range.</summary>
+        public static readonly float[] MomentumTierThresholds = { 0f, 30f, 60f, 90f };
+
+        /// <summary>A9.4: player MELEE damage multiplier per tier. Strictly ascending and
+        /// index 0 is exactly 1, which is what keeps a momentum-less run frozen.</summary>
+        public static readonly float[] MomentumTierDamageMul = { 1f, 1.08f, 1.18f, 1.30f };
+
+        /// <summary>A9.4: number of momentum tiers (0..3).</summary>
+        public static readonly int MomentumTierCount = MomentumTierThresholds.Length;
+
+        /// <summary>A9.4: highest tier whose threshold the gauge has reached. Values below
+        /// 0 clamp to tier 0 and values above the last threshold clamp to the last tier,
+        /// so this is total for every float the sim can hold.</summary>
+        public static int MomentumTierOf(float momentum)
+        {
+            int tier = 0;
+            for (int index = MomentumTierThresholds.Length - 1; index >= 1; index -= 1)
+            {
+                if (momentum >= MomentumTierThresholds[index])
+                {
+                    tier = index;
+                    break;
+                }
+            }
+            return tier;
+        }
+
+        /// <summary>A9.4: the melee multiplier the gauge currently grants.</summary>
+        public static float MomentumDamageMulOf(float momentum)
+        {
+            return MomentumTierDamageMul[MomentumTierOf(momentum)];
+        }
+
 
 
         // --- §5 meta stats ---

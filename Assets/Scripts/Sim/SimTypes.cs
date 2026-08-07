@@ -119,6 +119,13 @@ namespace CinderCourt.Sim
         // --- companion signature skills (docs/SIM_SPEC_HACKSLASH.md A8) ---
         /// <summary>A8.5: at least one companion slot cast its signature skill this tick.</summary>
         CompanionSkillCast = 1 << 22,
+
+        // --- momentum gauge (docs/SIM_SPEC_HACKSLASH.md A9) ---
+        /// <summary>A9.5: the gauge crossed UP into a higher tier this tick. Edge-triggered
+        /// on the TIER, not the raw value, so the view gets exactly one cue per promotion
+        /// and none at all while the bar merely wobbles inside a tier.</summary>
+        MomentumTierUp = 1 << 23,
+
     }
 
     public struct RunDigest
