@@ -120,15 +120,23 @@ namespace CinderCourt.Sim
         /// <summary>A8.5: at least one companion slot cast its signature skill this tick.</summary>
         CompanionSkillCast = 1 << 22,
 
+        // --- momentum gauge (docs/SIM_SPEC_HACKSLASH.md A9) ---
+        /// <summary>A9.5: the gauge crossed UP into a higher tier this tick. Edge-triggered
+        /// on the TIER, not the raw value, so the view gets exactly one cue per promotion
+        /// and none at all while the bar merely wobbles inside a tier.</summary>
+        MomentumTierUp = 1 << 23,
+
+
         // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
-        // Bit 22 collided with A8's CompanionSkillCast on merge. main keeps 22;
-        // these three shift up. Nothing pins the numeric values — every
-        // reference in the codebase is by symbol — so the move is free.
-        PylonDown = 1 << 23,
+        // Additive, and bumped twice by main landing an amendment underneath:
+        // bit 22 went to A8's CompanionSkillCast, bit 23 to A9's MomentumTierUp.
+        // main keeps the low bit each time; these move up. Free, because nothing
+        // reads these numerically — every reference is by symbol.
+        PylonDown = 1 << 24,
 
         // --- surge amendment (docs/SIM_SPEC_DUNGEONS.md §14) ---
-        PerilOpened = 1 << 24,
-        SurgeOpened = 1 << 25,
+        PerilOpened = 1 << 25,
+        SurgeOpened = 1 << 26,
     }
 
     public struct RunDigest

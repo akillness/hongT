@@ -158,6 +158,13 @@ namespace CinderCourt.Sim
         private float _comboLink;     // seconds left of the 0.9 s chain window
         private bool _comboLanded;    // current swing already damaged something
         private ComboVariant _comboVariant;  // finisher branch, latched at swing start
+        // AMENDMENT #9 momentum gauge (A9). Dungeon-only; in every other mode
+        // these stay 0 for the whole run, which is what keeps the frozen arena
+        // and prologue digests bit-identical.
+        private float _momentum;          // 0..HackSpec.MomentumMax
+        private float _momentumGrace;     // seconds of decay protection left
+        private int _momentumTierSeen;    // tier at the end of the previous tick
+
         // Input depth §3/§5.
         private float _chargeTime;            // seconds the attack key has been held
         private bool _growthOfferOpen;
@@ -717,6 +724,16 @@ namespace CinderCourt.Sim
             ? 0f
             : MathF.Min(1f, _chargeTime / HackSpec.ChargeReadySeconds);
 
+        // --- AMENDMENT #9 momentum (A9.5, additive) --------------------------
+        /// <summary>A9.5: the gauge, 0..100. Outside a dungeon run nothing ever adds to
+        /// it, so this is a constant 0 there rather than a mode-checked expression.</summary>
+        public float Momentum => _momentum;
+        /// <summary>A9.5: the tier the gauge currently sits in (0..3).</summary>
+        public int MomentumTier => HackSpec.MomentumTierOf(_momentum);
+        /// <summary>A9.5: the melee multiplier that tier grants; exactly 1 at tier 0.</summary>
+        public float MomentumDamageMultiplier => HackSpec.MomentumDamageMulOf(_momentum);
+
+
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
         /// <summary>Spawn queue length for a wave, boss slot included, enemy cap applied.</summary>
@@ -922,7 +939,13 @@ namespace CinderCourt.Sim
             // the step body: a ward cast is already up for this step's enemy contacts.
             CastSkills(in input);
 
+            // A9.3: the gauge decays BEFORE this tick's swing resolves, so the
+            // damage a swing deals is the tier the HUD showed when the player
+            // committed to it — never a value that only existed mid-tick.
+            UpdateMomentumDecay(dt);
+
             UpdatePlayer(dt, in input);
+
             if (_companionActive && _mode != SimMode.GameOver)
             {
                 UpdateCompanionBehavior(in input);
@@ -967,8 +990,71 @@ namespace CinderCourt.Sim
                 }
             }
 
+            // A9.5: edge-trigger the tier AFTER every gain and loss this tick, so a
+            // gauge that crossed two thresholds in one tick still raises exactly one
+            // cue, and a hit that knocked it back down raises none.
+            PublishMomentumTier();
+
             Publish();
         }
+
+        // --- AMENDMENT #9 momentum gauge (A9) --------------------------------
+
+        /// <summary>A9.3: hold the gauge for the grace window after the last gain, then
+        /// drain it at a constant rate. Dungeon-gated at the single point where the
+        /// gauge can move at all, so every other mode carries a permanent 0.</summary>
+        private void UpdateMomentumDecay(float deltaTime)
+        {
+            if (!_dungeon || _momentum <= 0f)
+            {
+                return;
+            }
+            if (_momentumGrace > 0f)
+            {
+                _momentumGrace = MathF.Max(0f, _momentumGrace - deltaTime);
+                return;
+            }
+            _momentum = MathF.Max(0f, _momentum - HackSpec.MomentumDecayPerSecond * deltaTime);
+        }
+
+        /// <summary>A9.2: the ONLY way the gauge rises. Called once per enemy a player
+        /// melee swing connects with; <paramref name="killed"/> adds the finish bonus.
+        /// Skills and companions deliberately do not feed it (A9.6).</summary>
+        private void GainMomentum(bool killed)
+        {
+            if (!_dungeon)
+            {
+                return;
+            }
+            float gain = HackSpec.MomentumPerHit + (killed ? HackSpec.MomentumPerKill : 0f);
+            _momentum = MathF.Min(HackSpec.MomentumMax, _momentum + gain);
+            _momentumGrace = HackSpec.MomentumGraceSeconds;
+        }
+
+        /// <summary>A9.3: being hit costs a flat slice AND cancels the grace, so the
+        /// drain starts on the very next tick instead of after another 1.6 s.</summary>
+        private void SpendMomentumOnHurt()
+        {
+            if (!_dungeon)
+            {
+                return;
+            }
+            _momentum = MathF.Max(0f, _momentum - HackSpec.MomentumHurtPenalty);
+            _momentumGrace = 0f;
+        }
+
+        /// <summary>A9.5: raise <see cref="SimEvents.MomentumTierUp"/> only on an upward
+        /// tier crossing, and remember the tier for the next tick's comparison.</summary>
+        private void PublishMomentumTier()
+        {
+            int tier = HackSpec.MomentumTierOf(_momentum);
+            if (tier > _momentumTierSeen)
+            {
+                _events |= SimEvents.MomentumTierUp;
+            }
+            _momentumTierSeen = tier;
+        }
+
 
         // --- Skills ----------------------------------------------------------
 
@@ -2309,7 +2395,10 @@ namespace CinderCourt.Sim
             SetPlayerAction(ActorAction.Critical, true);
             _events |= SimEvents.PlayerStruck;
 
-            float damage = _playerDamage * HackSpec.ChargeDamageMul;
+            // A9.4: the multiplier is sampled ONCE, before any of this swing's hits
+            // feed the gauge, so a swing can never buff its own later targets.
+            float damage = _playerDamage * HackSpec.ChargeDamageMul * MomentumDamageMultiplier;
+
             bool landed = false;
             for (int index = 0; index < _enemyCount; index += 1)
             {
@@ -2332,6 +2421,8 @@ namespace CinderCourt.Sim
                     HackSpec.ComboKnockbackDistance * HackSpec.ChargeKnockbackMul,
                     HackSpec.ComboKnockbackTime);
                 DamageEnemy(ref enemy, damage);
+                GainMomentum(enemy.State.Dead);
+
             }
             if (landed)
             {
@@ -2346,7 +2437,9 @@ namespace CinderCourt.Sim
         private void SwingCombo(int index)
         {
             bool finisher = index == HackSpec.ComboLength - 1;
-            float damage = _playerDamage * HackSpec.ComboDamageScale[index];
+            // A9.4: sampled once per swing, before this swing's own hits feed the gauge.
+            float damage = _playerDamage * HackSpec.ComboDamageScale[index] * MomentumDamageMultiplier;
+
             bool landed = false;
 
             for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
@@ -2379,6 +2472,8 @@ namespace CinderCourt.Sim
                         HackSpec.ComboKnockbackTime);
                 }
                 DamageEnemy(ref enemy, damage);
+                GainMomentum(enemy.State.Dead);
+
             }
 
             if (_campaign)
@@ -2465,6 +2560,11 @@ namespace CinderCourt.Sim
             _player.DamageCooldown = SimConfig.PlayerHitGrace;
             _player.Health = MathF.Max(0f, _player.Health - amount);
             _events |= SimEvents.PlayerDamaged;
+
+            // A9.3: the gauge measures an unbroken offensive, so being hit costs a
+            // flat slice of it and ends the grace window immediately.
+            SpendMomentumOnHurt();
+
 
             // Motion depth: the authored `hit` clip (Standing React Small From
             // Left) shipped dead — damage only ever produced a colour flash.
@@ -3139,6 +3239,12 @@ namespace CinderCourt.Sim
             _comboLanded = false;
             _comboVariant = ComboVariant.Neutral;
             _chargeTime = 0f;
+            // A9.3: a restart re-opens at an empty gauge — momentum is never banked
+            // across runs (§11 persistence is untouched).
+            _momentum = 0f;
+            _momentumGrace = 0f;
+            _momentumTierSeen = 0;
+
             _growthOfferOpen = false;
             _growthOfferTime = 0f;
             _lastGrowthChoice = GrowthChoiceKind.None;

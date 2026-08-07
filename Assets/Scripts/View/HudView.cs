@@ -712,6 +712,8 @@ namespace CinderCourt.View
                 _companionStanceLabel.gameObject.SetActive(false);
             _lastCompanionSkillTenths = int.MinValue;   // force one relabel on the next sync
             _lastCompanionStanceKey = int.MinValue;      // force one stance relabel too
+            _lastRoomObjectiveKey = int.MinValue;        // the next room owns a new objective
+
         }
 
         /// <summary>True only while a visible terminal panel can consume the retry shortcut.</summary>
@@ -923,6 +925,11 @@ namespace CinderCourt.View
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             SetTouchCombatControlsVisible(true);
             if (_bossBar != null) _bossBar.SetActive(false);
+            // Objective chip is room-scoped: clear it on every run entry/retry so a
+            // lobby return or an arena sortie can never show the last room's line.
+            if (_roomObjectivePanel != null) _roomObjectivePanel.SetActive(false);
+            _lastRoomObjectiveKey = int.MinValue;
+
             _lastBossFraction = -1f;
             _lastBossPhase = -1;
             _lastCombo = -1;
@@ -1187,10 +1194,11 @@ namespace CinderCourt.View
             }
 
             _momentumGauge.SetActive(true);
-            // HackSpec.MomentumMax lands with the A9 sim half; until then the method is
-            // unreachable (see the disabled call site) and this local keeps it compiling.
-            const float momentumMax = 100f;
-            _momentumGaugeFill.fillAmount = Mathf.Clamp01(momentum / momentumMax);
+            // The real sim constant, restored: main b97d609 landed HackSpec.MomentumMax
+            // with the A9 sim half. A local placeholder stood here only while that
+            // half was missing — a view literal would drift from the sim the first
+            // time the amendment retunes.
+            _momentumGaugeFill.fillAmount = Mathf.Clamp01(momentum / HackSpec.MomentumMax);
             _momentumGaugeFill.color = MomentumTierColor(tier);
 
             // Relabel only on a tier change — the raw value moves every tick, the tier
@@ -1573,6 +1581,15 @@ namespace CinderCourt.View
         // ring to draw here.
         Text _companionStanceLabel;
         int _lastCompanionStanceKey = int.MinValue;
+
+        // Room objective chip (dungeon-revival spec §"HUD must expose the current room
+        // objective"): a contiguous route replaces the lobby return between rooms, so the
+        // only place the player can still read "what does THIS room want" is the HUD.
+        // Text comes from StageCatalog.RoomObjective; the boss phase recolors it.
+        GameObject _roomObjectivePanel;
+        Text _roomObjectiveText;
+        int _lastRoomObjectiveKey = int.MinValue;
+
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
@@ -1700,6 +1717,24 @@ namespace CinderCourt.View
             stanceRect.anchoredPosition = new Vector2(-16, 196);
             _companionStanceLabel.color = new Color(0.82f, 0.86f, 0.95f);
             _companionStanceLabel.gameObject.SetActive(false);   // no companion, no chip
+
+            // --- room objective chip (top center, under the boss bar band) ------
+            // The revived route is contiguous: the player never returns to the lobby
+            // between rooms, so the room's own win condition has to stay legible on
+            // screen. Parked at y -108 — below the boss bar's -58..-104 band — so it
+            // never overlaps the bar when a boss spawns. Non-interactive by
+            // construction (Panel raycast off + Label raycast off).
+            _roomObjectivePanel = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -108), new Vector2(520, 26), new Color(0.03f, 0.04f, 0.08f, 0.66f));
+            _roomObjectiveText = Label(_roomObjectivePanel.transform, 0, 0, 520, 26, "", 14,
+                TextAnchor.MiddleCenter);
+            var objectiveTextRect = _roomObjectiveText.rectTransform;
+            objectiveTextRect.anchorMin = Vector2.zero;
+            objectiveTextRect.anchorMax = Vector2.one;
+            objectiveTextRect.sizeDelta = Vector2.zero;
+            objectiveTextRect.anchoredPosition = Vector2.zero;
+            _roomObjectivePanel.SetActive(false);   // no objective, no chip
+
 
 
             // --- shield readout (backed panel, hidden until shield > 0) ---------
@@ -1946,6 +1981,53 @@ namespace CinderCourt.View
                     break;
             }
         }
+
+        /// <summary>
+        /// Room objective readout (dungeon-revival spec). An empty/null
+        /// <paramref name="objective"/> hides the chip entirely — that is how arena,
+        /// prologue and unknown stage ids opt out rather than showing a stale line
+        /// from the previous room. While the room boss is alive the same objective
+        /// is re-framed as the final beat and recolored amber, so the player sees
+        /// the room's win condition change shape instead of a second HUD element
+        /// appearing. Keyed on (objective, bossAlive) so the text is not rebuilt
+        /// every frame.
+        /// </summary>
+        public void SyncRoomObjective(string objective, bool bossAlive)
+        {
+            if (_roomObjectivePanel == null || _roomObjectiveText == null) return;
+            var active = !string.IsNullOrEmpty(objective);
+            if (_roomObjectivePanel.activeSelf != active)
+                _roomObjectivePanel.SetActive(active);
+            if (!active)
+            {
+                _lastRoomObjectiveKey = int.MinValue;
+                return;
+            }
+
+            var key = objective.GetHashCode() * 2 + (bossAlive ? 1 : 0);
+            if (key == _lastRoomObjectiveKey) return;
+            _lastRoomObjectiveKey = key;
+            if (bossAlive)
+            {
+                _roomObjectiveText.text = "최종 목표 · " + objective;
+                _roomObjectiveText.color = new Color(1f, 0.83f, 0.45f);
+            }
+            else
+            {
+                _roomObjectiveText.text = "목표 · " + objective;
+                _roomObjectiveText.color = new Color(0.82f, 0.88f, 0.96f);
+            }
+        }
+
+        /// <summary>
+        /// QA/test seam for the room objective chip: the line the player can
+        /// actually read, or "" while the chip is hidden.
+        /// </summary>
+        public string RoomObjectiveReadout =>
+            _roomObjectivePanel != null && _roomObjectivePanel.activeSelf && _roomObjectiveText != null
+                ? _roomObjectiveText.text
+                : "";
+
 
 
         public void SyncDungeon(
@@ -2747,13 +2829,14 @@ namespace CinderCourt.View
             }
             if (sim is IHackSnapshot hack)
             {
-                // A9 momentum readout is DISABLED in this tree. The view half arrived
-                // with the VFX lane but the sim half (IHackSnapshot.Momentum /
-                // MomentumTier / MomentumDamageMultiplier, HackSpec.MomentumMax) is in
-                // neither main nor this lane — it lives in another in-flight branch.
-                // Re-enable this one line together with that sim landing.
-                // SyncMomentumGauge(hack.Momentum, hack.MomentumTier, hack.MomentumDamageMultiplier);
-
+                // A9 momentum readout, re-enabled. This line was commented out
+                // while the VFX lane's view half sat in a tree whose sim knew
+                // nothing about momentum; main b97d609 landed the sim half
+                // (IHackSnapshot.Momentum / MomentumTier /
+                // MomentumDamageMultiplier, HackSpec.MomentumMax), so the seam
+                // closes here. Additive as before: a snapshot that predates the
+                // amendment reports 0 and the bar simply stays unbuilt.
+                SyncMomentumGauge(hack.Momentum, hack.MomentumTier, hack.MomentumDamageMultiplier);
             }
             if (sim is IGrowthChoiceSnapshot growth)
             {

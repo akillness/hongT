@@ -67,6 +67,14 @@ namespace CinderCourt.View
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
         float _roarTime;                      // §M boss entrance roar window
+        // A pose window gets its FULL duration: the sync that ARMS it must not
+        // immediately spend a frame delta against it — the same invariant the hit
+        // flash below already keeps ("the frame that arms it must not immediately
+        // spend a delta against it"). Without it the 0.18 s combo knockback armed
+        // on a 0.2 s frame is already dead when ResolveActionValue reads it, so the
+        // launch reaction silently depends on frame length instead of on the sim.
+        bool _castPoseArmed, _knockbackArmed, _roarArmed;
+
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
         // --- §M2 swing pacing ------------------------------------------------
@@ -191,7 +199,11 @@ namespace CinderCourt.View
                 var stepY = state.Y - _prevSimY;
                 var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
                 if (speed > 400f && speed < 1500f)
+                {
                     _knockbackTime = HackSpec.BossSlamKnockbackTime;
+                    _knockbackArmed = true;
+                }
+
             }
 
             // NOTE: _prevSimX/Y are deliberately NOT written here. Apply's
@@ -243,7 +255,12 @@ namespace CinderCourt.View
                 var stepX = state.X - _prevSimX;
                 var stepY = state.Y - _prevSimY;
                 var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
-                if (speed > 300f) _knockbackTime = HackSpec.ComboKnockbackTime;
+                if (speed > 300f)
+                {
+                    _knockbackTime = HackSpec.ComboKnockbackTime;
+                    _knockbackArmed = true;
+                }
+
             }
 
             Apply(state.X, state.Y, state.Facing, state.Action,
@@ -523,6 +540,8 @@ namespace CinderCourt.View
         public void PlayRoar()
         {
             _roarTime = RoarDuration;
+            _roarArmed = true;
+
         }
 
         /// <summary>
@@ -697,7 +716,9 @@ namespace CinderCourt.View
             // so the View holds a short pose window off the same cast event that
             // drives the glow. Deliberately a touch longer than the glow so the
             // body reads as "casting" rather than twitching.
-            _castPoseTime = Mathf.Max(_castPoseTime, CastPoseDuration);
+            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
+            _castPoseArmed = true;
+
         }
 
         void UpdateCastGlow(float deltaTime)
@@ -790,9 +811,16 @@ namespace CinderCourt.View
 
             // §M/#9 + #4: pose selection is pure — extracted so it can be pinned
             // exhaustively instead of inferred from screenshots.
-            if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
-            if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
-            if (_roarTime > 0f) _roarTime -= Time.deltaTime;
+            // Arm-then-decay would burn the arming frame's delta out of a window
+            // that has not been shown yet, so each window skips exactly one decay:
+            // the sync that opened it. Same rule as the hit flash below.
+            if (_castPoseArmed) _castPoseArmed = false;
+            else if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
+            if (_knockbackArmed) _knockbackArmed = false;
+            else if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
+            if (_roarArmed) _roarArmed = false;
+            else if (_roarTime > 0f) _roarTime -= Time.deltaTime;
+
             var actionValue = ResolveActionValue(
                 action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f, _roarTime > 0f);
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
@@ -926,6 +954,11 @@ namespace CinderCourt.View
             _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
             _knockbackTime = 0f;      // §M: nor a launch reaction
             _roarTime = 0f;           // §M: nor an entrance roar
+            // ...nor a pending "skip one decay" grant from the previous tenant.
+            _castPoseArmed = false;
+            _knockbackArmed = false;
+            _roarArmed = false;
+
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;

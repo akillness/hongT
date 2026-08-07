@@ -49,7 +49,7 @@ UI 스케일 개선, 보스 다양화, 인트로→로비→스토리→스테�
 |---|---|---|---|
 | ~~W1~~ | 동료 자율성(타깃락·리시 추격·자동 복귀) | **완료** — AMENDMENT #7 (`b9a728c`), EditMode 316/316 | ✅ landed |
 | ~~W2~~ | 동료별 고유 스킬 1종 | **완료** — AMENDMENT #8 (`d0fe934`). #3 non-goal 중 "companion skills/cooldowns" 한 줄만 supersede, equipment/persistence는 유지. 4종(Volley/Hex/Quake/Flare)이 쿨·반경·피해·타깃수 **4축 모두** 상이 | ✅ landed |
-| W3 | 모멘텀 게이지(공격할수록 강해짐) | 전무. `HackSpec`/`IHackSnapshot`/`SimEvents` 어디에도 없음 | **Sim amendment** |
+| ~~W3~~ | 모멘텀 게이지(공격할수록 강해짐) | **완료** — AMENDMENT #9. 던전 한정 0..100 게이지, 근접 명중 +9/처치 +14, 1.6 s 유예 후 12/s 감쇠, 피격 -25. 4티어 ×1.00/1.08/1.18/1.30이 **근접 피해만** 배율 | ✅ landed |
 | W4 | 웨이브 포인트 기반 난이도 + DDA | 전무. 현재 `86 + min(140,(wave-1)×11)` 고정식 | **Sim amendment** |
 | W5 | 아이템 등급 드롭테이블 + bad-luck protection | 전무. 현재 보스 확정 + `id%7` 파편뿐(§6) | **Sim amendment** |
 | W6 | 보스 다양화 | 부분. visual 2종, 페이즈 테이블 전 보스 공유 | Sim + Asset |

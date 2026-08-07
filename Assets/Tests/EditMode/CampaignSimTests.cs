@@ -1380,11 +1380,33 @@ namespace CinderCourt.Tests
                 CampaignStages.EmberBastion,
                 hazards =>
                 {
+                    // Mutate the DOMINANT gimmick, matching the other two cases
+                    // (cinder-sluice moves its TideCurrent, ash-march its AshWall).
+                    // This case used to nudge the x=900 ObsidianPillar, which is
+                    // supporting furniture here — ember-bastion's identity is its
+                    // three EmberPylons.
+                    //
+                    // Why the target moved. A9 momentum (main b97d609) multiplies
+                    // swing damage, so the run resolves differently and the centre
+                    // bot's fixed zigzag no longer interacts with that corner. A
+                    // probe run INSIDE Unity (standalone dotnet disagrees here —
+                    // CLAUDE.md §4) swept every hazard at +50/120/200/300/400 px:
+                    //
+                    //   Pillar x=900   invisible at ALL five displacements
+                    //   Pylon  x=980   invisible at ALL five displacements
+                    //   Pylon  x=560   invisible +50, observed from +120
+                    //   Pylon  x=768   OBSERVED at +50   (3050|12 kills -> 2450|10)
+                    //
+                    // x=768 is the v1.1 third pylon whose aura covers the spawn, so
+                    // the bot meets it immediately and a 50 px nudge already moves
+                    // the shield off the enemies it was covering. That keeps the
+                    // original small-nudge intent AND makes it observable.
+                    // Re-run the probe if the recipe changes again; do not guess.
                     for (var i = 0; i < hazards.Length; i++)
-                        if (hazards[i].Kind == HazardKind.ObsidianPillar && hazards[i].X == 900f)
+                        if (hazards[i].Kind == HazardKind.EmberPylon && hazards[i].X == 768f)
                         { hazards[i].X += 50f; return; }
-                    Assert.Fail("ember-bastion lost its x=900 pillar — re-probe the recipe "
-                        + "(a mutation the bot cannot observe proves nothing)");
+                    Assert.Fail("ember-bastion lost its x=768 spawn-covering pylon — re-probe "
+                        + "the recipe (a mutation the bot cannot observe proves nothing)");
                 },
                 RunCentreScript);
 
