@@ -1194,6 +1194,10 @@ namespace CinderCourt.View
             }
 
             _momentumGauge.SetActive(true);
+            // The real sim constant, restored: main b97d609 landed HackSpec.MomentumMax
+            // with the A9 sim half. A local placeholder stood here only while that
+            // half was missing — a view literal would drift from the sim the first
+            // time the amendment retunes.
             _momentumGaugeFill.fillAmount = Mathf.Clamp01(momentum / HackSpec.MomentumMax);
             _momentumGaugeFill.color = MomentumTierColor(tier);
 
@@ -2825,11 +2829,14 @@ namespace CinderCourt.View
             }
             if (sim is IHackSnapshot hack)
             {
-                // A9 momentum readout — the sim half (IHackSnapshot.Momentum /
-                // MomentumTier / MomentumDamageMultiplier, HackSpec.MomentumMax)
-                // landed on main 2026-08-07; re-enabled at merge (PR #3).
+                // A9 momentum readout, re-enabled. This line was commented out
+                // while the VFX lane's view half sat in a tree whose sim knew
+                // nothing about momentum; main b97d609 landed the sim half
+                // (IHackSnapshot.Momentum / MomentumTier /
+                // MomentumDamageMultiplier, HackSpec.MomentumMax), so the seam
+                // closes here. Additive as before: a snapshot that predates the
+                // amendment reports 0 and the bar simply stays unbuilt.
                 SyncMomentumGauge(hack.Momentum, hack.MomentumTier, hack.MomentumDamageMultiplier);
-
             }
             if (sim is IGrowthChoiceSnapshot growth)
             {

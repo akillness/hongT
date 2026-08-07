@@ -716,8 +716,9 @@ namespace CinderCourt.View
             // so the View holds a short pose window off the same cast event that
             // drives the glow. Deliberately a touch longer than the glow so the
             // body reads as "casting" rather than twitching.
-            _castPoseTime = Mathf.Max(_castPoseTime, CastPoseDuration);
+            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
             _castPoseArmed = true;
+
         }
 
         void UpdateCastGlow(float deltaTime)

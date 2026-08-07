@@ -154,8 +154,8 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "cinder-span|3700|4|15|2|142|(running)|931.322|525.9695",
-                "abyss-chancel|2000|3|11|0|136|(running)|805.781433|783.829041",
+                "cinder-span|4350|4|16|3|142|(running)|936.765442|515.586853",
+                "abyss-chancel|3150|3|14|1|142|(running)|1151.919|525.907",
             };
             foreach (var expected in rows)
             {
@@ -189,11 +189,11 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "ember-gallery|3100|3|13|2|136|(running)|466.405334|754.7759",
-                "witness-well|3100|3|13|2|136|(running)|466.405334|754.7759",
-                "echo-throne|2250|3|11|1|136|(running)|1210.65125|708.4477",
-                "ash-verdict|3700|4|15|2|142|(running)|906.255249|489.832947",
-                "ash-march|3700|4|15|2|52|(running)|908.362732|625.6049",
+                "ember-gallery|4350|4|16|3|142|(running)|932.6403|514.9418",
+                "witness-well|4350|4|16|3|142|(running)|932.6403|514.9418",
+                "echo-throne|2250|3|11|1|136|(running)|1191.14087|728.4469",
+                "ash-verdict|3400|3|14|2|142|(running)|1248.78381|567.032",
+                "ash-march|3850|4|16|1|82|(running)|957.0417|573.282959",
             };
             foreach (var expected in rows)
             {
@@ -240,8 +240,8 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "cinder-sluice|2600|3|13|0|136|(running)|961.427063|611.6681",
-                "ember-bastion|1950|3|10|1|136|(running)|1032.24353|524.6603",
+                "cinder-sluice|2600|3|13|0|136|(running)|963.5111|617.6645",
+                "ember-bastion|1650|3|9|1|128|(running)|863.109558|632.852051",
             };
             foreach (var expected in rows)
             {

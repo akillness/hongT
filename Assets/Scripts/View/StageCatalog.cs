@@ -48,10 +48,15 @@ namespace CinderCourt.View
         /// a contiguous route never repeats the same instruction twice.
         /// </summary>
         public readonly string RoomObjective;
+
         /// <summary>
         /// One-line gimmick identity shown on the lobby card (fun-pass v1.2):
         /// the stage's dominant gimmick in the preview→mastery lineage, phrased
         /// per worldview.md '기믹 계보' (court function made physical).
+        ///
+        /// Not interchangeable with <see cref="RoomObjective"/>: the epithet is
+        /// the card's two-word IDENTITY ("분출구 입문"), the objective is the
+        /// room's INSTRUCTION ("…를 끊고 …를 처단하라"). LobbyView reads this.
         /// </summary>
         public readonly string Epithet;
 
@@ -189,21 +194,22 @@ namespace CinderCourt.View
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.247f, 0.659f, 0.784f), 1.2f, "Sluice Keeper"),
                 "cinder-sluice", null,
-                "해류에 떠밀리지 않는 자리를 잡고 수문지기를 끌어내라", "해류 숙달"),
+                "역류에 밀리지 않고 수문의 파수꾼을 물살 밖으로 끌어내라", "해류 숙달"),
             new StageEntry(7, "ember-bastion", "Ember Bastion", "EMBER BASTION", "불씨 요새",
                 "skill-ward", "ember-bastion", null, "cinder-sluice", "cinder-span",
                 new Color(0.910f, 0.541f, 0.180f),                       // #E88A2E
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.910f, 0.541f, 0.180f), 1.22f, "Bastion Sentinel"),
                 "ember-bastion", null,
-                "방벽의 틈을 열고 요새의 파수꾼을 무너뜨려라", "방벽 숙달"),
+                "적을 감싸는 불씨 기둥을 먼저 무너뜨리고 요새의 파수병을 베어라", "방벽 숙달"),
             new StageEntry(8, "ash-march", "Ash March", "ASH MARCH", "재의 행진",
                 "skill-strike", "ash-march", null, "ember-bastion", "echo-throne",
                 new Color(0.722f, 0.690f, 0.643f),                       // #B8B0A4
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.722f, 0.690f, 0.643f), 1.25f, "Ash Magistrate"),
                 "ash-march", "scout-echo",
-                "행진의 대열을 끊고 재의 집행관을 심판하라", "집행 수렴"),
+                "양쪽에서 닫혀오는 잿벽 사이에서 집행관을 판결하라", "집행 수렴"),
+
         };
 
         // Derived from the catalog length (9 entries -> 0x1FF) so adding a
