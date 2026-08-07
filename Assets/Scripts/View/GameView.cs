@@ -192,6 +192,11 @@ namespace CinderCourt.View
             _deathNumberPunchTimer = 0f;
             if (_damageNumbers != null) _damageNumbers.transform.localScale = Vector3.one;
             if (Hud != null) Hud.ResetRunUi();
+            // AMENDMENT #11 UI: latch the run's tier for the whole run. Unconditional
+            // on purpose — arena and prologue carry Difficulty.Normal, so this is what
+            // clears a badge left over from a previous Nightmare descent.
+            if (Hud != null) Hud.SetRunDifficulty(config.Difficulty);
+
             EnsureInitialized();
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();

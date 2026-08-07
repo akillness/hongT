@@ -39,3 +39,9 @@
   Unity 에디터 점유로 배치 러너 불가, msbuild(Roslyn) 컴파일 + net8.0 NUnit
   하네스로 실행. `.env.game-audio` 키는 전 모델 429(크레딧 소진)라 라이브 왕복
   미검증. 지식: `wiki/entities/hongt-command-agent-sequence-console.md`.
+- 2026-08-07 — AMENDMENT #12 던전 환경 + 기획문서 최신화: SIM_SPEC_ENVIRONMENT
+  신설(제안→frozen, §E8 8게이트 초록), HACKSLASH 부록 A(개정 원장)·B(정오표
+  10건), CAMPAIGN supersede, DUNGEON_GUIDE 갱신. EnvironmentBuilder(Zone A/B/C
+  링, FNV-1a 결정론, Light 4, 콜라이더 0) + 커버리지 게이트(bare 0.0000 실측,
+  핀 0.02). EditMode 571/571 · WebGL 70.8MB 0 error · gh-pages 6c163b5 배포·
+  라이브 확인. 결론 개념화: wiki/concepts/hongt-environment-amendment-12.

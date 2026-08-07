@@ -404,6 +404,12 @@ namespace CinderCourt.View
         /// The three lines the button shows for a tier. Every number is read from
         /// <see cref="Sim.DifficultySpec.For"/> so the label can never drift from the
         /// simulation it describes.
+        ///
+        /// The leading step marker (AMENDMENT #11 UI) is what makes a CYCLE button
+        /// honest: without it the player sees one tier at a time and cannot tell how
+        /// many exist or whether clicking moves toward harder or easier. The marker
+        /// counts in <see cref="Sim.DifficultySpec.OrderOf"/> order — easiest first —
+        /// so the number itself states the direction of travel.
         /// </summary>
         internal static string DifficultyLabelText(Sim.Difficulty difficulty)
         {
@@ -411,7 +417,8 @@ namespace CinderCourt.View
             var pack = profile.GroupAi
                 ? $"협동 AI ON · 동시 {profile.AttackTokens}"
                 : "협동 AI OFF";
-            return $"난이도: {DifficultyName(difficulty)}\n"
+            var step = Sim.DifficultySpec.OrderOf(difficulty) + 1;
+            return $"난이도: {DifficultyName(difficulty)} [{step}/{Sim.DifficultySpec.Count}]\n"
                 + $"받는 피해 ×{profile.IncomingDamageMul:0.00} · 공격 간격 ×{profile.AttackCooldownMul:0.00}\n"
                 + pack;
         }

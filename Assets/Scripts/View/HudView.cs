@@ -29,6 +29,12 @@ namespace CinderCourt.View
         Font _font;
         Image _healthFill, _chargeFill;
         Text _healthText, _chargeText, _waveText, _scoreText, _relicText, _enemyText;
+        // AMENDMENT #11 UI: the run's difficulty tier is LOCKED at run creation, so
+        // unlike every other stat it never changes mid-run — it is latched once by
+        // SetRunDifficulty instead of polled in SyncStats.
+        Text _difficultyText;
+        Sim.Difficulty _runDifficulty;
+        bool _difficultyBadgeShown;
         Text _loreText, _finalText, _retryLabel;
         Image _novaCooldownOverlay, _wardCooldownOverlay;
         Image _novaFrame, _wardFrame;   // HUD atlas: ready-state gold rim swap
@@ -243,20 +249,25 @@ namespace CinderCourt.View
             _healthBackRect = (RectTransform)_healthFill.transform.parent;
             _chargeBackRect = (RectTransform)_chargeFill.transform.parent;
 
-            // --- top-right: wave / score / relics / enemies -------------------
+            // --- top-right: wave / score / relics / enemies / difficulty ------
             var stats = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-16, -16), new Vector2(240, 108), new Color(0.05f, 0.04f, 0.09f, 0.55f),
+                new Vector2(-16, -16), new Vector2(240, StatsPanelHeight),
+                new Color(0.05f, 0.04f, 0.09f, 0.55f),
                 "hud-stats-panel-bg");
             _statsRect = stats.GetComponent<RectTransform>();
 
-            _statsRect = stats.GetComponent<RectTransform>();
             _waveText = Label(stats.transform, 10, -6, 220, 24, "웨이브 1", 18, TextAnchor.MiddleLeft);
             _scoreText = Label(stats.transform, 10, -30, 220, 24, "점수 0", 18, TextAnchor.MiddleLeft);
             _relicText = Label(stats.transform, 10, -54, 220, 24, "유물 0", 18, TextAnchor.MiddleLeft);
             _enemyText = Label(stats.transform, 10, -78, 220, 24, "적 0", 18, TextAnchor.MiddleLeft);
+            // Row 5 exists from Build so no run-start allocation is needed, but it
+            // stays hidden until a run latches a non-baseline tier.
+            _difficultyText = Label(stats.transform, 10, -102, 220, 24, "", 18, TextAnchor.MiddleLeft);
+            _difficultyText.gameObject.SetActive(false);
 
             // --- mute toggle under stats --------------------------------------
-            var muteButton = TextButton(root, new Vector2(1, 1), new Vector2(-16, -132),
+            var muteButton = TextButton(root, new Vector2(1, 1),
+                new Vector2(-16, -MuteTopOffset),
                 new Vector2(240, 34), "소리: 켜짐", 16,
                 () => { if (Audio != null) { Audio.ToggleMute(); RefreshMuteLabel(); } });
             _muteLabel = muteButton.GetComponentInChildren<Text>();
@@ -436,6 +447,8 @@ namespace CinderCourt.View
             _scoreText.fontSize = statFont;
             _relicText.fontSize = statFont;
             _enemyText.fontSize = statFont;
+            if (_difficultyText != null) _difficultyText.fontSize = statFont;
+
             if (tier == LayoutTier.Phone)
             {
                 // Stats drop below the meters (left column), freeing the top
@@ -444,7 +457,7 @@ namespace CinderCourt.View
                 _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(0f, 1f);
                 _statsRect.pivot = new Vector2(0f, 1f);
                 _statsRect.anchoredPosition = new Vector2(16, -98);
-                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
+                _statsRect.sizeDelta = new Vector2(statsWidth, StatsPanelHeight);
                 _muteRect.anchoredPosition = new Vector2(-16, -16);
                 // Spec #6: 44 CSS px floor at the worst phone scale
                 // (0.488 px/u) needs >=90 u — the old 34 u was a 17 px target.
@@ -456,8 +469,8 @@ namespace CinderCourt.View
                 _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(1f, 1f);
                 _statsRect.pivot = new Vector2(1f, 1f);
                 _statsRect.anchoredPosition = new Vector2(-16, -16);
-                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
-                _muteRect.anchoredPosition = new Vector2(-16, -132);
+                _statsRect.sizeDelta = new Vector2(statsWidth, StatsPanelHeight);
+                _muteRect.anchoredPosition = new Vector2(-16, -MuteTopOffset);
                 _muteRect.sizeDelta = new Vector2(statsWidth, 34);
                 if (_muteLabel != null) _muteLabel.fontSize = 16;
             }
@@ -1909,6 +1922,95 @@ namespace CinderCourt.View
             if (_enemyText != null) _enemyText.gameObject.SetActive(!training);
         }
 
+        // --- AMENDMENT #11 UI: in-run difficulty badge -----------------------
+        //
+        // Why this exists: §16 deliberately LOCKS the tier at run creation so a run
+        // reproduces from (config, input sequence). A locked choice the player cannot
+        // see is a trap — they pick 악몽 in the lobby, die, and have no on-screen proof
+        // of which ruleset killed them. The lobby button is the only place the tier
+        // was ever stated, and it is three screens away by then.
+
+        /// <summary>Stats panel height. The difficulty row is a real 5th row, so the
+        /// panel grows to hold it and shrinks back when the run is baseline — an
+        /// always-tall panel would show 24 u of empty background on every Normal run,
+        /// which is most of them.</summary>
+        float StatsPanelHeight => _difficultyBadgeShown ? 132f : 108f;
+
+        /// <summary>Top inset of the mute button: it sits 8 u under the stats panel,
+        /// so it has to move with the panel rather than repeat a literal.</summary>
+        float MuteTopOffset => 16f + StatsPanelHeight + 8f;
+
+        /// <summary>
+        /// Baseline runs show nothing. <see cref="Sim.Difficulty.Normal"/> is the
+        /// pre-amendment ruleset and is what arena and prologue always run, so a
+        /// "난이도 보통" row there would be permanent noise that says nothing. The badge
+        /// is a deviation marker: it appears exactly when the rules are not the
+        /// default ones.
+        /// </summary>
+        internal static bool ShowsDifficultyBadge(Sim.Difficulty difficulty)
+            => difficulty != Sim.Difficulty.Normal;
+
+        /// <summary>
+        /// One HUD line for a tier. Deliberately shorter than the lobby's three-line
+        /// spec text (<see cref="LobbyView.DifficultyLabelText"/>): in-run this must
+        /// answer "which ruleset am I in" at a glance, not re-teach the multipliers.
+        /// The 협동 marker is the one mechanical fact worth carrying, because a group-AI
+        /// tier is the one that makes enemies circle instead of charge.
+        /// </summary>
+        internal static string DifficultyBadgeText(Sim.Difficulty difficulty)
+        {
+            var name = LobbyView.DifficultyName(difficulty);
+            return Sim.DifficultySpec.For(difficulty).GroupAi
+                ? $"난이도 {name} · 협동"
+                : $"난이도 {name}";
+        }
+
+        /// <summary>
+        /// Result-screen suffix. A score earned on 악몽 and one earned on 입문 are not
+        /// the same number, so the tier has to ride along with it or the run summary
+        /// misreports itself. Empty on the baseline tier, which keeps every existing
+        /// Normal-run result line byte-identical.
+        /// </summary>
+        internal static string DifficultyResultSuffix(Sim.Difficulty difficulty)
+            => ShowsDifficultyBadge(difficulty)
+                ? " · " + LobbyView.DifficultyName(difficulty)
+                : string.Empty;
+
+        /// <summary>
+        /// Latches the run's tier ONCE at start, like <see cref="SetTrialMode"/>: the
+        /// sim cannot change difficulty mid-run, so polling it per frame would be a
+        /// lie about how the value behaves.
+        /// </summary>
+        public void SetRunDifficulty(Sim.Difficulty difficulty)
+        {
+            _runDifficulty = difficulty;
+            var show = ShowsDifficultyBadge(difficulty);
+            if (_difficultyText != null)
+            {
+                _difficultyText.text = show ? DifficultyBadgeText(difficulty) : string.Empty;
+                // Gold reads as "this run is off-baseline" everywhere else in the HUD.
+                _difficultyText.color = new Color(1f, 0.83f, 0.45f);
+                _difficultyText.gameObject.SetActive(show);
+            }
+            if (show == _difficultyBadgeShown) return;
+            _difficultyBadgeShown = show;
+            // The panel and the mute button below it both resize; re-run the tier pass
+            // rather than duplicating its geometry. Guarded because Build() can latch a
+            // tier before the first ApplyLayout has supplied screen geometry.
+            if (_statsRect != null && _lastScreenWidth > 0 && _lastScreenHeight > 0)
+                ApplyLayoutTier();
+        }
+
+        /// <summary>The tier this run was created with (test/diagnostic seam).</summary>
+        internal Sim.Difficulty RunDifficulty => _runDifficulty;
+
+        /// <summary>Geometry seams for the layout regression tests: the stats panel and
+        /// the mute button move together when the badge row appears.</summary>
+        internal RectTransform StatsRectForTest => _statsRect;
+        internal RectTransform MuteRectForTest => _muteRect;
+        internal Text DifficultyLabelForTest => _difficultyText;
+
+
         void EnsureSurgeBanners()
         {
             if (_surgeBanner != null || _safeRoot == null) return;
@@ -2708,9 +2810,14 @@ namespace CinderCourt.View
                         : Time.unscaledTime - _recentHazardTime <= 2f
                             ? "위험 지대에 잠식됐다"
                             : "군단에 함락됐다";
+                    // AMENDMENT #11 UI: the tier rides the summary line. Without it
+                    // the score is unreadable as a result — the same number means
+                    // different things on 입문 and 악몽.
                     _finalText.text =
                         $"점수 {digest.Score:N0} • 유물 {digest.Relics} • 처치 {digest.Kills}\n" +
-                        $"{deathContext} • 웨이브 {digest.Wave} 도달";
+                        $"{deathContext} • 웨이브 {digest.Wave} 도달" +
+                        DifficultyResultSuffix(_runDifficulty);
+
                 }
                 ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
@@ -3034,7 +3141,9 @@ namespace CinderCourt.View
             // "점수 0 • 유물 0" and imply a failed run instead of a finished one.
             _stageClearText.text = _trialStatsHidden
                 ? $"피격 {_trialClearHits}회"
-                : $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
+                : $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}"
+                  + DifficultyResultSuffix(_runDifficulty);
+
             if (_stageClearTitle != null)
                 _stageClearTitle.text = _trialStatsHidden ? "시련 완료" : "구역 정화";
             _stageClearPanel.SetActive(true);
