@@ -268,6 +268,10 @@ namespace CinderCourt.Tests
             var covered = 0;
             var worstHalfExtent = 0f;
             var worstHeight = 0f;
+            var dimmestFurniture = float.MaxValue;
+            var brightestFurniture = 0f;
+            var floorLum = 0f;
+            var samplePos = "";
             foreach (var stageId in StageIds)
             {
                 var hazards = HazardsFor(stageId);
@@ -311,6 +315,50 @@ namespace CinderCourt.Tests
                         var halfExtent = Mathf.Max(b.extents.x, b.extents.z);
                         if (halfExtent > worstHalfExtent) worstHalfExtent = halfExtent;
                         if (b.size.y > worstHeight) worstHeight = b.size.y;
+
+                        // The legibility claim needs a NUMBER too. Two visual
+                        // reads in this session were wrong on measurement, and
+                        // a screenshot cannot say which quad is furniture. Pull
+                        // the tint the renderer actually got and compare it to
+                        // the floor panels it must contrast against: too close
+                        // and it reads as another slab, too dark and it reads
+                        // as a hole in the floor rather than a rock on it.
+                        var mpb = new MaterialPropertyBlock();
+                        rends[0].GetPropertyBlock(mpb);
+                        var c = mpb.GetColor("_BaseColor");
+                        var lum = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+                        if (lum > 0f && lum < dimmestFurniture) dimmestFurniture = lum;
+                        if (lum > brightestFurniture) brightestFurniture = lum;
+                    }
+                    // Floor reference from the SAME scene: furniture must be
+                    // told apart from these, so the comparison has to be
+                    // measured, not assumed from the palette constants.
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!child.name.StartsWith("env-floor-0", System.StringComparison.Ordinal))
+                            continue;
+                        var fr = child.GetComponentInChildren<Renderer>();
+                        if (fr == null) continue;
+                        var fb = new MaterialPropertyBlock();
+                        fr.GetPropertyBlock(fb);
+                        var fc = fb.GetColor("_BaseColor");
+                        floorLum = fc.r * 0.299f + fc.g * 0.587f + fc.b * 0.114f;
+                        break;
+                    }
+                    if (samplePos.Length == 0)
+                    {
+                        foreach (Transform child in root.transform)
+                        {
+                            if (!child.name.StartsWith("env-floor-5", System.StringComparison.Ordinal))
+                                continue;
+                            // Sim coords so a screenshot can be cropped on the
+                            // real position instead of a guess at where the
+                            // ring landed.
+                            var w = child.position;
+                            samplePos = $"{stageId} {child.name} sim=("
+                                + $"{w.x / ViewWorld.Scale:F0},{-w.z / ViewWorld.Scale:F0})";
+                            break;
+                        }
                     }
                     TestContext.WriteLine(
                         $"  {stageId}: {discs} disc gimmick(s) -> {furniture} furniture");
@@ -324,6 +372,11 @@ namespace CinderCourt.Tests
             }
             Assert.That(covered, Is.GreaterThan(0),
                 "no stage carries a disc gimmick - this test itself went vacuous");
+            TestContext.WriteLine(
+                $"furniture tint: dimmest={dimmestFurniture:F3} brightest="
+                + $"{brightestFurniture:F3} vs floor={floorLum:F3} "
+                + $"(ratio {(floorLum > 0 ? floorLum / dimmestFurniture : 0):F2}x) "
+                + $"| {samplePos}");
             TestContext.WriteLine(
                 $"furniture: worst xz half-extent={worstHalfExtent:F3}u  "
                 + $"worst height={worstHeight:F3}u  "
