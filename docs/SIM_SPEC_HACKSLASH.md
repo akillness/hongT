@@ -1109,7 +1109,7 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | 10 | 훈련장 · 돌발 | 본 문서 "AMENDMENT #10" | frozen |
 | (미정) | **각인 (Sigils)** — 원문 헤딩 "# AMENDMENT #6 — 각인"으로 도착(레인 번호 충돌, conflicts.md 2026-08-07 기록). 내부 §13.x는 이 증보 로컬 번호이며 본문 §13 결정론과 무관 | 본 문서 "# AMENDMENT #6 — 각인 (Sigils)" | frozen(내용) — **canonical 번호는 D13 오퍼레이터 결정 대기.** 제안: "10-b" (#10/#11이 코드·커밋에 박혀 밀 수 없음). L440 노트의 "동료=#6 확정 시 각인=#7" 경로는 #7이 이미 동료 자율성에 소비되어 무효 |
 | 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" (로컬 절 번호 **§16**) | frozen |
-| 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **제안 — 구현·게이트 대기** (§E8 7계약 초록 시 frozen 승격. #5 선례) |
+| 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **frozen** (2026-08-07 §E8 전부 초록 — EditMode 571/571 test-results-183453.xml · WebGL 0 error · 라이브 gh-pages 6c163b5) |
 
 # 부록 B — 정오표 (2026-08-07 감사 반영, additive)
 

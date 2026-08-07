@@ -1,8 +1,10 @@
-# Abyssal Lantern — Dungeon Environment (Modular Tiles) Spec — AMENDMENT #12 제안
+# Abyssal Lantern — Dungeon Environment (Modular Tiles) Frozen Spec — AMENDMENT #12
 
-// AMENDMENT #12 (제안 — 구현·게이트 대기) — 2026-08-07. **View 전용, additive.**
-// §E8 검증 계약 7건이 EditMode에서 초록이 되는 시점에 FROZEN으로 승격한다
-// (#5 선례). 그 전까지 이 문서는 구현 레인의 계약 초안이다.
+// FROZEN CONTRACT AMENDMENT #12 — 2026-08-07. **View 전용, additive.**
+// 승격 근거: §E8 검증 계약 전부 초록 — EditMode 571/571
+// (test-results-183453.xml, EnvironmentBuilderTests 8/8: 결정론·타원내접·
+// 클리어런스·커버리지 bare 0.0000(핀 0.02)·콜라이더0·예산·명명·null) +
+// WebGL Succeeded 70.8MB 0 error + 라이브 배포 확인(gh-pages 6c163b5).
 // SIM_SPEC.md(아레나)·SIM_SPEC_CAMPAIGN.md·SIM_SPEC_HACKSLASH.md(v0.2.0+개정)·
 // SIM_SPEC_DUNGEONS.md(#5)는 전부 불변이다. 이 문서는 던전 씬의 **시각 환경**
 // (모듈러 타일, 랜드마크, 입체감, 조명)이 지켜야 할 규칙만 정의한다.
