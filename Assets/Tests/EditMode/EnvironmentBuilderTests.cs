@@ -65,20 +65,36 @@ namespace CinderCourt.Tests
         // the orbit distance is NOT widened there — widest ground quad).
         const float DungeonPitch = 55f;
         const float DungeonFov = 42f;
-        const float DungeonCrowdDistance = 24.5f;
+        // DERIVED from the shipping camera, never copied. This was a literal
+        // 24.5f and went stale the moment the crowd tier moved to 21.5 — the
+        // grid was sampling a frustum (and a fog line, via FogStartOffset)
+        // that no build uses. Third instance of the same raw-constant drift
+        // this session; see wiki hongt-vacuous-gate-and-cancelled-scale §7.
+        const float DungeonCrowdDistance = CameraRig.DungeonCrowdDistance;
         const float FogStartOffset = 2f;
         const float WideAspect = 21f / 9f;
         const int CoverageGridSize = 32;
 
-        // Coverage-gate pin — MEASURED, not analytic. 2026-08-07 editor run
-        // (test-results-183307.xml): all nine stages print bare=0.0000 while
-        // plate+fog alone leaves withoutEnv=0.4199. Method caveat: FootprintsOf
-        // projects renderer AABBs to XZ, so 0.0000 means "every ground sample
-        // sits inside SOME module's bounds", not "covered by literal geometry"
-        // — rotated/thin pieces over-count. Still a valid regression tripwire:
-        // losing Zone C jumps the ratio to ~0.42. Pinned at 0.02 (measured 0 +
-        // slack for benign jitter). Per-run measurements keep landing in the
-        // results XML via the WriteLine below.
+        // Coverage-gate pin — MEASURED, not analytic. 2026-08-08 editor run:
+        // all nine stages print bare=0.0000 while plate+fog alone leaves
+        // withoutEnv=0.6289..0.6563, so losing Zone C jumps the ratio to ~0.63.
+        //
+        // That reference moved twice on 2026-08-08 and both moves were bugs
+        // in the measurement, not in the environment:
+        //   0.4199  AABB footprints, stale camera D=24.5
+        //   0.6045  oriented footprints, stale camera
+        //   0.6289  oriented footprints, shipping camera D=21.5
+        // FootprintsOf projected renderer.bounds — the world-AXIS-ALIGNED box —
+        // so every rotated piece claimed a square the size of its diagonal,
+        // including the plate itself. It now transforms the mesh's local box
+        // corners, which is exact for the box and quad modules that make up
+        // almost the whole environment.
+        //
+        // What this gate does NOT measure: flatness. bare=0.0000 says no
+        // ground sample is uncovered; the deployed frame can still read as one
+        // colour because covered ground is untextured or fog-replaced. Those
+        // are separate properties and this row only owns the first.
+        // Pinned at 0.02 (measured 0 + slack for benign jitter).
         const float BareRatioRegressionGate = 0.02f;
 
         // ------------------------------------------------------------ helpers --
@@ -542,21 +558,83 @@ namespace CinderCourt.Tests
             return samples;
         }
 
-        static List<Rect> FootprintsOf(GameObject root)
+        /// <summary>
+        /// XZ footprint of one renderer as an ORIENTED quad.
+        ///
+        /// This used to project renderer.bounds — the world-axis-aligned box —
+        /// which over-counts every rotated piece: a thin wall at 45 degrees
+        /// claims a square the size of its diagonal. That is why the gate read
+        /// bare=0.0000 on all nine stages while a pixel histogram of the
+        /// deployed frame showed the playfield was 74% one flat colour. The
+        /// gate was measuring "inside SOME module's bounding box", not
+        /// "covered by geometry".
+        ///
+        /// Taking the mesh's LOCAL bounds and transforming its four XZ corners
+        /// gives the true rectangle for the box and quad modules that make up
+        /// almost the whole environment. Authored library meshes are still
+        /// approximated by their local box, but that box rotates with the part
+        /// instead of growing to enclose it.
+        /// </summary>
+        readonly struct Footprint
         {
-            var rects = new List<Rect>();
-            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
-            {
-                var b = renderer.bounds;
-                rects.Add(Rect.MinMaxRect(b.min.x, b.min.z, b.max.x, b.max.z));
-            }
-            return rects;
+            public readonly Vector2 A, B, C, D;   // CCW in XZ
+            public Footprint(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+            { A = a; B = b; C = c; D = d; }
+
+            public bool Contains(Vector2 p)
+                => SameSide(A, B, p) && SameSide(B, C, p)
+                && SameSide(C, D, p) && SameSide(D, A, p);
+
+            // All four edge cross-products share a sign for an interior point.
+            static bool SameSide(Vector2 e0, Vector2 e1, Vector2 p)
+                => (e1.x - e0.x) * (p.y - e0.y) - (e1.y - e0.y) * (p.x - e0.x) >= 0f;
         }
 
-        static bool InAny(List<Rect> rects, Vector3 point)
+        static List<Footprint> FootprintsOf(GameObject root)
         {
-            for (var i = 0; i < rects.Count; i++)
-                if (rects[i].Contains(new Vector2(point.x, point.z))) return true;
+            var quads = new List<Footprint>();
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var filter = renderer.GetComponent<MeshFilter>();
+                var mesh = filter != null ? filter.sharedMesh : null;
+                var t = renderer.transform;
+                if (mesh == null)
+                {
+                    // No mesh to orient (particles, lights): fall back to the
+                    // world AABB rather than dropping the renderer entirely.
+                    var b = renderer.bounds;
+                    quads.Add(new Footprint(
+                        new Vector2(b.min.x, b.min.z), new Vector2(b.max.x, b.min.z),
+                        new Vector2(b.max.x, b.max.z), new Vector2(b.min.x, b.max.z)));
+                    continue;
+                }
+                var lb = mesh.bounds;
+                var e = lb.extents;
+                var c = lb.center;
+                // Four XZ corners of the local box, transformed into world.
+                var p0 = t.TransformPoint(new Vector3(c.x - e.x, c.y, c.z - e.z));
+                var p1 = t.TransformPoint(new Vector3(c.x + e.x, c.y, c.z - e.z));
+                var p2 = t.TransformPoint(new Vector3(c.x + e.x, c.y, c.z + e.z));
+                var p3 = t.TransformPoint(new Vector3(c.x - e.x, c.y, c.z + e.z));
+                var a = new Vector2(p0.x, p0.z);
+                var bb = new Vector2(p1.x, p1.z);
+                var cc = new Vector2(p2.x, p2.z);
+                var dd = new Vector2(p3.x, p3.z);
+                // Winding depends on the transform's handedness; normalise so
+                // Contains' same-sign test is valid for both.
+                var cross = (bb.x - a.x) * (cc.y - a.y) - (bb.y - a.y) * (cc.x - a.x);
+                quads.Add(cross >= 0f
+                    ? new Footprint(a, bb, cc, dd)
+                    : new Footprint(dd, cc, bb, a));
+            }
+            return quads;
+        }
+
+        static bool InAny(List<Footprint> quads, Vector3 point)
+        {
+            var p = new Vector2(point.x, point.z);
+            for (var i = 0; i < quads.Count; i++)
+                if (quads[i].Contains(p)) return true;
             return false;
         }
 

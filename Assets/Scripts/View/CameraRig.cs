@@ -94,8 +94,8 @@ namespace CinderCourt.View
         // Cost, stated plainly: less of the arena is on screen, so combat sight
         // lines shorten. The tiers keep their ratio (1.229) so the calm/crowd
         // relationship the wave pacing depends on is unchanged.
-        const float DungeonCalmDistance = 17.5f;
-        const float DungeonCrowdDistance = 21.5f;
+        internal const float DungeonCalmDistance = 17.5f;
+        internal const float DungeonCrowdDistance = 21.5f;
         float _dungeonDistance = DungeonCalmDistance;
         float _dungeonTargetDistance = DungeonCalmDistance;
 
