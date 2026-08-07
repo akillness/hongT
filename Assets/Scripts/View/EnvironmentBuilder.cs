@@ -991,7 +991,17 @@ namespace CinderCourt.View
                     LibraryPart = "feature",
                     Uncapped = true,
                     SizeY = height * (float)SimToWorld,
-                    Shade = 0.88f + (float)Signed(seed, 24, 4) * 0.10f,
+                    // MEASURED: at Shade 0.88 the ring rendered at luminance
+                    // 1.22 against a floor of 41.5 - 34x darker, internal std
+                    // 0.58, i.e. a flat black cutout rather than a statue. The
+                    // cause is position, not tint: this ring stands outside the
+                    // range of the four E6 point lights, so it is lit by
+                    // ambient alone while the arena floor is not. Compensating
+                    // in the tint is the cheapest fix that does not spend a
+                    // light from the budget. Still darker than the floor - the
+                    // key art's statues are dark shapes against a lit court,
+                    // just not holes in it.
+                    Shade = 3.2f + (float)Signed(seed, 24, 4) * 0.35f,
                 });
                 modules.Add(module);
                 index++;
