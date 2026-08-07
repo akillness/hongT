@@ -395,6 +395,60 @@ namespace CinderCourt.Tests
                 + "telegraph behind it at the 55° dungeon pitch (§E0.5)");
         }
 
+        // ------------------------- 2c. outer silhouettes actually stand up --
+        //
+        // The pass above proved a shape exists; this one proves it is TALL.
+        // Both matter separately, and the second is the one that silently
+        // failed: every LibraryPart piece routes through SpawnLibraryPart,
+        // which clamped height to FurnitureMaxHeight unconditionally, so the
+        // first draft of this ring rendered as 0.425 u chips while the code
+        // comment claimed "height is UNCAPPED here". Nothing caught it — the
+        // furniture gate only counts env-floor-5*, and these are env-pillar-7*.
+        //
+        // So assert the opposite of the furniture rule: out here a silhouette
+        // MUST exceed the cap, because exceeding it is the entire point.
+        [Test]
+        public void OuterSilhouettes_StandTallerThanTheOcclusionCap()
+        {
+            var covered = 0;
+            var tallest = 0f;
+            foreach (var stageId in StageIds)
+            {
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var found = 0;
+                    var overCap = 0;
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!child.name.StartsWith("env-pillar-7", System.StringComparison.Ordinal))
+                            continue;
+                        var rends = child.GetComponentsInChildren<Renderer>();
+                        if (rends.Length == 0) continue;
+                        found++;
+                        var b = rends[0].bounds;
+                        for (var r = 1; r < rends.Length; r++) b.Encapsulate(rends[r].bounds);
+                        if (b.size.y > tallest) tallest = b.size.y;
+                        if (b.size.y > EnvironmentLayout.FurnitureMaxHeight * 1.5f) overCap++;
+                    }
+                    Assert.That(found, Is.GreaterThan(0),
+                        $"{stageId}: no outer silhouettes were built");
+                    Assert.That(overCap, Is.GreaterThan(0),
+                        $"{stageId}: {found} silhouette(s) built but none clears "
+                        + $"1.5x the occlusion cap ({EnvironmentLayout.FurnitureMaxHeight:F3}u) "
+                        + "- the cap is being applied where it must not be, so the "
+                        + "ring is flat chips instead of silhouette");
+                    covered++;
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+            }
+            TestContext.WriteLine(
+                $"outer silhouettes: tallest={tallest:F3}u vs cap="
+                + $"{EnvironmentLayout.FurnitureMaxHeight:F3}u on {covered} stage(s)");
+            Assert.That(covered, Is.EqualTo(StageIds.Length));
+        }
+
         // ------------------------------------------ 3. hazard clearance (§E3) --
 
         // Ground-level kinds share the fight plane with sim gimmicks; elevated

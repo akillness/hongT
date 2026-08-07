@@ -325,12 +325,18 @@ namespace CinderCourt.View
             // disc it frames. The footprint cap is what keeps the inner edge on
             // the clearance line; the height cap keeps it from occluding the
             // telegraph behind it at the 55° pitch (§E0.5).
-            var byHeight = sourceHeight > 1e-4f
-                ? Mathf.Min(piece.SizeY, EnvironmentLayout.FurnitureMaxHeight) / sourceHeight
-                : float.MaxValue;
-            var byFootprint = sourceHalf > 1e-4f
-                ? EnvironmentLayout.FurnitureMaxHalfExtent / sourceHalf
-                : float.MaxValue;
+            // Uncapped pieces solve for their requested height only. Both caps
+            // are E0.5 telegraph protection, and the outer ring stands past the
+            // stop ellipse where no telegraph exists - clamping there would
+            // render every silhouette as a 0.425 u chip, which is precisely the
+            // flatness this pass was added to break.
+            var target = piece.Uncapped
+                ? piece.SizeY
+                : Mathf.Min(piece.SizeY, EnvironmentLayout.FurnitureMaxHeight);
+            var byHeight = sourceHeight > 1e-4f ? target / sourceHeight : float.MaxValue;
+            var byFootprint = piece.Uncapped || sourceHalf <= 1e-4f
+                ? float.MaxValue
+                : EnvironmentLayout.FurnitureMaxHalfExtent / sourceHalf;
             var factor = Mathf.Min(byHeight, byFootprint);
             if (factor < float.MaxValue) clone.transform.localScale = source.localScale * factor;
 
@@ -517,6 +523,14 @@ namespace CinderCourt.View
             /// uniform scale source (SizeY) rather than a box extent.
             /// </summary>
             public string LibraryPart;
+            /// <summary>
+            /// Exempts this piece from the E0.5 occlusion cap. The cap exists so
+            /// a gimmick's rim decoration cannot hide the ground telegraph
+            /// behind it; outside the stop ellipse there are no telegraphs, so
+            /// applying it there would flatten the exact silhouette being added.
+            /// Only the outer ring sets this - everything inside stays capped.
+            /// </summary>
+            public bool Uncapped;
         }
 
         internal struct Module
@@ -892,9 +906,99 @@ namespace CinderCourt.View
             AddGimmickTerrain(modules, stageSeed, hazards);
             var gateInfo = AddRingAndGates(modules, stageSeed, hazards, palette);
             AddZoneC(modules, stageId, stageSeed, palette);
+            AddOuterSilhouettes(modules, stageSeed, palette);
             AddTorchesAndLights(modules, stageSeed, hazards, gateInfo);
             return modules;
         }
+        // -------------------------------------- outer silhouettes (§E1.5) --
+        //
+        // MEASURED motivation. After the stage textures landed, the frame's
+        // dominant 24-step colour bucket was still 61%, and a spatial map of
+        // where that bucket lives put it in the TOP, BOTTOM and SIDE bands —
+        // the annulus outside Zone C. Zone C stops at e 1.22 while the terrain
+        // plate reaches e 1.63 in x and 2.92 in z, so that annulus is bare
+        // lit plate with nothing standing on it. Pulling the camera to 17.5
+        // brought it further into frame, which is what makes it worth filling.
+        //
+        // These are the key art's vertical elements (statues and spires ringing
+        // the court) and they are the one thing the environment has never had:
+        // silhouette. Every other module is a low slab.
+        //
+        // Height is UNCAPPED here, deliberately. FurnitureMaxHeight exists so a
+        // gimmick's rim decoration cannot hide the ground telegraph behind it
+        // (§E0.5). Out here there are no telegraphs — hazards live inside the
+        // stop ellipse at e <= 0.954 — so the cap would only be flattening the
+        // exact quality being added. What replaces it is a distance rule: these
+        // stand at e >= 1.40, which is 0.45 past the stop line, so nothing they
+        // occlude is anything the player has to read.
+        // Radii are bounded by the VISIBLE WINDOW, computed for the pulled-in
+        // camera rather than guessed: frustum half-width at the focus plane is
+        // D*tan(21)*1.5 = 10.08 u, and the arena half-width is 6.5 u, so the
+        // side of the frame lands at e ~ 1.55. The plate reaches e 1.63 in x -
+        // already off-screen. Anything placed past 1.55 is only visible when
+        // the player pans that way, which is how the VoidFloor passes wasted
+        // two deploys. Zone C ends at 1.22, so the usable band is 1.22..1.55.
+        internal const double SilhouetteE = 1.35;
+        internal const double SilhouetteEOuter = 1.50;
+        const float SilhouetteMinHeight = 90f;    // sim px
+        const float SilhouetteMaxHeight = 210f;   // sim px
+
+        static void AddOuterSilhouettes(
+            List<Module> modules, uint stageSeed, StagePalette palette)
+        {
+            // Twelve slots on the clock, alternating radius so the ring reads as
+            // a broken colonnade rather than a fence. Gate arcs stay clear: the
+            // entrance and boss doors must stay legible from across the arena.
+            var index = 0;
+            for (var slot = 0; slot < 12; slot++)
+            {
+                var theta = slot * (2.0 * Math.PI / 12.0);
+                var degrees = slot * 30.0;
+                // 0 deg = entrance side, 180 deg = boss side (AddRingAndGates).
+                if (degrees < 25 || degrees > 335) continue;
+                if (degrees > 155 && degrees < 205) continue;
+
+                var seed = ModuleSeed(stageSeed, Kind.Pillar, 4000 + slot);
+                var e = (slot & 1) == 0 ? SilhouetteE : SilhouetteEOuter;
+                e *= 1.0 + Signed(seed, 0, 4) * 0.04;
+                EllipsePoint(e, theta, out var x, out var y);
+
+                // No clamping. The first draft clamped into StageCatalog's
+                // dressing plane and the gates caught two bugs from it: a
+                // rectangular clamp moves points toward the CENTRE, which put
+                // pillars at e 0.85 (inside the combat floor, E3 banned) and
+                // 76 px from a vent (inside its clearance). The second draft
+                // shrank along the ray instead, which was safe but built
+                // nothing - the dressing plane is exactly the arena rectangle
+                // (+-520x270), so every slot fell below Zone C.
+                //
+                // The plane was the wrong constraint entirely: it governs
+                // StageCatalog's authored dressing, and Zone C already stands
+                // outside it. What actually bounds this ring is the terrain
+                // plate (+-850x788 sim px) and the visible window, and e 1.50
+                // sits inside both - 780 px of 850 in x, 405 of 788 in z. So
+                // the radii are the bound, and no clamp is needed.
+
+                var height = SilhouetteMinHeight
+                    + (float)((seed >> 8 & 0xFFu) / 255.0)
+                      * (SilhouetteMaxHeight - SilhouetteMinHeight);
+                var module = NewModule(Kind.Pillar,
+                    "env-pillar-" + (700 + index).ToString("D3"), x, y, 0f,
+                    (float)(degrees + Signed(seed, 18, 5) * 15.0));
+                module.Pieces.Add(new Piece
+                {
+                    Part = Part.Body,
+                    LibraryPart = "feature",
+                    Uncapped = true,
+                    SizeY = height * (float)SimToWorld,
+                    Shade = 0.88f + (float)Signed(seed, 24, 4) * 0.10f,
+                });
+                modules.Add(module);
+                index++;
+            }
+        }
+
+
 
         // ------------------------------------------------------ Zone A (§E3) --
         // Accent panels only (the plate is the real floor): target 6–10 glossy
