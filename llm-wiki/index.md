@@ -19,3 +19,11 @@
 
 ## Reports
 - [[wiki/reports/2026-08-07-spec-vs-impl-audit]] — 기획-구현 대조 감사 종합 (5레인: 주요항목/드롭률/연출/보스·플레이어/레벨디자인; 의사결정 큐 D1-D12, High 5건)
+
+- [[wiki/sources/2026-08-07-133230-system-instructions]] - ## System Instructions
+
+- [[wiki/queries/2026-08-07-133230-system-instructions]] - ## System Instructions
+
+- [[wiki/sources/2026-08-07-133343-system-instructions]] - ## System Instructions
+
+- [[wiki/queries/2026-08-07-133343-system-instructions]] - ## System Instructions

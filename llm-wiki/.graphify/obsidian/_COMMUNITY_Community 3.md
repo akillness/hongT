@@ -10,8 +10,8 @@ members: 2
 **Members:** 2 nodes
 
 ## Members
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - wiki/reports/2026-08-07-spec-vs-impl-audit.md
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - wiki/sources/2026-08-07-hackslash-design-guide-reference.md
+- [[HongT — AMENDMENT 12 던전 환경 빈 화면의 진짜 원인과 링 아키텍처]] - wiki/concepts/hongt-environment-amendment-12.md
+- [[진공 게이트와 상쇄되는 스케일 — 기믹 지형 가구에서 배운 4가지]] - wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -25,5 +25,5 @@ SORT file.name ASC
 - 1 edge to [[_COMMUNITY_Community 2]]
 
 ## Top bridge nodes
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - degree 3, connects to 2 communities
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - degree 2, connects to 1 community
+- [[진공 게이트와 상쇄되는 스케일 — 기믹 지형 가구에서 배운 4가지]] - degree 3, connects to 2 communities
+- [[HongT — AMENDMENT 12 던전 환경 빈 화면의 진짜 원인과 링 아키텍처]] - degree 2, connects to 1 community

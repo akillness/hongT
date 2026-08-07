@@ -56,3 +56,12 @@
   스크롤 경로의 탭 중첩을 방지. `LobbyLayoutTests` 3/3 통과; 전체 격리
   EditMode는 환경 생성 텍스처 1건 누락으로 595/596 (UI 실패 0). 개념:
   `wiki/concepts/hongt-lobby-sortie-touch-target-pass.md`.
+## [2026-08-07 13:32:30] query | ## System Instructions
+- Raw capture: [[raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions]]
+- Source note: [[wiki/sources/2026-08-07-133230-system-instructions]]
+- Query note: [[wiki/queries/2026-08-07-133230-system-instructions]]
+
+## [2026-08-07 13:33:43] query | ## System Instructions
+- Raw capture: [[raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions]]
+- Source note: [[wiki/sources/2026-08-07-133343-system-instructions]]
+- Query note: [[wiki/queries/2026-08-07-133343-system-instructions]]
