@@ -1007,14 +1007,24 @@ namespace CinderCourt.View
                     SizeY = height * (float)SimToWorld,
                     // MEASURED: at Shade 0.88 the ring rendered at luminance
                     // 1.22 against a floor of 41.5 - 34x darker, internal std
-                    // 0.58, i.e. a flat black cutout rather than a statue. The
-                    // cause is position, not tint: this ring stands outside the
-                    // range of the four E6 point lights, so it is lit by
-                    // ambient alone while the arena floor is not. Compensating
-                    // in the tint is the cheapest fix that does not spend a
-                    // light from the budget. Still darker than the floor - the
-                    // key art's statues are dark shapes against a lit court,
-                    // just not holes in it.
+                    // 0.58, i.e. a flat black cutout rather than a statue.
+                    //
+                    // The cause is the DOUBLE MULTIPLY, not lighting. I first
+                    // wrote here that the ring "stands outside the four E6
+                    // point lights, so it is lit by ambient alone" — that is
+                    // FALSE and it is worth leaving the correction visible.
+                    // StageMood's key (0.55) and fill (0.22) are DIRECTIONAL
+                    // lights, which have no distance falloff and reach this
+                    // ring exactly as they reach the arena; the E6 budget of 4
+                    // covers POINT lights only. What actually crushed it is
+                    // that SpawnLibraryPart writes tints.Stone x Shade into the
+                    // MPB _BaseColor and URP Lit then multiplies that by the
+                    // authored FBX albedo: 0.155 x 0.88 x ~0.35 = 0.048.
+                    //
+                    // So the fix is inverse-albedo compensation, expressed in
+                    // the units this struct already uses. Still darker than the
+                    // floor - the key art's statues are dark shapes against a
+                    // lit court, just not holes in it.
                     Shade = 3.2f + (float)Signed(seed, 24, 4) * 0.35f,
                 });
                 modules.Add(module);
