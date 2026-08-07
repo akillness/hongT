@@ -305,11 +305,22 @@ namespace CinderCourt.View
             var probe = renderers[0].bounds;
             for (var r = 1; r < renderers.Length; r++) probe.Encapsulate(renderers[r].bounds);
             var sourceHeight = probe.size.y;
-            if (sourceHeight > 1e-4f)
-            {
-                var target = Mathf.Min(piece.SizeY, FurnitureMaxHeightWorld);
-                clone.transform.localScale = source.localScale * (target / sourceHeight);
-            }
+            var sourceHalf = Mathf.Max(probe.extents.x, probe.extents.z);
+            // TWO constraints, and the tighter one wins. Solving height alone
+            // scaled XZ by the same factor: a flat library decal has a small
+            // h0, took a large multiplier, and the measured silhouette came
+            // back at 0.701u half-extent - wide enough to sit ON the damage
+            // disc it frames. The footprint cap is what keeps the inner edge on
+            // the clearance line; the height cap keeps it from occluding the
+            // telegraph behind it at the 55° pitch (§E0.5).
+            var byHeight = sourceHeight > 1e-4f
+                ? Mathf.Min(piece.SizeY, EnvironmentLayout.FurnitureMaxHeight) / sourceHeight
+                : float.MaxValue;
+            var byFootprint = sourceHalf > 1e-4f
+                ? EnvironmentLayout.FurnitureMaxHalfExtent / sourceHalf
+                : float.MaxValue;
+            var factor = Mathf.Min(byHeight, byFootprint);
+            if (factor < float.MaxValue) clone.transform.localScale = source.localScale * factor;
 
             // Re-measure at the FINAL scale, then counter the baked XZ offset.
             var bounds = renderers[0].bounds;
@@ -326,9 +337,6 @@ namespace CinderCourt.View
                 r.SetPropertyBlock(block);
             }
         }
-
-        /// <summary>Mirror of the layout-core cap, in world units.</summary>
-        const float FurnitureMaxHeightWorld = 0.34f;
 
         static void EnsureMeshes()
         {
@@ -466,7 +474,9 @@ namespace CinderCourt.View
         const double Cy = SimConfig.ArenaY;
         const double HalfW = SimConfig.ArenaHalfWidth;
         const double HalfH = SimConfig.ArenaHalfHeight;
-        const double SimToWorld = 0.01;    // ViewWorld.Scale (const there too)
+        // Mirrors ViewWorld.Scale (const there too). Grown with it 0.01 ->
+        // 0.0125 so module footprints keep matching sim-space geometry.
+        const double SimToWorld = 0.0125;
 
         static double StopE
             => (SimConfig.ArenaHalfWidth - SimConfig.EnemyMarginClamp) / HalfW;
@@ -673,9 +683,31 @@ namespace CinderCourt.View
         //
         // Height is capped (FurnitureMaxHeight) so a part never occludes the
         // ground telegraph behind it at the 55° dungeon pitch — the fairness
-        // property §E0.5 exists to protect.
-        const double FurnitureRingMargin = 12.0;   // beyond Radius+ClearBase
-        const float FurnitureMaxHeight = 0.34f;    // world u, occlusion cap
+        // property §E0.5 exists to protect. As arithmetic rather than hope: a
+        // part of height h hides ground up to h/tan(55°) behind it, so
+        // 0.34/1.428 = 0.238u = 23.8 sim px — comfortably under ClearBase 50,
+        // which means a capped part CANNOT reach the disc it stands beside.
+        // MEASURED, not guessed. The first cut used 12px and the library's
+        // actual silhouettes came back at 0.701u XZ half-extent (70 sim px):
+        // a vent's furniture pivot sat at 152px but its inner edge reached
+        // 81.9px - INSIDE the radius-90 damage disc it was supposed to frame.
+        // The margin IS the silhouette budget, so it must be at least as large
+        // as the half-extent we allow: pivot at Radius+ClearBase+margin with a
+        // half-extent capped at margin puts the inner edge exactly on the
+        // clearance line, never past it. Kept SMALL (30px, not 70) because a
+        // wider ring pushes spokes past StopE and into neighbouring discs, so
+        // most of them cull and the ring thins to debris - these parts are
+        // micro-decals (file header), and a flat scorch read at the 55° pitch
+        // is what they are shaped for.
+        // ONE truth. The earlier draft had margin here and two more copies in
+        // the Builder; the copies were the live pair and these were dead, so a
+        // margin edit could compile clean and change nothing - the same
+        // one-truth-in-several-places shape as the HalfW/HalfH mix-up. The
+        // derived cap is a const expression, so it cannot drift.
+        internal const double FurnitureRingMargin = 30.0;  // beyond Radius+ClearBase
+        internal const float FurnitureMaxHalfExtent =
+            (float)(FurnitureRingMargin * ViewWorld.Scale);
+        internal const float FurnitureMaxHeight = 0.34f;   // world u, occlusion cap
 
         /// <summary>
         /// Per-gimmick furniture grammar: how many parts ring it, which library

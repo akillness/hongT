@@ -266,6 +266,8 @@ namespace CinderCourt.Tests
         public void GimmickFurniture_RingsEveryDiscHazardStage()
         {
             var covered = 0;
+            var worstHalfExtent = 0f;
+            var worstHeight = 0f;
             foreach (var stageId in StageIds)
             {
                 var hazards = HazardsFor(stageId);
@@ -295,6 +297,20 @@ namespace CinderCourt.Tests
                         // doubles as proof the library resolves in batchmode.
                         if (child.GetComponentInChildren<Renderer>() == null) continue;
                         furniture++;
+
+                        // Clearance is measured PIVOT to pivot, so a part whose
+                        // XZ silhouette is wider than FurnitureRingMargin has its
+                        // inner edge inside the hazard disc while the gate stays
+                        // green - and the height solve scales XZ by the same
+                        // factor, so a flat library decal gets a large multiplier
+                        // and can cover the very telegraph it frames (§E0.5).
+                        // Measure it; a comment is not a number.
+                        var rends = child.GetComponentsInChildren<Renderer>();
+                        var b = rends[0].bounds;
+                        for (var r = 1; r < rends.Length; r++) b.Encapsulate(rends[r].bounds);
+                        var halfExtent = Mathf.Max(b.extents.x, b.extents.z);
+                        if (halfExtent > worstHalfExtent) worstHalfExtent = halfExtent;
+                        if (b.size.y > worstHeight) worstHeight = b.size.y;
                     }
                     Assert.That(furniture, Is.GreaterThan(0),
                         $"{stageId}: {discs} disc gimmick(s) but zero furniture "
@@ -306,6 +322,22 @@ namespace CinderCourt.Tests
             }
             Assert.That(covered, Is.GreaterThan(0),
                 "no stage carries a disc gimmick - this test itself went vacuous");
+            TestContext.WriteLine(
+                $"furniture: worst xz half-extent={worstHalfExtent:F3}u  "
+                + $"worst height={worstHeight:F3}u  "
+                + $"budget={EnvironmentLayout.FurnitureMaxHalfExtent:F3}u");
+            // A printed number nobody checks is how the 12px margin survived a
+            // 70px silhouette. Pin it to the SHIPPING constant so widening the
+            // ring without widening the cap (or vice versa) fails here instead
+            // of quietly parking rocks back on top of the damage discs.
+            Assert.That(worstHalfExtent,
+                Is.LessThanOrEqualTo(EnvironmentLayout.FurnitureMaxHalfExtent + 1e-3f),
+                "furniture silhouette exceeds the ring margin - its inner edge is "
+                + "inside the hazard clearance the pivot test cannot see");
+            Assert.That(worstHeight,
+                Is.LessThanOrEqualTo(EnvironmentLayout.FurnitureMaxHeight + 1e-3f),
+                "furniture taller than the occlusion cap - it can hide the ground "
+                + "telegraph behind it at the 55° dungeon pitch (§E0.5)");
         }
 
         // ------------------------------------------ 3. hazard clearance (§E3) --
