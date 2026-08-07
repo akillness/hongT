@@ -555,6 +555,14 @@ namespace CinderCourt.View
                         if (slot == 0 || cooldown < soonest) soonest = cooldown;
                     }
                     Hud.SyncCompanionSkill(readySlots, soonest, anyReady);
+
+                    // Companion stance readout: the console/keys' FocusAttack=Follow,
+                    // Defend=Hold, Recall=Follow orders drive CompanionBehavior; any slot
+                    // engaged means the Follow order is actively pursuing, not just escorting.
+                    var stanceEngaged = false;
+                    for (var slot = 0; slot < readySlots; slot++)
+                        if (hack.CompanionEngagedAt(slot)) { stanceEngaged = true; break; }
+                    Hud.SyncCompanionStance(readySlots, hack.CompanionBehavior, stanceEngaged);
                 }
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);

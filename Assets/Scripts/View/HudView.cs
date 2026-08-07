@@ -36,6 +36,12 @@ namespace CinderCourt.View
         // Input depth §3/§5 surfaces, lazily built on first use.
         GameObject _chargeGauge;
         Image _chargeGaugeFill;
+        // AMENDMENT #9 momentum gauge, same lazy-build discipline as the charge bar.
+        GameObject _momentumGauge;
+        Image _momentumGaugeFill;
+        Text _momentumTierLabel;
+        int _momentumTierShown = -1;
+
         GameObject _growthPanel;
         Text _growthTitle, _growthOptions;
         CanvasGroup _novaGroup, _wardGroup;
@@ -690,7 +696,10 @@ namespace CinderCourt.View
             if (_companionHoldButton != null) _companionHoldButton.SetActive(companionActive);
             if (_companionRecallButton != null) _companionRecallButton.SetActive(companionActive);
             if (_companionSkillButton != null) _companionSkillButton.SetActive(companionActive);
+            if (_companionStanceLabel != null && !companionActive)
+                _companionStanceLabel.gameObject.SetActive(false);
             _lastCompanionSkillTenths = int.MinValue;   // force one relabel on the next sync
+            _lastCompanionStanceKey = int.MinValue;      // force one stance relabel too
         }
 
         /// <summary>True only while a visible terminal panel can consume the retry shortcut.</summary>
@@ -1114,6 +1123,89 @@ namespace CinderCourt.View
                              new Color(0.87f, 0.78f, 0.41f), progress * progress);
         }
 
+        /// <summary>AMENDMENT #9: the momentum gauge. Sits directly above the charge bar
+        /// and is built lazily on the first tick that has any momentum at all, so an
+        /// arena or prologue run — where the gauge can never move — never allocates it.
+        /// The TIER, not the raw value, drives the colour and the label: a player needs
+        /// to read "am I buffed and by how much", not a percentage.</summary>
+        void SyncMomentumGauge(float momentum, int tier, float multiplier)
+        {
+            if (momentum <= 0f)
+            {
+                if (_momentumGauge != null && _momentumGauge.activeSelf)
+                {
+                    _momentumGauge.SetActive(false);
+                    _momentumTierShown = -1;
+                }
+                return;
+            }
+
+            if (_momentumGauge == null)
+            {
+                var root = (Transform)_safeRoot;
+                _momentumGauge = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0, 112), new Vector2(220, 10), new Color(0.02f, 0.02f, 0.04f, 0.8f));
+                _momentumGauge.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+
+                var fillObject = new GameObject("MomentumFill");
+                fillObject.transform.SetParent(_momentumGauge.transform, false);
+                _momentumGaugeFill = fillObject.AddComponent<Image>();
+                _momentumGaugeFill.raycastTarget = false;
+                _momentumGaugeFill.type = Image.Type.Filled;
+                _momentumGaugeFill.fillMethod = Image.FillMethod.Horizontal;
+                var fillRect = _momentumGaugeFill.rectTransform;
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = Vector2.one;
+                fillRect.sizeDelta = Vector2.zero;
+                fillRect.anchoredPosition = Vector2.zero;
+
+                var labelObject = new GameObject("MomentumTier");
+                labelObject.transform.SetParent(_momentumGauge.transform, false);
+                _momentumTierLabel = labelObject.AddComponent<Text>();
+                _momentumTierLabel.font = _font;
+                _momentumTierLabel.fontSize = 13;
+                _momentumTierLabel.alignment = TextAnchor.MiddleCenter;
+                _momentumTierLabel.raycastTarget = false;
+                _momentumTierLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+                var labelRect = _momentumTierLabel.rectTransform;
+                labelRect.anchorMin = new Vector2(0.5f, 1f);
+                labelRect.anchorMax = new Vector2(0.5f, 1f);
+                labelRect.pivot = new Vector2(0.5f, 0f);
+                labelRect.sizeDelta = new Vector2(220, 18);
+                labelRect.anchoredPosition = new Vector2(0, 2);
+            }
+
+            _momentumGauge.SetActive(true);
+            _momentumGaugeFill.fillAmount = Mathf.Clamp01(momentum / HackSpec.MomentumMax);
+            _momentumGaugeFill.color = MomentumTierColor(tier);
+
+            // Relabel only on a tier change — the raw value moves every tick, the tier
+            // does not, and rebuilding a Text mesh 60 times a second for an unchanged
+            // string is exactly the kind of WebGL cost §1 forbids.
+            if (tier != _momentumTierShown)
+            {
+                _momentumTierShown = tier;
+                _momentumTierLabel.text = tier <= 0
+                    ? string.Empty
+                    : $"기세 x{multiplier:0.00}";
+                _momentumTierLabel.color = MomentumTierColor(tier);
+            }
+        }
+
+        /// <summary>A9: one colour per tier, ascending in heat so the promotion reads at a
+        /// glance. Tier 0 is the muted "no buff" steel the bar drains back to.</summary>
+        static Color MomentumTierColor(int tier)
+        {
+            switch (tier)
+            {
+                case 1: return new Color(0.95f, 0.55f, 0.24f);
+                case 2: return new Color(0.99f, 0.78f, 0.30f);
+                case 3: return new Color(1f, 0.95f, 0.72f);
+                default: return new Color(0.42f, 0.48f, 0.62f);
+            }
+        }
+
+
         /// <summary>Input depth §5: the level-up offer. Shows the three keys
         /// and the countdown, so an ignoring player can SEE that waiting is
         /// safe rather than having to learn it.</summary>
@@ -1357,16 +1449,20 @@ namespace CinderCourt.View
             switch (intent)
             {
                 case CompanionCommandIntent.FocusAttack:
-                    Input.QueueCompanionHold();
-                    ShowConsoleToast("수호자: 현재 지점 사수 — 근접 적 집중공격", 2.5f);
+                    // Follow drives A7 autonomy: the slot pursues the nearest target inside its
+                    // leash instead of freezing in place, so "집중공격/싸워" actually chases.
+                    Input.QueueCompanionRecall();
+                    ShowConsoleToast("수호자: 집중공격 — 근접 표적 추격·교전", 2.5f);
                     break;
                 case CompanionCommandIntent.Defend:
-                    Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 방어태세 — 곁으로 복귀해 호위", 2.5f);
+                    // Hold pins the slot to its current spot and defends that zone (Amendment #3),
+                    // a distinct tactic from Recall's return-to-side.
+                    Input.QueueCompanionHold();
+                    ShowConsoleToast("수호자: 방어 태세 — 현재 지점 사수", 2.5f);
                     break;
                 case CompanionCommandIntent.Recall:
                     Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 복귀", 2f);
+                    ShowConsoleToast("수호자: 복귀 — 곁으로", 2f);
                     break;
                 case CompanionCommandIntent.PickupInfo:
                     ShowConsoleToast("수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요", 3f);
@@ -1456,6 +1552,13 @@ namespace CinderCourt.View
         GameObject _companionSkillButton;
         Text _companionSkillLabel;
         int _lastCompanionSkillTenths = int.MinValue;
+        // Companion stance readout: names the live behavior so the command console's
+        // FocusAttack/Defend/Recall orders read as three DISTINCT sim states, not three
+        // toasts over the same motion. Backed only by CompanionBehavior + CompanionEngagedAt
+        // (both real snapshot fields) — hold is indefinite in the sim, so there is no timer
+        // ring to draw here.
+        Text _companionStanceLabel;
+        int _lastCompanionStanceKey = int.MinValue;
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
@@ -1568,6 +1671,20 @@ namespace CinderCourt.View
                 new Vector2(-16, -96), new Vector2(154, 92), "동료 특기 (V)", 16,
                 () => { if (Input != null) Input.QueueCompanionSkill(); });
             _companionSkillLabel = _companionSkillButton.GetComponentInChildren<Text>();
+            _companionSkillLabel = _companionSkillButton.GetComponentInChildren<Text>();
+
+            // Companion stance chip: a non-interactive readout above the order buttons so
+            // the console/keys' FocusAttack/Defend/Recall map to a visible sim state. Right-
+            // center anchored to ride with the companion button column; raycastTarget stays
+            // false (Label default) so it never eats a tap the HudLayout contract guards.
+            _companionStanceLabel = Label(dungeonRoot, 0, 0, 154, 24, "", 14, TextAnchor.MiddleCenter);
+            var stanceRect = _companionStanceLabel.rectTransform;
+            stanceRect.anchorMin = stanceRect.anchorMax = new Vector2(1f, 0.5f);
+            stanceRect.pivot = new Vector2(1f, 0.5f);
+            stanceRect.anchoredPosition = new Vector2(-16, 196);
+            _companionStanceLabel.color = new Color(0.82f, 0.86f, 0.95f);
+            _companionStanceLabel.gameObject.SetActive(false);   // no companion, no chip
+
 
             // --- shield readout (backed panel, hidden until shield > 0) ---------
             _shieldPanel = Panel(dungeonRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -1663,6 +1780,44 @@ namespace CinderCourt.View
                 ? new Color(1f, 0.86f, 0.5f)
                 : new Color(0.72f, 0.72f, 0.78f);
         }
+
+
+        /// <summary>
+        /// Companion stance readout. <paramref name="slots"/> &lt;= 0 hides the chip (no
+        /// companion in the run). Otherwise it names the live behavior — Hold = "방어 태세"
+        /// (pinned zone defense), Follow = "추격" while any slot is engaged else "호위" — so the
+        /// three console/keys orders read as distinct sim states. Keyed on (slots, behavior,
+        /// engaged) so the text is not rebuilt every frame.
+        /// </summary>
+        public void SyncCompanionStance(int slots, CompanionBehavior behavior, bool engaged)
+        {
+            if (_companionStanceLabel == null) return;
+            var active = slots > 0;
+            if (_companionStanceLabel.gameObject.activeSelf != active)
+                _companionStanceLabel.gameObject.SetActive(active);
+            if (!active) return;
+
+            // 0 = defend(hold), 1 = pursue(follow+engaged), 2 = escort(follow idle).
+            var key = behavior == CompanionBehavior.Hold ? 0 : engaged ? 1 : 2;
+            if (key == _lastCompanionStanceKey) return;
+            _lastCompanionStanceKey = key;
+            switch (key)
+            {
+                case 0:
+                    _companionStanceLabel.text = "동료: 방어 태세";
+                    _companionStanceLabel.color = new Color(0.56f, 0.85f, 1f);
+                    break;
+                case 1:
+                    _companionStanceLabel.text = "동료: 추격 교전";
+                    _companionStanceLabel.color = new Color(1f, 0.62f, 0.4f);
+                    break;
+                default:
+                    _companionStanceLabel.text = "동료: 호위";
+                    _companionStanceLabel.color = new Color(0.82f, 0.86f, 0.95f);
+                    break;
+            }
+        }
+
 
         public void SyncDungeon(
             int level, int xp, int xpNext, int comboIndex,
@@ -2401,6 +2556,13 @@ namespace CinderCourt.View
             if (sim is CinderSim liveSim)
             {
                 SyncChargeGauge(liveSim.ChargeProgress);
+            }
+            if (sim is IHackSnapshot hack)
+            {
+                // A9: additive seam, same as the two above — a snapshot that predates the
+                // amendment simply never reports momentum and the bar stays unbuilt.
+                SyncMomentumGauge(hack.Momentum, hack.MomentumTier, hack.MomentumDamageMultiplier);
+
             }
             if (sim is IGrowthChoiceSnapshot growth)
             {
