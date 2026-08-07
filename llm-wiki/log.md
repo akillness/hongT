@@ -23,3 +23,11 @@
   던전 딥링크·목표 칩·전투·드롭(랜턴 랭크+1 = kills%3 경로)·퀵 리트라이 확인.
   모멘텀 HUD는 게이트 검증(14 테스트)·배선 확인, 육안은 미확인(봇이 분출구에
   사망 — 게임 결함 아님).
+- 2026-08-07 — merge: 마지막 미병합 브랜치 `origin/docs/ai-native-builder-flow`
+  (cb82427, 분기점 2db4942 = main-94) 합류(`af85491`). 경로 충돌 0건이었으나
+  내용이 분기 시점에 고정돼 EditMode 166/166·6단계 던전·`_workspace/current/`
+  레인 런북 경로를 주장 → 실측(502/502, StageEntry 9건, archive 이동)으로 정정
+  하고 html/pdf/png 파생물 재생성(`07711c8`). 세션 런타임 경로 gitignore 편입
+  (`e0cb9a4`). origin/main·origin/akillness/main 동기화, gh-pages는 런타임 경로
+  무변경(`Assets|Packages|ProjectSettings` diff 0건)이라 재배포 불필요.
+  교훈: `wiki/concepts/stale-branch-merges-clean-but-lies.md`.

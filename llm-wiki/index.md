@@ -4,6 +4,7 @@
 - [[wiki/concepts/hongt-companion-autonomy-tick-order-trap]] — 결정론 심 테스트 "앵커 오프바이원" 함정 (Amendment #7; 심은 정확, 하네스가 원인)
 - [[wiki/concepts/hongt-companion-signature-skills-amendment-8]] — 동료 시그니처 스킬 (Amendment #8)
 - [[wiki/concepts/hongt-momentum-gauge-amendment-9]] — 모멘텀 게이지 (Amendment #9)
+- [[wiki/concepts/stale-branch-merges-clean-but-lies]] — 94커밋 뒤처진 브랜치가 충돌 0건으로 병합되며 낡은 수치(166/166, 6단계)를 들여온 사례와 2단계 병합 규칙
 
 ## Sources
 - [[wiki/sources/2026-08-07-hackslash-design-guide-reference]] — 외부 핵앤슬래시 디자인 가이드 (2026-08-07 감사의 비교축; 기획서 아님)
