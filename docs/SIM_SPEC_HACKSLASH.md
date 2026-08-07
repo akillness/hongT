@@ -1110,6 +1110,9 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | (미정) | **각인 (Sigils)** — 원문 헤딩 "# AMENDMENT #6 — 각인"으로 도착(레인 번호 충돌, conflicts.md 2026-08-07 기록). 내부 §13.x는 이 증보 로컬 번호이며 본문 §13 결정론과 무관 | 본 문서 "# AMENDMENT #6 — 각인 (Sigils)" | frozen(내용) — **canonical 번호는 D13 오퍼레이터 결정 대기.** 제안: "10-b" (#10/#11이 코드·커밋에 박혀 밀 수 없음). L440 노트의 "동료=#6 확정 시 각인=#7" 경로는 #7이 이미 동료 자율성에 소비되어 무효 |
 | 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" (로컬 절 번호 **§16**) | frozen |
 | 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **frozen** (2026-08-07 §E8 전부 초록 — EditMode 571/571 test-results-183453.xml · WebGL 0 error · 라이브 gh-pages 6c163b5) |
+| 13 | 웨이브 포인트 예산 + DDA (시드 W4) | 본 문서 "Amendment #13" (로컬 절 번호 **§17**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 232/232, 4레인 pre/post 다이제스트 224행 무이동). 시드 문서가 지칭한 "#10"은 훈련장·돌발이 이미 점유 |
+| 14 | 아이템 등급 드롭 + bad-luck protection (시드 W5) | 본 문서 "Amendment #14" (로컬 절 번호 **§18**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료. 시드 문서가 지칭한 "#11"은 난이도·적 그룹 AI가 이미 점유 |
+| 15 | 던전 이동 한계 (W-MV) | 본 문서 "Amendment #15" (로컬 절 번호 **§19**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 240/240). **뷰 결합 있음**: 게이트를 켜려면 EnvironmentBuilder 의 링 파생을 §19.5 접점으로 바꿔야 한다 |
 
 # 부록 B — 정오표 (2026-08-07 감사 반영, additive)
 
@@ -1129,3 +1132,322 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | A9.4 "스윙당 1회 샘플링" | once per swing | 구현은 **스윙-틱당** 샘플링(같은 틱 히트 적립 전) — 교차-틱 신규 진입 적은 승급 배율 수령 가능. 문언 개정 vs 심 래치는 D6 오퍼레이터 결정 대기. 결정 전까지 코드 의미론이 사실 |
 | §7 표 시간 열 | 공격간격/텔레그래프/스킬쿨 | **선언만 존재, 심 소비 0** — S8-b/c 미착수의 알려진 상태 (D1). 표는 목표 계약으로 유지 |
 | 통합 설계문서 "2페이즈 + 소환" | integrated-campaign-level-spec §1.2 | **3페이즈**(AMENDMENT #4 개정) + Monarch P2 호위 3기 |
+---
+
+# Frozen Contract Amendment #13 — 웨이브 포인트 예산 + DDA (2026-08-07)
+
+> **번호 배정 주의.** 시드 문서(`_workspace/current/intake/
+> deep-interview-seed-ui-vfx-flow.md`)는 W4/W5를 "#10/#11"로 지칭했으나, 부록 A
+> canonical 원장에서 #10(훈련장·돌발)과 #11(난이도·적 그룹 AI)은 이미 코드·커밋에
+> 박혀 있다. 밀 수 없으므로 W4 = **#13**, W5 = **#14**로 배정한다. #12는 던전 환경
+> (SIM_SPEC_ENVIRONMENT.md)이 점유. 부록 A 표에 두 행을 추가한다.
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/DungeonProgressionSpec.cs`,
+`CinderSim.StartWave`/`UpdateWave`/`SettleDifficultyBand`/`SpawnEnemy`), gated by
+`Assets/Tests/EditMode/WaveBudgetDdaTests.cs` (10종).
+**Additive only.** §13(결정론)·§14(돌발)·§15(훈련장)·§16(난이도)·각인 §13.x 전부
+무개정. 새 절은 **§17** 이다.
+
+## §17.0 게이트 — 이 증보에 도달하는 유일한 경로
+
+`DungeonProgressionConfig { bool AdaptiveWaves; bool GradedLoot; }` (신규,
+**비동결**). 기존 `CinderSim(in HackConfig)` 생성자는 `default` 를 전달하므로 두
+스위치 모두 꺼진 상태다. 신규 오버로드
+`CinderSim(in HackConfig, in DungeonProgressionConfig)` 만이 증보를 켠다. 또한
+생성자가 `config.Mode == GameMode.Dungeon` 이 아니면 progression 을 통째로
+`default` 로 낙하시킨다 — **D3 결정**(아레나/프롤로그 digest 불가침)의 구조적 집행.
+
+`HackConfig`(FROZEN)·`SimTypes.cs`(FROZEN)·`HackTypes.cs`(FROZEN)는 한 글자도
+바뀌지 않았다. 이것이 골든 다이제스트가 **재-bless 없이** 통과하는 근거다.
+
+## §17.1 포인트 예산 곡선
+
+| 상수 | 값 | 의미 |
+|---|---|---|
+| `BudgetBase` | 100 | 웨이브 1의 포인트 |
+| `BudgetPerWave` | 26 | 웨이브당 가산 |
+| `BudgetCap` | 600 | 상한 (웨이브 21에서 도달) |
+
+`BaseBudget(w) = min(600, 100 + (w-1)·26)`. 정수 산술 전용.
+
+## §17.2 예산 소비 — 몸 먼저, 남으면 체력
+
+| 상수 | 값 | 의미 |
+|---|---|---|
+| `GruntCost` | 16 | 일반 스폰 1기의 값 |
+| `MinSpawns` / `MaxSpawns` | 4 / 14 | 스폰 수 하한·상한 |
+| `FullRosterSpend` | 224 | `MaxSpawns × GruntCost` |
+| `HealthSurplusCap` | 1.7 | 잉여→체력 보너스 상한(가드) |
+| `ElitePointCost` | 150 | 정예 슬롯 1개의 값 |
+| `EliteAllowanceCap` | 3 | 웨이브당 정예 상한 |
+
+- `SpawnCountForBudget(b) = clamp(4, 14, b / 16)`
+- `HealthMultiplierForBudget(b) = 1 + min(1.7, max(0, b-224) / 224)`
+  — 잉여를 **실제 소비액이 아니라 고정 `FullRosterSpend` 기준**으로 재는 것이
+  의도다. 그래야 배율이 예산에 대해 단조가 되어 "앞 웨이브가 뒤 웨이브보다 단단한"
+  톱니가 구조적으로 생기지 않는다.
+- `EliteAllowanceForBudget(b) = min(3, b / 150)`
+- 적 체력 = `HackSpec.DungeonEnemyBaseHealth(86) × HealthMultiplierForBudget`.
+  기존 `86 + min(140,(wave-1)·11)` 램프를 **던전 + 게이트 ON 일 때만** 대체한다.
+- 정예 판정의 `_spawnOrdinal % EliteSpawnModulus(7)` 케이던스는 **불변**. 예산은
+  "웨이브당 최대 1기" 캡만 배정 수로 대체한다.
+- **보스 웨이브는 예산을 쓰지 않는다.** `wave > config.Waves` 경로는 동결된
+  보스+호위 공식을 그대로 유지한다. 예산은 게시되되(HUD 밴드 표시가 비지 않도록)
+  아무것도 사지 않는다.
+
+[TARGET] 실측 곡선 (밴드 0):
+
+| wave | 예산 | 스폰 | 체력배율 | 적 HP | 정예 | (참고) 구 HP |
+|---|---|---|---|---|---|---|
+| 1 | 100 | 6 | 1.000 | 86.0 | 0 | 86.0 |
+| 2 | 126 | 7 | 1.000 | 86.0 | 0 | 97.0 |
+| 3 | 152 | 9 | 1.000 | 86.0 | 1 | 108.0 |
+| 5 | 204 | 12 | 1.000 | 86.0 | 1 | 130.0 |
+| 8 | 282 | 14 | 1.259 | 108.3 | 1 | 163.0 |
+| 10 | 334 | 14 | 1.491 | 128.2 | 2 | 185.0 |
+| 14 | 438 | 14 | 1.955 | 168.2 | 2 | 226.0 |
+| 21+ | 600 | 14 | 2.679 | 230.4 | 3 | 226.0 |
+
+## §17.3 DDA 밴드
+
+`Band ∈ [-2, +2]`, 런 시작 0. 예산에 곱해지는 **퍼밀** 배율 (정수 유지):
+
+| band | -2 | -1 | 0 | +1 | +2 |
+|---|---|---|---|---|---|
+| `BandPermille` | 780 | 890 | 1000 | 1120 | 1250 |
+
+`EffectiveBudget(w, band) = BaseBudget(w) · BandPermille[band+2] / 1000`.
+[TARGET] 웨이브 10 기준: 260 / 297 / 334 / 374 / 417.
+
+## §17.4 성과 관측 — 결정론 3신호
+
+웨이브가 **끝난 시점**(`_pendingSpawns == 0 && _livingEnemies == 0`)에 1회 정산.
+
+| 신호 | 상수 | +1 | -1 |
+|---|---|---|---|
+| 체력 잔량 (`Health/MaxHealth`) | `HealthyFraction` 0.75 / `StruggleFraction` 0.35 | ≥ 0.75 | < 0.35 |
+| 웨이브 소요 시간 | `FastWaveSeconds` 18 / `SlowWaveSeconds` 42 | ≤ 18 s | ≥ 42 s |
+| 웨이브 중 피격 횟수 | `CleanHits` 2 / `BatteredHits` 9 | ≤ 2 | ≥ 9 |
+
+- 원시 델타는 -3..+3, `StepCap = 1` 로 클램프 → **웨이브당 최대 1밴드**. 이것이
+  진폭 진동 대신 읽히는 램프를 만든다.
+- 피격 횟수는 **체력이 실제로 깎인 피격만** 센다 — 부록 B 가 §3 채널 리셋에 대해
+  못박은 정의와 동일하며, Ward/실드 전량 흡수는 밴드를 내리지 않는다.
+- 웨이브 시계는 `SimMode.Running` 동안만 누산 — 인터미션은 청구되지 않는다.
+- 밴드·예산·시계·피격 카운터는 전부 **런 스코프**. `Restart()` 가 0으로 되돌리며
+  런 간 은행되지 않는다.
+
+## §17.5 결정론
+
+RNG 없음. 예산은 정수 산술, 밴드는 고정스텝 누산 상태에 대한 임계 비교 3회로만
+움직이는 정수 누산기다. 같은 `(HackConfig, DungeonProgressionConfig, 입력 시퀀스)`
+는 항상 같은 밴드·예산·상태를 만든다
+(`WaveBudgetDdaTests.AdaptiveWaves_On_SameInputsProduceIdenticalRuns`, 5400틱).
+
+## §17.6 검증 계약
+
+- 게이트 OFF == 동결 생성자: 던전 3600틱 락스텝(플레이어·웨이브·점수·처치·유물·
+  전체 적 id/HP/좌표/액션).
+- 아레나/프롤로그는 `DungeonProgressionConfig.All` 을 넘겨도 무장하지 않는다.
+- 예산·스폰수·체력배율·정예배정 단조성 + 상한 + 핀 고정값.
+- 밴드 3신호 격리 · 스텝 캡 · 양끝 클램프.
+- `WaveHitsTaken` 증가 틱은 반드시 체력 감소 틱이다.
+
+---
+
+# Frozen Contract Amendment #14 — 아이템 등급 드롭 + bad-luck protection (2026-08-07)
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/DungeonProgressionSpec.cs`,
+`CinderSim.SpawnPickup`/`CollectPickup`/`RemovePickupAt`/`Publish`), gated by
+`Assets/Tests/EditMode/LootGradeTests.cs` (10종).
+**Additive only.** 새 절은 **§18** 이다. §17.0 게이트를 공유한다
+(`DungeonProgressionConfig.GradedLoot`).
+
+## §18.1 등급
+
+`LootGrade { Basic = 0, Fine = 1, Epic = 2 }`. enum 값이 표 인덱스라 표와 enum 이
+드리프트할 수 없다.
+
+**`PickupState`(FROZEN SimTypes.cs)에 필드를 추가하지 않는다.** 등급은
+`_pickupGrades[]` 병렬 배열이 실어 나르며 `_pickups[]` 의 모든 변이(리사이즈·
+수거 스왑다운·소멸)에서 인덱스 정렬을 유지한다. 뷰에는 신규
+`IDungeonProgressionSnapshot.PickupGrades` 로 게시된다
+(`IRunPreparationSnapshot`/`IGrowthChoiceSnapshot` 선례 — 동결
+`IHackSnapshot` 무개정).
+
+## §18.2 롤 — RNG 아님
+
+§13 무개정. 롤은 런 상태의 **정수 애벌란치 해시**다:
+
+```
+hash = enemyId·73856093 ^ wave·19349663 ^ dropOrdinal·83492791
+hash ^= hash >> 13 ; hash *= 1274126177 ; hash ^= hash >> 16
+roll = (hash & 0x7fffffff) % 100
+```
+
+부동소수·정적 상태·시간 의존이 전혀 없다. 선례: `EliteSpawnModulus = 7`,
+장비 파편 `id % 7`, Ember Rest 오퍼 해시.
+
+| 상수 | 값 | 의미 |
+|---|---|---|
+| `RollModulus` | 100 | 롤 공간 |
+| `FineThreshold` | 70 | roll ≥ 70 → 최소 Fine (22/100) |
+| `EpicThreshold` | 92 | roll ≥ 92 → Epic (8/100) |
+
+## §18.3 pity — bad-luck protection
+
+| 상수 | 값 | 보장 |
+|---|---|---|
+| `FinePityLimit` | 5 | Basic **6연속 불가** |
+| `EpicPityLimit` | 18 | non-Epic **19연속 불가** |
+
+우선순위: **epic pity > 롤(Epic) > fine pity > 롤(Fine) > Basic.**
+`Advance`: Epic → 두 카운터 0. Fine → fine 0, epic +1. Basic → 둘 다 +1.
+
+**보스 드롭은 원장 밖이다.** 항상 `BossGrade = Epic` 이며 카운터를 올리지도
+리셋하지도 않는다. pity 는 *반복 파밍*에 대한 진술이고, 확정 드롭이 그것을
+충족하거나 리셋할 수 있으면 안 되기 때문이다.
+
+[OBSERVED] 실측 4000 드롭(§18.2 롤 시퀀스): Basic 65.2% / Fine 25.3% /
+Epic 9.6%, 최대 Basic 연속 5, 최대 non-Epic 연속 18 — 두 상한 모두 정확히 타이트.
+
+## §18.4 등급 → 페이로드
+
+등급은 **이미 떨어진 kind 의 값만** 배율한다. 어떤 kind 가 떨어지는지는 건드리지
+않는다 — 동결된 `SpawnPickup` 의 `id%3` / `id%7` 라우팅은 그대로다.
+
+| 등급 | `GradeValueMul` | `GradeRankSteps` | shard 회복 | flask 기름 | relic 점수 |
+|---|---|---|---|---|---|
+| Basic | 1.00 | 1 | 18.0 | 35.00 | 250 |
+| Fine | 1.45 | 1 | 26.1 | 50.75 | 362 |
+| Epic | 2.10 | 2 | 37.8 | 73.50 | 525 |
+
+relic 점수는 `(int)(250 · mul)` 절삭. 장비 파편은 `RaiseRank` 를
+`GradeRankSteps` 회 호출한다(랭크 상한은 기존 `MaxEquipRank` 가 계속 소유).
+
+## §18.5 결정론과 런 스코프
+
+`_finePity` / `_epicPity` / `_dropOrdinal` / `_lastLootGrade` 는 전부 런 스코프이며
+`Restart()` 가 0으로 되돌린다 — pity 는 런 간 은행되지 않는다. 같은
+`(config, progression, 입력 시퀀스)` 는 같은 원장·같은 등급·같은 점수를 만든다
+(`LootGradeTests.GradedLoot_On_SameInputsProduceIdenticalLedgers`, 5400틱).
+
+## §18.6 검증 계약
+
+- 게이트 OFF == 동결 생성자: 던전 3600틱 락스텝(HP·기름·점수·유물·픽업 id/kind).
+- 롤 범위·재현성·비축퇴(2000 샘플 중 80+ 버킷) · 음수/0 인자 무예외.
+- 우선순위 사다리 5단 격리.
+- **최악 입력(항상 roll 0)에서도** 두 pity 상한이 정확히 타이트함.
+- 실제 롤 시퀀스 4000 드롭에서 상한 유지 + 등급 3종 전부 출현 + 비율 밴드 핀.
+- 등급 배열 ↔ 픽업 배열 인덱스 정렬(수거·소멸 이후에도).
+- 리스타트가 원장을 비우고, 리스타트 런 == 신규 런 락스텝.
+
+---
+
+# Frozen Contract Amendment #15 — 던전 이동 한계 (2026-08-07)
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/DungeonProgressionSpec.cs`
+— `DungeonBounds`/`DungeonBoundsSpec`, `CinderSim.ClampToArena`), gated by
+`Assets/Tests/EditMode/DungeonBoundsTests.cs` (8종).
+**Additive only.** 새 절은 **§19** 이다. §17.0 게이트를 공유한다
+(`DungeonProgressionConfig.Bounds`).
+
+## §19.0 문제 정의 — 실측
+
+[OBSERVED] `CinderSim.ClampToArena` 는 던전에서 **타원**(`sqrt((lx/hw)²+(ly/hh)²)≤1`),
+아레나/프롤로그에서 **마름모**(L1) 를 쓴다. 반축은 두 경로 모두 동결
+`SimConfig.ArenaHalfWidth 520` / `ArenaHalfHeight 270`, 중심 (768, 604),
+마진은 플레이어 34 / 적 24 (y 는 마진의 절반).
+
+| | 반축 | x 범위 | y 범위 |
+|---|---|---|---|
+| 플레이어 도달 | 486 × 253 | 282..1254 | 351..857 |
+| 적 정지선(=벽 링) | 496 × 258 | 272..1264 | 346..862 |
+
+[OBSERVED] 그려진 바닥: `Assets/Editor/SceneBuilder.cs:126-127` 의 `CourtBackdrop`
+쿼드가 **1536 × 1024 sim 단위**, sim (768, 512) 중심 → x 0..1536, y 0..1024.
+
+**괴리**: 플레이어 도달 면적 386,284 px² = 플레이트의 **24.6%**.
+폭 63.3%, **높이 49.4%** — 높이 쪽이 더 나쁘다.
+
+[OBSERVED] 다만 **보이는 벽 링은 이미 클램프를 따라온다**:
+`EnvironmentBuilder.StopE = (520−24)/520 = 0.95385` 로 반축 496 × 257.5 —
+적 클램프(496 × 258)와 y 0.5 px 차이(문서화된 보수적 min 선택). 즉 사용자가
+느끼는 "맵보다 좁다"는 **벽 링 대비가 아니라 칠해진 플레이트·Zone C 테라스 대비**다.
+따라서 클램프를 넓히면 **벽 링도 같이 움직여야 한다** — 아니면 벽을 통과해 선다.
+
+## §19.1 확장 상한을 정하는 두 제약
+
+1. **y 축 — 그려진 플레이트.** 중심 y 604, 플레이트 하단 1024 → 아래 여유 420.
+2. **x 축 — 동결 기믹 span.** 재의 벽은 `WallEdgeX 248` ↔ `WallEdgeRightX 1288`
+   을 쓸고, 모든 조류는 x 768 에 `CurrentHalfW 520` → **둘 다 정확히 x 248..1288**.
+   플레이어 도달이 이 밖으로 나가면 재의 벽은 *발동은 하되 위협이 아닌* 기믹이 된다.
+   `PlayerMarginClamp 34` 이므로 `halfWidth ≤ 520 + 34 = 554`.
+
+**x 는 거의 못 늘리고 y 는 많이 늘릴 수 있다** — 그리고 실측상 부족한 쪽이 y 다.
+
+## §19.2 권장 수치 [TARGET]
+
+| 상수 | 값 | 배율 | 근거 |
+|---|---|---|---|
+| `ExpandedHalfWidth` | 554 | ×1.065 | 기믹 span 상한 (§19.1-2) |
+| `ExpandedHalfHeight` | 418 | ×1.548 | 플레이트 하단 여유 420 (§19.1-1) |
+
+[OBSERVED] 결과 기하:
+
+| | 반축 | x 범위 | y 범위 | 플레이트 대비 |
+|---|---|---|---|---|
+| 플레이어 도달 | 520 × 401 | 248..1288 | 203..1005 | 면적 41.6% (×1.696) |
+| 적 정지선(=벽 링) | 530 × 406 | 238..1298 | 198..1010 | 전 변 플레이트 내부 |
+
+폭 63.3% → 67.7%, 높이 49.4% → **78.3%**.
+플레이어 x 범위가 기믹 span(248..1288)과 **정확히 일치** — 한 픽셀의 여유도 없이
+꽉 찬다.
+
+## §19.3 게이트와 해석 규칙
+
+`DungeonProgressionConfig.Bounds` (`DungeonBounds { float HalfWidth, HalfHeight }`).
+
+- `default` (두 축 0) → 동결 상수. `DungeonProgressionConfig.All`(#13+#14)은
+  **bounds 를 켜지 않는다** — #15 는 뷰 결합(벽 링)이 있어 별도 옵트인이다.
+  `DungeonProgressionConfig.Everything` 이 셋 다 켠다.
+- **한쪽 축만 설정된 구조체는 무효**(inert). 한 축만 조용히 늘어나는 사고를 막는다.
+- **축소 요청은 동결값으로 클램프.** 축소는 해저드·스폰 포인트를 플레이필드 밖으로
+  밀어내는, 이 증보가 하지 않는 별개의 변경이다.
+- 반축은 **생성자에서 1회 해석**된다. 런 도중 플레이필드가 바뀌지 않는 것이
+  `(config, 입력 시퀀스)` 재현성의 조건이다.
+- 던전이 아니면 progression 전체가 낙하하므로 아레나/프롤로그는 마름모 + 동결 반축
+  그대로다.
+
+`ClampToArena` 는 유일한 초크포인트라 반축 2개 치환만으로 플레이어·적·조류 클램프가
+모두 따라온다. 마진 산술(34 / 24, y 는 절반)은 **불변** — 넓어진 플레이필드에서도
+경계로부터의 이격은 같다.
+
+## §19.4 스폰·해저드 정합성
+
+- [OBSERVED] `SimConfig.SpawnPoints` 8점 전부 확장 타원 내부 — 스폰 직후 스냅 없음.
+- 적과 플레이어가 **같은 `ClampToArena`** 를 쓰므로 "적이 못 가는 확장 영역"은
+  구조적으로 생기지 않는다 (적 정지선이 플레이어 정지선보다 10 px 바깥).
+- 재의 벽·조류는 §19.2 수치에서 플레이필드를 **정확히 덮는다**.
+- 분출구(vent)는 점 기준 반경이라 확장 영역 바깥쪽에 커버리지가 없다. 이는 벽·조류와
+  달리 원래부터 국소 기믹이므로 결함이 아니다 [INFERENCE].
+
+## §19.5 뷰 계약 — 벽 링이 따라오게 하는 접점
+
+`IDungeonProgressionSnapshot` 에 `BoundsHalfWidth` / `BoundsHalfHeight` /
+`ExpandedBoundsActive` 를 게시하고, `DungeonBoundsSpec.EnemyStopE(halfWidth)` /
+`PlayerStopE(halfWidth)` 를 공개한다. `EnvironmentBuilder` 의 `HalfW`/`HalfH`/
+`StopE` 가 이 값을 읽으면 링이 클램프를 따라온다. 동결 반축을 넣으면 현재 상수를
+**정확히 재현**하므로(테스트 W-MV-7) 게이트 OFF 시 링은 1 px 도 움직이지 않는다.
+
+## §19.6 검증 계약
+
+- 게이트 OFF == 동결 생성자: 던전 5400틱, 8방위 강제 이동으로 클램프를 전 방향
+  실제로 때리며 플레이어·전체 적 좌표 락스텝.
+- 아레나/프롤로그는 `Everything` 을 넘겨도 확장하지 않는다.
+- 해석기: 비활성 / 반쪽 설정 / 축소 요청 전부 동결값.
+- 확장 기하가 플레이트 안 + 기믹 span 안 + 스폰 8점 포함.
+- 확장 ON: 플레이어·적이 확장 타원 안에 머무르고 **동결 타원 밖까지 실제로 나간다**
+  (확장이 관측되지 않으면 나머지 어서션이 공허하므로 명시 실패).
+- stop-e 가 링 파생식과 동일.
+- 반축은 런 중 불변, Restart 후에도 동일, 리스타트 런 == 신규 런 락스텝.

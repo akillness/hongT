@@ -17,7 +17,8 @@ namespace CinderCourt.Sim
     /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
     public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot,
-                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot
+                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot,
+                                    IDungeonProgressionSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -86,9 +87,32 @@ namespace CinderCourt.Sim
         private int _enemyCount;
         private PickupState[] _pickups = new PickupState[SimConfig.EnemyCap];
         private int _pickupCount;
+        // AMENDMENT #14: PickupState lives in the FROZEN SimTypes.cs, so the grade
+        // rides a parallel array kept in lockstep with _pickups on every mutation.
+        private LootGrade[] _pickupGrades = new LootGrade[SimConfig.EnemyCap];
 
         private readonly List<EnemyState> _enemyView = new List<EnemyState>(SimConfig.EnemyCap);
         private readonly List<PickupState> _pickupView = new List<PickupState>(SimConfig.EnemyCap);
+        private readonly List<LootGrade> _pickupGradeView = new List<LootGrade>(SimConfig.EnemyCap);
+
+        // --- AMENDMENT #13 / #14 opt-in state (inert unless the caller opts in) ---
+        private readonly DungeonProgressionConfig _progression;
+        private int _ddaBand;
+        private int _waveBudget;
+        private int _waveEliteAllowance;
+        private int _waveHitsTaken;
+        private float _waveSeconds;
+        private int _elitesThisWave;
+        private int _finePity;
+        private int _epicPity;
+        private int _dropOrdinal;
+        private LootGrade _lastLootGrade;
+        // AMENDMENT #15: resolved ONCE in the constructor — the playfield cannot
+        // change mid-run, which is what keeps a run reproducible from
+        // (config, input sequence) alone. The field initializers are the frozen
+        // constants, so the arena and campaign constructors need no change at all.
+        private readonly float _boundsHalfWidth = SimConfig.ArenaHalfWidth;
+        private readonly float _boundsHalfHeight = SimConfig.ArenaHalfHeight;
 
         private PlayerState _player;
         private SimMode _mode;
@@ -364,8 +388,25 @@ namespace CinderCourt.Sim
 
         /// <summary>Hack &amp; slash run — docs/SIM_SPEC_HACKSLASH.md §0-§7.</summary>
         public CinderSim(in HackConfig config)
+            : this(in config, default)
+        {
+        }
+
+        /// <summary>
+        /// Hack &amp; slash run with the opt-in progression amendments (#13 point-budget
+        /// waves + DDA, #14 graded loot + pity). This is the ONLY way to reach either
+        /// amendment; the single-argument constructor forwards
+        /// <c>default(DungeonProgressionConfig)</c>, which is both switches off, so
+        /// every existing caller and every golden digest keeps its frozen numbers.
+        /// </summary>
+        public CinderSim(in HackConfig config, in DungeonProgressionConfig progression)
         {
             _hack = true;
+            // AMENDMENT #13/#14 are dungeon-only (seed decision D3): the arena and the
+            // prologue must not gain a branch, and a trial has no economy to grade.
+            _progression = config.Mode == GameMode.Dungeon ? progression : default;
+            DungeonBoundsSpec.Resolve(
+                in _progression.Bounds, out _boundsHalfWidth, out _boundsHalfHeight);
             _gameMode = config.Mode;
             _prologue = config.Mode == GameMode.Prologue;
             _dungeon = config.Mode == GameMode.Dungeon;
@@ -632,6 +673,24 @@ namespace CinderCourt.Sim
         public PlayerState Player => _player;
         public IReadOnlyList<EnemyState> Enemies => _enemyView;
         public IReadOnlyList<PickupState> Pickups => _pickupView;
+
+        // --- IDungeonProgressionSnapshot (AMENDMENT #13 / #14) ----------------
+
+        public bool AdaptiveWavesActive => _progression.AdaptiveWaves;
+        public bool GradedLootActive => _progression.GradedLoot;
+        public int DifficultyBand => _ddaBand;
+        public int WaveBudget => _waveBudget;
+        public int WaveEliteAllowance => _waveEliteAllowance;
+        public int WaveHitsTaken => _waveHitsTaken;
+        public float WaveElapsedSeconds => _waveSeconds;
+        public int FinePity => _finePity;
+        public int EpicPity => _epicPity;
+        public LootGrade LastLootGrade => _lastLootGrade;
+        public IReadOnlyList<LootGrade> PickupGrades => _pickupGradeView;
+        public float BoundsHalfWidth => _boundsHalfWidth;
+        public float BoundsHalfHeight => _boundsHalfHeight;
+        public bool ExpandedBoundsActive =>
+            _boundsHalfWidth > SimConfig.ArenaHalfWidth || _boundsHalfHeight > SimConfig.ArenaHalfHeight;
         public SimEvents Events => _events;
         public float NovaX => _novaX;
         public float NovaY => _novaY;
@@ -2597,6 +2656,11 @@ namespace CinderCourt.Sim
             _player.Health = MathF.Max(0f, _player.Health - amount);
             _events |= SimEvents.PlayerDamaged;
 
+            // AMENDMENT #13 §17.4: the DDA counts hits that actually cost health —
+            // the same "real hit" definition 부록 B pins for the channel reset, so a
+            // fully-absorbed shield hit does not push the band down.
+            _waveHitsTaken += 1;
+
             // A9.3: the gauge measures an unbroken offensive, so being hit costs a
             // flat slice of it and ends the grace window immediately.
             SpendMomentumOnHurt();
@@ -3064,7 +3128,29 @@ namespace CinderCourt.Sim
             if (_pickupCount == _pickups.Length)
             {
                 Array.Resize(ref _pickups, _pickups.Length * 2);
+                Array.Resize(ref _pickupGrades, _pickups.Length);
             }
+
+            // AMENDMENT #14 §18: grade the drop before it is published. Bosses are
+            // outside the pity ledger by contract — a guaranteed Epic must not be able
+            // to satisfy or reset a counter that measures the grind.
+            LootGrade grade = LootGrade.Basic;
+            if (_progression.GradedLoot)
+            {
+                if (isBoss)
+                {
+                    grade = LootGradeSpec.BossGrade;
+                }
+                else
+                {
+                    _dropOrdinal += 1;
+                    int roll = LootGradeSpec.Roll(enemyId, _wave, _dropOrdinal);
+                    grade = LootGradeSpec.Resolve(roll, _finePity, _epicPity);
+                    LootGradeSpec.Advance(grade, ref _finePity, ref _epicPity);
+                }
+                _lastLootGrade = grade;
+            }
+            _pickupGrades[_pickupCount] = grade;
 
             ref PickupState pickup = ref _pickups[_pickupCount];
             pickup.Id = _nextPickupId;
@@ -3096,7 +3182,7 @@ namespace CinderCourt.Sim
                 float deltaY = (_player.Y - pickup.Y) * SimConfig.IsoY;
                 if (deltaX * deltaX + deltaY * deltaY <= SimConfig.PickupMagnetRadius * SimConfig.PickupMagnetRadius)
                 {
-                    CollectPickup(pickup.Kind);
+                    CollectPickup(pickup.Kind, _pickupGrades[index]);
                     RemovePickupAt(index);
                     continue;
                 }
@@ -3108,25 +3194,40 @@ namespace CinderCourt.Sim
             }
         }
 
-        private void CollectPickup(PickupKind kind)
+        private void CollectPickup(PickupKind kind, LootGrade grade)
         {
+            // AMENDMENT #14 §18.3: the grade scales the payload of the kind that
+            // already dropped — it never changes WHICH kind dropped, so the frozen
+            // id%3 / id%7 routing in SpawnPickup is untouched. With the amendment off
+            // the multiplier is exactly 1 and the rank step exactly 1.
+            float valueMul = _progression.GradedLoot ? LootGradeSpec.ValueMultiplier(grade) : 1f;
             if (kind == PickupKind.EmberShard)
             {
-                _player.Health = MathF.Min(_playerMaxHealth, _player.Health + SimConfig.EmberShardHeal);
+                _player.Health = MathF.Min(_playerMaxHealth, _player.Health + SimConfig.EmberShardHeal * valueMul);
             }
             else if (kind == PickupKind.OilFlask)
             {
-                _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.OilFlaskCharge);
+                _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.OilFlaskCharge * valueMul);
             }
             else if (kind == PickupKind.EquipShard)
             {
                 // Rank lands on the kill-count slot; it applies to the *next* run start.
-                RaiseRank(_kills % CampaignSpec.EquipSlotCount);
+                int steps = _progression.GradedLoot ? LootGradeSpec.RankSteps(grade) : 1;
+                for (int step = 0; step < steps; step += 1)
+                {
+                    RaiseRank(_kills % CampaignSpec.EquipSlotCount);
+                }
             }
             else
             {
                 _relics += 1;
-                _score += SimConfig.RelicScore;
+                // +0.5f: round-to-nearest. Bare truncation reads 250 x 2.10f as
+                // 524 under Unity's float semantics (2.10f * 250 = 524.999...),
+                // drifting from the spec table's 525. Deterministic — same
+                // float expression every run, no platform branch.
+                _score += _progression.GradedLoot
+                    ? (int)(SimConfig.RelicScore * valueMul + 0.5f)
+                    : SimConfig.RelicScore;
             }
             _events |= SimEvents.PickupCollected;
         }
@@ -3137,9 +3238,14 @@ namespace CinderCourt.Sim
             if (tail > 0)
             {
                 Array.Copy(_pickups, index + 1, _pickups, index, tail);
+                // AMENDMENT #14: the grade array is index-aligned with _pickups, so it
+                // has to survive the same swap-down or grades would drift onto the
+                // wrong drop.
+                Array.Copy(_pickupGrades, index + 1, _pickupGrades, index, tail);
             }
             _pickupCount -= 1;
             _pickups[_pickupCount] = default;
+            _pickupGrades[_pickupCount] = LootGrade.Basic;
         }
 
         // --- Wave ------------------------------------------------------------
@@ -3159,7 +3265,30 @@ namespace CinderCourt.Sim
                     ? SpawnCountForStageWave(in _config, waveNumber)
                     : SpawnCountForWave(waveNumber);
                 _pendingBoss = _campaign ? waveNumber > _config.Waves : IsBossWave(waveNumber);
+
+                // AMENDMENT #13 §17.2: a mob wave is bought from the point budget
+                // instead of the fixed 3 + floor(wave*1.2) queue. The boss wave keeps
+                // the frozen boss + escort formula — the budget never buys a boss.
+                if (_progression.AdaptiveWaves && !_pendingBoss)
+                {
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveEliteAllowance = WaveBudgetSpec.EliteAllowanceForBudget(_waveBudget);
+                    _pendingSpawns = Math.Min(
+                        SimConfig.EnemyCap, WaveBudgetSpec.SpawnCountForBudget(_waveBudget));
+                }
+                else if (_progression.AdaptiveWaves)
+                {
+                    // Boss wave: the budget is still published (the HUD band readout
+                    // must not blank out) but it buys nothing.
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveEliteAllowance = 0;
+                }
             }
+            // AMENDMENT #13 §17.4: the DDA reads the wave that just ended, so both
+            // accumulators are per wave and reset here.
+            _waveHitsTaken = 0;
+            _waveSeconds = 0f;
+            _elitesThisWave = 0;
             _eliteThisWave = false;
             _extractedThisWave = false;
             _spawnIndexInWave = 0;
@@ -3189,6 +3318,13 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // AMENDMENT #13 §17.4: wave clock, one of the three DDA signals. It only
+            // runs while the wave is live, so the intermission is not charged to it.
+            if (_progression.AdaptiveWaves)
+            {
+                _waveSeconds += deltaTime;
+            }
+
             if (_pendingSpawns > 0 && _enemyCount < SimConfig.EnemyCap)
             {
                 _spawnTimer -= deltaTime;
@@ -3210,9 +3346,26 @@ namespace CinderCourt.Sim
                     ClearRun(HackSpec.PrologueClearReason);
                     return;
                 }
+                SettleDifficultyBand();
                 _intermission = SimConfig.WaveIntermission;
                 _mode = SimMode.WaveClear;
             }
+        }
+
+        /// <summary>
+        /// AMENDMENT #13 §17.4. Reads the wave that just ended and moves the band at
+        /// most one step. Deterministic: three threshold comparisons on accumulated
+        /// fixed-step state, no RNG, no history beyond the current band.
+        /// </summary>
+        private void SettleDifficultyBand()
+        {
+            if (!_progression.AdaptiveWaves)
+            {
+                return;
+            }
+            float maxHealth = _playerMaxHealth;
+            float fraction = maxHealth > 0f ? _player.Health / maxHealth : 0f;
+            _ddaBand = WaveBudgetSpec.NextBand(_ddaBand, fraction, _waveSeconds, _waveHitsTaken);
         }
 
         private void SpawnEnemy(bool boss)
@@ -3226,9 +3379,15 @@ namespace CinderCourt.Sim
             float[] spawnPoint = SimConfig.SpawnPoints[SpawnPointIndexFor(_wave, id)];
             // §2.1: dungeon mobs carry the combo-DPS health curve; arena/prologue keep
             // the frozen SIM_SPEC curve.
+            // AMENDMENT #13 §17.2: with the budget on, the surplus left after paying
+            // for bodies buys hit points, so the health term is a multiplier on the
+            // same frozen base instead of the fixed per-wave ramp.
             float health = _dungeon
-                ? HackSpec.DungeonEnemyBaseHealth
-                    + MathF.Min(HackSpec.DungeonEnemyHealthCap, (_wave - 1) * HackSpec.DungeonEnemyHealthPerWave)
+                ? (_progression.AdaptiveWaves
+                    ? HackSpec.DungeonEnemyBaseHealth
+                        * WaveBudgetSpec.HealthMultiplierForBudget(_waveBudget)
+                    : HackSpec.DungeonEnemyBaseHealth
+                        + MathF.Min(HackSpec.DungeonEnemyHealthCap, (_wave - 1) * HackSpec.DungeonEnemyHealthPerWave))
                 : SimConfig.EnemyBaseHealth
                     + MathF.Min(EnemyHealthWaveCap, (_wave - 1) * EnemyHealthPerWave);
             // §3: every seventh dungeon spawn is an elite, at most one per wave.
@@ -3236,7 +3395,12 @@ namespace CinderCourt.Sim
             if (_dungeon && !boss)
             {
                 _spawnOrdinal += 1;
-                elite = !_eliteThisWave && _spawnOrdinal % HackSpec.EliteSpawnModulus == 0;
+                bool onModulus = _spawnOrdinal % HackSpec.EliteSpawnModulus == 0;
+                // AMENDMENT #13 §17.2: the id%7 cadence is unchanged; the budget only
+                // replaces the "at most one per wave" cap with a purchased allowance.
+                elite = _progression.AdaptiveWaves
+                    ? onModulus && _elitesThisWave < _waveEliteAllowance
+                    : onModulus && !_eliteThisWave;
             }
 
             if (boss)
@@ -3298,6 +3462,7 @@ namespace CinderCourt.Sim
             {
                 _elitesAlive += 1;
                 _eliteThisWave = true;
+                _elitesThisWave += 1;
             }
         }
 
@@ -3321,6 +3486,19 @@ namespace CinderCourt.Sim
             _surgeUsedThisWave = false;
             _trainingTimer = 0f;
             _trainingHits = 0;
+            // AMENDMENT #13/#14: every counter is run-scoped. A restart re-opens at
+            // band 0 with an empty pity ledger — neither is banked across runs, which
+            // is what makes a run reproducible from (config, input sequence) alone.
+            _ddaBand = 0;
+            _waveBudget = 0;
+            _waveEliteAllowance = 0;
+            _waveHitsTaken = 0;
+            _waveSeconds = 0f;
+            _elitesThisWave = 0;
+            _finePity = 0;
+            _epicPity = 0;
+            _dropOrdinal = 0;
+            _lastLootGrade = LootGrade.Basic;
 
             for (int index = 0; index < _hazardRuntime.Length; index += 1)
             {
@@ -4087,8 +4265,13 @@ namespace CinderCourt.Sim
         /// newly admits already has floor drawn under it.</summary>
         private void ClampToArena(ref float x, ref float y, float margin)
         {
-            float halfWidth = SimConfig.ArenaHalfWidth - margin;
-            float halfHeight = SimConfig.ArenaHalfHeight - margin * 0.5f;
+            // AMENDMENT #15 §19: the half-axes come from the resolved bounds instead of
+            // the frozen constants. Outside a dungeon (and inside one without #15) they
+            // ARE the frozen constants, so the diamond/arena path is untouched. The
+            // margin arithmetic is unchanged — a wider playfield still keeps the same
+            // 34 px player / 24 px enemy standoff from the boundary.
+            float halfWidth = _boundsHalfWidth - margin;
+            float halfHeight = _boundsHalfHeight - margin * 0.5f;
             float localX = x - SimConfig.ArenaX;
             float localY = y - SimConfig.ArenaY;
 
@@ -4118,9 +4301,13 @@ namespace CinderCourt.Sim
             }
 
             _pickupView.Clear();
+            _pickupGradeView.Clear();
             for (int index = 0; index < _pickupCount; index += 1)
             {
                 _pickupView.Add(_pickups[index]);
+                // AMENDMENT #14: index-aligned with _pickupView by construction, which
+                // is the contract IDungeonProgressionSnapshot.PickupGrades states.
+                _pickupGradeView.Add(_pickupGrades[index]);
             }
 
             for (int index = 0; index < _hazards.Length; index += 1)
