@@ -51,3 +51,8 @@
   실측: HEAD 단독 583/583, 가구 9-16개/스테이지, 반폭 0.292u ≤ 0.300u,
   높이 34 sim px, 틴트 분리 3.23×. 미달: 화면에서 바위가 아닌 그을음으로 읽힘.
   개념: wiki/concepts/hongt-vacuous-gate-and-cancelled-scale
+- 2026-08-07 — UI: 로비 출정 경로의 모바일 터치 하한 보수. `LobbyView`가
+  phone-tier에서 행동판 92×92u·카드 106u·피치 112u를 함께 확장하여 인접
+  스크롤 경로의 탭 중첩을 방지. `LobbyLayoutTests` 3/3 통과; 전체 격리
+  EditMode는 환경 생성 텍스처 1건 누락으로 595/596 (UI 실패 0). 개념:
+  `wiki/concepts/hongt-lobby-sortie-touch-target-pass.md`.

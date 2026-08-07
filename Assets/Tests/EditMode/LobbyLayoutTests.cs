@@ -90,16 +90,11 @@ namespace CinderCourt.Tests
 
         /// <summary>
         /// Every interactive lobby rect against the accessibility floor
-        /// (SIM_SPEC_HACKSLASH §9: 버튼 최소 44px). MEASURED, not asserted:
-        /// no lobby control currently clears the floor on the vertical axis
-        /// — the whole panel grammar predates the contract and v1.3's pact
-        /// toggle inherited it by cloning the 강하 row. Raising it moves the
-        /// audited 68 u card pitch, the 9-card scroll and the tab strip, so
-        /// it is a designer+pm negotiation, not a test-time edit.
-        ///
-        /// This is therefore a RATCHET, not a pass: the exact undersized set
-        /// is frozen below, so a new control cannot join it silently and a
-        /// real fix trips the test on the way out.
+        /// (SIM_SPEC_HACKSLASH §9: 버튼 최소 44px). The full phone-route pass
+        /// removes all sortie actions from the debt: prologue, descent, pact,
+        /// training tier and training entry grow with their scroll card pitch.
+        /// The remaining Sanctum controls are tracked separately until their
+        /// dense tab/row grammar receives the same treatment.
         /// </summary>
         [Test]
         public void InteractiveLobbyRects_HoldTheMeasuredTouchFloorDebt()
@@ -124,28 +119,13 @@ namespace CinderCourt.Tests
             TestContext.WriteLine($"[lobby touch-floor audit @390x844 portrait, "
                 + $"{SpecCssPerUnit} CSS px/u, floor {MinCssPx}]\n" + report);
 
-            // Frozen debt, re-measured 2026-08-06 after v1.6 added the training
-            // ground (9 stage 강하 · 1 revealed 서약 · 3 tier · 5 수련 · 4 tabs ·
-            // 3 stat "+" · 재훈련).
-            //
-            // The tab strip MOVED and the movement is an improvement: re-dividing
-            // the same 400 u panel into 4 x 91 u took tab WIDTH from 58.6 to 44.4
-            // CSS px, which now CLEARS the floor on that axis. They stay in this
-            // table because their 44 u HEIGHT is still 21.5 CSS px — the debt this
-            // ratchet exists to track, unchanged and still a designer+pm item.
-            //
-            // v1.6 joins 8 controls (견습/숙련/판결 + five 수련) and adds NO new
-            // violation class: every one measures 41.0 x 13.7, the exact size the
-            // 강하 button has carried since cycle 2. The narrowest control in the
-            // lobby is still the stat "+" at 25.4. An earlier draft did create a
-            // new class — three per-card tier buttons at 28.3 x 13.7, fifteen of
-            // them — and this test caught it; the fix was a shared tier row, not
-            // a wider table (negotiation entry 10).
+            // Deliberately smaller than the previous ratchet: primary sortie
+            // controls are not allowed back into the debt table. The remaining
+            // controls live in Sanctum's fixed-height tab/row grammar and need a
+            // separate layout pass rather than a hidden hit-box workaround.
             var expected = new Dictionary<string, int>
             {
-                { "강하", 9 }, { "서약", 1 }, { "성장", 1 }, { "장비", 1 },
-                { "군단", 1 }, { "각인", 1 }, { "+", 3 }, { "재훈련", 1 },
-                { "견습", 1 }, { "숙련", 1 }, { "판결", 1 }, { "수련", 5 },
+                { "성장", 1 }, { "장비", 1 }, { "군단", 1 }, { "각인", 1 }, { "+", 3 },
             };
             var actual = new Dictionary<string, int>();
             foreach (var label in undersized)
@@ -155,10 +135,38 @@ namespace CinderCourt.Tests
                 "the audit must have measured at least the undersized set");
             CollectionAssert.AreEquivalent(expected, actual,
                 "lobby touch-floor debt changed. A NEW undersized control is a defect — "
-                + "give it >= 44 CSS px. A control LEAVING this set is the fix landing — "
-                + "drop it from the frozen table and note the negotiation in "
-                + "_workspace/current/pm/negotiation-record.md. Measured:\n" + report);
+                + "give it >= 44 CSS px. A control LEAVING this set is an accessibility fix; "
+                + "record it in _workspace/current/pm/negotiation-record.md. Measured:\n" + report);
         }
+
+        [Test]
+        public void PrimarySortieActions_ClearThe44CssPxTouchFloor()
+        {
+            var canvas = BuildClearedLobby();
+            var routePrefixes = new[] { "재훈련", "강하", "서약", "견습", "숙련", "판결", "수련" };
+            var found = 0;
+            foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+            {
+                if (!button.gameObject.activeInHierarchy) continue;
+                var label = LabelOf(button);
+                var isRouteAction = false;
+                for (var i = 0; i < routePrefixes.Length; i++)
+                    isRouteAction |= label.StartsWith(routePrefixes[i], System.StringComparison.Ordinal);
+                if (!isRouteAction) continue;
+
+                found += 1;
+                var world = WorldRect(button.GetComponent<RectTransform>());
+                Assert.That(world.width * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx),
+                    $"{label} is narrower than the phone touch floor");
+                Assert.That(world.height * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx),
+                    $"{label} is shorter than the phone touch floor");
+            }
+
+            Assert.That(found, Is.EqualTo(StageCatalog.Entries.Count + 1 + 1
+                + HackSpec.TrainingTiers + TrainingTrials.Ids.Length),
+                "the audit must cover prologue, every descent, revealed pact, all tier choices and trials");
+        }
+
 
         private Canvas BuildClearedLobby()
         {
@@ -172,6 +180,7 @@ namespace CinderCourt.Tests
             };
             _lobby.Build(data, default);
             _lobby.Refresh(data);
+            _lobby.ApplyLobbyLayoutForTest(390, 844);
 
             var canvas = _lobbyObject.GetComponentInChildren<Canvas>(true);
             Assert.That(canvas, Is.Not.Null, "the lobby must build its canvas");

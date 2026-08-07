@@ -123,7 +123,19 @@ namespace CinderCourt.View
         // Top bar.
         Text _relicText, _pointText;
 
-        // Sortie cards.
+        // Sortie cards. The desktop card grammar predates the 44 CSS px touch
+        // contract. Keep rect seams for the phone pass: it expands the route's
+        // actual action targets and card pitch together, rather than merely
+        // enlarging hit areas until neighboring routes overlap.
+        RectTransform _prologueCardRect, _prologueButtonRect;
+        RectTransform _stageViewportRect, _stageContentRect;
+        readonly RectTransform[] _stageCardRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _stageButtonRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _pactButtonRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _trialCardRects = new RectTransform[TrainingTrials.Ids.Length];
+        readonly RectTransform[] _trialButtonRects = new RectTransform[TrainingTrials.Ids.Length];
+        RectTransform _tierCardRect;
+        RectTransform[] _tierButtonRects = System.Array.Empty<RectTransform>();
         Text _prologueStatus;  Text _prologueButtonLabel;
         readonly Text[] _stageStatus = new Text[StageCatalog.Entries.Count];
         readonly Button[] _stageButtons = new Button[StageCatalog.Entries.Count];
@@ -561,9 +573,16 @@ namespace CinderCourt.View
         /// full-width column (SORTIE on top). Also flips the orientation
         /// match (spec #1: portrait 0.35 / landscape 0.5).</summary>
         void ApplyLobbyTier(bool force)
+            => ApplyLobbyTier(Screen.width, Screen.height, force);
+
+        /// <summary>EditMode geometry seam. Screen dimensions are degenerate in
+        /// batch tests, so the phone layout must be driven with the same measured
+        /// 390×844 viewport used by the HUD audit.</summary>
+        internal void ApplyLobbyLayoutForTest(int width, int height)
+            => ApplyLobbyTier(width, height, true);
+
+        void ApplyLobbyTier(int width, int height, bool force)
         {
-            var width = Screen.width;
-            var height = Screen.height;
             if (!force && width == _lastScreenWidth && height == _lastScreenHeight)
                 return;
             _lastScreenWidth = width;
@@ -613,6 +632,88 @@ namespace CinderCourt.View
                 _sanctumRect.pivot = new Vector2(0f, 1f);
                 _sanctumRect.anchoredPosition = new Vector2(16, -72);
                 _sanctumRect.sizeDelta = new Vector2(400, 560);
+            }
+
+            // A phone layout must enlarge the complete route grammar (card +
+            // action + scroll pitch) together. Enlarging only a transparent hit
+            // box would make adjacent descents compete for the same tap.
+            ApplySortieTouchLayout(stack);
+        }
+
+        static void SetCardGeometry(RectTransform rect, float top, float height)
+        {
+            rect.offsetMin = new Vector2(12f, top - height);
+            rect.offsetMax = new Vector2(-12f, top);
+        }
+
+        void ApplySortieTouchLayout(bool touchFriendly)
+        {
+            if (_prologueCardRect == null || _stageViewportRect == null ||
+                _stageContentRect == null || _tierCardRect == null)
+                return;
+
+            const float desktopPitch = 70f;
+            const float desktopCardHeight = 68f;
+            const float touchPitch = 112f;
+            const float touchCardHeight = 106f;
+            var pitch = touchFriendly ? touchPitch : desktopPitch;
+            var cardHeight = touchFriendly ? touchCardHeight : desktopCardHeight;
+            var actionSize = touchFriendly ? new Vector2(92f, 92f) : new Vector2(84f, 28f);
+
+            SetCardGeometry(_prologueCardRect, -60f, touchFriendly ? 112f : 100f);
+            _prologueButtonRect.sizeDelta = new Vector2(112f, touchFriendly ? 92f : 44f);
+            _stageViewportRect.offsetMax = new Vector2(0f, touchFriendly ? -186f : -174f);
+            _stageContentRect.sizeDelta = new Vector2(0f,
+                (StageCatalog.Entries.Count + 1 + TrainingTrials.Ids.Length) * pitch + 8f);
+
+            for (var i = 0; i < StageCatalog.Entries.Count; i++)
+            {
+                SetCardGeometry(_stageCardRects[i], -6f - i * pitch, cardHeight);
+                _stageButtonRects[i].sizeDelta = actionSize;
+                _pactButtonRects[i].sizeDelta = actionSize;
+                SetRouteTextLayout(_stageStatus[i], _stageSubLabels[i], touchFriendly);
+            }
+
+            var tierRow = StageCatalog.Entries.Count;
+            SetCardGeometry(_tierCardRect, -6f - tierRow * pitch, cardHeight);
+            for (var i = 0; i < _tierButtonRects.Length; i++)
+                _tierButtonRects[i].sizeDelta = actionSize;
+
+            for (var i = 0; i < _trialCardRects.Length; i++)
+            {
+                SetCardGeometry(_trialCardRects[i], -6f - (tierRow + 1 + i) * pitch, cardHeight);
+                _trialButtonRects[i].sizeDelta = actionSize;
+                SetRouteTextLayout(_trialStatus[i], null, touchFriendly);
+            }
+        }
+
+        static void SetRouteTextLayout(Text status, Text sub, bool touchFriendly)
+        {
+            var statusRect = status.rectTransform;
+            if (touchFriendly)
+            {
+                statusRect.anchorMin = statusRect.anchorMax = new Vector2(0f, 1f);
+                statusRect.pivot = new Vector2(0f, 1f);
+                statusRect.anchoredPosition = new Vector2(34f, -68f);
+                statusRect.sizeDelta = new Vector2(124f, 20f);
+                status.alignment = TextAnchor.MiddleLeft;
+                if (sub != null)
+                {
+                    var subRect = sub.rectTransform;
+                    subRect.sizeDelta = new Vector2(124f, 30f);
+                    sub.horizontalOverflow = HorizontalWrapMode.Wrap;
+                }
+                return;
+            }
+
+            AnchorTopRight(statusRect);
+            statusRect.anchoredPosition = new Vector2(-12f, -8f);
+            statusRect.sizeDelta = new Vector2(sub == null ? 110f : 100f, 18f);
+            status.alignment = TextAnchor.MiddleRight;
+            if (sub != null)
+            {
+                sub.rectTransform.sizeDelta = new Vector2(220f, 16f);
+                sub.horizontalOverflow = HorizontalWrapMode.Overflow;
             }
         }
 
@@ -678,6 +779,7 @@ namespace CinderCourt.View
 
             // Prologue card (sole entry until cleared; retrainable after).
             var prologue = Card(panel.transform, -60, 100);
+            _prologueCardRect = prologue.GetComponent<RectTransform>();
             // cycle2 B3: capture the card's 4 border lines NOW (before other
             // children exist) so the first-run guide can pulse them ember.
             var prologueLines = prologue.GetComponentsInChildren<Image>();
@@ -703,44 +805,38 @@ namespace CinderCourt.View
             var prologueButton = TextButton(prologue.transform, new Vector2(1, 0), new Vector2(-12, 10),
                 new Vector2(112, 44), "점화 훈련", 15,
                 () => _callbacks.OnSortie?.Invoke("prologue"));
-            prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+            _prologueButtonRect = prologueButton.GetComponent<RectTransform>();
+            _prologueButtonRect.pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
-            // Cycle-2: nine logical stages no longer fit the fixed panel at
-            // the 70 u card pitch (9*70+174 > 620), and compressing the pitch
-            // would sink the 강하 button below the 44 CSS px touch floor
-            // (HudLayoutTests contract). The list scrolls instead: pitch,
-            // card height and every touch target keep their audited sizes.
+            // The route list is scrollable. At phone tier the card pitch expands
+            // with its actions so every route choice clears the 44 CSS px floor.
             var stageViewport = new GameObject("StageScroll");
             stageViewport.transform.SetParent(panel.transform, false);
             var viewportImage = stageViewport.AddComponent<Image>();
             viewportImage.color = Color.clear;      // drag surface, invisible
             viewportImage.raycastTarget = true;      // ScrollRect needs the hits
             stageViewport.AddComponent<RectMask2D>();
-            var viewportRect = stageViewport.GetComponent<RectTransform>();
-            viewportRect.anchorMin = new Vector2(0f, 0f);
-            viewportRect.anchorMax = new Vector2(1f, 1f);
-            viewportRect.pivot = new Vector2(0.5f, 1f);
-            viewportRect.offsetMin = new Vector2(0f, 12f);
-            viewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
+            _stageViewportRect = stageViewport.GetComponent<RectTransform>();
+            _stageViewportRect.anchorMin = new Vector2(0f, 0f);
+            _stageViewportRect.anchorMax = new Vector2(1f, 1f);
+            _stageViewportRect.pivot = new Vector2(0.5f, 1f);
+            _stageViewportRect.offsetMin = new Vector2(0f, 12f);
+            _stageViewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
 
             var stageContent = new GameObject("StageContent");
             stageContent.transform.SetParent(stageViewport.transform, false);
-            var contentRect = stageContent.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.anchoredPosition = Vector2.zero;
-            // 9 stage cards + 1 tier-selector card + 5 trial cards at the 70 u
-            // pitch + trailing margin. The training rows sit BELOW the stages so
-            // every audited stage-card coordinate keeps the value the layout
-            // tests froze.
-            contentRect.sizeDelta = new Vector2(
+            _stageContentRect = stageContent.AddComponent<RectTransform>();
+            _stageContentRect.anchorMin = new Vector2(0f, 1f);
+            _stageContentRect.anchorMax = new Vector2(1f, 1f);
+            _stageContentRect.pivot = new Vector2(0.5f, 1f);
+            _stageContentRect.anchoredPosition = Vector2.zero;
+            _stageContentRect.sizeDelta = new Vector2(
                 0f, (StageCatalog.Entries.Count + 1 + TrainingTrials.Ids.Length) * 70f + 8f);
 
             var scroll = stageViewport.AddComponent<ScrollRect>();
-            scroll.content = contentRect;
-            scroll.viewport = viewportRect;
+            scroll.content = _stageContentRect;
+            scroll.viewport = _stageViewportRect;
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
@@ -751,6 +847,7 @@ namespace CinderCourt.View
             {
                 var entry = StageCatalog.Entries[i];
                 var card = Card(stageContent.transform, -6 - i * 70, 68);
+                _stageCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
                 var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)
@@ -771,13 +868,9 @@ namespace CinderCourt.View
                 var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
                     ? "동행 없음"
                     : CompanionNameFor(entry.CompanionReward);
-                // Fun-pass v1.2: gimmick epithet leads the reward line (spec
-                // "기존 보상 라인 문법에 기믹 별칭 추가"). Merged instead of a new
-                // row: the 68 u card has no vertical slack between the reward
-                // band (-44..-60) and the 강하 button (bottom 6..34), and a new
-                // row would break the audited pitch/44 px touch floor. The
-                // hazard glyph at (12,-44) already sits directly left of this
-                // label, so it doubles as the epithet's gimmick marker.
+                // The compact desktop card carries its identity and reward in one
+                // line. Phone layout reserves the right half for full-height
+                // actions, so ApplySortieTouchLayout narrows this text there.
                 var sub = Label(card.transform, 34, -44, 220, 16,
                     $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
@@ -788,26 +881,23 @@ namespace CinderCourt.View
                 var button = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
                     new Vector2(84, 28), "강하", 13,
                     () => _callbacks.OnSortie?.Invoke(entry.Id));
-                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _stageButtonRects[i] = button.GetComponent<RectTransform>();
+                _stageButtonRects[i].pivot = new Vector2(1f, 0f);
                 _stageButtons[i] = button.GetComponent<Button>();
 
-                // v1.3 M3b: 서약 toggle — left of 강하, same audited 28 u height
-                // (card grammar; 28 u ≥ the 강하 button's own touch-floor
-                // audit at phone scale). Flat fill (plated:false): armed state
-                // drives Image.color, the stateful-button grammar tabs/roster
-                // use. Hidden until the stage is cleared (Refresh), so the
-                // reward text it would cover is gone by the time it appears
-                // (cleared cards drop the redeemed '보상:' tail).
                 var pactIndex = i;
                 var pact = TextButton(card.transform, new Vector2(1, 0), new Vector2(-104, 6),
                     new Vector2(84, 28), "서약", 12,
                     () => TogglePact(pactIndex), plated: false);
-                pact.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _pactButtonRects[i] = pact.GetComponent<RectTransform>();
+                _pactButtonRects[i].pivot = new Vector2(1f, 0f);
                 _pactButtons[i] = pact;
                 _pactBackgrounds[i] = pact.GetComponent<Image>();
                 _pactLabels[i] = pact.GetComponentInChildren<Text>();
                 pact.SetActive(false);   // revealed by Refresh on clear
-
+                // Action plates are built after the status; restore the status
+                // above their background so it stays legible in the tall phone card.
+                _stageStatus[i].transform.SetAsLastSibling();
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
             }
 
@@ -837,28 +927,18 @@ namespace CinderCourt.View
         Text _trialMasteryLabel;
         int _selectedTier;
 
-        /// <summary>
-        /// A shared tier selector card, then one card per trial carrying exactly
-        /// one stage-grammar button.
-        ///
-        /// The first draft put three tier buttons on EVERY trial card. The layout
-        /// gate measured them at 28.3 x 13.7 CSS px — narrower than any existing
-        /// lobby control (the previous worst was 강하 at 41.0 x 13.7), fifteen of
-        /// them at once. A new smallest touch target is a defect, not a frozen-
-        /// table update, so the tier choice moved to one shared row and every
-        /// button here now matches the audited stage-card button exactly.
-        /// </summary>
+        /// <summary>Builds the shared tier choice and one route row per trial.
+        /// Their phone geometry is applied as a single route layout pass below.</summary>
         void BuildTrialCards(Transform content, int rowOffset)
         {
             var tierCard = Card(content, -6 - rowOffset * 70, 68);
+            _tierCardRect = tierCard.GetComponent<RectTransform>();
             Eyebrow(tierCard.transform, 12, -6, "TRAINING", "훈련장 • 등급");
-            // Only 76 u is clear beside three buttons, so this row carries the
-            // tier COUNT and nothing else. The mastery line is on the prologue
-            // card, which has the width for a sentence.
             var tierHint = Label(tierCard.transform, 12, -44, 76, 16,
                 $"{HackSpec.TrainingTiers}단", 10, TextAnchor.MiddleLeft);
             tierHint.color = InkDim;
             _tierButtons = new Button[HackSpec.TrainingTiers];
+            _tierButtonRects = new RectTransform[HackSpec.TrainingTiers];
             _tierBackgrounds = new Image[HackSpec.TrainingTiers];
             for (var tier = 0; tier < HackSpec.TrainingTiers; tier++)
             {
@@ -867,7 +947,8 @@ namespace CinderCourt.View
                     new Vector2(-12 - (HackSpec.TrainingTiers - 1 - tier) * 92, 6),
                     new Vector2(84, 28), TierNames[tier], 13,
                     () => SelectTier(tierIndex), plated: false);
-                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _tierButtonRects[tier] = button.GetComponent<RectTransform>();
+                _tierButtonRects[tier].pivot = new Vector2(1f, 0f);
                 _tierButtons[tier] = button.GetComponent<Button>();
                 _tierBackgrounds[tier] = button.GetComponent<Image>();
             }
@@ -875,6 +956,7 @@ namespace CinderCourt.View
             for (var i = 0; i < TrainingTrials.Ids.Length; i++)
             {
                 var card = Card(content, -6 - (rowOffset + 1 + i) * 70, 68);
+                _trialCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, "TRIAL", TrialNames[i]);
                 var lesson = Label(card.transform, 12, -44, 230, 16, TrialLessons[i], 10,
                     TextAnchor.MiddleLeft);
@@ -887,9 +969,10 @@ namespace CinderCourt.View
                 var enter = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
                     new Vector2(84, 28), "수련", 13,
                     () => _callbacks.OnStartTrial?.Invoke(trialIndex, _selectedTier));
-                enter.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _trialButtonRects[i] = enter.GetComponent<RectTransform>();
+                _trialButtonRects[i].pivot = new Vector2(1f, 0f);
                 _trialButtons[i] = enter.GetComponent<Button>();
-
+                _trialStatus[i].transform.SetAsLastSibling();
                 _trialGroups[i] = card.AddComponent<CanvasGroup>();
             }
         }

@@ -6,6 +6,7 @@
 - [[wiki/concepts/hongt-momentum-gauge-amendment-9]] — 모멘텀 게이지 (Amendment #9)
 - [[wiki/concepts/hongt-environment-amendment-12]] — 던전 환경 #12: "빈 화면" 원인 3측정 + 링 아키텍처 (2026-08-07)
 - [[wiki/concepts/stale-branch-merges-clean-but-lies]] — 94커밋 뒤처진 브랜치가 충돌 0건으로 병합되며 낡은 수치(166/166, 6단계)를 들여온 사례와 2단계 병합 규칙
+- [[wiki/concepts/hongt-lobby-sortie-touch-target-pass]] — 로비 출정 경로 모바일 터치 하한: 카드·행 간격 동반 확장 (2026-08-07)
 
 ## Entities
 - [[wiki/entities/hongt-command-agent-sequence-console]] — 명령 에이전트: 텍스트 커맨드 → 순서 있는 시퀀스 → 이벤트 완료마다 다음 단계 (위치순 스캔 · Gate/Ack/Settle · Gemini JSON 계획)
