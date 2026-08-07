@@ -48,6 +48,13 @@ namespace CinderCourt.View
                / SimConfig.ArenaHalfWidth;
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
+
+        /// <summary>UV tiles per world unit (§E9 candidate 3 texture pass). One
+        /// tile per 1.28 u = the §E2 module grid (128 sim-px), so a wall segment
+        /// reads exactly one masonry tile and a long gallery deck repeats it
+        /// instead of stretching.</summary>
+        const float TilesPerWorldUnit = 1f / 1.28f;
 
         // ---- shared meshes (created once per domain, reused every build) ----
         static Mesh _cubeMesh;   // unit cube, ±0.5 — size rides localScale
@@ -182,6 +189,36 @@ namespace CinderCourt.View
                 }
                 var block = new MaterialPropertyBlock();
                 block.SetColor(BaseColorId, tint);
+                // Size-proportional tiling: pieces are unit meshes stretched by
+                // localScale, so a fixed 0-1 UV would smear one texture across a
+                // 5 u wall and squash it on a 0.3 u post. Tile at
+                // TilesPerWorldUnit so texel density is constant. Rides the MPB
+                // (not a material instance) to keep the §E7 material budget at 4
+                // and preserve static batching.
+                //
+                // A cube's six faces have three different world size pairs
+                // (X×Z, X×Y, Z×Y) but one MPB carries a single _BaseMap_ST, so
+                // exact density on all six is impossible without per-face UV
+                // scaling in a shared mesh. Resolve to the VISUALLY DOMINANT
+                // face — the two largest extents — which is the face the 55°
+                // camera actually reads on a wall/deck/post. The remaining thin
+                // face is a sliver where density error is not perceptible.
+                float su, sv;
+                if (piece.Quad)
+                {
+                    su = piece.SizeX;          // quad lies in XZ
+                    sv = piece.SizeZ;
+                }
+                else
+                {
+                    var mn = Mathf.Min(piece.SizeX, Mathf.Min(piece.SizeY, piece.SizeZ));
+                    if (mn == piece.SizeY) { su = piece.SizeX; sv = piece.SizeZ; }
+                    else if (mn == piece.SizeX) { su = piece.SizeZ; sv = piece.SizeY; }
+                    else { su = piece.SizeX; sv = piece.SizeY; }
+                }
+                block.SetVector(BaseMapStId, new Vector4(
+                    Mathf.Max(0.01f, su) * TilesPerWorldUnit,
+                    Mathf.Max(0.01f, sv) * TilesPerWorldUnit, 0f, 0f));
                 renderer.SetPropertyBlock(block);
             }
         }
@@ -190,23 +227,45 @@ namespace CinderCourt.View
         {
             if (_cubeMesh == null)
             {
+                // 24 verts (4 per face), NOT 8 shared corners: a shared corner
+                // belongs to three faces that each need a different UV, so an
+                // 8-vert cube cannot be textured at all. Unity treats a missing
+                // uv channel as (0,0) everywhere, which samples one texel and
+                // renders every face flat — the reason this had to change before
+                // any albedo work (#12 §E9 candidate 3).
                 _cubeMesh = new Mesh { name = "env-cube" };
-                _cubeMesh.vertices = new[]
+                const float h = 0.5f;
+                var v = new Vector3[24];
+                var uv = new Vector2[24];
+                var tri = new int[36];
+                // face order: bottom, top, -z, +z, +x, -x
+                var faces = new[]
                 {
-                    new Vector3(-0.5f, -0.5f, -0.5f), new Vector3(0.5f, -0.5f, -0.5f),
-                    new Vector3(0.5f, -0.5f, 0.5f), new Vector3(-0.5f, -0.5f, 0.5f),
-                    new Vector3(-0.5f, 0.5f, -0.5f), new Vector3(0.5f, 0.5f, -0.5f),
-                    new Vector3(0.5f, 0.5f, 0.5f), new Vector3(-0.5f, 0.5f, 0.5f),
+                    // origin, right, up. Unity normal = cross(right, up), and the
+                    // seed material culls back faces (_Cull 2) — a flipped face
+                    // vanishes from outside. top/-z/+x need r,u swapped relative
+                    // to the naive axis order to keep their normals outward.
+                    (new Vector3(-h, -h, -h), new Vector3(1, 0, 0), new Vector3(0, 0, 1)), // bottom -y
+                    (new Vector3(-h,  h, -h), new Vector3(0, 0, 1), new Vector3(1, 0, 0)), // top    +y
+                    (new Vector3(-h, -h, -h), new Vector3(0, 1, 0), new Vector3(1, 0, 0)), // -z
+                    (new Vector3(-h, -h,  h), new Vector3(1, 0, 0), new Vector3(0, 1, 0)), // +z
+                    (new Vector3( h, -h, -h), new Vector3(0, 1, 0), new Vector3(0, 0, 1)), // +x
+                    (new Vector3(-h, -h, -h), new Vector3(0, 0, 1), new Vector3(0, 1, 0)), // -x
                 };
-                _cubeMesh.triangles = new[]
+                for (var f = 0; f < 6; f++)
                 {
-                    0, 1, 2, 0, 2, 3,   // bottom (unlit: winding invisible cost)
-                    4, 6, 5, 4, 7, 6,   // top
-                    0, 4, 5, 0, 5, 1,   // -z
-                    2, 6, 7, 2, 7, 3,   // +z
-                    1, 5, 6, 1, 6, 2,   // +x
-                    3, 7, 4, 3, 4, 0,   // -x
-                };
+                    var (o, r, u) = faces[f];
+                    var b = f * 4;
+                    v[b] = o; v[b + 1] = o + r; v[b + 2] = o + r + u; v[b + 3] = o + u;
+                    uv[b] = new Vector2(0, 0); uv[b + 1] = new Vector2(1, 0);
+                    uv[b + 2] = new Vector2(1, 1); uv[b + 3] = new Vector2(0, 1);
+                    var t = f * 6;
+                    tri[t] = b; tri[t + 1] = b + 1; tri[t + 2] = b + 2;
+                    tri[t + 3] = b; tri[t + 4] = b + 2; tri[t + 5] = b + 3;
+                }
+                _cubeMesh.vertices = v;
+                _cubeMesh.uv = uv;
+                _cubeMesh.triangles = tri;
                 _cubeMesh.RecalculateBounds();
             }
             if (_quadMesh == null)
@@ -216,6 +275,11 @@ namespace CinderCourt.View
                 {
                     new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f),
                     new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f),
+                };
+                _quadMesh.uv = new[]
+                {
+                    new Vector2(0, 0), new Vector2(1, 0),
+                    new Vector2(1, 1), new Vector2(0, 1),
                 };
                 _quadMesh.triangles = new[] { 0, 3, 2, 0, 2, 1 }; // up-facing
                 _quadMesh.RecalculateBounds();
