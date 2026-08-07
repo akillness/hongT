@@ -244,6 +244,70 @@ namespace CinderCourt.Tests
             }
         }
 
+        // ------------------------------- 2b. gimmick furniture is NON-EMPTY --
+        //
+        // Every other row here is an upper bound ("no module may…") or a
+        // for-each over children, so all of them pass VACUOUSLY when a pass
+        // emits nothing. That is not hypothetical: the first draft of the tide
+        // bank rails computed its offset from HalfW (520, the X half-width)
+        // instead of HalfH (110), pushed all four rails outside the arena
+        // ellipse, emitted zero modules — and the whole suite stayed green.
+        //
+        // So assert the floor: a stage carrying a DISC gimmick must actually
+        // grow furniture around it. Band gimmicks (AshWall, TideCurrent) are
+        // deliberately excluded — they have no local silhouette to frame.
+        static readonly HazardKind[] DiscGimmicks =
+        {
+            HazardKind.EmberVent, HazardKind.ObsidianPillar,
+            HazardKind.RelicAltar, HazardKind.EmberPylon,
+        };
+
+        [Test]
+        public void GimmickFurniture_RingsEveryDiscHazardStage()
+        {
+            var covered = 0;
+            foreach (var stageId in StageIds)
+            {
+                var hazards = HazardsFor(stageId);
+                var discs = 0;
+                for (var i = 0; i < hazards.Length; i++)
+                    if (System.Array.IndexOf(DiscGimmicks, hazards[i].Kind) >= 0) discs++;
+                if (discs == 0) continue;
+
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var furniture = 0;
+                    foreach (Transform child in root.transform)
+                    {
+                        // Furniture shares the floor vocabulary at a disjoint
+                        // index band (500+) so it rides the clearance contract
+                        // instead of inventing a kind the gate would skip.
+                        if (!child.name.StartsWith("env-floor-5", System.StringComparison.Ordinal))
+                            continue;
+                        // A NAME is not a rock. Materialize builds the pivot
+                        // before the piece loop, and SpawnLibraryPart bails
+                        // silently when the terrain library fails to load, the
+                        // family pool is empty, or the clone has no renderers -
+                        // each leaving a correctly-named EMPTY pivot. Requiring
+                        // a renderer is what makes this row non-vacuous, and it
+                        // doubles as proof the library resolves in batchmode.
+                        if (child.GetComponentInChildren<Renderer>() == null) continue;
+                        furniture++;
+                    }
+                    Assert.That(furniture, Is.GreaterThan(0),
+                        $"{stageId}: {discs} disc gimmick(s) but zero furniture "
+                        + "modules - the pass emitted nothing and every other "
+                        + "gate passed vacuously");
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+                covered++;
+            }
+            Assert.That(covered, Is.GreaterThan(0),
+                "no stage carries a disc gimmick - this test itself went vacuous");
+        }
+
         // ------------------------------------------ 3. hazard clearance (§E3) --
 
         // Ground-level kinds share the fight plane with sim gimmicks; elevated
@@ -489,6 +553,13 @@ namespace CinderCourt.Tests
                         $"{stageId}: {materials.Count} distinct materials — batching " +
                         "ceiling is 8 (§E7 draw-call bound)");
 
+
+                    // Durable evidence: NUnit only prints on FAILURE, so a green
+                    // run would leave no measurement behind and "budget is fine"
+                    // would be a claim instead of a number. These land in the
+                    // results XML and make headroom re-checkable across runs.
+                    TestContext.WriteLine(
+                        $"{stageId}: verts={vertices}/60000  materials={materials.Count}/8");
                     Assert.That(root.GetComponentsInChildren<Light>(true).Length,
                         Is.LessThanOrEqualTo(4),
                         $"{stageId}: realtime light budget is 4 (§E6 WebGL forward)");

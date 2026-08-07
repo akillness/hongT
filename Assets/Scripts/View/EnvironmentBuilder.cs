@@ -151,6 +151,15 @@ namespace CinderCourt.View
             for (var i = 0; i < pieces.Count; i++)
             {
                 var piece = pieces[i];
+                if (!string.IsNullOrEmpty(piece.LibraryPart))
+                {
+                    // Authored terrain part: carries its own mesh AND material,
+                    // so it needs neither the code cube nor the env materials —
+                    // and it is how gimmick furniture gets real rock silhouettes
+                    // while the generated-texture path is still blocked.
+                    SpawnLibraryPart(pivot.transform, piece, i);
+                    continue;
+                }
                 var child = new GameObject("piece-" + i.ToString("D2"));
                 child.transform.SetParent(pivot.transform, false);
                 child.transform.localPosition =
@@ -222,6 +231,104 @@ namespace CinderCourt.View
                 renderer.SetPropertyBlock(block);
             }
         }
+
+        static GameObject _library;
+        static readonly List<Transform> _propParts = new List<Transform>();
+        static readonly List<Transform> _featureParts = new List<Transform>();
+
+        /// <summary>
+        /// Indexes the shared terrain library once per domain. prop (50) and
+        /// feature (40) are the two families that cover 90 of the 94 authored
+        /// parts between just TWO materials — staying inside them keeps the §E7
+        /// material budget at 6 of 8 (env 4 + these 2).
+        /// </summary>
+        static void EnsureLibrary()
+        {
+            if (_library != null) return;
+            _library = Resources.Load<GameObject>(
+                "Terrain/terrain-" + StageCatalog.DressingLibraryTerrainId);
+            if (_library == null) return;
+            foreach (Transform child in _library.transform)
+            {
+                if (child.name.Contains("-prop-")) _propParts.Add(child);
+                else if (child.name.Contains("-feature-")) _featureParts.Add(child);
+            }
+            // Deterministic order: Find/hierarchy order is stable, but sort by
+            // name so a prefab re-serialize can never reshuffle the build.
+            _propParts.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+            _featureParts.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+        }
+
+        /// <summary>
+        /// Clones one authored library child under the module pivot. Mirrors the
+        /// GameDirector dressing grammar: the part's authored position lives in
+        /// BAKED mesh vertices, so after cloning we measure live renderer bounds
+        /// and counter the XZ offset — otherwise the rock lands wherever the FBX
+        /// baked it instead of on the gimmick we are framing.
+        /// </summary>
+        static void SpawnLibraryPart(Transform pivot, EnvironmentLayout.Piece piece, int i)
+        {
+            EnsureLibrary();
+            var pool = piece.LibraryPart == "feature" ? _featureParts : _propParts;
+            if (pool.Count == 0) return;
+
+            // Which part: derived from the module's own placement so it is
+            // deterministic and varied without another seed channel.
+            var hash = (uint)(Mathf.RoundToInt(pivot.position.x * 977f)
+                            ^ Mathf.RoundToInt(pivot.position.z * 613f) ^ (i * 131));
+            var source = pool[(int)(hash % (uint)pool.Count)];
+
+            var clone = UnityEngine.Object.Instantiate(source.gameObject, pivot);
+            clone.name = "part-" + i.ToString("D2");
+            clone.transform.localPosition = source.localPosition;
+            clone.transform.localRotation = source.localRotation;
+            clone.transform.localScale = source.localScale;
+
+            var renderers = clone.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return;
+
+            // ORDER MATTERS. An authored part's position is baked into its mesh
+            // vertices, so the XZ centering below solves P + S·C = pivot for a
+            // FIXED scale S. Changing S afterwards re-breaks it by (k-1)·S·C —
+            // the part drifts off the gimmick it is framing, and no gate sees
+            // it because the clearance test inspects module PIVOTS, not these
+            // child clones. So: finalise scale first, then centre.
+            //
+            // SizeY is a TARGET WORLD HEIGHT, not a multiplier. Multiplying and
+            // then capping cancels the factor algebraically
+            // (s·k·(cap/(h·k)) == s·cap/h), which would flatten every part to
+            // one cap height and silently delete the per-gimmick grammar.
+            // Solving for the height directly keeps vent shards low and altar
+            // stones tall while §E8's occlusion cap still binds the maximum: a
+            // part taller than the telegraph read height hides the ground disc
+            // behind it at the 55° dungeon pitch.
+            var probe = renderers[0].bounds;
+            for (var r = 1; r < renderers.Length; r++) probe.Encapsulate(renderers[r].bounds);
+            var sourceHeight = probe.size.y;
+            if (sourceHeight > 1e-4f)
+            {
+                var target = Mathf.Min(piece.SizeY, FurnitureMaxHeightWorld);
+                clone.transform.localScale = source.localScale * (target / sourceHeight);
+            }
+
+            // Re-measure at the FINAL scale, then counter the baked XZ offset.
+            var bounds = renderers[0].bounds;
+            for (var r = 1; r < renderers.Length; r++) bounds.Encapsulate(renderers[r].bounds);
+            var delta = pivot.position - bounds.center;
+            clone.transform.position += new Vector3(delta.x, 0f, delta.z);
+
+            foreach (var r in renderers)
+            {
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                var block = new MaterialPropertyBlock();
+                block.SetColor(BaseColorId, new Color(piece.Shade, piece.Shade, piece.Shade, 1f));
+                r.SetPropertyBlock(block);
+            }
+        }
+
+        /// <summary>Mirror of the layout-core cap, in world units.</summary>
+        const float FurnitureMaxHeightWorld = 0.34f;
 
         static void EnsureMeshes()
         {
@@ -333,6 +440,14 @@ namespace CinderCourt.View
             public float LocalX, LocalY, LocalZ;   // world units, module-local
             public float SizeX, SizeY, SizeZ;      // world units
             public float Shade;                    // stone brightness multiplier
+            /// <summary>
+            /// Authored terrain library child to clone instead of the code cube
+            /// (null = code primitive). Terrain parts carry their own authored
+            /// mesh AND material, which is how gimmick furniture gets real rock
+            /// silhouettes without generated textures. Size fields become the
+            /// uniform scale source (SizeY) rather than a box extent.
+            /// </summary>
+            public string LibraryPart;
         }
 
         internal struct Module
@@ -538,6 +653,109 @@ namespace CinderCourt.View
             return false;
         }
 
+        // ------------------------------------- gimmick terrain furniture --
+        //
+        // The sim gimmicks ARE the level design (DUNGEON_GUIDE §0: dungeons are
+        // told apart by their LAYOUT, not by new enemy types), but until now
+        // they only acted as an exclusion mask — the environment stepped around
+        // them and the floor stayed anonymous. This pass makes each gimmick
+        // CARVE its own terrain:
+        // a shaped ring of authored library parts that says "a vent burned this
+        // ground" / "a sluice cut this channel" before the telegraph ever fires.
+        //
+        // Placement rule (§E8 row 3, unmodified): furniture sits OUTSIDE the
+        // hazard clearance (Radius + ClearBase), never inside it. Ringing the
+        // gimmick from beyond the safe margin frames it without luring the
+        // player to stand at the edge of a damage disc — a vent's disc is
+        // radius 90 and standing on its rim is exactly how a run dies. Kind is
+        // therefore a normal GROUND kind and stays inside the existing
+        // clearance contract; no spec amendment, no whitelist exemption.
+        //
+        // Height is capped (FurnitureMaxHeight) so a part never occludes the
+        // ground telegraph behind it at the 55° dungeon pitch — the fairness
+        // property §E0.5 exists to protect.
+        const double FurnitureRingMargin = 12.0;   // beyond Radius+ClearBase
+        const float FurnitureMaxHeight = 0.34f;    // world u, occlusion cap
+
+        /// <summary>
+        /// Per-gimmick furniture grammar: how many parts ring it, which library
+        /// family they come from, and how big. Families are limited to prop/
+        /// feature — the two materials that cover 90 of the 94 authored parts —
+        /// so the §E7 material budget stays at 6 of 8.
+        /// </summary>
+        static void AddGimmickTerrain(
+            List<Module> modules, uint stageSeed, HazardConfig[] hazards)
+        {
+            var index = 0;
+            for (var h = 0; h < hazards.Length; h++)
+            {
+                var hazard = hazards[h];
+                // Band gimmicks get no furniture. AshWall sweeps the arena from
+                // an edge and TideCurrent is a full-width push lane (HalfW 520
+                // == the arena's own half-width): neither has a local
+                // silhouette to frame, and the tide bands leave only 26/50/24px
+                // of clear floor - the middle 50px being the documented safe
+                // corridor a player survives in. Rails there would be smaller
+                // than ClearBase and would clutter the one readable escape.
+                if (hazard.Kind == HazardKind.AshWall
+                 || hazard.Kind == HazardKind.TideCurrent) continue;
+
+                var ringR = hazard.Radius + ClearBase + FurnitureRingMargin;
+                int count; string family; float scale; float shade; // scale = target world height (u)
+                switch (hazard.Kind)
+                {
+                    case HazardKind.EmberVent:
+                        // Scorched crater rim: many small shards, low and wide.
+                        count = 6; family = "prop"; scale = 0.17f; shade = 0.82f;
+                        break;
+                    case HazardKind.ObsidianPillar:
+                        // Outcrop base: few, chunkier, clustered.
+                        count = 3; family = "feature"; scale = 0.26f; shade = 0.95f;
+                        break;
+                    case HazardKind.RelicAltar:
+                        // Dais corners: symmetric, deliberate.
+                        count = 4; family = "feature"; scale = 0.32f; shade = 1.08f;
+                        break;
+                    default: // EmberPylon
+                        // Buttress feet around the breakable column.
+                        count = 4; family = "prop"; scale = 0.22f; shade = 1.0f;
+                        break;
+                }
+
+                for (var k = 0; k < count; k++)
+                {
+                    var seed = ModuleSeed(stageSeed, Kind.Floor, 9000 + h * 16 + k);
+                    // Even spokes + seeded jitter so a ring never reads as a
+                    // machine-stamped circle.
+                    var theta = (2.0 * Math.PI * k) / count
+                              + Signed(seed, 0, 5) * 0.14;
+                    var r = ringR * (1.0 + Signed(seed, 5, 4) * 0.05);
+                    var x = hazard.X + Math.Cos(theta) * r;
+                    var y = hazard.Y + Math.Sin(theta) * r;
+                    if (EllipseE(x, y) > StopE) continue;      // stays in Zone A
+                    // Ringing hazard A must not park furniture inside hazard B.
+                    // extraMargin 0 => limit == Radius+ClearBase; our own ring
+                    // sits FurnitureRingMargin beyond that, so this rejects only
+                    // foreign discs - the same filter every other pass uses.
+                    if (NearAnyHazard(hazards, x, y, 0.0)) continue;
+
+                    var module = NewModule(Kind.Floor,
+                        "env-floor-" + (500 + index).ToString("D3"), x, y, 0f,
+                        (float)(theta * 180.0 / Math.PI + Signed(seed, 9, 6) * 12.0));
+                    module.Pieces.Add(new Piece
+                    {
+                        Part = Part.Body,
+                        LibraryPart = family,
+                        SizeY = scale * (1f + (float)Signed(seed, 15, 4) * 0.12f),
+                        Shade = shade,
+                    });
+                    modules.Add(module);
+                    index++;
+                }
+            }
+        }
+
+
         // ------------------------------------------------------ stage entry --
         /// <summary>Null for unknown stage ids (no throw) — Build's contract.</summary>
         internal static List<Module> Compute(string stageId)
@@ -555,6 +773,9 @@ namespace CinderCourt.View
             var modules = new List<Module>(96);
 
             AddFloorPanels(modules, stageSeed, hazards);
+            // Gimmick-carved terrain: runs after the generic floor so its parts
+            // read as answers to the sim's own hazards, not as scatter.
+            AddGimmickTerrain(modules, stageSeed, hazards);
             var gateInfo = AddRingAndGates(modules, stageSeed, hazards, palette);
             AddZoneC(modules, stageId, stageSeed, palette);
             AddTorchesAndLights(modules, stageSeed, hazards, gateInfo);
