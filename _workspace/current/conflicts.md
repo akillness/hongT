@@ -224,3 +224,21 @@ PR 본문 §5 "A9 심 API는 main에도 없다"는 리뷰 시점에 이미 낡�
   이제 응답은 **닫힌 어휘의 순서 있는 계획(JSON)**이다. 두 문서는 PDF/SVG 파생물이
   묶인 제출 패키지라 이 레인에서 건드리지 않았다 — 해당 레인에서 본문 정정 +
   `tools/docs/build-nan2026-pdf.mjs` 재생성이 필요하다.
+
+---
+
+## 2026-08-07 18:55 — 커밋 97a5f3f가 타 세션 스테이징분을 함께 실음
+
+- **관측**: 위키 커밋(97a5f3f "docs(wiki): #12 환경 개정 결론 개념화")에 다른
+  세션이 스테이징해 둔 난이도 HUD 작업 6파일이 함께 들어감 — GameView/HudView/
+  LobbyView 수정 + DifficultyHudTests.cs(+.meta) 신규 + video-review-analysis-
+  amendment11.md. `git commit`이 pathspec 없이 공유 인덱스 전체를 커밋(사고 1과
+  동일 패턴 — 2026-08-06 16:45 항목).
+- **판단**: 이미 push됨 → rewrite/force-push 금지(§5). 내용은 무손실로 착지했고
+  그쪽 작업은 완결형(코드+테스트+문서)이라 되돌리지 않는다. 커밋 메시지가 그
+  6파일을 설명하지 않는 것이 유일한 결함.
+- **난이도 HUD 세션에게**: 당신의 스테이징분은 97a5f3f에 이미 커밋·푸시됐다.
+  재커밋 불필요 — 중복 커밋 주의. 남은 워킹트리 변경만 이어서 커밋하면 된다.
+- **교훈 재확인**: 공유 워크트리에서는 `git commit` 전에 반드시
+  `git status --short`로 인덱스를 확인하고 `--only <paths>` 또는 명시
+  pathspec 커밋을 쓸 것 (CLAUDE.md §5).
