@@ -1,13 +1,13 @@
 # AI-Native Builder Flow — hongT (Abyssal Lantern · Unity WebGL)
 
-> 이 문서는 `/Users/supercent/orca/hongT` 저장소가 **AI-native builder** 관점에서
+> 이 문서는 hongT 저장소(`akillness/hongT`)가 **AI-native builder** 관점에서
 > 어떤 플로우로 작업하도록 설계되어 있는지를 정리한다. 즉, "사람이 에이전트를
 > 어떻게 굴리도록 프로젝트가 구조화되어 있는가"를 단일 그림과 계층 설명으로
 > 문서화한다.
 
-- 작성일: 2026-08-06
+- 작성일: 2026-08-06 · 최신화: 2026-08-07 (main 병합 시점 실측으로 수치·경로 정정)
 - 범위: 저장소 루트 계약(`CLAUDE.md` / `AGENTS.md`) · 워크스페이스(`_workspace/`)
-  · 에셋 파이프라인(`docs/*pipeline*.md`) · 위임 레인(`engineering/gjc-*`, `jeo-*`)
+  · 에셋 파이프라인(`docs/*pipeline*.md`) · 위임 레인(`_workspace/**/engineering/`)
   · 검증 게이트 · 배포 런타임
 - 시각화: [`ai-native-builder-flow.svg`](ai-native-builder-flow.svg)
 
@@ -90,9 +90,11 @@ AI-native builder 관점의 두 번째 결정: **도구를 자산 클래스별�
 ## 4. L2 — 코드·검증 위임 레인
 
 세 번째 결정: **오케스트레이터가 모든 것을 직접 쓰지 않고, 전문화 에이전트
-레인에 스펙을 바인딩 문서로 위임**한다. `_workspace/current/engineering/`에
-레인 단위 런북(`gjc-sim-lane.md`, `gjc-campaign-lane.md`, `gjc-hackslash-lane.md`,
-`jeo-view-lane.md`)이 그 증거다.
+레인에 스펙을 바인딩 문서로 위임**한다. 사이클별 레인 런북(`gjc-sim-lane.md`,
+`gjc-campaign-lane.md`, `gjc-hackslash-lane.md`, `jeo-view-lane.md`)이 그 증거다.
+런북은 사이클 종료 시 `_workspace/archive/<run-id>/engineering/`으로 동결되고
+(cycle-1 = `20260805-visible-impact/`), 진행 중 레인만
+`_workspace/current/engineering/`에 남는다.
 
 레인 런북의 구조 (예: `gjc-sim-lane.md`):
 
@@ -109,7 +111,7 @@ Requirements → 결정론 600-tick Digest 일치 · 클램프 L1 노름 ≤1 ·
 | 레인 | 오너 | 범위 | 게이트 |
 |---|---|---|---|
 | Deterministic Sim | gjc | `CinderSim.cs` + 테스트 | EditMode 결정론 Digest |
-| Campaign | gjc | 6단계 던전 · 융합 · 파티클 | 레인 보고서 수치 근거 |
+| Campaign | gjc | 9단계 던전 · 융합 · 파티클 | 레인 보고서 수치 근거 |
 | HackSlash | gjc | 시각 오버홀 스펙 8레인 | 드레싱 테이블 무 RNG |
 | View | jeo | 프레젠테이션(읽기 전용) | 풀링 · MakeUnlit · p95 게이트 |
 
@@ -127,7 +129,7 @@ AI 산출물의 가장 흔한 실패 모드(그럴듯한 요약 · 미검증 주
 
 | 게이트 | 도구 | 검증 내용 |
 |---|---|---|
-| EditMode | Unity batchmode `-executeMethod` | 166/166 통과 · 실패 0 · 결정론 · 웨이브 산술 · 보스 HP |
+| EditMode | Unity batchmode `-executeMethod` | 502/502 통과 · 실패 0 · 결정론 · 웨이브 산술 · 보스 HP |
 | 브라우저 계약 | Playwright + CDP 실입력 | 자산 로드 · 상태 전이 · 레이아웃 무오버플로 · 입력 3경로 · 오류 0 |
 | 진정성 캡처 | `capture-unity-play.mjs` | 실제 Chromium → 실제 게임 → CDP 키 입력 → 실프레임 인코딩 (합성 없음) |
 
@@ -175,8 +177,10 @@ AI 산출물의 가장 흔한 실패 모드(그럴듯한 요약 · 미검증 주
 | 파일 | 설명 |
 |---|---|
 | `docs/ai-native-builder/ai-native-builder-flow.svg` | 플로우 시각화 (L0–L4) |
-| `docs/ai-native-builder/ai-native-builder.md` | 본 문서 |
-| `docs/ai-native-builder/ai-native-builder.pdf` | PDF 변환본 |
+| `docs/ai-native-builder/ai-native-builder-flow.md` | 본 문서 |
+| `docs/ai-native-builder/ai-native-builder-flow.html` | pandoc HTML 중간 산출물 |
+| `docs/ai-native-builder/ai-native-builder-flow.pdf` | PDF 변환본 (6쪽, git-lfs) |
+| `docs/ai-native-builder/ai-native-builder-flow.png` | SVG 프리뷰 PNG (1280×1520, git-lfs) |
 
 ### 재생성 방법 (PDF)
 
@@ -186,10 +190,10 @@ rsvg-convert -w 1280 docs/ai-native-builder/ai-native-builder-flow.svg \
   -o docs/ai-native-builder/ai-native-builder-flow.png
 
 # MD → PDF (Chrome headless HTML 경로, 한글 폰트 유지)
-pandoc docs/ai-native-builder/ai-native-builder.md -f gfm -t html5 \
+pandoc docs/ai-native-builder/ai-native-builder-flow.md -f gfm -t html5 \
   --standalone --metadata title="AI-Native Builder Flow — hongT" \
-  -o docs/ai-native-builder/ai-native-builder.html
+  -o docs/ai-native-builder/ai-native-builder-flow.html
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
-  --disable-gpu --print-to-pdf=docs/ai-native-builder/ai-native-builder.pdf \
-  --no-pdf-header-footer docs/ai-native-builder/ai-native-builder.html
+  --disable-gpu --print-to-pdf=docs/ai-native-builder/ai-native-builder-flow.pdf \
+  --no-pdf-header-footer docs/ai-native-builder/ai-native-builder-flow.html
 ```

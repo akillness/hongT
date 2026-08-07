@@ -115,13 +115,13 @@
     <text x="80" y="756" fill="#b9c2d6" font-size="12">고정 60 Hz · UnityEngine 금지 · RNG 금지</text>
     <text x="80" y="782" fill="#8a94ab" font-size="11">SIM_SPEC.md = 유일한 수치 진실</text>
     <text x="80" y="800" fill="#8a94ab" font-size="11">같은 입력 → 같은 Digest (결정론)</text>
-    <text x="80" y="824" fill="#6b748c" font-size="10.5">게이트: EditMode 166/166 통과</text>
+    <text x="80" y="824" fill="#6b748c" font-size="10.5">게이트: EditMode 502/502 통과</text>
     <text x="80" y="842" fill="#6b748c" font-size="10.5">결함 사례: Q/E 키 분기 부재 → 측정으로 격리</text>
 
     <rect x="436" y="688" width="352" height="180" rx="8" fill="#1c2130" stroke="#4a5b8a" stroke-width="1.2"/>
     <rect x="436" y="688" width="352" height="34" rx="8" fill="#2c3a5c"/>
     <text x="452" y="710" fill="#8fa8e0" font-size="13.5" font-weight="700">Campaign / HackSlash 레인 (gjc)</text>
-    <text x="452" y="736" fill="#b9c2d6" font-size="12">6단계 던전 · 융합 · 원소 파티클</text>
+    <text x="452" y="736" fill="#b9c2d6" font-size="12">9단계 던전 · 융합 · 원소 파티클</text>
     <text x="452" y="756" fill="#b9c2d6" font-size="12">레인 보고서: 측정 + 수치 근거</text>
     <text x="452" y="782" fill="#8a94ab" font-size="11">SIM_SPEC_CAMPAIGN/HACKSLASH</text>
     <text x="452" y="800" fill="#8a94ab" font-size="11">시각 오버홀 스펙 8레인 배포</text>
@@ -150,7 +150,7 @@
     <rect x="64" y="1010" width="352" height="130" rx="8" fill="#2b2317" stroke="#6b5426" stroke-width="1.2"/>
     <text x="80" y="1036" fill="#e0b96b" font-size="13" font-weight="700">EditMode 게이트</text>
     <text x="80" y="1060" fill="#b9b08c" font-size="12">Unity batchmode `-executeMethod`</text>
-    <text x="80" y="1080" fill="#b9b08c" font-size="12">166/166 통과 · 실패 0 (숫자=게이트)</text>
+    <text x="80" y="1080" fill="#b9b08c" font-size="12">502/502 통과 · 실패 0 (숫자=게이트)</text>
     <text x="80" y="1106" fill="#8a8271" font-size="11">결정론: 600-tick 동일 입력 → Digest 일치</text>
     <text x="80" y="1124" fill="#8a8271" font-size="11">클램프 L1 노름 ≤1 · 보스·픽업 산술</text>
 
@@ -201,5 +201,5 @@
   <text x="40" y="1424" fill="#c8cdd6" font-size="14" font-weight="700">핵심 설계 원칙 (AI-Native Builder 관점)</text>
   <text x="40" y="1448" fill="#9aa0ab" font-size="12.5">① 계약 우선 — 자유 프롬프트가 아닌 강제 규칙 문서(CLAUDE.md) ② 제작 시점 AI, 런타임 AI 제로 ③ 심/뷰 분리로 결정론 보호</text>
   <text x="40" y="1470" fill="#9aa0ab" font-size="12.5">④ 수치 게이트 — 측정·테스트 인용 없이는 주장 불인정 ⑤ 도구 고정 — 자산 클래스당 1개의 검증된 생성기 ⑥ 위임 레인 — 오케스트레이터가 스펙을 바인딩으로 전달</text>
-  <text x="40" y="1492" fill="#6b7280" font-size="11">hongT repository · docs/ai-native-builder/ai-native-builder-flow.svg · 2026-08-06</text>
+  <text x="40" y="1492" fill="#6b7280" font-size="11">hongT repository · docs/ai-native-builder/ai-native-builder-flow.svg · 2026-08-06 (최신화 2026-08-07)</text>
 </svg>
