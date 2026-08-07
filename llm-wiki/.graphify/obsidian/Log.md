@@ -1,13 +1,13 @@
 ---
 source_file: "log.md"
 type: ""
-community: "Community 3"
+community: "Community 4"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Community_3
+  - community/Community_4
 ---
 
 # Log
 
-#graphify/document #graphify/EXTRACTED #community/Community_3
+#graphify/document #graphify/EXTRACTED #community/Community_4

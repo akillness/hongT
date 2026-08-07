@@ -10,9 +10,9 @@ members: 3
 **Members:** 3 nodes
 
 ## Members
+- [[HongT — AMENDMENT 12 던전 환경 빈 화면의 진짜 원인과 링 아키텍처]] - wiki/concepts/hongt-environment-amendment-12.md
 - [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - wiki/concepts/hongt-companion-autonomy-tick-order-trap.md
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - wiki/reports/2026-08-07-spec-vs-impl-audit.md
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - wiki/sources/2026-08-07-hackslash-design-guide-reference.md
+- [[진공 게이트와 상쇄되는 스케일 — 기믹 지형 가구에서 배운 4가지]] - wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -22,9 +22,9 @@ SORT file.name ASC
 ```
 
 ## Connections to other communities
-- 3 edges to [[_COMMUNITY_Community 0]]
+- 2 edges to [[_COMMUNITY_Community 0]]
+- 1 edge to [[_COMMUNITY_Community 3]]
 
 ## Top bridge nodes
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - degree 3, connects to 1 community
-- [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - degree 2, connects to 1 community
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - degree 2, connects to 1 community
+- [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - degree 3, connects to 2 communities
+- [[HongT — AMENDMENT 12 던전 환경 빈 화면의 진짜 원인과 링 아키텍처]] - degree 2, connects to 1 community

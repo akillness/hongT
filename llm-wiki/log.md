@@ -45,3 +45,9 @@
   링, FNV-1a 결정론, Light 4, 콜라이더 0) + 커버리지 게이트(bare 0.0000 실측,
   핀 0.02). EditMode 571/571 · WebGL 70.8MB 0 error · gh-pages 6c163b5 배포·
   라이브 확인. 결론 개념화: wiki/concepts/hongt-environment-amendment-12.
+
+- 2026-08-07 - 기믹 지형 가구 (env): 심 기믹이 회피 마스크에서 지형 생성으로.
+  커밋 a22bd51 / aba2447 / 04a29b9 / 7d2b5c0, 배포 04a29b9 (gh-pages e62c899).
+  실측: HEAD 단독 583/583, 가구 9-16개/스테이지, 반폭 0.292u ≤ 0.300u,
+  높이 34 sim px, 틴트 분리 3.23×. 미달: 화면에서 바위가 아닌 그을음으로 읽힘.
+  개념: wiki/concepts/hongt-vacuous-gate-and-cancelled-scale

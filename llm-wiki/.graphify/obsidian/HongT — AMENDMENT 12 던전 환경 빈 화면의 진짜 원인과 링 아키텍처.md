@@ -1,5 +1,5 @@
 ---
-source_file: "wiki/concepts/hongt-companion-autonomy-tick-order-trap.md"
+source_file: "wiki/concepts/hongt-environment-amendment-12.md"
 type: ""
 community: "Community 2"
 tags:
@@ -8,11 +8,10 @@ tags:
   - community/Community_2
 ---
 
-# HongT — 결정론 심 테스트에서 반복 재현되는 "앵커 오프바이원" 함정
+# HongT — AMENDMENT #12 던전 환경: "빈 화면"의 진짜 원인과 링 아키텍처
 
 ## Connections
 - [[Index]] - `links_to` [EXTRACTED]
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - `links_to` [EXTRACTED]
 - [[진공 게이트와 상쇄되는 스케일 — 기믹 지형 가구에서 배운 4가지]] - `links_to` [EXTRACTED]
 
 #graphify/document #graphify/EXTRACTED #community/Community_2

@@ -10,7 +10,7 @@ members: 1
 **Members:** 1 nodes
 
 ## Members
-- [[RAW 핵앤슬래시 게임 디자인 상세 설계 가이드 (외부 레퍼런스)]] - raw/sources/2026-08-07-hackslash-design-guide-reference.md
+- [[Log]] - log.md
 
 ## Live Query (requires Dataview plugin)
 

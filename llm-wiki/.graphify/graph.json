@@ -7,7 +7,7 @@
       "label": "Log",
       "source_file": "log.md",
       "id": "log",
-      "community": 3,
+      "community": 4,
       "norm_label": "log"
     },
     {
@@ -21,7 +21,7 @@
       "label": "[RAW] \ud575\uc564\uc2ac\ub798\uc2dc \uac8c\uc784 \ub514\uc790\uc778 \uc0c1\uc138 \uc124\uacc4 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4)",
       "source_file": "raw/sources/2026-08-07-hackslash-design-guide-reference.md",
       "id": "raw/sources/2026-08-07-hackslash-design-guide-reference",
-      "community": 4,
+      "community": 5,
       "norm_label": "[raw] \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1100\u1166\u110b\u1175\u11b7 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1109\u1161\u11bc\u1109\u1166 \u1109\u1165\u11af\u1100\u1168 \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173)"
     },
     {
@@ -39,11 +39,25 @@
       "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
     },
     {
+      "label": "HongT \u2014 AMENDMENT #12 \ub358\uc804 \ud658\uacbd: \"\ube48 \ud654\uba74\"\uc758 \uc9c4\uc9dc \uc6d0\uc778\uacfc \ub9c1 \uc544\ud0a4\ud14d\ucc98",
+      "source_file": "wiki/concepts/hongt-environment-amendment-12.md",
+      "id": "wiki/concepts/hongt-environment-amendment-12",
+      "community": 2,
+      "norm_label": "hongt \u2014 amendment #12 \u1103\u1165\u11ab\u110c\u1165\u11ab \u1112\u116a\u11ab\u1100\u1167\u11bc: \"\u1107\u1175\u11ab \u1112\u116a\u1106\u1167\u11ab\"\u110b\u1174 \u110c\u1175\u11ab\u110d\u1161 \u110b\u116f\u11ab\u110b\u1175\u11ab\u1100\u116a \u1105\u1175\u11bc \u110b\u1161\u110f\u1175\u1110\u1166\u11a8\u110e\u1165"
+    },
+    {
       "label": "HongT \u2014 AMENDMENT #9 momentum gauge: scoping a buff so the frozen contract survives",
       "source_file": "wiki/concepts/hongt-momentum-gauge-amendment-9.md",
       "id": "wiki/concepts/hongt-momentum-gauge-amendment-9",
       "community": 0,
       "norm_label": "hongt \u2014 amendment #9 momentum gauge: scoping a buff so the frozen contract survives"
+    },
+    {
+      "label": "\uc9c4\uacf5 \uac8c\uc774\ud2b8\uc640 \uc0c1\uc1c4\ub418\ub294 \uc2a4\ucf00\uc77c \u2014 \uae30\ubbf9 \uc9c0\ud615 \uac00\uad6c\uc5d0\uc11c \ubc30\uc6b4 4\uac00\uc9c0",
+      "source_file": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md",
+      "id": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale",
+      "community": 2,
+      "norm_label": "\u110c\u1175\u11ab\u1100\u1169\u11bc \u1100\u1166\u110b\u1175\u1110\u1173\u110b\u116a \u1109\u1161\u11bc\u1109\u116b\u1103\u116c\u1102\u1173\u11ab \u1109\u1173\u110f\u1166\u110b\u1175\u11af \u2014 \u1100\u1175\u1106\u1175\u11a8 \u110c\u1175\u1112\u1167\u11bc \u1100\u1161\u1100\u116e\u110b\u1166\u1109\u1165 \u1107\u1162\u110b\u116e\u11ab 4\u1100\u1161\u110c\u1175"
     },
     {
       "label": "HongT \u2014 AMENDMENT #8 companion signature skills: what the gates had to be",
@@ -77,14 +91,21 @@
       "label": "\uc18c\uc2a4: \ud575\uc564\uc2ac\ub798\uc2dc \ub514\uc790\uc778 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4, 2026-08-07)",
       "source_file": "wiki/sources/2026-08-07-hackslash-design-guide-reference.md",
       "id": "wiki/sources/2026-08-07-hackslash-design-guide-reference",
-      "community": 2,
+      "community": 3,
       "norm_label": "\u1109\u1169\u1109\u1173: \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173, 2026-08-07)"
+    },
+    {
+      "label": "HongT \u2014 \uba85\ub839 \uc5d0\uc774\uc804\ud2b8 (\ud14d\uc2a4\ud2b8 \ucee4\ub9e8\ub4dc \u2192 \uc21c\ucc28 \uc2e4\ud589)",
+      "source_file": "wiki/entities/hongt-command-agent-sequence-console.md",
+      "id": "wiki/entities/hongt-command-agent-sequence-console",
+      "community": 0,
+      "norm_label": "hongt \u2014 \u1106\u1167\u11bc\u1105\u1167\u11bc \u110b\u1166\u110b\u1175\u110c\u1165\u11ab\u1110\u1173 (\u1110\u1166\u11a8\u1109\u1173\u1110\u1173 \u110f\u1165\u1106\u1162\u11ab\u1103\u1173 \u2192 \u1109\u116e\u11ab\u110e\u1161 \u1109\u1175\u11af\u1112\u1162\u11bc)"
     },
     {
       "label": "\uae30\ud68d-\uad6c\ud604 \ub300\uc870 \uac10\uc0ac \uc885\ud569 (2026-08-07)",
       "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
       "id": "wiki/reports/2026-08-07-spec-vs-impl-audit",
-      "community": 2,
+      "community": 3,
       "norm_label": "\u1100\u1175\u1112\u116c\u11a8-\u1100\u116e\u1112\u1167\u11ab \u1103\u1162\u110c\u1169 \u1100\u1161\u11b7\u1109\u1161 \u110c\u1169\u11bc\u1112\u1161\u11b8 (2026-08-07)"
     }
   ],
@@ -123,7 +144,25 @@
       "confidence_score": 1.0,
       "source_file": "index.md",
       "source": "index",
+      "target": "wiki/concepts/hongt-environment-amendment-12"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
       "target": "wiki/concepts/stale-branch-merges-clean-but-lies"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/entities/hongt-command-agent-sequence-console"
     },
     {
       "relation": "links_to",
@@ -175,6 +214,24 @@
       "weight": 1.0,
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
+      "source_file": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md",
+      "source": "wiki/concepts/hongt-environment-amendment-12",
+      "target": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md",
+      "source": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale",
+      "target": "wiki/concepts/hongt-companion-autonomy-tick-order-trap"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
       "source": "wiki/concepts/hongt-companion-autonomy-tick-order-trap",
       "target": "wiki/reports/2026-08-07-spec-vs-impl-audit"
@@ -190,5 +247,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "c1ee4c794e3208eff28e02cff06b4fa6f33ad22e"
+  "built_at_commit": "7d2b5c01e5e57081d1e8fbde270104eb30ad4dc9"
 }

@@ -10,7 +10,7 @@ members: 1
 **Members:** 1 nodes
 
 ## Members
-- [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - wiki/hongt-companion-autonomy-tick-order-trap.md
+- [[RAW 핵앤슬래시 게임 디자인 상세 설계 가이드 (외부 레퍼런스)]] - raw/sources/2026-08-07-hackslash-design-guide-reference.md
 
 ## Live Query (requires Dataview plugin)
 
