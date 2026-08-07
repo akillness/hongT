@@ -103,6 +103,16 @@ namespace CinderCourt.View
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
 
+        /// <summary>
+        /// Uniform shrink applied to EVERY actor (player, companions, enemies,
+        /// bosses) on top of its authored base scale — the 2026-10 request to
+        /// render every actor at 0.8x. Applied once at Create so per-frame
+        /// scale math (death pop, boss 1.6x) keeps its existing relationships.
+        /// Actor prefabs are authored in world units, so this is independent of
+        /// ViewWorld.Scale (which grew the floor by 25% in the same change).
+        /// </summary>
+        public const float GlobalScale = 0.8f;
+
         public static ActorView Create(GameObject prefab, Color fallbackColor, float baseScale)
         {
             GameObject instance;
@@ -126,7 +136,7 @@ namespace CinderCourt.View
             view._animator = instance.GetComponentInChildren<Animator>();
             view._renderers = instance.GetComponentsInChildren<Renderer>();
             view._block = new MaterialPropertyBlock();
-            view._baseScale = baseScale;
+            view._baseScale = baseScale * GlobalScale;
             view._camera = Camera.main;
             view.BuildHealthBar();
             view.CachePoseClipSeconds();

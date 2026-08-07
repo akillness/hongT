@@ -6,7 +6,21 @@ namespace CinderCourt.View
 {
     public static class ViewWorld
     {
-        public const float Scale = 0.01f;
+        // Dungeon-scale request (2026-10): the sim contract (CLAUDE.md §2) is
+        // FROZEN at a 1536x1024 arena, so "make the dungeon bigger" can only be
+        // a VIEW change — the sim-to-world quotient. 0.01 -> 0.0125 grows every
+        // world-space distance derived from sim coordinates by 25% while actor
+        // prefab sizes (authored directly in world units) stay put, so the floor
+        // reads larger and the characters read smaller standing on it. Camera
+        // constants tuned against the old quotient are compensated with
+        // LegacyScaleRatio so only the dungeon framing actually changes.
+        public const float Scale = 0.0125f;
+
+        /// <summary>Pre-2026-10 sim-to-world quotient (framing compensation).</summary>
+        public const float LegacyScale = 0.01f;
+
+        /// <summary>Restores legacy framing for a world-unit camera constant.</summary>
+        public const float LegacyScaleRatio = Scale / LegacyScale;
 
         public static Vector3 ToWorld(float simX, float simY, float height = 0f)
             => new Vector3(simX * Scale, height, -simY * Scale);
@@ -75,6 +89,53 @@ namespace CinderCourt.View
             material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
             material.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
             material.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            return material;
+        }
+
+        static Shader _lit;
+
+        /// <summary>
+        /// URP Lit shader, or null when it is not in the build. Every character
+        /// prefab ships Lit materials, so the shader and its forward variants
+        /// are always included — but the null guard keeps a stripped build from
+        /// producing magenta environment instead of a flat-but-correct one.
+        /// </summary>
+        public static Shader LitShader
+        {
+            get
+            {
+                if (_lit == null) _lit = Shader.Find("Universal Render Pipeline/Lit");
+                return _lit;
+            }
+        }
+
+        /// <summary>
+        /// Opaque LIT material with an optional albedo map. Used by the stage
+        /// environment so the §E6 point lights and the stage mood rig actually
+        /// shade the dungeon (unlit surfaces ignore every light). Falls back to
+        /// <see cref="MakeUnlit"/> when the Lit shader is unavailable.
+        /// </summary>
+        public static Material MakeLit(Color color, Texture texture)
+        {
+            var shader = LitShader;
+            if (shader == null)
+            {
+                var fallback = MakeUnlit(color, false);
+                if (texture != null) fallback.SetTexture("_BaseMap", texture);
+                return fallback;
+            }
+            var material = new Material(shader);
+            material.SetColor("_BaseColor", color);
+            // Dungeon stone/floor: rough, non-metallic. Specular highlights on
+            // a tiling masonry map read as plastic under point lights.
+            material.SetFloat("_Smoothness", 0.12f);
+            material.SetFloat("_Metallic", 0f);
+            if (texture != null)
+            {
+                texture.wrapMode = TextureWrapMode.Repeat;
+                material.SetTexture("_BaseMap", texture);
+                material.mainTexture = texture;
+            }
             return material;
         }
     }

@@ -13,12 +13,17 @@ namespace CinderCourt.View
         const float BaseFov = 32f;
         const float ReferenceAspect = 1.5f;
         // Prologue side view: a 2.5D beat-em-up frame (26° pitch, south-facing)
-        // replaces the old 90° top-down. Ortho height must cover the arena's
-        // world depth (5.4 u) projected at 26° plus actor height ≈ 3.6.
-        const float PrologueOrthoSize = 3.6f;
+        // replaces the old 90° top-down; ortho height covers the arena depth.
+        // Prologue/Lobby constants below were tuned against ViewWorld.Scale
+        // 0.01; they are multiplied by LegacyScaleRatio so the 0.0125 dungeon
+        // enlargement does not silently re-frame those profiles.
+        const float PrologueOrthoSize = 3.6f * ViewWorld.LegacyScaleRatio;
         const float ProloguePitch = 26f;
-        const float PrologueDistance = 12f;
+        const float PrologueDistance = 12f * ViewWorld.LegacyScaleRatio;
         static readonly Vector3 ArenaCenter = ViewWorld.ToWorld(768f, 604f);
+        /// <summary>Arena centre under the pre-2026-10 quotient (scene rebasing).</summary>
+        static readonly Vector3 LegacyArenaCenter =
+            new Vector3(768f * ViewWorld.LegacyScale, 0f, -604f * ViewWorld.LegacyScale);
 
         Camera _camera;
         Vector3 _basePosition;
@@ -40,6 +45,52 @@ namespace CinderCourt.View
         const float DungeonCrowdDistance = 24.5f;
         float _dungeonDistance = DungeonCalmDistance;
         float _dungeonTargetDistance = DungeonCalmDistance;
+
+        // ---- dungeon player-follow (2026-10) -------------------------------
+        // Clamp radii keep the enlarged floor framed: the player stop line is
+        // 0.935 of the arena half-extent, so following ~55% of the x reach and
+        // ~75% of the (shallower) z reach keeps both boundary walls inside the
+        // 42° frustum at the calm orbit distance while the camera still tracks.
+        internal const float FollowClampX =
+            SimConfig.ArenaHalfWidth * ViewWorld.Scale * 0.55f;
+        internal const float FollowClampZ =
+            SimConfig.ArenaHalfHeight * ViewWorld.Scale * 0.75f;
+        /// <summary>Exponential-smoothing rate for the follow focus (per second).</summary>
+        internal const float FollowLambda = 4.5f;
+        Vector3 _followAnchor;
+        Vector3 _followFocus;
+        bool _hasFollowAnchor;
+
+        /// <summary>
+        /// Dungeon-only: world-space point the camera should track (the player).
+        /// Ignored by every other profile; call once per rendered frame.
+        /// </summary>
+        public void SetFollowAnchor(Vector3 world)
+        {
+            _followAnchor = world;
+            if (!_hasFollowAnchor)
+            {
+                // First anchor of a run must not sweep in from the centre.
+                _hasFollowAnchor = true;
+                _followFocus = ClampFollow(world);
+            }
+        }
+
+        /// <summary>Drops the follow anchor (run exit); focus returns to centre.</summary>
+        public void ClearFollowAnchor()
+        {
+            _hasFollowAnchor = false;
+            _followFocus = ArenaCenter;
+        }
+
+        internal static Vector3 ClampFollow(Vector3 world)
+        {
+            var offset = world - ArenaCenter;
+            return ArenaCenter + new Vector3(
+                Mathf.Clamp(offset.x, -FollowClampX, FollowClampX),
+                0f,
+                Mathf.Clamp(offset.z, -FollowClampZ, FollowClampZ));
+        }
 
         // Outskirt fog offsets from the live orbit distance. Derived from the
         // measured floor geometry at pitch 55: the far playable edge sits
@@ -66,8 +117,14 @@ namespace CinderCourt.View
             // the boot profile's projection setup (ortho prologue etc.).
             _camera = Camera.main;
             if (_camera == null) return;
-            _basePosition = _camera.transform.position;
+            // ViewWorld.Scale grew 0.01 -> 0.0125 (bigger dungeon). The Arena
+            // camera position is scene-authored against the OLD quotient, so
+            // rebase it around the new arena centre by the same ratio — Arena
+            // framing must not change, only the dungeon's.
+            var bakedLegacyOffset = _camera.transform.position - LegacyArenaCenter;
+            _basePosition = ArenaCenter + bakedLegacyOffset * ViewWorld.LegacyScaleRatio;
             _baseRotation = _camera.transform.rotation;
+            _camera.transform.position = _basePosition;
             // Snapshot the scene's authored fog band before any dungeon run
             // overwrites it — this is what non-dungeon profiles restore to.
             _bakedFogStart = RenderSettings.fogStartDistance;
@@ -86,6 +143,9 @@ namespace CinderCourt.View
             }
             _profile = profile;
             _profileTime = 0f;
+            // A stale anchor from the previous run would snap the next dungeon
+            // entry to wherever the last player died.
+            ClearFollowAnchor();
             _revealT = 0f;
             _focusTimer = 0f;   // stale boss focus must not survive a run exit
             _focusDuration = 1f;
@@ -224,7 +284,9 @@ namespace CinderCourt.View
                     _revealT = Mathf.Clamp01(_profileTime / 2.2f);
                     var eased = 1f - Mathf.Pow(1f - _revealT, 3f);
                     var pitch = Mathf.Lerp(ProloguePitch, 55f, eased);
-                    var distance = Mathf.Lerp(9.4f, DungeonCalmDistance, eased) * _aspectWiden;
+                    var distance = Mathf.Lerp(
+                        9.4f * ViewWorld.LegacyScaleRatio, DungeonCalmDistance, eased)
+                        * _aspectWiden;
 
                     PlaceOrbit(pitch, distance, ArenaCenter);
                     break;
@@ -238,7 +300,19 @@ namespace CinderCourt.View
                         1f - Mathf.Exp(-Time.deltaTime * 2.2f));
                     // Boss-intro focus pull (cycle2 A1): blend orbit focus
                     // toward the pulse target, then back. View-only.
-                    var focus = ArenaCenter;
+                    // Player-follow anchor (2026-10 request): the dungeon
+                    // camera is no longer pinned to the arena centre. The
+                    // anchor is clamped to FollowClampX/Z around the centre so
+                    // the enlarged floor never slides out of frame, then
+                    // critically damped toward so strafing does not jitter.
+                    var desired = ClampFollow(
+                        _hasFollowAnchor ? _followAnchor : ArenaCenter);
+                    _followFocus = Vector3.Lerp(
+                        _followFocus, desired,
+                        1f - Mathf.Exp(-Time.deltaTime * FollowLambda));
+                    var focus = _followFocus;
+                    // Boss-intro focus pull (cycle2 A1): blend orbit focus
+                    // toward the pulse target, then back. View-only.
                     if (_focusTimer > 0f)
                     {
                         _focusTimer -= Time.deltaTime;
@@ -247,7 +321,7 @@ namespace CinderCourt.View
                         var blend = phase < 0.5f
                             ? Mathf.SmoothStep(0f, 1f, phase * 2f)
                             : Mathf.SmoothStep(1f, 0f, (phase - 0.5f) * 2f);
-                        focus = Vector3.Lerp(ArenaCenter, _focusTarget, blend * 0.55f);
+                        focus = Vector3.Lerp(_followFocus, _focusTarget, blend * 0.55f);
                     }
                     PlaceOrbit(55f, _dungeonDistance * _aspectWiden, focus);
                     // Outskirt fog must TRACK the orbit, not sit at a baked

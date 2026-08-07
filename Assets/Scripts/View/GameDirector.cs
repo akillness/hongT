@@ -39,6 +39,7 @@ namespace CinderCourt.View
         string _stageDressingId = "";
         GameObject _stageEnvironment;     // EnvironmentBuilder root (AMENDMENT #12)
         string _stageEnvironmentId = "";
+        GameObject _stageMood;            // StageMood rig (separate light root)
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -224,9 +225,19 @@ namespace CinderCourt.View
                 else DestroyImmediate(_stageEnvironment);
                 _stageEnvironment = null;
             }
+            if (_stageMood != null)
+            {
+                if (Application.isPlaying) Destroy(_stageMood);
+                else DestroyImmediate(_stageMood);
+                _stageMood = null;
+                StageMood.Clear();      // RenderSettings is global
+            }
             _stageEnvironmentId = stageId ?? "";
             if (string.IsNullOrEmpty(stageId)) return;
             _stageEnvironment = EnvironmentBuilder.Build(stageId);
+            // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
+            // root at 4 realtime point lights.
+            _stageMood = StageMood.Apply(stageId);
         }
 
         void ReturnToLobby() => EnterLobby();
@@ -902,6 +913,10 @@ namespace CinderCourt.View
                 var hack = sim as IHackSnapshot;
                 var bigWave = sim.LivingEnemies >= 10 || (hack != null && hack.BossHp > 0f);
                 _rig.SetDungeonCrowd(bigWave);
+                // Player-follow framing (2026-10): the dungeon camera tracks
+                // the warden instead of sitting on the arena centre. CameraRig
+                // clamps + smooths; this only supplies the live world point.
+                _rig.SetFollowAnchor(ViewWorld.ToWorld(sim.Player.X, sim.Player.Y));
             }
 
             // Prologue: tutorial toast progression (spec §1) + reveal return.
