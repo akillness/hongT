@@ -125,6 +125,7 @@ node_modules/
 # 리포트 산출물(graph.json, manifest.json, GRAPH_REPORT.md)은 계속 추적한다.
 graphify-out/cache/
 llm-wiki/.graphify/cache/
+graphify-out/.rebuild.lock
 
 # agent session runtime state (not repo artifacts)
 .gjc/
