@@ -156,3 +156,38 @@ PR 본문 §5 "A9 심 API는 main에도 없다"는 리뷰 시점에 이미 낡�
   (git diff 0줄) → 저자의 463/463은 이 바이트에 대한 유효한 이월 증거.
   4레인 후속 작업은 충돌 영역 밖 생존 검증 완료. PR #3 GitHub MERGED
   (2026-08-07T04:16:25Z).
+
+## 2026-08-07 16:12 — AMENDMENT #11 레인이 라이브라서 푸시 보류
+
+- **관측**: "미커밋 전부 푸시" 정리 작업 중, 작업 트리에 다른 세션(jeo)의
+  진행 중 레인이 섞여 있었다. 판정 시점 기준 갱신 시각:
+  `Assets/Scripts/View/GameView.cs`·`ImpactBudget.cs` 1분 전,
+  `docs/SIM_SPEC_HACKSLASH.md` 3분 전, `DifficultyGroupAiTests.cs` 3분 전,
+  `CinderSim.cs` 9분 전, `HackTypes.cs` 19분 전.
+  `.jeo/artifacts/tool-results/` 최신 기록 66초 전 — 세션이 살아 있다.
+- **게이트 실측**: Unity 에디터가 다른 세션에 점유돼 있어(pid 16568) 배치
+  게이트를 못 돌렸다. Sim은 순수 C#이라 standalone dotnet으로 대체 검증:
+  - `Assets/Scripts/Sim/*.cs` 단독 빌드(netstandard2.1) → **0 error 0 warning**.
+    즉 `DifficultySpec.cs` 신설과 `HackConfig.Difficulty` 추가는 컴파일 성립.
+  - Sim + `DifficultyGroupAiTests.cs`(NUnit) 빌드 → **컴파일 실패 3건**:
+    - `DifficultyGroupAiTests.cs(15,28)` / `(48,38)` CS0121 — `TryDungeon`의
+      4번째 인자에 bare `null`을 넘겨 `string` 오버로드(HackTypes.cs:250)와
+      `string[]` 오버로드(:283)가 모호. `(string[])null` 등 캐스트 필요.
+    - `DifficultyGroupAiTests.cs(228,42)` CS8156 — `ref readonly var e =
+      ref enemies[i]`. 인덱서 반환값은 참조로 넘길 수 없다.
+- **판단**: 컴파일 에러는 어셈블리 전체를 막으므로, 이 상태를 푸시하면 502개
+  기존 테스트가 **한 개도 못 도는** 레드 main이 된다. 코드 5파일
+  (`DifficultySpec.cs`, `CinderSim.cs`, `HackTypes.cs`, `GameView.cs`,
+  `ImpactBudget.cs`, `DifficultyGroupAiTests.cs`, `SIM_SPEC_HACKSLASH.md`)은
+  **커밋하지 않는다**. 작업 트리 원본은 손대지 않았다 — 남의 라이브 버퍼를
+  고치면 lost-update가 난다.
+- **선반영한 것**: 같은 레인의 무해한 기록물은 먼저 밀어 증거를 보존했다 —
+  `docs/provenance/video-analysis-wbDv6nawEeY.md`,
+  `_workspace/current/design/video-review-analysis-amendment11.md` (86ff932).
+- **별건 결함(레인 소유자 확인 필요)**: 신규 `.cs` 3개에 `.meta`가 없다
+  (`DifficultySpec.cs`, `ImpactBudget.cs`, `DifficultyGroupAiTests.cs`).
+  같은 폴더의 다른 모든 `.cs`는 `.meta`를 추적 중이라, 이대로 커밋되면
+  머신마다 GUID가 새로 생겨 참조가 흔들린다. 에디터 임포트 후 함께 커밋할 것.
+- **프로버넌스 불일치**: provenance의 `derivedChanges`는
+  `Assets/Tests/EditMode/DifficultyTests.cs`를 가리키는데 실제 파일명은
+  `DifficultyGroupAiTests.cs`다. 레인 마감 시 정정 대상.
