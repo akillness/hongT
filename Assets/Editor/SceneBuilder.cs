@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using CinderCourt.View;
 
 namespace CinderCourt.EditorTools
 {
@@ -13,8 +14,23 @@ namespace CinderCourt.EditorTools
     {
         const string ScenePath = "Assets/Scenes/CinderCourt.unity";
         const string BackdropTexture = "Assets/Art/Textures/cinder-court-backdrop.png";
-        // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S). S=0.01 -> 15.36 x 10.24 m.
-        const float S = 0.01f;
+        // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S).
+        //
+        // S is DERIVED, never a literal. It was hardcoded 0.01f, and when the
+        // runtime moved ViewWorld.Scale 0.01 -> 0.0125 nothing here followed:
+        // the painted court plate stayed centred on sim(768,512)*0.01 =
+        // (7.68,-5.12) while the arena moved to (9.6,-6.4), so the backdrop sat
+        // 154x102 sim px off-centre at 80% of the area it had to cover. Same
+        // raw-constant drift that hit the furniture caps; deriving it makes the
+        // baked scene track the runtime quotient by construction.
+        //
+        // Scope note: only the SimWorld() call sites follow S. The camera
+        // transform (L35) and VoidFloor's 40x26 extent are deliberate literals
+        // — the camera is scene-authored against the OLD quotient on purpose
+        // (CameraRig.Awake rebases it via LegacyScaleRatio, so moving it here
+        // would double-compensate), and VoidFloor is oversized on purpose to
+        // cover the widest frustum tier.
+        const float S = ViewWorld.Scale;
 
         [MenuItem("CinderCourt/Build Scene")]
         public static void Build()
