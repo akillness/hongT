@@ -14,6 +14,10 @@ namespace CinderCourt.EditorTools
     {
         const string ScenePath = "Assets/Scenes/CinderCourt.unity";
         const string BackdropTexture = "Assets/Art/Textures/cinder-court-backdrop.png";
+        /// <summary>Grain for the out-of-arena dark. Reuses a stage stone map -
+        /// they are generated seamless-tileable, so no new asset is needed.</summary>
+        const string VoidFloorTexture =
+            "Assets/Resources/Textures/Env/abyss-chancel-stone.png";
         // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S).
         //
         // S is DERIVED, never a literal. It was hardcoded 0.01f, and when the
@@ -164,6 +168,33 @@ namespace CinderCourt.EditorTools
             // The floor must be dark enough to recede but close enough that
             // the apron edge becomes a gradient rather than a cliff.
             voidMaterial.SetColor("_BaseColor", new Color(0.105f, 0.092f, 0.125f, 1f));
+            // MEASURED: this quad is the dark mass that owns the frame. Landing
+            // the stage textures took the dominant 24-step colour bucket from
+            // 86.2% to 54.5%, and realigning the painted backdrop moved it a
+            // further 0.5 pt only — because the backdrop covers 24% of this
+            // quad's area and sits entirely inside the terrain plate. What is
+            // left over IS VoidFloor, flat and untextured.
+            //
+            // So give it grain. URP Unlit multiplies _BaseColor x _BaseMap, so
+            // the shadow-tone value above is preserved exactly — only texture
+            // detail is added, never brightness. Tiling matches the world
+            // density the rest of the environment uses (1 tile per 1.28 u, the
+            // E2 module grid): a coarser void floor would put a visible grain
+            // step right at the apron edge, re-creating the "world ends here"
+            // line this quad exists to remove.
+            //
+            // One shared map for every stage, on purpose. This is the darkness
+            // OUTSIDE the arena — it carries no stage identity, so a per-stage
+            // bind would cost runtime code and a scene lookup for nothing.
+            const float voidTilesPerUnit = 1f / 1.28f;
+            var voidTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(VoidFloorTexture);
+            if (voidTexture != null)
+            {
+                voidMaterial.SetTexture("_BaseMap", voidTexture);
+                voidMaterial.SetTextureScale("_BaseMap",
+                    new Vector2(40f * voidTilesPerUnit, 26f * voidTilesPerUnit));
+            }
+            else Debug.LogWarning($"[SceneBuilder] void texture missing at {VoidFloorTexture}");
             AssetDatabase.DeleteAsset("Assets/Art/Materials/VoidFloor.mat");
             AssetDatabase.CreateAsset(voidMaterial, "Assets/Art/Materials/VoidFloor.mat");
             voidFloor.GetComponent<MeshRenderer>().sharedMaterial =
