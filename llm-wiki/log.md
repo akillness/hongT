@@ -16,3 +16,10 @@
   (7ad0d5f): M2 P3 대사 9종, G-2 EquipCosts 단일화(레인 취소 — 머지가 선반영),
   M7 reduced-motion 자동감지, M9 드롭 경제 테스트 40케이스. H4는 타 세션
   57f8afd가 선해소. 상세: `_workspace/current/conflicts.md` 2026-08-07 항목.
+- 2026-08-07 — 빌드·배포·모니터링: PR 잔여 0건 확인 → 잔여 변경 커밋(de476cc)
+  → /tmp/hongt-build 워크트리(웜 Library)에서 EditMode **502/502** +
+  WebGL 빌드(70.5MB, 0 error) → gh-pages `b4ef488` 배포 → 라이브 스모크:
+  부팅 0 에러, M7 OS 힌트 시드('al:os-reduced-motion'=0), 로비 각인 탭·Epithet,
+  던전 딥링크·목표 칩·전투·드롭(랜턴 랭크+1 = kills%3 경로)·퀵 리트라이 확인.
+  모멘텀 HUD는 게이트 검증(14 테스트)·배선 확인, 육안은 미확인(봇이 분출구에
+  사망 — 게임 결함 아님).
