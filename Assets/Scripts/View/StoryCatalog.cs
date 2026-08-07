@@ -1,7 +1,7 @@
 // Static story-beat catalog ported from the original stage-story-catalog
 // (spec §8). Pure data: no Unity, no Sim types, zero allocation per lookup.
 // Beat kinds: stageStart (watcher narration), bossEntry, bossPhase2 (taunt),
-// completion (warden retrospective).
+// bossPhase3 (last warning), completion (warden retrospective).
 namespace CinderCourt.View
 {
     /// <summary>Palette class of a story speaker (SpeechBubbleView tints).</summary>
@@ -18,6 +18,11 @@ namespace CinderCourt.View
         public const string StageStart = "stageStart";
         public const string BossEntry = "bossEntry";
         public const string BossPhase2 = "bossPhase2";
+        // P3 last-warning beat (spec §8 L154 "보스 20% (P3) | 최후 경고 (P2와
+        // 다른 대사)"). Additive: the P3 lines are NEW — not part of the frozen
+        // original catalog — and remain subject to operator review. Existing
+        // keys and lines are untouched.
+        public const string BossPhase3 = "bossPhase3";
         public const string Completion = "completion";
 
         // Speakers. The watcher narrates stage openings as a caption; boss and
@@ -83,6 +88,10 @@ namespace CinderCourt.View
                             speaker = CinderWarden;
                             text = "봉인을 풀면 길이 열리는 게 아니다. 네 뒤의 다리가 먼저 무너진다.";
                             return true;
+                        case BossPhase3:
+                            speaker = CinderWarden;
+                            text = "사슬이 끊긴다면… 다리도, 너도, 나와 함께 재가 된다!";
+                            return true;
                         case Completion:
                             speaker = DuskWarden;
                             text = "그는 문을 지킨 게 아니었다. 문이 올라오지 못하게 묶고 있었다.";
@@ -104,6 +113,10 @@ namespace CinderCourt.View
                         case BossPhase2:
                             speaker = CinderWarden;
                             text = "회랑 끝의 재는 네 발자국을 모두 기억한다.";
+                            return true;
+                        case BossPhase3:
+                            speaker = CinderWarden;
+                            text = "마지막 불씨다 — 꺼지기 전에 네 이름부터 태워 주마!";
                             return true;
                         case Completion:
                             speaker = DuskWarden;
@@ -127,6 +140,10 @@ namespace CinderCourt.View
                             speaker = VeilTactician;
                             text = "거울이 깨져도, 왕좌가 사라지는 것은 아니다.";
                             return true;
+                        case BossPhase3:
+                            speaker = VeilTactician;
+                            text = "이 파편이 마지막 수다. 네 결말은 아직 내 손안에 있다!";
+                            return true;
                         case Completion:
                             speaker = VeilTactician;
                             text = "그렇다면 왕좌도 너를 분류하지 못하겠군.";
@@ -148,6 +165,10 @@ namespace CinderCourt.View
                         case BossPhase2:
                             speaker = VeilTactician;
                             text = "네가 들은 증언은 아직 결말을 고르지 못했다.";
+                            return true;
+                        case BossPhase3:
+                            speaker = VeilTactician;
+                            text = "우물이 마른다… 그 전에 네 증언을 끝내 주마!";
                             return true;
                         case Completion:
                             speaker = DuskWarden;
@@ -171,6 +192,10 @@ namespace CinderCourt.View
                             speaker = GateSovereign;
                             text = "단상을 차지해도 왕좌의 명령은 너에게 돌아온다.";
                             return true;
+                        case BossPhase3:
+                            speaker = GateSovereign;
+                            text = "왕좌가 무너져도 마지막 명령은 남는다 — 꿇어라!";
+                            return true;
                         case Completion:
                             speaker = DuskWarden;
                             text = "왕좌는 비었다. 그런데 명령은 내 등불 안에서 계속된다.";
@@ -192,6 +217,10 @@ namespace CinderCourt.View
                         case BossPhase2:
                             speaker = GateSovereign;
                             text = "재가 되어도 명령은 사라지지 않는다.";
+                            return true;
+                        case BossPhase3:
+                            speaker = GateSovereign;
+                            text = "이것이 최후의 판결이다. 네 등불과 함께 재가 되어라!";
                             return true;
                         case Completion:
                             speaker = DuskWarden;
@@ -218,6 +247,10 @@ namespace CinderCourt.View
                             speaker = SluiceKeeper;
                             text = "역류는… 허락되지 않는다!";
                             return true;
+                        case BossPhase3:
+                            speaker = SluiceKeeper;
+                            text = "수문이 버티지 못한다… 그렇다면 너까지 쓸어 내리겠다!";
+                            return true;
                         case Completion:
                             speaker = DuskWarden;
                             text = "말소된 이름 하나가 물살을 거슬러 떠올랐다.";
@@ -240,6 +273,10 @@ namespace CinderCourt.View
                             speaker = BastionSentinel;
                             text = "방벽이 무너져도 위증은 남는다!";
                             return true;
+                        case BossPhase3:
+                            speaker = BastionSentinel;
+                            text = "마지막 방벽이다… 이 몸이 무너지기 전에 너부터 묻겠다!";
+                            return true;
                         case Completion:
                             speaker = DuskWarden;
                             text = "방벽이 꺼지자 위증의 불씨가 사그라들었다.";
@@ -261,6 +298,10 @@ namespace CinderCourt.View
                         case BossPhase2:
                             speaker = AshMagistrate;
                             text = "재 앞에서 모든 걸음은 무의미하다!";
+                            return true;
+                        case BossPhase3:
+                            speaker = AshMagistrate;
+                            text = "행진이 멈추는 일은 없다… 네 형장이 여기다!";
                             return true;
                         case Completion:
                             speaker = DuskWarden;

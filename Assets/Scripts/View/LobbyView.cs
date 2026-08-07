@@ -53,7 +53,7 @@ namespace CinderCourt.View
         static readonly string[] StatNames = { "공격", "체력", "이속" };
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
-        static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };  // relics for T(i)->T(i+1)
+        static int[] EquipCosts => GameDirector.EquipCosts;  // single source: GameDirector (spec §6 L117)
 
         // --- v1.5 sigils (AMENDMENT #6 · design/sigil-spec.md) ------------------
         const int TabCount = 4;

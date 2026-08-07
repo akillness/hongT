@@ -212,6 +212,13 @@ namespace CinderCourt.EditorTools
 
             html = VersionWebGlBuildAssetUrls(outputDir, html);
 
+            // OS reduced-motion hint (integrated-combat-vfx-spec §2.4): the
+            // shell mirrors matchMedia("(prefers-reduced-motion: reduce)")
+            // into localStorage before the loader so ViewPrefs can seed its
+            // default for players who never touched the lobby toggle. An
+            // explicit toggle (PlayerPrefs key) always wins over the hint.
+            html = WebGlReducedMotionSeed.Inject(html);
+
             // Unity 6.0.5's automatic canvas-matching loop overflows its WASM
             // stack when the responsive CSS makes a narrow portrait viewport
             // fill the canvas. Disable Unity's auto-match loop; the backing
@@ -369,6 +376,8 @@ namespace CinderCourt.EditorTools
                 "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">",
                 "canvas.classList.add(\"unity-responsive\");",
                 "devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2)",
+                "window.localStorage.setItem(\"" + WebGlReducedMotionSeed.StorageKey + "\",",
+                WebGlReducedMotionSeed.MediaQueryProbe,
                 "config.matchWebGLToCanvasSize = false;",
                 "function queueUnityBackingStoreSize()",
                 "window.addEventListener(\"resize\", queueUnityBackingStoreSize);",

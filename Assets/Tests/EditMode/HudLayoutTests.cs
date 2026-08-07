@@ -60,6 +60,8 @@ namespace CinderCourt.Tests
         private bool _hadRotateHintPref;
         private bool _hadReducedMotionPref;
         private int _reducedMotionPrefValue;
+        private bool _hadOsHintPref;
+        private string _osHintPrefValue;
 
         [SetUp]
         public void SetUp()
@@ -69,6 +71,10 @@ namespace CinderCourt.Tests
             _hadRotateHintPref = PlayerPrefs.HasKey("al:rotate-hint");
             _hadReducedMotionPref = PlayerPrefs.HasKey("al:reduced-motion");
             _reducedMotionPrefValue = PlayerPrefs.GetInt("al:reduced-motion");
+            // Editor fallback store of the WebGL OS hint (ViewPrefs seeding
+            // reads it through WebGLStorage) — snapshot for the same reason.
+            _hadOsHintPref = PlayerPrefs.HasKey("al:os-reduced-motion");
+            _osHintPrefValue = PlayerPrefs.GetString("al:os-reduced-motion");
 
             _hudObject = new GameObject("HudLayoutTests");
             _hud = _hudObject.AddComponent<HudView>();
@@ -87,6 +93,10 @@ namespace CinderCourt.Tests
                 PlayerPrefs.SetInt("al:reduced-motion", _reducedMotionPrefValue);
             else
                 PlayerPrefs.DeleteKey("al:reduced-motion");
+            if (_hadOsHintPref)
+                PlayerPrefs.SetString("al:os-reduced-motion", _osHintPrefValue);
+            else
+                PlayerPrefs.DeleteKey("al:os-reduced-motion");
             PlayerPrefs.Save();
         }
 
@@ -657,6 +667,51 @@ namespace CinderCourt.Tests
             Assert.That(ViewPrefs.MotionScale, Is.EqualTo(0.4f));
             Assert.That(ViewPrefs.TimeEffectsAllowed, Is.False);
             Assert.That(PlayerPrefs.GetInt("al:reduced-motion"), Is.EqualTo(1));
+        }
+
+        /// <summary>Spec §2.4 auto-detection: with NO explicit lobby choice
+        /// (no "al:reduced-motion" key), the OS hint mirrored by the WebGL
+        /// shell ("al:os-reduced-motion", read via WebGLStorage — PlayerPrefs
+        /// string in the editor) decides the default.</summary>
+        [Test]
+        public void ReducedMotion_NoExplicitChoice_SeedsFromOsHint()
+        {
+            PlayerPrefs.DeleteKey("al:reduced-motion");
+            PlayerPrefs.SetString("al:os-reduced-motion", "1");
+            ViewPrefs.ResetCacheForTests();
+
+            Assert.That(ViewPrefs.ReducedMotion, Is.True,
+                "an OS prefers-reduced-motion user must get the reduced default without touching the lobby");
+            Assert.That(ViewPrefs.MotionScale, Is.EqualTo(0.4f));
+            Assert.That(ViewPrefs.TimeEffectsAllowed, Is.False);
+            Assert.That(PlayerPrefs.HasKey("al:reduced-motion"), Is.False,
+                "the OS hint is a default, not a choice — it must not be persisted as one");
+
+            PlayerPrefs.SetString("al:os-reduced-motion", "0");
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.False,
+                "clearing the OS setting must clear the seeded default on the next boot");
+        }
+
+        /// <summary>Spec §2.4 guard: an explicit lobby choice — including
+        /// explicit OFF — always beats the OS hint. HasKey is the
+        /// discriminator; GetInt(key, 0) could not tell OFF from no-choice,
+        /// and would force-enable reduced motion for explicit-OFF users on
+        /// every boot.</summary>
+        [Test]
+        public void ReducedMotion_ExplicitChoice_AlwaysBeatsOsHint()
+        {
+            ViewPrefs.ReducedMotion = false;                       // explicit OFF
+            PlayerPrefs.SetString("al:os-reduced-motion", "1");    // OS says reduce
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.False,
+                "an explicit OFF must survive an OS reduced-motion hint across boots");
+
+            ViewPrefs.ReducedMotion = true;                        // explicit ON
+            PlayerPrefs.SetString("al:os-reduced-motion", "0");    // OS says no-preference
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.True,
+                "an explicit ON must survive an OS no-preference hint across boots");
         }
 
         [Test]

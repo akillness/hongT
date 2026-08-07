@@ -520,28 +520,44 @@ namespace CinderCourt.View
             _lobby.Refresh(_data);
         }
 
-        static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };
+        // Single source of truth for equip purchase costs (spec §6 L117: relics for T(i)->T(i+1)).
+        // Referenced by LobbyView (same CinderCourt.View assembly).
+        internal static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };
 
         void OnBuyEquip(string slot)
         {
-            var tier = slot switch
-            {
-                "weapon" => _data.Weapon,
-                "lantern" => _data.Lantern,
-                _ => _data.Cloak,
-            };
-            if (tier >= 5) return;
-            var cost = EquipCosts[tier];
-            if (_data.Relics < cost) return;
-            _data.Relics -= cost;
-            switch (slot)
-            {
-                case "weapon": _data.Weapon++; break;
-                case "lantern": _data.Lantern++; break;
-                default: _data.Cloak++; break;
-            }
+            if (!TryBuyEquip(ref _data, slot)) return;
             CampaignStore.Save(in _data);
             _lobby.Refresh(_data);
+        }
+
+        /// <summary>
+        /// Pure purchase judgment + data mutation (audit M9 T-3 seam): tier
+        /// lookup, tier-5 cap, cost ladder, balance check, relic debit, tier
+        /// increment. NO side effects — persistence (CampaignStore.Save) and UI
+        /// refresh stay with the caller so tests never touch PlayerPrefs.
+        /// Unknown slot strings intentionally keep the historical behavior of
+        /// both original switches (`_ =>` / `default:`): they buy CLOAK.
+        /// </summary>
+        internal static bool TryBuyEquip(ref CampaignData data, string slot)
+        {
+            var tier = slot switch
+            {
+                "weapon" => data.Weapon,
+                "lantern" => data.Lantern,
+                _ => data.Cloak,
+            };
+            if (tier >= 5) return false;
+            var cost = EquipCosts[tier];
+            if (data.Relics < cost) return false;
+            data.Relics -= cost;
+            switch (slot)
+            {
+                case "weapon": data.Weapon++; break;
+                case "lantern": data.Lantern++; break;
+                default: data.Cloak++; break;
+            }
+            return true;
         }
 
         /// <summary>
@@ -805,11 +821,21 @@ namespace CinderCourt.View
                 _hud.ShowBossIntro(GameView.BossNameFor(_runStageId));
                 _rig.FocusPulse(bossAnchor, 0.45f);
             }
-            if ((events & SimEvents.BossPhase2) != 0 &&
-                StoryCatalog.TryGet(storyKey, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
+            if ((events & SimEvents.BossPhase2) != 0)
             {
-                _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
-                _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
+                // BossPhase2 fires on EVERY phase boundary (P1->P2 and P2->P3;
+                // the frozen SimEvents surface has no separate P3 bit). WHICH
+                // phase is read from the snapshot, per the sim's own contract
+                // (CinderSim.UpdateBossPhase): spec §8 L154 wants a DIFFERENT
+                // last-warning line at 20% HP, so branch on BossPhase >= 3.
+                var phaseBeat = sim is IHackSnapshot snap && snap.BossPhase >= 3
+                    ? StoryCatalog.BossPhase3
+                    : StoryCatalog.BossPhase2;
+                if (StoryCatalog.TryGet(storyKey, phaseBeat, out var phaseSpeaker, out var phaseText))
+                {
+                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
+                    _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
+                }
             }
             if ((events & SimEvents.StageCleared) != 0 &&
                 StoryCatalog.TryGet(storyKey, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
