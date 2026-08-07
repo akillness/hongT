@@ -98,7 +98,10 @@ namespace CinderCourt.View
             // so no state is gated on it. QA deep links and ?intro=off skip it.
             if (_intro != null && string.IsNullOrEmpty(mode)
                 && WebGLStorage.QueryParam("intro") != "off")
+            {
                 _intro.Play();
+                if (_audio != null) _audio.SetBgmContext("intro");   // W12
+            }
 
             if (mode == "arena") StartArena();
             else if (mode == "prologue") StartPrologue();
@@ -113,6 +116,7 @@ namespace CinderCourt.View
         {
             _state = State.Lobby;
             ClearEmberRestRoute();
+            if (_audio != null) _audio.SetBgmContext("lobby");   // W12
             if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
             SetStageTerrain(null);        // back to the base court plate
             ApplyStageDressing(null);
@@ -276,6 +280,7 @@ namespace CinderCourt.View
         {
             ClearEmberRestRoute();
             _state = State.Arena;
+            if (_audio != null) _audio.SetBgmContext("stage");   // W12
             SetStageTerrain(null);
             ApplyStageDressing(null);
             SetStageEnvironment(null);
@@ -448,6 +453,10 @@ namespace CinderCourt.View
                     ? "scene-boss-entry"
                     : "scene-stage-entry";
             _cutscene.Show(cutsceneSprite, entry.Kicker, entry.Title, introNarration);
+            // W12: the loading/story frame rides its own bed, then the stage
+            // track takes over when the cutscene yields to live play (the
+            // same-clip no-op in SetBgmContext makes the retry path safe).
+            if (_audio != null) _audio.SetBgmContext("stage");
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));

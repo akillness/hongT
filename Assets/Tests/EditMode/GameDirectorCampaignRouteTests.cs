@@ -413,7 +413,11 @@ namespace CinderCourt.Tests
                 "the unlocked direct successor must resolve to a runnable campaign config");
             config.Hazards = successor.HazardOverride;
             config.PreparationOffer = handoff;
-            return new CinderSim(in config);
+            // Integration 2026-08-08: GameView arms AMENDMENT #13/#14 for every
+            // dungeon run, so the runtime-equivalence expectation must ride the
+            // same gate. The preparation-handoff contract under test is
+            // unchanged; golden digests keep pinning the gate-OFF constructor.
+            return new CinderSim(in config, DungeonProgressionConfig.All);
         }
 
         private static void AssertSuccessorMatchesConfiguredPreparation(CinderSim actual, CinderSim expected,

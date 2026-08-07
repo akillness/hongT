@@ -147,6 +147,39 @@ namespace CinderCourt.View
             EnsureInitialized();
         }
 
+        // W12 footsteps: sim distance accumulator. 52 sim units per step at the
+        // warden's 218 u/s gives ~4.2 steps/s — a jog cadence. View-only.
+        const float StepStride = 52f;
+        float _stepAccumulator, _lastStepX, _lastStepY;
+
+        void SyncFootsteps()
+        {
+            if (Audio == null || _sim == null || _sim.Player.Health <= 0f) return;
+            var dx = _sim.Player.X - _lastStepX;
+            var dy = _sim.Player.Y - _lastStepY;
+            _lastStepX = _sim.Player.X;
+            _lastStepY = _sim.Player.Y;
+            _stepAccumulator += Mathf.Abs(dx) + Mathf.Abs(dy);
+            if (_stepAccumulator < StepStride) return;
+            _stepAccumulator = 0f;
+            Audio.PlayFootstep();
+        }
+
+        /// <summary>W14: stage id -> weapon family, deterministic and stable
+        /// across sessions (plain char hash, no RNG). Empty id -> null.</summary>
+        internal static string WeaponArchetypeFor(string stageId)
+        {
+            if (string.IsNullOrEmpty(stageId)) return null;
+            var h = 0;
+            for (var i = 0; i < stageId.Length; i++) h = h * 31 + stageId[i];
+            switch (((h % 3) + 3) % 3)
+            {
+                case 0: return "dagger";
+                case 1: return "bow";
+                default: return "hammer";
+            }
+        }
+
         void EnsureInitialized()
         {
             if (_initialized) return;
@@ -185,7 +218,13 @@ namespace CinderCourt.View
             // spawns every slot even when companionId only echoes slot 0.
             var companionSlots = _isDungeon ? config.CompanionSlots() : System.Array.Empty<string>();
             var companionActive = companionSlots.Length > 0;
-            _sim = new CinderSim(in config);
+            // Integration 2026-08-08: arm AMENDMENT #13 (adaptive waves) and
+            // #14 (graded loot) for dungeon runs only. Bounds (#15) stays dark
+            // until the EnvironmentBuilder wall-ring sync (MV-2) lands —
+            // enabling it alone would let the player walk through the ring.
+            _sim = _isDungeon
+                ? new CinderSim(in config, DungeonProgressionConfig.All)
+                : new CinderSim(in config);
             _accumulator = 0f;
             _digestWritten = false;
             _lastPlayerHealth = _sim.Player.Health;
@@ -200,6 +239,12 @@ namespace CinderCourt.View
             EnsureInitialized();
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
+            // W14: deterministic weapon silhouette per dungeon room. Arena and
+            // prologue resolve to "" -> null -> the legacy equip-weapon mesh.
+            _playerView.SetWeaponArchetype(WeaponArchetypeFor(_logicalStageId));
+            _stepAccumulator = 0f;
+            _lastStepX = _sim.Player.X;
+            _lastStepY = _sim.Player.Y;
 
             if (_dungeonPresentation)
             {
@@ -498,6 +543,7 @@ namespace CinderCourt.View
             // combo tier drives the pose there too. Everything else is main's.
             if (_dungeonPresentation) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
             _playerView.SyncPlayer(_sim.Player, _simDelta);
+            SyncFootsteps();
 
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
@@ -585,7 +631,7 @@ namespace CinderCourt.View
                 }
             }
 
-            if (Vfx != null) Vfx.SyncPickups(_sim.Pickups);
+            if (Vfx != null) Vfx.SyncPickups(_sim.Pickups, _sim.PickupGrades);
             if (Vfx != null) Vfx.SyncWard(_sim.Player);
             // §3.6 (#9): idle threat hint — arrow appears after 0.4 s of no
             // player movement, points at the nearest living enemy.

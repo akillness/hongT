@@ -365,6 +365,24 @@ namespace CinderCourt.View
             { HumanBodyBones.RightHand, HumanBodyBones.LeftHand, HumanBodyBones.Chest };
         readonly GameObject[] _equipProps = new GameObject[3];
         readonly int[] _equipPropBand = { 0, 0, 0 };   // 0 none / 1 basic / 2 fine
+        string _weaponArchetype;   // W14: "dagger" / "bow" / "hammer" / null = legacy
+
+        /// <summary>W14: select the weapon silhouette family. The archetype
+        /// prefab (Props/equip-weapon-{archetype}-{band}) is preferred and the
+        /// legacy equip-weapon-{band} mesh remains the fallback, so a build
+        /// without the new FBX props keeps its current look. Resets the weapon
+        /// slot so the next AttachEquipProps resolves the new family.</summary>
+        public void SetWeaponArchetype(string archetype)
+        {
+            if (_weaponArchetype == archetype) return;
+            _weaponArchetype = archetype;
+            _equipPropBand[0] = 0;
+            if (_equipProps[0] != null)
+            {
+                Destroy(_equipProps[0]);
+                _equipProps[0] = null;
+            }
+        }
 
         static int PropBand(int tier) => tier >= 4 ? 2 : tier >= 2 ? 1 : 0;
 
@@ -389,8 +407,14 @@ namespace CinderCourt.View
                 if (band == 0) continue;
                 var bone = _animator.GetBoneTransform(PropBones[slot]);
                 if (bone == null) continue;
-                var prefab = Resources.Load<GameObject>(
-                    $"Props/equip-{PropSlots[slot]}-{(band == 2 ? "fine" : "basic")}");
+                var stage = band == 2 ? "fine" : "basic";
+                GameObject prefab = null;
+                if (slot == 0 && !string.IsNullOrEmpty(_weaponArchetype))
+                    prefab = Resources.Load<GameObject>(
+                        $"Props/equip-weapon-{_weaponArchetype}-{stage}");
+                if (prefab == null)
+                    prefab = Resources.Load<GameObject>(
+                        $"Props/equip-{PropSlots[slot]}-{stage}");
                 if (prefab == null) continue;   // asset missing -> tint floor
                 var prop = Instantiate(prefab, bone, false);
                 prop.name = $"EquipProp-{PropSlots[slot]}";

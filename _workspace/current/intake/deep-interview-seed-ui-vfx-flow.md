@@ -1,6 +1,7 @@
 # Deep Interview Seed — UI·연출·흐름 전면 개선 (2026-08-07)
 
-**상태: SEED (미동결).** 아래 D1–D9 결정이 확정되면 동결하고 `ralplan`으로 넘긴다.
+**상태: FROZEN (2026-08-07 사용자 승인).** D1–D9 전부 제안 기본값으로 확정, 실행 개시.
+W13 자산 소스는 §8 확정 기록 참조.
 표기 규약은 CLAUDE.md §4를 따른다: `[OBSERVED]`(파일:라인 확인) /
 `[INFERENCE]`(추론) / `[TARGET]`(목표치).
 
@@ -114,3 +115,12 @@ UI 스케일 개선, 보스 다양화, 인트로→로비→스토리→스테�
   맞추는 것이 기본안.**
 - "동료별 고유 스킬"의 발동 주체: 자동(쿨다운) vs 커맨드 큐 지시. 기본안은 **자동 + 커맨드로 강제 발동 가능**.
 - 보스 다양화의 개수/성격(신규 패턴 몇 종인지) 미정. 기본안 **최종보스 1 + 스테이지 보스 3종 차별화**.
+
+## 8. 확정 기록 (2026-08-07, 실행 승인)
+
+- **D1–D9 전부 §5 제안 기본값으로 확정.** 사용자 지시: "unity 자산에 맞도록 확정하고 승인하고 진행".
+- **W13 캐릭터 소스 확정 [OBSERVED]** (`../../../Abyssal-Surge/assets/defense-asset-manifest.json` 실측):
+  - `mesh/character/human-command-boss-character/**`, `mesh/character/broken-court-monarch-boss-character/**` 는 전 파일 `delete`/`runtimeReference:false` — 사용 금지.
+  - 정당 소스는 `assets/motion/ingame/characters/{human-command-boss,broken-court-monarch-boss}/model.glb` (retain / runtimeReference:true) 두 개뿐.
+  - 최종보스는 `Assets/Resources/Characters/broken-court-monarch-boss.prefab` 로 **이미 임포트됨** — 재임포트 불필요, 로스터/배정 코드 연동만 잔여. 08-04 인터뷰(lantern-reaver 플레이어)는 본 시드가 supersede.
+- **실행 편성**: Sim 레인(W4/W5), UI 레인(W7/W8/W10), VFX 레인(W9 + 아카이브 V2/V3), 자산 레인(W12/W13/W14) 4개 병렬. 이번 사이클 제외: W6(보스 다양화), W11(한글 IME, D9 최후 레인), V1/V4, T-b. EditMode 통합 검증은 전 레인 완료 후 1회.
