@@ -312,6 +312,8 @@ namespace CinderCourt.Tests
                         if (halfExtent > worstHalfExtent) worstHalfExtent = halfExtent;
                         if (b.size.y > worstHeight) worstHeight = b.size.y;
                     }
+                    TestContext.WriteLine(
+                        $"  {stageId}: {discs} disc gimmick(s) -> {furniture} furniture");
                     Assert.That(furniture, Is.GreaterThan(0),
                         $"{stageId}: {discs} disc gimmick(s) but zero furniture "
                         + "modules - the pass emitted nothing and every other "

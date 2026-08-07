@@ -1,0 +1,91 @@
+# 진공 게이트와 상쇄되는 스케일 — 기믹 지형 가구에서 배운 4가지
+
+- 상태: [OBSERVED] (2026-08-07 세션, `Assets/Scripts/View/EnvironmentBuilder.cs` 기믹 가구 패스)
+- 관련: [[wiki/concepts/hongt-environment-amendment-12]], [[wiki/concepts/hongt-companion-autonomy-tick-order-trap]]
+
+각 항목은 이 세션에서 **실제로 초록을 통과한 채 살아남았던** 결함이다. 재발견 비용이 높아 남긴다.
+
+## 1. 상한 단언은 0개일 때 진공 통과한다 [OBSERVED]
+
+`EnvironmentBuilderTests`의 모든 기존 행은 상한("어떤 모듈도 …하면 안 된다")이거나 자식 순회다.
+패스가 **아무것도 만들지 않으면 전부 통과**한다.
+
+실제 사례: 조수(TideCurrent) 제방 레일이 `HalfW`를 써서 모듈 0개를 만들었는데
+전체 스위트가 초록이었다. 이름만 맞고 렌더러 없는 빈 피벗도 같은 형태로 통과한다.
+
+- 교훈: 새 생성 패스에는 **양성 단언**을 함께 넣는다 —
+  "이 조건의 스테이지는 최소 1개를 만든다", 그리고 **렌더러를 요구**한다.
+- 이름 카운트만으로는 부족하다. `Materialize`는 조각 루프 전에 피벗을 만들고,
+  라이브러리 로드 실패 시 조용히 반환하므로 빈 피벗이 남는다.
+
+## 2. 곱한 뒤 캡을 씌우면 인자가 대수적으로 소거된다 [OBSERVED]
+
+```
+scale = localScale · SizeY           // 의도: 파츠별 크기 문법
+h₀    = height(scale)                 // = h_src · SizeY
+if h₀ > cap: scale ·= cap / h₀        // = localScale · cap / h_src
+```
+
+`SizeY`가 **사라진다**. 파츠별 9/10/11/12 문법이 전부 같은 캡 높이로 납작해진다.
+캡이 거의 항상 걸리므로 문법 전체가 무력화된다.
+
+- 교훈: 크기 필드는 **배율이 아니라 목표값(target)** 으로 정의하고 직접 풀어라.
+
+## 3. 축 이름을 확인하라 — HalfW ≠ 세로 반높이 [OBSERVED]
+
+`CampaignSpec.CurrentHalfW = 520`(X 반폭, 아레나 반폭과 동일),
+`CurrentHalfH = 110`(Y 반높이). 밴드의 세로 두께는 `HalfH`다.
+
+`HalfW`로 오프셋을 잡으면 좌표가 아레나(y 334~874) 밖으로 나가 전부 컬링된다.
+그리고 §1 때문에 **게이트는 초록**이다.
+
+- 부수 결론: 조수 밴드는 y 360-580 / 630-850을 덮어 여유가 26/50/24px뿐이고,
+  가운데 50px는 스펙이 명시한 유일한 안전 회랑이라 장식을 두면 안 된다.
+  AshWall과 함께 "국소 실루엣이 없는 밴드 기믹"으로 분류해 제외했다.
+
+## 4. 높이만 구속하면 XZ가 부풀어 텔레그래프를 덮는다 [OBSERVED]
+
+높이 목표로 스케일을 풀면 XZ도 같은 배율로 커진다. 납작한 데칼일수록 `h₀`가 작아
+배율이 커지고, 실측 XZ 반폭이 **0.701u(70 sim px)** 까지 갔다.
+
+링 마진 12px 기준 벤트 가구 피벗은 152px인데 안쪽 모서리는 81.9px —
+**반경 90 피해 디스크 안**이었다. 클리어런스 테스트는 **피벗만** 보므로 초록.
+
+- 교훈: 높이와 발자국 **둘 다** 구속하고 `min`을 취한다.
+- 마진이 곧 실루엣 예산이다: 피벗을 `Radius+ClearBase+margin`에 두고
+  반폭을 `margin` 이하로 캡하면 안쪽 모서리가 클리어런스 선에 정확히 걸린다.
+- 폐색은 산수로 확인 가능: `0.34/tan(55°) = 23.8px < ClearBase 50`.
+
+## 5. 색조는 해저드 채널을 침범할 수 있다 [OBSERVED]
+
+가구가 바닥과 구분되지 않아 강조색(ember)으로 올리려 했으나,
+벤트 텔레그래프가 `Color(1, 0.6, 0.3)` — **주황이 이 스테이지의 해저드 채널**이다.
+장식에 같은 색조를 주면 위장이 되어 §E0.5를 더 크게 깬다(안 보이는 것보다 나쁘다).
+
+- 대신 **명도**로 분리: `tints.Stone`(0.155) 기반에 charred 배율,
+  바닥 패널(`floorBase` 0.235)보다 어둡게.
+- 그림자는 쓸 수 없다 — env 라이트는 전부 `LightShadows.None`이고
+  가구도 `shadowCastingMode.Off`다. 명도가 유일한 채널이다.
+
+## 6. 파생 상수는 따라가고, raw 상수는 조용히 표류한다 [OBSERVED]
+
+같은 세션에서 두 상수가 정반대로 갈렸다. 비싼 쪽은 후자다.
+
+**따라간 쪽**: `FurnitureMaxHalfExtent`를
+`FurnitureRingMargin * ViewWorld.Scale` const 식으로 두었더니,
+다른 레인이 `ViewWorld.Scale`을 0.01 → 0.0125로 바꿨을 때
+예산이 0.30 → 0.375로 **스스로 따라갔다**. 마진 30 sim px는 불변이므로
+기하 불변식(안쪽 모서리 = `Radius+ClearBase`)도 유지됐다.
+
+**표류한 쪽**: `FurnitureMaxHeight`는 raw `0.34f`(구 배율에서 34 sim px)였다.
+Scale이 바뀌자 아무 경고 없이 **27.2 sim px로 20% 조여졌다**.
+게이트는 계속 초록이었고, 하마터면 움직인 캡을 기준으로 Shade를 튜닝할 뻔했다.
+
+- 교훈: "파생 상수는 좋다"가 아니라 **"raw로 남긴 하나가 표류한다"** 가 요점이다.
+  월드 단위 리터럴은 전부 표류 후보다.
+- 리포 관례는 두 가지다:
+  `ViewWorld.LegacyScaleRatio`로 보정(`CameraRig.cs` L20/L22,
+  `EnvironmentBuilder.cs` L148-149 라이트 반경), 또는
+  애초에 **sim px로 표현**해 `Scale`을 곱하는 것.
+  기하 제약(ClearBase, Radius)이 sim px 단위이므로 후자를 택했다:
+  `FurnitureMaxHeightPx = 34.0` → `* ViewWorld.Scale`.

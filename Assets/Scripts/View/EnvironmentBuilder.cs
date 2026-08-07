@@ -157,7 +157,7 @@ namespace CinderCourt.View
                     // so it needs neither the code cube nor the env materials —
                     // and it is how gimmick furniture gets real rock silhouettes
                     // while the generated-texture path is still blocked.
-                    SpawnLibraryPart(pivot.transform, piece, i);
+                    SpawnLibraryPart(pivot.transform, piece, i, in tints);
                     continue;
                 }
                 var child = new GameObject("piece-" + i.ToString("D2"));
@@ -266,7 +266,8 @@ namespace CinderCourt.View
         /// and counter the XZ offset — otherwise the rock lands wherever the FBX
         /// baked it instead of on the gimmick we are framing.
         /// </summary>
-        static void SpawnLibraryPart(Transform pivot, EnvironmentLayout.Piece piece, int i)
+        static void SpawnLibraryPart(
+            Transform pivot, EnvironmentLayout.Piece piece, int i, in Tints tints)
         {
             EnsureLibrary();
             var pool = piece.LibraryPart == "feature" ? _featureParts : _propParts;
@@ -332,8 +333,21 @@ namespace CinderCourt.View
             {
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 r.receiveShadows = false;
+                // Same palette channel the cube path uses, and deliberately
+                // NOT the accent: the vent telegraph is Color(1,0.6,0.3), so
+                // orange IS the hazard channel on this stage. Tinting scenery
+                // toward ember to make it pop would give decoration a live
+                // disc's hue - camouflage, which is a worse §E0.5 break than
+                // the invisibility it fixes. Separate by VALUE instead: stone
+                // base is 0.155 against floorBase 0.235, so a charred multiplier
+                // reads as burnt ground without borrowing the warning colour.
+                // Nothing else is available - every env light is
+                // LightShadows.None and these cast no shadow, so value contrast
+                // is the only channel left.
+                var tint = tints.Stone * piece.Shade;
+                tint.a = 1f;
                 var block = new MaterialPropertyBlock();
-                block.SetColor(BaseColorId, new Color(piece.Shade, piece.Shade, piece.Shade, 1f));
+                block.SetColor(BaseColorId, tint);
                 r.SetPropertyBlock(block);
             }
         }
@@ -707,7 +721,22 @@ namespace CinderCourt.View
         internal const double FurnitureRingMargin = 30.0;  // beyond Radius+ClearBase
         internal const float FurnitureMaxHalfExtent =
             (float)(FurnitureRingMargin * ViewWorld.Scale);
-        internal const float FurnitureMaxHeight = 0.34f;   // world u, occlusion cap
+        /// <summary>
+        /// Occlusion cap, expressed in SIM px like every other geometry term
+        /// here (ClearBase, Radius, the ring margin) so it tracks ViewWorld.Scale
+        /// instead of freezing at whatever quotient it was tuned under. It was
+        /// a raw 0.34f world constant and a Scale bump 0.01 -> 0.0125 silently
+        /// tightened it 34 -> 27.2 sim px; the footprint cap tracked because it
+        /// was derived, this one did not.
+        ///
+        /// Why 34: a part of height h hides ground up to h/tan(55°) behind it at
+        /// the dungeon pitch, so the reach is 34/1.428 = 23.8 sim px - inside
+        /// ClearBase 50, which means a capped part provably CANNOT reach the
+        /// telegraph disc it stands beside (§E0.5).
+        /// </summary>
+        const double FurnitureMaxHeightPx = 34.0;
+        internal const float FurnitureMaxHeight =
+            (float)(FurnitureMaxHeightPx * ViewWorld.Scale);
 
         /// <summary>
         /// Per-gimmick furniture grammar: how many parts ring it, which library
@@ -733,24 +762,29 @@ namespace CinderCourt.View
                  || hazard.Kind == HazardKind.TideCurrent) continue;
 
                 var ringR = hazard.Radius + ClearBase + FurnitureRingMargin;
-                int count; string family; float scale; float shade; // scale = target world height (u)
+                // scale = target height in SIM PX (× ViewWorld.Scale at use).
+                // These were raw world literals tuned at Scale 0.01 - the same
+                // drift trap as the cap above, one level down: after the 0.0125
+                // bump every one of them fell UNDER the cap, so the ceiling went
+                // inert and the real heights had quietly shrunk 20%.
+                int count; string family; float scale; float shade;
                 switch (hazard.Kind)
                 {
                     case HazardKind.EmberVent:
                         // Scorched crater rim: many small shards, low and wide.
-                        count = 6; family = "prop"; scale = 0.17f; shade = 0.82f;
+                        count = 6; family = "prop"; scale = 17f; shade = 0.55f;
                         break;
                     case HazardKind.ObsidianPillar:
                         // Outcrop base: few, chunkier, clustered.
-                        count = 3; family = "feature"; scale = 0.26f; shade = 0.95f;
+                        count = 3; family = "feature"; scale = 26f; shade = 0.95f;
                         break;
                     case HazardKind.RelicAltar:
                         // Dais corners: symmetric, deliberate.
-                        count = 4; family = "feature"; scale = 0.32f; shade = 1.08f;
+                        count = 4; family = "feature"; scale = 32f; shade = 1.08f;
                         break;
                     default: // EmberPylon
                         // Buttress feet around the breakable column.
-                        count = 4; family = "prop"; scale = 0.22f; shade = 1.0f;
+                        count = 4; family = "prop"; scale = 22f; shade = 1.0f;
                         break;
                 }
 
@@ -778,7 +812,8 @@ namespace CinderCourt.View
                     {
                         Part = Part.Body,
                         LibraryPart = family,
-                        SizeY = scale * (1f + (float)Signed(seed, 15, 4) * 0.12f),
+                        SizeY = scale * (float)ViewWorld.Scale
+                                * (1f + (float)Signed(seed, 15, 4) * 0.12f),
                         Shade = shade,
                     });
                     modules.Add(module);
