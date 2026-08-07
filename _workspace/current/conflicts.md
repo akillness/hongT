@@ -191,3 +191,36 @@ PR 본문 §5 "A9 심 API는 main에도 없다"는 리뷰 시점에 이미 낡�
 - **프로버넌스 불일치**: provenance의 `derivedChanges`는
   `Assets/Tests/EditMode/DifficultyTests.cs`를 가리키는데 실제 파일명은
   `DifficultyGroupAiTests.cs`다. 레인 마감 시 정정 대상.
+
+## 2026-08-07 17:2x — 명령 에이전트 레인: EditMode 전체 게이트 차단(타 세션 파일)
+
+- **관측**: `msbuild CinderCourt.Tests.EditMode.csproj` → **error 9건, 전부
+  `Assets/Tests/EditMode/EnvironmentBuilderTests.cs`**
+  (`CS0103: The name 'EnvironmentBuilder' does not exist`). 해당 파일은
+  untracked(`??`), mtime 17:12 — **다른 세션의 라이브 버퍼**이고, 참조하는
+  `EnvironmentBuilder` 타입은 저장소 어디에도 아직 없다(작성 중).
+- **판단**: 남의 라이브 파일은 손대지 않는다(CLAUDE.md §5). 컴파일 에러는
+  어셈블리 전체를 막으므로 **Unity EditMode 전체 러너(502+)는 이 세션에서 실행
+  불가**. Unity 에디터도 다른 세션이 점유 중(pid 16568)이라 배치 러너 자체가 불가.
+- **대체 증거**: ① `msbuild CinderCourt.View.csproj` → `-> Temp/bin/Debug/
+  CinderCourt.View.dll` (error 0) ② `msbuild Assembly-CSharp-Editor.csproj` →
+  error 0 (신규 `Assets/Editor/GeminiDevKey.cs` 포함) ③ 신규 순수 로직 픽스처 2종
+  (`CommandPlanParserTests` 20 · `CommandSequenceRunnerTests` 15)을 net8.0 +
+  NUnit 3.14 하네스에서 빌드된 `CinderCourt.View.dll` 참조로 실행 → **35/35 pass**.
+  하네스는 `/tmp/cmdagent/harness`(저장소 밖), 어셈블리명을
+  `CinderCourt.Tests.EditMode`로 맞춰 `InternalsVisibleTo` 유지.
+- **후속(해당 레인 소유자)**: `EnvironmentBuilder` 구현이 들어오면 EditMode 전체
+  러너로 502+ 재측정 필요. 이 레인 신규 파일은 전부 `.meta` 동봉 커밋했다.
+
+### 별건 — 이 레인이 남긴 기록 부채 2건
+
+- **`.env.game-audio` 키 소진**: `GEMINI_API_KEY`가 `gemini-2.5-flash-lite` /
+  `gemini-2.5-flash` / `gemini-2.0-flash` 전부 **429
+  `Your prepayment credits are depleted`**. 로컬 키워드 시퀀스 경로는 네트워크
+  0이라 무관하지만, **원격 계획 왕복은 실측 미검증**이다. 콘솔은 실패 사유를
+  `(요청 실패 429)`처럼 상태코드로 노출한다.
+- **제출 문서 정오**: `docs/nan2026/02-ai-tech.md` §4.2와
+  `docs/ai-native-builder/*`가 "응답은 의도 단어 1개로 제한"이라고 적고 있는데,
+  이제 응답은 **닫힌 어휘의 순서 있는 계획(JSON)**이다. 두 문서는 PDF/SVG 파생물이
+  묶인 제출 패키지라 이 레인에서 건드리지 않았다 — 해당 레인에서 본문 정정 +
+  `tools/docs/build-nan2026-pdf.mjs` 재생성이 필요하다.

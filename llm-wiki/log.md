@@ -31,3 +31,11 @@
   (`e0cb9a4`). origin/main·origin/akillness/main 동기화, gh-pages는 런타임 경로
   무변경(`Assets|Packages|ProjectSettings` diff 0건)이라 재배포 불필요.
   교훈: `wiki/concepts/stale-branch-merges-clean-but-lies.md`.
+- 2026-08-07 — feature: 명령 에이전트(텍스트 커맨드 → 순서 있는 시퀀스 → 이벤트
+  완료마다 다음 단계). `CommandPlan.cs`(위치순 로컬 스캔 + Gemini JSON 파서),
+  `CommandAgent.cs`(Gate/Ack/Settle 러너), `HudView.CommandAgent.cs`(글루),
+  `GeminiCommandClient.Plan`(단일 의도 분류기 대체), `Assets/Editor/GeminiDevKey.cs`
+  (에디터 전용 `.env.game-audio` 키 로더). 게이트 35/35(신규 2픽스처) —
+  Unity 에디터 점유로 배치 러너 불가, msbuild(Roslyn) 컴파일 + net8.0 NUnit
+  하네스로 실행. `.env.game-audio` 키는 전 모델 429(크레딧 소진)라 라이브 왕복
+  미검증. 지식: `wiki/entities/hongt-command-agent-sequence-console.md`.

@@ -6,6 +6,9 @@
 - [[wiki/concepts/hongt-momentum-gauge-amendment-9]] — 모멘텀 게이지 (Amendment #9)
 - [[wiki/concepts/stale-branch-merges-clean-but-lies]] — 94커밋 뒤처진 브랜치가 충돌 0건으로 병합되며 낡은 수치(166/166, 6단계)를 들여온 사례와 2단계 병합 규칙
 
+## Entities
+- [[wiki/entities/hongt-command-agent-sequence-console]] — 명령 에이전트: 텍스트 커맨드 → 순서 있는 시퀀스 → 이벤트 완료마다 다음 단계 (위치순 스캔 · Gate/Ack/Settle · Gemini JSON 계획)
+
 ## Sources
 - [[wiki/sources/2026-08-07-hackslash-design-guide-reference]] — 외부 핵앤슬래시 디자인 가이드 (2026-08-07 감사의 비교축; 기획서 아님)
 - [[wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m]] — 워크트리 캡처 (2026-08-04)
