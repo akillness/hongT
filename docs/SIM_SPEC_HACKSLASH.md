@@ -1009,14 +1009,22 @@ per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 
 
 ## Frozen Contract Amendment #11 — 난이도와 적 그룹 AI (2026-08-08)
 
-**Status: implemented and proven** (`Assets/Scripts/Sim/DifficultySpec.cs`, `HackConfig.Difficulty`, `CinderSim.PlanEnemyGroup`/`MayAttackThisTick`/`UpdateEnemy`), gated by `Assets/Tests/EditMode/DifficultyTests.cs`. Amends §0, §12, §13 only as specified.
+**Status: implemented and proven** (`Assets/Scripts/Sim/DifficultySpec.cs`,
+`HackConfig.Difficulty`, `CinderSim.PlanEnemyGroup`/`MayAttackThisTick`/
+`UpdateEnemy`), gated by `Assets/Tests/EditMode/DifficultyGroupAiTests.cs` (심)와
+`Assets/Tests/EditMode/DifficultySelectionTests.cs` (뷰·영속화).
+Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
+§15(훈련장), AMENDMENT #6 의 §13.x(각인)는 손대지 않는다 — 새 절은 §16 이다.
 
-### §13.1 난이도 티어 (Difficulty)
+### §16.1 난이도 티어 (Difficulty)
 
-`Difficulty` 4단계 enum (순서: Normal=0, Story=1, Hard=2, Nightmare=3).
-`Normal=0` 이 기본값이라 `default(HackConfig)` 및 기존 모든 초기화가 개정 이전 수치를 그대로 재현한다 → **골든 다이제스트 재핀 불필요**.
+`Difficulty` 4단계 enum: `Normal = 0`, `Story = 1`, `Hard = 2`, `Nightmare = 3`.
+**enum 값은 난이도 순서가 아니다.** `Normal` 이 0 이어야 `default(HackConfig)` 와
+기존 모든 초기화가 개정 이전 수치를 그대로 재현하기 때문이다 →
+**골든 다이제스트 재핀 불필요**. 표시 순서는 `DifficultySpec.AtOrder`
+(입문 → 보통 → 어려움 → 악몽)가 단독으로 소유한다.
 
-### §13.2 수치 프로필 표 (`DifficultySpec.For`)
+### §16.2 수치 프로필 표 (`DifficultySpec.For`)
 
 | Difficulty | enum | IncomingDamageMul | AttackCooldownMul | AttackTokens | GroupAi | RingRadiusMul | FlankBias |
 |---|---|---|---|---|---|---|---|
@@ -1025,34 +1033,60 @@ per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 
 | Hard | 2 | 1.35 | 0.84 | 3 | true | 1.55 | 0.75 |
 | Nightmare | 3 | 1.70 | 0.70 | 4 | true | 1.35 | 0.75 |
 
-- `IncomingDamageMul`: 플레이어 수신 피해 배율.
-- `AttackCooldownMul`: 적 공격 쿨다운 배율 (1 미만 = 빠른 재공격).
-- `AttackTokens`: 동시 시전 허용 적 상한 (0 = 무제한, 개정 이전).
-- `GroupAi`: 적 그룹 AI(포위 링 오비팅 및 토큰 차례 부여) 활성화 여부.
-- `RingRadiusMul`: 토큰 미획득 적의 대기 링 반경 배율 (`SimConfig.EnemyAttackRange` 기준).
-- `FlankBias`: 정면 외 적의 토큰 우선순위 거리 배율 (1 미만 = 측/후방 적 우선 선택).
+- `IncomingDamageMul` — 플레이어 수신 피해 배율. Ward/실드보다 **먼저** 곱해지므로
+  흡수되는 피해도 티어 스케일된 값이다 (`CinderSim.DamagePlayer`).
+- `AttackCooldownMul` — 적 공격 쿨다운 배율. 1 미만 = 더 자주 때린다. 웨이브
+  가산항까지 포함한 최종 쿨다운에 곱해진다.
+- `AttackTokens` — 동시에 스윙할 수 있는 non-boss 적 상한. **0 = 무제한**이며
+  이것이 개정 이전 규칙이다.
+- `GroupAi` — 포위 링 + 교대 공격 활성 여부. 리뷰 근거상 어려움 이상에서만 켠다
+  (`_workspace/current/design/video-review-analysis-amendment11.md`).
+- `RingRadiusMul` — 토큰 미보유 적의 대기 링 반경 배율 (`SimConfig.EnemyAttackRange`
+  기준). Hard 1.55 → 117.8, Nightmare 1.35 → 102.6.
+- `FlankBias` — 정면이 아닌 적의 토큰 우선순위 거리 배율. 1 미만 = 측/후방 우선.
 
-### §13.3 적 그룹 AI 규칙 (`CinderSim.PlanEnemyGroup` / `UpdateEnemy`)
+### §16.3 적 그룹 AI 규칙 (`CinderSim.PlanEnemyGroup` / `UpdateEnemy`)
 
-1. **상수 계약**: `RingSlots = 8`, `RingArriveTolerance = 16`, `ForwardThreshold = -18`.
-2. **토큰 선정 규칙**:
-   - 매 틱 `UpdateEnemy` 실행 전 사전 패스 `PlanEnemyGroup()`으로 토큰 부여 대상을 결정 (배열 순서 편향 방지).
-   - 보스는 공용 팩 토큰을 소비하지 않고 상시 시전 허용 (`_mayAttack[index] = true`).
-   - 사거리 안(`distance <= EnemyAttackRange`) 및 쿨다운 완료(`AttackCooldown <= 0`) 후보 중 `score` 최소 적에게 부여.
-   - `inFront` 판정 (`(enemy.X - player.X) * player.Facing >= -18`) 이 참이면 `score = distance`, 거짓(측/후방)이면 `score = distance * FlankBias`.
-   - 점수 동점 시 `enemy.Id`가 낮은 적 우선.
+1. **상수 계약**: `RingSlots = 8`, `RingArriveTolerance = 16`,
+   `ForwardThreshold = -18` (프로즌 전방 판정 `dx*facing >= -18` 재사용).
+2. **토큰 선정 (사전 패스)**:
+   - 매 틱 `UpdateEnemies` 진입 시 `PlanEnemyGroup()` 이 먼저 돌아 이번 틱에
+     스윙이 허용되는 적을 정한다. 인라인으로 부여하면 토큰이 항상 낮은 배열
+     인덱스로 흘러가므로 사전 패스여야 한다.
+   - `AttackTokens == 0` 이면 즉시 반환 — 아무도 게이트되지 않는다(개정 이전).
+   - 보스는 팩 토큰을 소비하지도, 게이트되지도 않는다.
+   - 이미 `ActorAction.Attack` 인 non-boss 적은 토큰 1개를 점유한다.
+   - **후보 조건은 "쿨다운이 끝났고 스윙 중이 아닌 살아있는 적"이다. 사거리
+     조건은 없다.** 토큰은 *때릴 권한*이 아니라 *플레이어에게 붙을 권한*이기
+     때문이다. 사거리를 후보 조건에 넣으면 링(사거리 밖)에 대기하는 적은 영원히
+     토큰을 못 받고, 팩 전체가 공전만 하는 교착에 빠진다.
+   - `score` 최소 후보에게 부여한다. `inFront`
+     (`(enemy.X - player.X) * player.Facing >= -18`) 이면 `score = distance`,
+     아니면 `score = distance * FlankBias` — 그래서 첫 타가 측/후방에서 들어온다.
+   - 동점이면 `enemy.Id` 가 낮은 쪽. RNG 없음.
 3. **포위 링 좌표식 (`DifficultySpec.RingTarget`)**:
-   - 적 `Id`에 의해 고정 슬롯 할당: `slot = enemyId & 7`.
-   - `angle = 2π * slot / 8`.
+   - `slot = enemyId & 7` — id 고정 슬롯이라 옆 적이 죽어도 각도가 튀지 않는다.
+   - `angle = 2π * slot / 8`
    - `targetX = playerX + radius * cos(angle)`
-   - `targetY = playerY + (radius * sin(angle) / 1.42)` (아이소메트릭 1.42 보정 적용).
-4. **대기 거동**:
-   - `GroupAi`가 켜져 있고 토큰을 얻지 못한 적은 플레이어를 직접 추격하지 않고 포위 링 목표점(`targetX`, `targetY`)으로 이동하며, 도착 오차 16 px 이내 진입 시 이동을 멈추고 `Idle` 상태를 유지.
+   - `targetY = playerY + radius * sin(angle) / 1.42` — 프로즌 아이소 메트릭
+     `hypot(dx, dy*1.42)` 기준으로 원이 되도록 Y 반경을 나눈다.
+4. **대기 거동**: `GroupAi` 가 켜져 있고 이번 틱 토큰이 없는 적은 플레이어가
+   아니라 자기 링 슬롯을 향해 걷는다. 도착 판정은 플레이어까지의 거리가 아니라
+   **슬롯까지의 거리**이며 `RingArriveTolerance = 16` 이내면 멈춰 `Idle` 한다.
+   스윙 직후 쿨다운에 들어간 적은 토큰을 잃고 링으로 물러나므로, 결과적으로
+   "치고 빠지고 다음 적이 들어오는" 교대가 만들어진다.
 
-### §13.4 불변식과 결정론
+### §16.4 불변식과 결정론
 
-- **기본값 불변식**: `Difficulty.Normal` (0) 값이 기본이므로 `default(HackConfig)` 및 기존 레거시 설정은 완벽히 개정 이전 시뮬레이션을 재현한다.
-- **결정론**: 모든 계산은 고정 스텝 적구형 수식과 ID 기반 정렬로 수행되며 RNG를 일절 사용하지 않는다.
+- **기본값 불변식**: `Difficulty.Normal` 이 0 이므로 `default(HackConfig)` 와 기존
+  모든 초기화가 개정 이전 시뮬레이션을 재현한다.
+  [OBSERVED] 개정 전(git HEAD) 심과 개정 후 심을 동일 입력으로 arena 5400틱 /
+  prologue 3600틱 / dungeon(cinder-span) 5400틱 돌려 97틱마다 플레이어 좌표·HP·
+  점수·웨이브·전체 적 좌표/액션/HP 를 덤프한 153행이 **완전히 동일**했다.
+- **결정론**: 모든 계산이 고정스텝 누산과 컴파일타임 상수, 그리고 id 기반
+  타이브레이크로만 이뤄진다. RNG 를 일절 쓰지 않으므로 §13 이 그대로 유지된다.
+- **적용 범위**: 뷰는 `GameDirector.StartDungeon` 에서만 `config.Difficulty` 를
+  채운다. 아레나(프로즌)와 프롤로그(튜토리얼)는 항상 `Normal` 이다.
 
 ---
 
@@ -1074,7 +1108,7 @@ per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 
 | 9 | 모멘텀 게이지 | 본 문서 "Amendment #9" | frozen |
 | 10 | 훈련장 · 돌발 | 본 문서 "AMENDMENT #10" | frozen |
 | (미정) | **각인 (Sigils)** — 원문 헤딩 "# AMENDMENT #6 — 각인"으로 도착(레인 번호 충돌, conflicts.md 2026-08-07 기록). 내부 §13.x는 이 증보 로컬 번호이며 본문 §13 결정론과 무관 | 본 문서 "# AMENDMENT #6 — 각인 (Sigils)" | frozen(내용) — **canonical 번호는 D13 오퍼레이터 결정 대기.** 제안: "10-b" (#10/#11이 코드·커밋에 박혀 밀 수 없음). L440 노트의 "동료=#6 확정 시 각인=#7" 경로는 #7이 이미 동료 자율성에 소비되어 무효 |
-| 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" | frozen |
+| 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" (로컬 절 번호 **§16**) | frozen |
 | 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **제안 — 구현·게이트 대기** (§E8 7계약 초록 시 frozen 승격. #5 선례) |
 
 # 부록 B — 정오표 (2026-08-07 감사 반영, additive)

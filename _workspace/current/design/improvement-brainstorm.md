@@ -43,9 +43,17 @@
 (c) 히트스톱·셰이크·데미지 넘버 등 **임팩트 피드백**이 타격을 무겁게 만든다.
 
 이 저장소 [OBSERVED] 현황:
-- (c) 임팩트 피드백은 이미 성숙 — 히트스톱(`GameView`), 셰이크(`CameraRig`),
-  데미지 넘버(`DamageNumberPool`), 원소 플래시(§K3), 스윙 트레일(§C1),
-  캐스트 글로우(§V1), 파티클 4종(`VfxDirector`) 이 이미 구현됨. **재제안 금지.**
+- (c) 임팩트 피드백은 대체로 성숙 — 셰이크(`CameraRig`), 데미지 넘버
+  (`DamageNumberPool`), 원소 플래시(§K3), 스윙 트레일(§C1), 캐스트 글로우(§V1),
+  파티클 4종(`VfxDirector`) 이 구현돼 있다. **채널 자체의 재제안은 금지.**
+  - **[정정 2026-08-08]** "히트스톱도 성숙"은 틀렸다. 감사 결과 히트스톱과 카메라
+    펀치는 **처치(0.04 s)와 콤보 피니셔(0.07 s)에만** 걸려 있었고 일반 근접
+    적중(`SimEvents.EnemyHit`)에는 두 채널 모두 **전혀 없었다** — 평타가 통과하는
+    느낌의 실제 원인. AMENDMENT #11 사이클에서 `Assets/Scripts/View/ImpactBudget.cs`
+    로 Light 0.028 s / Kill 0.045 s / Finisher 0.075 s 티어를 단일 표로 통일하고,
+    Light 에 0.14 s 재발동 간격을 둬 군집 연타 시 슬로우모션 눌어붙음을 막았다.
+    근거 영상: <https://youtu.be/wbDv6nawEeY> — 리뷰어가 동종 게임에 70점 이상을
+    주지 못한 유일한 이유가 타격감이었다.
 - (a) 발광: `CinderPostProfile`에 URP **Bloom(threshold 1.05 / intensity 0.55)**
   이 이미 설정돼 있으나, 모든 VFX 머티리얼이 `MakeUnlit(...,transparent)` =
   **straight alpha(OneMinusSrcAlpha)** 라서 겹쳐도 밝아지지 않고 탁해진다 →

@@ -1,5 +1,53 @@
 # Release Notes
 
+## 난이도 4단계 + 적 그룹 협동 AI + 타격감 개편 · 2026-08-08
+
+리뷰 영상 <https://youtu.be/wbDv6nawEeY> (쿼터뷰 액션 RPG 'Achilles: Legends
+Untold' 리뷰) 분석에서 출발했다. 리뷰어가 그 게임에 70점 이상을 주지 못한 이유가
+**타격감**이었고, 두 번째 지적이 **보통 난이도의 적이 멍청하다 / 그룹 AI 는
+어려움 난이도에서 개선된다**였다. 두 축을 그대로 우리 게임에 적용했다.
+분석 원문: `_workspace/current/design/video-review-analysis-amendment11.md`.
+
+### 시뮬레이션 (FROZEN CONTRACT AMENDMENT #11 — SIM_SPEC_HACKSLASH.md §16)
+- **난이도 4티어**: 입문(Story) / 보통(Normal) / 어려움(Hard) / 악몽(Nightmare).
+  축은 받는 피해 배수(0.65 / 1.00 / 1.35 / 1.70), 적 공격 쿨다운 배수
+  (1.22 / 1.00 / 0.84 / 0.70), 동시 공격 인원 상한(2 / 무제한 / 3 / 4),
+  그룹 AI(off / off / on / on).
+- **적 그룹 협동 AI (어려움 이상)**: 매 틱 사전 패스가 공격 차례를 배분한다.
+  차례를 못 받은 적은 플레이어 주위 8슬롯 포위 링(사거리 ×1.55 / ×1.35)의 자기
+  슬롯으로 물러나 대기하고, 방금 휘둘러 쿨다운에 들어간 적은 차례를 잃고 링으로
+  빠지면서 교대가 만들어진다. 정면이 아닌 적은 거리에 0.75 를 곱해 채점하므로
+  첫 타가 측·후방에서 들어온다. RNG 없음, id 기반 타이브레이크로 결정론 유지.
+- **보통(Normal)은 값 0** 이라 `default(HackConfig)` 와 기존 모든 초기화가 개정
+  이전 시뮬레이션을 그대로 재현한다.
+
+### 뷰
+- **타격감(`Assets/Scripts/View/ImpactBudget.cs`)**: 일반 근접 적중에 히트스톱과
+  카메라 펀치가 **처음으로** 생겼다(이전에는 처치·콤보 피니셔에만 있었다).
+  티어는 Light 0.028 s / Kill 0.045 s / Finisher 0.075 s 로 통일했고, 같은 틱에
+  여러 이벤트가 겹치면 가장 무거운 티어 하나로 해소한다. 짧은 요청이 진행 중인 긴
+  히트스톱을 깎지 못한다. Light 는 0.14 s 재발동 간격이 있어 군집을 연타해도
+  화면이 슬로우모션으로 눌어붙지 않는다. 모션 약함 설정은 기존 게이트를 그대로
+  존중한다.
+- **난이도 선택 UI**: 로비 → 성소 정비 → 성장 탭 하단의 "난이도" 순환 버튼.
+  버튼 라벨의 수치는 `DifficultySpec.For` 에서 직접 읽어 표시하므로 밸런스가
+  바뀌어도 화면의 약속이 어긋나지 않는다. `PlayerPrefs` 키 `al:difficulty` 에
+  문자열 id 로 저장되며, 키가 없거나 손상되면 조용히 보통으로 이관된다.
+
+### 검증 상태
+- **[OBSERVED] 보통 경로 무변경 증명**: 개정 전(git HEAD) 심과 개정 후 심에 동일
+  입력을 먹여 arena 5400틱 / prologue 3600틱 / dungeon(cinder-span) 5400틱을
+  돌리고 97틱마다 플레이어 좌표·HP·점수·웨이브와 전체 적 좌표/액션/HP 를 덤프한
+  153행이 **완전히 동일**했다. 골든 다이제스트 재핀 불필요.
+- **[OBSERVED]** 신규 EditMode 테스트 25건 추가
+  (`DifficultyGroupAiTests` 8, `ImpactBudgetTests` 8, `DifficultySelectionTests` 9).
+  이 중 UnityEngine 비의존 16건을 dotnet 격리 실행으로 **16/16 통과** 확인.
+  `dotnet build CinderCourt.Tests.EditMode.csproj` 0 에러.
+- **[BLOCKED]** Unity 배치모드 EditMode 전체 스위트는 이번에 실행하지 못했다 —
+  다른 세션의 Unity 에디터가 프로젝트를 점유 중이라 배치모드가 거부된다.
+  에디터 점유 해제 후 `bash tools/unity_batch.sh tests` 재실행이 필요하다.
+
+
 ## GitHub Pages 배포 — 툴링 경계 가드 + 재임포트 검증 · 2026-08-05
 
 ### 변경 (배포 위생 사이클 — 게임플레이 변경 없음)

@@ -147,6 +147,21 @@ namespace CinderCourt.Sim
         private readonly bool _hack;
         private readonly HackConfig _hackConfig;
         private readonly GameMode _gameMode;
+        /// <summary>
+        /// AMENDMENT #11 §16: the resolved difficulty table for this run. Assigned in
+        /// every constructor; the arena/campaign constructors leave it at
+        /// <see cref="Difficulty.Normal"/>, whose profile is entirely neutral, so their
+        /// behaviour is byte-identical to the pre-amendment build.
+        /// </summary>
+        private readonly DifficultyProfile _difficulty = DifficultySpec.For(Difficulty.Normal);
+        /// <summary>
+        /// §16 C scratch: per-enemy "cleared to swing this tick", rebuilt by
+        /// <c>PlanEnemyGroup</c> at the top of every enemy update. Indexed by the same
+        /// index as <c>_enemies</c>; only read on a token-limited tier.
+        /// </summary>
+        private bool[] _mayAttack = new bool[SimConfig.EnemyCap];
+
+
         private readonly bool _prologue;
         private readonly bool _dungeon;
         private readonly bool _companionActive;
@@ -383,6 +398,10 @@ namespace CinderCourt.Sim
             }
 
             _hackConfig = configured;
+            // AMENDMENT #11 §16: resolved once — the tier cannot change mid-run, which is
+            // what keeps a run reproducible from (config, input sequence) alone.
+            _difficulty = DifficultySpec.For(configured.Difficulty);
+
             _boltDamage = boltDamage;
             _pulseTickDamage = pulseTickDamage;
             _ashNovaDamage = ashNovaDamage;
@@ -650,6 +669,14 @@ namespace CinderCourt.Sim
 
         // --- IHackSnapshot ---------------------------------------------------
         public GameMode HackMode => _gameMode;
+        /// <summary>
+        /// AMENDMENT #11 §16: the tier this run was constructed with. Read-only — the
+        /// tier is fixed for the life of the sim, so a run stays reproducible from
+        /// (config, input sequence) alone. Deliberately a CinderSim member and not an
+        /// IHackSnapshot member: the frozen interface stays frozen.
+        /// </summary>
+        public Difficulty RunDifficulty => _hackConfig.Difficulty;
+
         public int Level => _level;
         public int Xp => _xp;
         public int XpNext => HackSpec.XpToNextLevel(_level);
@@ -2531,6 +2558,15 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // AMENDMENT #11 §16 A: the difficulty tier scales incoming damage BEFORE
+            // Ward and the shield, so an absorbed hit absorbs the tier-scaled number.
+            // Normal resolves to 1.0, so the frozen arena/dungeon numbers are untouched.
+            if (_difficulty.IncomingDamageMul != 1f)
+            {
+                amount *= _difficulty.IncomingDamageMul;
+            }
+
+
             // Ward refuses the damage outright but still burns the contact grace so a
             // warded player is not chain-hit by the same swing.
             if (!bypassWard && _player.WardTime > 0f)
@@ -2590,6 +2626,13 @@ namespace CinderCourt.Sim
 
         private void UpdateEnemies(float deltaTime)
         {
+            // AMENDMENT #11 §16 C/E: decide WHO is allowed to swing this tick before any
+            // enemy moves. Doing it as a pre-pass is what makes the choice independent of
+            // array order — the token goes to the best candidate, not to whichever enemy
+            // happens to sit at a low index.
+            PlanEnemyGroup();
+
+
             for (int index = 0; index < _enemyCount; index += 1)
             {
                 if (_enemies[index].State.Dead)
@@ -2612,6 +2655,117 @@ namespace CinderCourt.Sim
                 }
             }
         }
+
+        /// <summary>
+        /// AMENDMENT #11 §16 C/E — the cooperative half of the group AI.
+        /// <para>
+        /// Runs once per tick, before any enemy moves, and decides which enemies are
+        /// cleared to start a swing. A tier with <see cref="DifficultyProfile.AttackTokens"/>
+        /// == 0 is unlimited and short-circuits, which is the pre-amendment rule: every
+        /// enemy in range swings whenever its own cooldown allows.
+        /// </para>
+        /// <para>
+        /// Determinism: the candidate scan is a fixed forward pass over the enemy array
+        /// with a strict &lt; comparison and an id tie-break, and it uses no RNG. Same
+        /// state in, same grants out — the reason it is a pre-pass at all is that granting
+        /// inline would silently hand the token to the lowest array index.
+        /// </para>
+        /// </summary>
+        private void PlanEnemyGroup()
+        {
+            if (_difficulty.AttackTokens <= 0)
+            {
+                return;   // unlimited — MayAttackThisTick answers true without the array
+            }
+
+            if (_mayAttack.Length < _enemies.Length)
+            {
+                _mayAttack = new bool[_enemies.Length];
+            }
+
+            // Pass 1: clear the plan and count the tokens already held by live swings.
+            // A boss is the fight, not a member of the pack, so it is never gated and
+            // never consumes a pack token.
+            int free = _difficulty.AttackTokens;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                bool boss = !enemy.State.Dead && enemy.State.IsBoss;
+                _mayAttack[index] = boss;
+                if (!boss && !enemy.State.Dead && enemy.State.Action == ActorAction.Attack)
+                {
+                    free -= 1;
+                }
+            }
+
+            // Pass 2: hand each remaining token to the best candidate. "Best" is the
+            // nearest enemy that is off cooldown, except that an enemy which is NOT in
+            // front of the player scores as if it were FlankBias times closer — that is
+            // what makes the opening hit come from the side or the back instead of the
+            // pack politely queueing in the player's face.
+            //
+            // Candidacy deliberately does NOT require being inside attack range. It used
+            // to, and that deadlocked the whole tier: a token is what lets an enemy walk
+            // at the player at all, so gating the token on already being in range meant
+            // the pack orbited its holding ring (which sits OUTSIDE attack range) and
+            // nobody ever swung. The token is permission to commit, not permission to
+            // land. Cooldown still gates it, which is what produces the rotation — an
+            // enemy that just swung drops its token and falls back to the ring to
+            // recover while a fresh one steps in.
+            for (int grant = 0; grant < free; grant += 1)
+            {
+                int best = -1;
+                float bestScore = float.MaxValue;
+                for (int index = 0; index < _enemyCount; index += 1)
+                {
+                    ref Enemy enemy = ref _enemies[index];
+                    if (enemy.State.Dead
+                        || _mayAttack[index]
+                        || enemy.State.Action == ActorAction.Attack
+                        || enemy.AttackCooldown > 0f)
+                    {
+                        continue;
+                    }
+
+                    float toPlayerX = _player.X - enemy.State.X;
+                    float toPlayerY = (_player.Y - enemy.State.Y) * SimConfig.IsoY;
+                    float range = Hypot(toPlayerX, toPlayerY);
+
+
+
+                    bool inFront = (enemy.State.X - _player.X) * _player.Facing
+                        >= DifficultySpec.ForwardThreshold;
+                    float score = inFront ? range : range * _difficulty.FlankBias;
+                    if (score < bestScore
+                        || (score == bestScore && best >= 0
+                            && enemy.State.Id < _enemies[best].State.Id))
+                    {
+                        bestScore = score;
+                        best = index;
+                    }
+                }
+
+                if (best < 0)
+                {
+                    break;   // nobody else is in range and off cooldown this tick
+                }
+                _mayAttack[best] = true;
+            }
+        }
+
+        /// <summary>
+        /// §16 C: did <paramref name="index"/> get a swing token this tick? Always true on
+        /// an unlimited tier, which is how Normal keeps the frozen behaviour.
+        /// </summary>
+        private bool MayAttackThisTick(int index)
+        {
+            if (_difficulty.AttackTokens <= 0)
+            {
+                return true;
+            }
+            return index >= 0 && index < _mayAttack.Length && _mayAttack[index];
+        }
+
 
         private void UpdateEnemy(int index, float deltaTime)
         {
@@ -2641,17 +2795,43 @@ namespace CinderCourt.Sim
 
             if (enemy.State.Action != ActorAction.Attack)
             {
-                if (distance <= SimConfig.EnemyAttackRange && enemy.AttackCooldown <= 0f)
+                // AMENDMENT #11 §16 C: on a group-AI tier the swing also needs a token
+                // that PlanEnemyGroup granted this tick. On Normal/Story the plan grants
+                // every enemy, so this reads exactly like the pre-amendment condition.
+                if (distance <= SimConfig.EnemyAttackRange
+                    && enemy.AttackCooldown <= 0f
+                    && MayAttackThisTick(index))
                 {
                     enemy.DidDamage = false;
-                    enemy.AttackCooldown = SimConfig.EnemyAttackCooldown
-                        + MathF.Min(EnemyCooldownWaveCap, _wave * EnemyCooldownPerWave);
+                    enemy.AttackCooldown = (SimConfig.EnemyAttackCooldown
+                        + MathF.Min(EnemyCooldownWaveCap, _wave * EnemyCooldownPerWave))
+                        * _difficulty.AttackCooldownMul;   // §16 B, 1.0 on Normal
                     SetEnemyAction(ref enemy, ActorAction.Attack, true);
                 }
                 else
                 {
-                    float moveX = deltaX;
-                    float moveY = deltaY;
+                    // AMENDMENT #11 §16 D: an enemy that is NOT cleared to swing walks to
+                    // its own slot on the holding ring around the player instead of
+                    // shoving into the pile. That is the whole "the pack surrounds you and
+                    // takes turns" read. Neutral tiers keep chasing the player directly.
+                    float goalX = _player.X;
+                    float goalY = _player.Y;
+                    bool holding = false;
+                    if (_difficulty.GroupAi && !MayAttackThisTick(index))
+                    {
+                        DifficultySpec.RingTarget(
+                            enemy.State.Id,
+                            _player.X,
+                            _player.Y,
+                            SimConfig.EnemyAttackRange * _difficulty.RingRadiusMul,
+                            out goalX,
+                            out goalY);
+                        holding = true;
+                    }
+
+                    float moveX = goalX - enemy.State.X;
+                    float moveY = goalY - enemy.State.Y;
+
                     float rawDistance = Hypot(moveX, moveY);
                     if (rawDistance > MoveEpsilon)
                     {
@@ -2691,8 +2871,15 @@ namespace CinderCourt.Sim
                     }
 
                     float speed = SpeedFor(enemy.State.Id, enemy.State.IsBoss);
-                    if (distance > SimConfig.EnemyAttackRange - EnemyChaseSlack)
+                    // §16 D: a ring holder parks on ITS slot, so the arrival test is the
+                    // distance to that slot. Everyone else keeps the frozen rule — stop
+                    // just inside attack range of the player.
+                    bool advance = holding
+                        ? rawDistance > DifficultySpec.RingArriveTolerance
+                        : distance > SimConfig.EnemyAttackRange - EnemyChaseSlack;
+                    if (advance)
                     {
+
                         enemy.State.X += moveX * speed * deltaTime;
                         enemy.State.Y += moveY * speed * SimConfig.YMoveScale * deltaTime;
                         ClampToArena(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp);

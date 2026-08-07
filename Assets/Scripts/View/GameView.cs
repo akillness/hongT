@@ -99,6 +99,10 @@ namespace CinderCourt.View
         // never wedge itself. timeScale is force-restored on EndRun, GameOver,
         // and OnDisable — every exit path.
         float _hitStopTimer;      // seconds left at HitStopScale (0.05)
+        // Unscaled seconds since the last ImpactBudget Light pulse. Starts huge so the
+        // very first connect of a run fires instead of being eaten by the refractory.
+        float _lightImpactAge = 999f;
+
         float _slowMoTimer;       // seconds left at _slowMoScale (boss beat)
         float _slowMoScale = 1f;
         DamageNumberPool _damageNumbers;
@@ -334,7 +338,12 @@ namespace CinderCourt.View
             // wall-clock per tick; tick size and input rules are unchanged
             // (presentation-impact-spec determinism note).
             var consoleOpen = Hud != null && Hud.CommandConsoleOpen;
+            // The Light refractory clock runs on unscaled time and OUTSIDE the
+            // reduced-motion gate, so toggling the accessibility switch mid-run can
+            // never leave the clock frozen at a value that suppresses the next hit.
+            if (_lightImpactAge < 999f) _lightImpactAge += Time.unscaledDeltaTime;
             if (!ViewPrefs.TimeEffectsAllowed)
+
             {
                 _hitStopTimer = 0f;
                 _slowMoTimer = 0f;
@@ -368,18 +377,25 @@ namespace CinderCourt.View
             if (Hud != null) Hud.OnEvents(events, _sim);
 
             // --- presentation pulses (spec #1/#2/#3) --------------------------
-            // Hit-stop: kill 40 ms, finisher 70 ms at timeScale 0.05 (spec cap
-            // is 80 ms; Max() merges overlapping pulses instead of stacking).
+            // Hit-stop and camera punch now resolve through ImpactBudget: one tier
+            // table, one merge rule, and a Light tier so an ordinary connect on a
+            // surviving enemy finally has a tactile channel instead of only flash +
+            // spark + SFX + number. The tiers are strictly ordered inside Resolve, so
+            // a finisher that also kills still reads as a finisher.
+            var impact = ImpactBudget.Resolve(
+                (events & SimEvents.EnemyHit) != 0,
+                (events & SimEvents.EnemyKilled) != 0,
+                (events & SimEvents.ComboFinisher) != 0,
+                _hitStopTimer,
+                _lightImpactAge,
+                ViewPrefs.TimeEffectsAllowed);
+            _hitStopTimer = impact.HitStop;
+            if (impact.ConsumedLight) _lightImpactAge = 0f;
             if ((events & SimEvents.ComboFinisher) != 0)
             {
-                if (ViewPrefs.TimeEffectsAllowed)
-                    _hitStopTimer = Mathf.Max(_hitStopTimer, 0.07f);
                 _finisherTick = true;   // gold damage numbers this batch (#6)
             }
-            else if ((events & SimEvents.EnemyKilled) != 0 && ViewPrefs.TimeEffectsAllowed)
-            {
-                _hitStopTimer = Mathf.Max(_hitStopTimer, 0.04f);
-            }
+
             // Boss phase-2 slow-mo beat, synced with the taunt bubble (#3).
             if ((events & SimEvents.BossPhase2) != 0 && ViewPrefs.TimeEffectsAllowed)
             {
@@ -404,14 +420,18 @@ namespace CinderCourt.View
             // Priority mirrors the rig chain: BossSpawned > Finisher > Kill >
             // WaveStarted — Punch itself refuses to weaken a stronger live
             // shake, and a boss wave raises BOTH events, so the wave tier sits
-            // LAST to keep the 0.35 boss punch intact (§W).
+            // LAST to keep the 0.35 boss punch intact (§W). The new Light tier is
+            // appended BELOW WaveStarted: it is the weakest punch in the game and
+            // must never preempt a wave arrival.
             if (Rig != null)
             {
+                var heavy = (events & (SimEvents.ComboFinisher | SimEvents.EnemyKilled)) != 0;
                 if ((events & SimEvents.BossSpawned) != 0) Rig.Punch(0.07f, 0.35f);
-                else if ((events & SimEvents.ComboFinisher) != 0) Rig.Punch(0.05f, 0.14f);
-                else if ((events & SimEvents.EnemyKilled) != 0) Rig.Punch(0.02f, 0.08f);
+                else if (heavy) Rig.Punch(impact.PunchAmplitude, impact.PunchDuration);
                 else if ((events & SimEvents.WaveStarted) != 0) Rig.Punch(0.05f, 0.15f);
+                else if (impact.PunchAmplitude > 0f) Rig.Punch(impact.PunchAmplitude, impact.PunchDuration);
             }
+
             // §W wave-arrival telegraph: warning rings at the incoming wave's
             // spawn points. Boss waves ring red/larger via the same call.
             if (Vfx != null && (events & SimEvents.WaveStarted) != 0)

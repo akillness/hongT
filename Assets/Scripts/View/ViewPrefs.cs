@@ -52,6 +52,41 @@ namespace CinderCourt.View
         public static float MotionScale => ReducedMotion ? 0.4f : 1f;
 
         /// <summary>Hit-stop and slow-mo are binary — off entirely when reduced.</summary>
+        /// <summary>Hit-stop and slow-mo are binary — off entirely when reduced.</summary>
         public static bool TimeEffectsAllowed => !ReducedMotion;
+
+        // --- AMENDMENT #11 difficulty (docs/SIM_SPEC_HACKSLASH.md §16) ---------
+        // Stored as the stable lowercase id, never as the enum's integer: an enum
+        // value written to disk would silently re-map if the tier list is ever
+        // reordered, and this key outlives builds.
+        const string DifficultyKey = "al:difficulty";
+
+        static string _difficulty;   // null = unread this session
+
+        /// <summary>
+        /// The selected run difficulty (§16). A missing or corrupted key resolves to
+        /// <see cref="Sim.Difficulty.Normal"/>, which is the pre-amendment simulation —
+        /// so a player who never opens the selector gets exactly the old game.
+        /// </summary>
+        public static Sim.Difficulty Difficulty
+        {
+            get
+            {
+                if (_difficulty == null)
+                    _difficulty = PlayerPrefs.GetString(DifficultyKey, string.Empty);
+                return Sim.DifficultySpec.Parse(_difficulty);
+            }
+            set
+            {
+                _difficulty = Sim.DifficultySpec.IdOf(value);
+                PlayerPrefs.SetString(DifficultyKey, _difficulty);
+                PlayerPrefs.Save();
+            }
+        }
+
+        /// <summary>Drops the cached difficulty so the next read hits PlayerPrefs.
+        /// Test-only, mirroring <see cref="ResetCacheForTests"/>.</summary>
+        internal static void ResetDifficultyCacheForTests() => _difficulty = null;
+
     }
 }

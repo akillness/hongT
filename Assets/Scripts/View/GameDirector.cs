@@ -377,6 +377,11 @@ namespace CinderCourt.View
             // AMENDMENT #6: the equipped loadout rides the same view-composed seam
             // as the pact table. Empty loadout = every pre-sigil constant.
             config.Sigils = SigilsOf(in _data);
+            // AMENDMENT #11 §16: the selected tier rides the same view-composed seam.
+            // Dungeon only on purpose — the arena run is the frozen contract and the
+            // prologue is a tutorial, so both stay on Difficulty.Normal.
+            config.Difficulty = ViewPrefs.Difficulty;
+
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;

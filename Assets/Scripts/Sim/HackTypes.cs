@@ -222,6 +222,14 @@ namespace CinderCourt.Sim
         /// Trial tier for <see cref="GameMode.Training"/> (0..2). Inert elsewhere.
         /// </summary>
         public int TrainingTier;
+        /// <summary>
+        /// AMENDMENT #11: run difficulty. Append-only and deliberately last, so
+        /// <c>default(HackConfig)</c> and every existing initializer keep resolving to
+        /// <see cref="Difficulty.Normal"/> (value 0) — the pre-amendment numbers.
+        /// Every multiplier lives in <see cref="DifficultySpec"/> (NOT frozen), so the
+        /// numeric contract can move without touching this file again.
+        /// </summary>
+        public Difficulty Difficulty;
 
         /// <summary>The frozen arena run expressed as a hack config (no meta/equipment).</summary>
         public static HackConfig Arena() => new HackConfig

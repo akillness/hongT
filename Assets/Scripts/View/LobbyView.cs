@@ -165,6 +165,9 @@ namespace CinderCourt.View
         Text _growthSummary;
         // cycle2 B4: 모션 약함 toggle label (ViewPrefs-backed).
         Text _motionLabel;
+        // AMENDMENT #11 §16: run difficulty cycle button label (ViewPrefs-backed).
+        Text _difficultyLabel;
+
 
         // Equipment rows.
         readonly Text[] _equipValues = new Text[3];
@@ -372,6 +375,61 @@ namespace CinderCourt.View
             _motionLabel.text = ViewPrefs.ReducedMotion ? "모션: 약함" : "모션: 보통";
             _motionLabel.color = ViewPrefs.ReducedMotion ? Gold : Cyan;
         }
+
+        // --- AMENDMENT #11 §16 difficulty ------------------------------------
+
+        /// <summary>Korean tier name. The stable machine id lives in
+        /// <see cref="Sim.DifficultySpec.IdOf"/>; this is display only.</summary>
+        internal static string DifficultyName(Sim.Difficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case Sim.Difficulty.Story: return "입문";
+                case Sim.Difficulty.Hard: return "어려움";
+                case Sim.Difficulty.Nightmare: return "악몽";
+                default: return "보통";
+            }
+        }
+
+        /// <summary>
+        /// Advances one step through the easiest-to-hardest tier order and wraps.
+        /// The order comes from <see cref="Sim.DifficultySpec.AtOrder"/>, NOT from the
+        /// enum's integer values — Normal is 0 so the raw values are not sorted.
+        /// </summary>
+        internal static Sim.Difficulty NextDifficulty(Sim.Difficulty current)
+            => Sim.DifficultySpec.AtOrder(
+                (Sim.DifficultySpec.OrderOf(current) + 1) % Sim.DifficultySpec.Count);
+
+        /// <summary>
+        /// The three lines the button shows for a tier. Every number is read from
+        /// <see cref="Sim.DifficultySpec.For"/> so the label can never drift from the
+        /// simulation it describes.
+        /// </summary>
+        internal static string DifficultyLabelText(Sim.Difficulty difficulty)
+        {
+            var profile = Sim.DifficultySpec.For(difficulty);
+            var pack = profile.GroupAi
+                ? $"협동 AI ON · 동시 {profile.AttackTokens}"
+                : "협동 AI OFF";
+            return $"난이도: {DifficultyName(difficulty)}\n"
+                + $"받는 피해 ×{profile.IncomingDamageMul:0.00} · 공격 간격 ×{profile.AttackCooldownMul:0.00}\n"
+                + pack;
+        }
+
+        void CycleDifficulty()
+        {
+            ViewPrefs.Difficulty = NextDifficulty(ViewPrefs.Difficulty);
+            RefreshDifficultyLabel();
+        }
+
+        void RefreshDifficultyLabel()
+        {
+            if (_difficultyLabel == null) return;
+            var difficulty = ViewPrefs.Difficulty;
+            _difficultyLabel.text = DifficultyLabelText(difficulty);
+            _difficultyLabel.color = difficulty == Sim.Difficulty.Normal ? Cyan : Gold;
+        }
+
         // ------------------------------------------------- v1.3 meta helpers --
 
         /// <summary>
@@ -954,8 +1012,13 @@ namespace CinderCourt.View
             _growthSummary = Label(content.transform, 16, -300, 360, 22, "", 12, TextAnchor.MiddleLeft);
             _growthSummary.color = Gold;
 
+            // cycle2 B4 + AMENDMENT #11: the two run-wide settings share one row.
+            // The sanctum panel is 560 u tall and its tab content stops at 444 u, so
+            // a second full-width button would fall off the panel — halving the row
+            // keeps both inside the audited footprint. 180 x 92 still clears the
+            // 44 u touch floor on both axes.
             var motionButton = TextButton(content.transform, new Vector2(0, 1),
-                new Vector2(16, -344), new Vector2(368, 92), "모션: 보통", 15,
+                new Vector2(16, -344), new Vector2(180, 92), "모션: 보통", 15,
                 () =>
                 {
                     ViewPrefs.ReducedMotion = !ViewPrefs.ReducedMotion;
@@ -963,6 +1026,16 @@ namespace CinderCourt.View
                 });
             _motionLabel = motionButton.GetComponentInChildren<Text>();
             RefreshMotionLabel();
+
+            // AMENDMENT #11 §16: difficulty cycles through the tier order
+            // (입문 → 보통 → 어려움 → 악몽) and persists immediately. It is a cycle
+            // button rather than four buttons because the row has 180 u to spend.
+            var difficultyButton = TextButton(content.transform, new Vector2(0, 1),
+                new Vector2(204, -344), new Vector2(180, 92), "난이도: 보통", 13,
+                CycleDifficulty);
+            _difficultyLabel = difficultyButton.GetComponentInChildren<Text>();
+            RefreshDifficultyLabel();
+
             return content;
         }
 
