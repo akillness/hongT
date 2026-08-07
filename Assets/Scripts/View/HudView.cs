@@ -1433,10 +1433,17 @@ namespace CinderCourt.View
                 return;
             }
 
-            var intent = CompanionCommandParser.Parse(raw);
-            if (intent != CompanionCommandIntent.Unknown)
+            // Sequence control ("취소"/"중단"/"stop") outranks everything else:
+            // it is the one order a player gives while another is still running.
+            if (TryHandleAgentControl(raw)) return;
+
+            // Local plan first — zero latency, no key, and it reads the sentence
+            // in POSITION order, so "노바 쓰고 결계 쳐" is two steps rather than
+            // the single rule-priority match the old classifier returned.
+            var localPlan = CommandPlanParser.ParseLocal(raw);
+            if (!localPlan.IsEmpty)
             {
-                ApplyCommandIntent(intent);
+                StartCommandPlan(localPlan);
                 return;
             }
             if (!GeminiCommandClient.HasKey)
@@ -1446,66 +1453,72 @@ namespace CinderCourt.View
             }
             if (_consoleBusy) { ShowConsoleToast("이전 명령 해석 중…", 1.5f); return; }
             _consoleBusy = true;
-            ShowConsoleToast("해석 중…", 1.5f);
-            StartCoroutine(ClassifyRemote(raw));
-        }
-
-        System.Collections.IEnumerator ClassifyRemote(string raw)
-        {
-            yield return GeminiCommandClient.Classify(raw, intent =>
-            {
-                _consoleBusy = false;
-                if (intent == CompanionCommandIntent.Unknown)
-                    ShowConsoleToast("해석 실패 — 키워드 명령을 써보세요: 집중공격/방어/복귀/특기", 2.5f);
-                else ApplyCommandIntent(intent);
-            });
+            ShowConsoleToast("시퀀스 구성 중…", 1.5f);
+            // Free-form sentence -> ordered plan. The runner then spends it one
+            // finished event at a time (HudView.CommandAgent.cs).
+            StartCoroutine(PlanRemote(raw));
         }
 
         /// <summary>Intent -> deterministic latch. The reply copy is honest about the
         /// actor: 수호자 orders drive the companion, 시전 lines are the PLAYER's own kit.
         /// AMENDMENT #8 added the one case where the companion itself acts —
-        /// CompanionSkill — and its copy names the companion for that reason.</summary>
-        void ApplyCommandIntent(CompanionCommandIntent intent)
+        /// CompanionSkill — and its copy names the companion for that reason.
+        ///
+        /// <paramref name="prefix"/> ("2/4 · ") and <paramref name="detail"/> (the
+        /// plan's own rationale for this beat) are what a SEQUENCE step adds. A
+        /// typed one-off passes neither and reads exactly as it did before the
+        /// command agent existed — one switch, so the latch mapping stays single-
+        /// sourced no matter who dispatches it.</summary>
+        void ApplyCommandIntent(CompanionCommandIntent intent, string prefix = null, string detail = null)
         {
             if (Input == null) return;
+            string copy;
+            var seconds = 2f;
             switch (intent)
             {
                 case CompanionCommandIntent.FocusAttack:
                     // Follow drives A7 autonomy: the slot pursues the nearest target inside its
                     // leash instead of freezing in place, so "집중공격/싸워" actually chases.
                     Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 집중공격 — 근접 표적 추격·교전", 2.5f);
+                    copy = "수호자: 집중공격 — 근접 표적 추격·교전";
+                    seconds = 2.5f;
                     break;
                 case CompanionCommandIntent.Defend:
                     // Hold pins the slot to its current spot and defends that zone (Amendment #3),
                     // a distinct tactic from Recall's return-to-side.
                     Input.QueueCompanionHold();
-                    ShowConsoleToast("수호자: 방어 태세 — 현재 지점 사수", 2.5f);
+                    copy = "수호자: 방어 태세 — 현재 지점 사수";
+                    seconds = 2.5f;
                     break;
                 case CompanionCommandIntent.Recall:
                     Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 복귀 — 곁으로", 2f);
+                    copy = "수호자: 복귀 — 곁으로";
                     break;
                 case CompanionCommandIntent.PickupInfo:
-                    ShowConsoleToast("수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요", 3f);
+                    copy = "수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요";
+                    seconds = 3f;
                     break;
                 case CompanionCommandIntent.SkillBolt:
-                    Input.QueueBolt(); ShowConsoleToast("균열 화살 시전", 1.5f); break;
+                    Input.QueueBolt(); copy = "균열 화살 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillPulse:
-                    Input.QueuePulse(); ShowConsoleToast("묘지 파동 시전", 1.5f); break;
+                    Input.QueuePulse(); copy = "묘지 파동 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillNova:
-                    Input.QueueNova(); ShowConsoleToast("잿불 노바 시전", 1.5f); break;
+                    Input.QueueNova(); copy = "잿불 노바 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillAegis:
-                    Input.QueueWard(); ShowConsoleToast("공허 방패 시전", 1.5f); break;
+                    Input.QueueWard(); copy = "공허 방패 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillDash:
-                    Input.QueueDash(); ShowConsoleToast("질주", 1.5f); break;
+                    Input.QueueDash(); copy = "질주"; seconds = 1.5f; break;
                 case CompanionCommandIntent.CompanionSkill:
                     // A8.3: one global order; each ready slot casts its OWN skill. A slot
                     // still on cooldown ignores it, so the copy promises "준비된" only.
                     Input.QueueCompanionSkill();
-                    ShowConsoleToast("수호자: 준비된 고유 특기 발동", 2f);
+                    copy = "수호자: 준비된 고유 특기 발동";
                     break;
+                default:
+                    return;
             }
+            if (!string.IsNullOrEmpty(detail)) copy += " — " + detail;
+            ShowConsoleToast(string.IsNullOrEmpty(prefix) ? copy : prefix + copy, seconds);
         }
 
         void ShowConsoleToast(string message, float seconds)
@@ -1537,6 +1550,10 @@ namespace CinderCourt.View
                     OpenCommandConsole();
                 }
             }
+            // Sequence agent: at most one step signal per frame, applied to the
+            // same latches a keystroke sets. Runs whether the console is open or
+            // closed — a plan outlives the text field that started it.
+            TickCommandAgent();
             if (_consoleToastTimer > 0f)
             {
                 _consoleToastTimer -= Time.unscaledDeltaTime;   // survives slow-mo

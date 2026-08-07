@@ -622,11 +622,13 @@ namespace CinderCourt.View
                     var readySlots = hack.CompanionCount;
                     var soonest = 0f;
                     var anyReady = false;
+                    var anyCasting = false;
                     for (var slot = 0; slot < readySlots; slot++)
                     {
                         var cooldown = hack.CompanionSkillCooldownAt(slot);
                         if (cooldown <= 0f) anyReady = true;
                         if (slot == 0 || cooldown < soonest) soonest = cooldown;
+                        if (hack.CompanionSkillCastingAt(slot)) anyCasting = true;
                     }
                     Hud.SyncCompanionSkill(readySlots, soonest, anyReady);
 
@@ -637,6 +639,14 @@ namespace CinderCourt.View
                     for (var slot = 0; slot < readySlots; slot++)
                         if (hack.CompanionEngagedAt(slot)) { stanceEngaged = true; break; }
                     Hud.SyncCompanionStance(readySlots, hack.CompanionBehavior, stanceEngaged);
+                    // Command agent: the same primitives, pushed once per frame
+                    // so a typed sequence can gate on readiness and wait for the
+                    // SIM to acknowledge each step before starting the next one
+                    // (HudView.CommandAgent.cs -> CommandSequenceRunner).
+                    Hud.SyncCommandAgent(runLive, _sim.Charge,
+                        hack.SkillCooldowns, hack.DashCooldown,
+                        readySlots, soonest, anyCasting,
+                        hack.CompanionBehavior, _sim.LivingEnemies);
 
                     // Room objective readout: the contiguous route never returns to the
                     // lobby between rooms, so BossAlive is what re-frames the same

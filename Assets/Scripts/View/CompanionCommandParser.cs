@@ -92,6 +92,50 @@ namespace CinderCourt.View
             return CompanionCommandIntent.Unknown;
         }
 
+        /// <summary>
+        /// Sequence seam (command agent): does ANY rule keyword start exactly at
+        /// <paramref name="index"/>? Returns the matched keyword length so the
+        /// caller can advance past it, which is what lets CommandPlanParser read
+        /// "노바 쓰고 결계 쳐" as [Nova, Aegis] in POSITION order — Parse above
+        /// answers in RULE order and would say Aegis alone.
+        ///
+        /// Case-folds per character instead of lowercasing the whole string:
+        /// ToLowerInvariant can change length on some cultures' characters, and a
+        /// one-char drift would misreport every later index. Rule order still
+        /// breaks ties, so "방어태세" is consumed whole before the generic "방어".
+        /// </summary>
+        public static bool TryMatchAt(string text, int index,
+            out CompanionCommandIntent intent, out int length)
+        {
+            intent = CompanionCommandIntent.Unknown;
+            length = 0;
+            if (string.IsNullOrEmpty(text) || index < 0 || index >= text.Length) return false;
+
+            for (var r = 0; r < Rules.Length; r++)
+            {
+                var keywords = Rules[r].Keywords;
+                for (var k = 0; k < keywords.Length; k++)
+                {
+                    var keyword = keywords[k];
+                    if (keyword.Length == 0 || index + keyword.Length > text.Length) continue;
+                    var hit = true;
+                    for (var c = 0; c < keyword.Length; c++)
+                    {
+                        if (char.ToLowerInvariant(text[index + c]) != keyword[c]) { hit = false; break; }
+                    }
+                    // Longest wins WITHIN the winning rule: the tables list
+                    // "집중공격" before "공격해", so the specific spelling is
+                    // consumed whole and cannot re-trigger on its own suffix.
+                    if (!hit) continue;
+                    if (keyword.Length <= length) continue;
+                    intent = Rules[r].Intent;
+                    length = keyword.Length;
+                }
+                if (length > 0) return true;
+            }
+            return false;
+        }
+
         /// <summary>Maps a Gemini plain-text reply (one intent word) back to the
         /// enum. Tolerates case/whitespace/punctuation; anything else is Unknown.</summary>
         public static CompanionCommandIntent FromIntentWord(string word)

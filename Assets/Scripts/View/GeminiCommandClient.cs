@@ -1,11 +1,14 @@
-// Optional Gemini fallback for free-form companion orders the local parser
+// Optional Gemini planner for free-form companion orders the local keyword scan
 // cannot classify. SECURITY CONTRACT (static GitHub Pages, no server):
 // - The API key is NEVER baked into the build or committed. It enters at
-//   runtime only (console command "키 <key>" or ?gemini= URL param) and lives
-//   in PlayerPrefs on the player's own machine.
-// - Classification output is a single intent word; it funnels into the same
-//   deterministic SimInput latches as a keystroke. Latency shifts WHEN the
-//   latch is set, never WHAT the simulation does with it.
+//   runtime only (console command "키 <key>" or a #gemini= URL FRAGMENT — never
+//   a query, which GitHub Pages would log) and lives in PlayerPrefs on the
+//   player's own machine.
+// - The reply is an ORDERED list of words from a closed vocabulary. Each one
+//   funnels into the same deterministic SimInput latch a keystroke sets, and
+//   CommandSequenceRunner spends them one FINISHED game event at a time.
+//   Latency and ordering shift WHEN a latch is set, never WHAT the simulation
+//   does with it.
 using System;
 using System.Collections;
 using System.Text;
@@ -73,51 +76,84 @@ namespace CinderCourt.View
             if (key.Length > 8) StoreKey(Uri.UnescapeDataString(key));
         }
 
-        /// <summary>One-shot classification coroutine. Calls back with the parsed
-        /// intent (Unknown on any failure — caller shows honest feedback and the
-        /// game keeps running; a dead network can never wedge input).</summary>
-        public static IEnumerator Classify(string text, Action<CompanionCommandIntent> done)
+        /// <summary>
+        /// Free-form order -> ORDERED plan (command agent). The single-intent
+        /// classifier this file used to expose is gone: a plan of one step IS
+        /// that classification, and two prompts drifting apart is exactly how a
+        /// vocabulary rots.
+        ///
+        /// Same security contract as before — runtime key only, and the reply is
+        /// still nothing but words from a closed vocabulary that funnel into the
+        /// deterministic latches a keystroke sets. The model shifts WHEN a latch
+        /// is set and in WHAT ORDER, never what the simulation does with it.
+        ///
+        /// Calls back with (plan, failure). Failure is a short Korean reason the
+        /// console shows verbatim — "요청 실패 429" is worth ten "해석 실패"s
+        /// when the key's quota is what actually died.
+        /// </summary>
+        public static IEnumerator Plan(string text, Action<CommandPlan, string> done)
         {
             var key = LoadKey();
             if (string.IsNullOrEmpty(key) || string.IsNullOrWhiteSpace(text))
             {
-                done(CompanionCommandIntent.Unknown);
+                done(CommandPlan.Empty, "키 없음");
                 yield break;
             }
 
-            // Plain-text contract: exactly one vocabulary word comes back.
+            // JSON contract. responseMimeType keeps prose out of the payload;
+            // CommandPlanParser.ParseJson still unwraps fences/prose because a
+            // model that ignores the mime type must not wedge the console.
             var prompt =
-                "You classify a Korean or English game command for a summoned guardian. " +
-                "Reply with EXACTLY one word from this list and nothing else: " +
-                "FocusAttack, Defend, Recall, PickupInfo, CompanionSkill, SkillBolt, SkillPulse, SkillNova, SkillAegis, SkillDash, Unknown. " +
-                "FocusAttack = order the guardian to hold position and keep attacking enemies. " +
-                "Defend/Recall = order the guardian back to escort the player. " +
+                "You convert a Korean or English game order into an ORDERED action sequence " +
+                "for a 2.5D hack-and-slash guardian game. Reply with JSON ONLY: " +
+                "{\"summary\":\"<=16 Korean chars\",\"steps\":[{\"do\":\"<word>\",\"say\":\"<=12 Korean chars\",\"sec\":<number, Wait only>}]}. " +
+                "Allowed do words: FocusAttack, Defend, Recall, PickupInfo, CompanionSkill, " +
+                "SkillBolt, SkillPulse, SkillNova, SkillAegis, SkillDash, Wait. " +
+                "FocusAttack = guardian chases and engages nearby enemies. " +
+                "Defend = guardian holds its current spot. Recall = guardian returns to the player. " +
+                "CompanionSkill = guardian casts its OWN signature skill (특기/필살기). " +
+                "Skill* = the PLAYER casts it (bolt=화살, pulse=파동, nova=노바/폭발, aegis=결계/방패, dash=질주). " +
                 "PickupInfo = asking the guardian to fetch items. " +
-                "CompanionSkill = order the guardian to use its OWN signature skill (특기/필살기/고유기). " +
-                "Skill* = the player wants to cast that skill (bolt=화살, pulse=파동, nova=노바/폭발, aegis=결계/방패, dash=질주). " +
+                "Wait = pure delay, needs sec. " +
+                "Order matters: each step starts only after the previous one finishes. " +
+                "Use at most " + CommandPlan.MaxSteps + " steps, fewer when fewer will do. " +
+                "Drop anything the vocabulary cannot express instead of inventing a word. " +
                 "Command: " + text;
 
             var body = "{\"contents\":[{\"parts\":[{\"text\":\"" + Escape(prompt) + "\"}]}]," +
-                       "\"generationConfig\":{\"maxOutputTokens\":8,\"temperature\":0}}";
+                       "\"generationConfig\":{\"maxOutputTokens\":512,\"temperature\":0," +
+                       "\"responseMimeType\":\"application/json\"}}";
 
             using var request = new UnityWebRequest(Endpoint + "?key=" + UnityWebRequest.EscapeURL(key), "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            request.timeout = 6;
+            // A sequence is more tokens than one word; 12 s still fails fast
+            // enough that the player is not left staring at "해석 중…".
+            request.timeout = 12;
             yield return request.SendWebRequest();
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                done(CompanionCommandIntent.Unknown);
+                var status = (int)request.responseCode;
+                done(CommandPlan.Empty, status > 0 ? "요청 실패 " + status : "네트워크 실패");
                 yield break;
             }
-            done(CompanionCommandParser.FromIntentWord(ExtractFirstText(request.downloadHandler.text)));
+
+            var payload = ExtractFirstText(request.downloadHandler.text, PlanPayloadLimit);
+            var plan = CommandPlanParser.ParseJson(payload);
+            done(plan, plan.IsEmpty ? "해석 실패" : null);
         }
 
-        /// <summary>Pulls candidates[0].content.parts[0].text without a JSON lib —
-        /// the reply is one word, so a scan for the first "text" field suffices.</summary>
-        internal static string ExtractFirstText(string json)
+        /// <summary>Plan payloads are JSON objects, not single words — but still
+        /// bounded, so a runaway reply can never be walked in full.</summary>
+        const int PlanPayloadLimit = 2048;
+
+        /// <summary>Pulls candidates[0].content.parts[0].text without a JSON lib.
+        /// Escapes are DECODED, not skipped: an intent word has none, but a plan
+        /// payload is JSON inside JSON and every one of its quotes arrives as
+        /// \" — dropping them would hand the parser a broken document.</summary>
+        internal static string ExtractFirstText(string json, int limit = 64)
         {
             if (string.IsNullOrEmpty(json)) return null;
             var marker = json.IndexOf("\"text\"", StringComparison.Ordinal);
@@ -126,16 +162,46 @@ namespace CinderCourt.View
             if (colon < 0) return null;
             var open = json.IndexOf('"', colon + 1);
             if (open < 0) return null;
-            var builder = new StringBuilder(16);
-            for (var i = open + 1; i < json.Length && builder.Length < 64; i++)
+            var builder = new StringBuilder(Math.Min(limit, 128));
+            for (var i = open + 1; i < json.Length && builder.Length < limit; i++)
             {
                 var c = json[i];
-                if (c == '\\') { i++; continue; }   // skip escapes — intent words have none
                 if (c == '"') break;
-                builder.Append(c);
+                if (c != '\\') { builder.Append(c); continue; }
+                if (++i >= json.Length) break;
+                var escape = json[i];
+                switch (escape)
+                {
+                    case 'n': builder.Append('\n'); break;
+                    case 't': builder.Append('\t'); break;
+                    case 'r': builder.Append('\r'); break;
+                    case 'b': builder.Append('\b'); break;
+                    case 'f': builder.Append('\f'); break;
+                    case 'u':
+                        if (i + 4 >= json.Length) return builder.ToString();
+                        var code = 0;
+                        var valid = true;
+                        for (var k = 1; k <= 4; k++)
+                        {
+                            var digit = HexValue(json[i + k]);
+                            if (digit < 0) { valid = false; break; }
+                            code = code * 16 + digit;
+                        }
+                        if (!valid) return builder.ToString();
+                        i += 4;
+                        builder.Append((char)code);
+                        break;
+                    default: builder.Append(escape); break;   // " \ /
+                }
             }
             return builder.ToString();
         }
+
+        static int HexValue(char c)
+            => c >= '0' && c <= '9' ? c - '0'
+                : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                : -1;
 
         private static string Escape(string s)
             => s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", " ");
