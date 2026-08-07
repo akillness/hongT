@@ -1,7 +1,7 @@
 {
   "tool": "elevenlabs sound-generation",
   "endpoint": "https://api.elevenlabs.io/v1/sound-generation",
-  "generatedAt": "2026-08-06T22:35:59+0900",
+  "generatedAt": "2026-08-07T23:28:40+0900",
   "cues": {
     "strike": {
       "file": "Assets/Resources/Audio/cue-strike.mp3",
@@ -72,6 +72,20 @@
       "durationSeconds": 22.0,
       "prompt": "Dark fantasy arena ambient music loop, low ember drone bed, distant deep choir-like synth pads, slow ominous two-note pulse, smoldering coals crackle sparsely, seamless loop, instrumental only, no melody spikes, no percussion breaks, no vocals",
       "promptInfluence": 0.3
+    },
+    "click": {
+      "file": "Assets/Resources/Audio/cue-click.mp3",
+      "bytes": 8821,
+      "durationSeconds": 0.5,
+      "prompt": "Short crisp UI button click, tight dark-fantasy interface tap, low wooden-stone knock with subtle metallic edge, dry, no tail, game menu SFX one-shot",
+      "promptInfluence": 0.55
+    },
+    "footstep": {
+      "file": "Assets/Resources/Audio/cue-footstep.mp3",
+      "bytes": 8821,
+      "durationSeconds": 0.5,
+      "prompt": "Single soft dungeon footstep on stone, muffled leather boot fall, low thud with faint grit scrape, dry, no reverb tail, game SFX one-shot",
+      "promptInfluence": 0.55
     }
   }
 }

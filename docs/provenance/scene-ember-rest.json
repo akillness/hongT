@@ -1,0 +1,53 @@
+{
+  "lane": "asset (W15, additional approved task 2026-08-07/08)",
+  "asset_class": "concept/composition (구성 이미지) — same class as docs/provenance/scene-synopsis-art.json",
+  "tool": "god-tibo-imagen (gti) 0.3.0",
+  "provider": "codex-cli",
+  "note": "--provider codex-cli used directly (private-codex is known HTTP 429 rate-limited on this machine per docs/provenance/scene-synopsis-art.json and docs/provenance/env-stage-textures.md). codex-cli ignores --size; output landed at the model default 1536x1024, matching the sibling scene-*.png files exactly.",
+  "generatedAt": "2026-08-07",
+  "dryRunFirst": true,
+  "prompt": "Cinematic dark fantasy 2.5D beat-em-up interlude scene: Ember Rest preparation chamber, 3/4 ground-level camera, a single floor lantern igniting warm ember-orange light at the center of a charcoal-stone chamber, faint spectral-cyan glyphs glowing on the walls, a dim archway door to the next room barely visible in the background shadow, quiet contemplative mood, painterly game concept art, no text, no logo, no UI, no characters",
+
+  "revision2026-08-08": "Final matching round against the actual ui-lane consumer contract found HudView.BuildEmberRestPanel does NOT load Scenes/scene-ember-rest — it needs a separate Icons/ sprite at an exact 1024x694 panel-aspect crop. Two distinct, both-kept assets now exist; see twoAssetDecision below.",
+
+  "assets": {
+    "sceneCutscene": {
+      "path": "Assets/Resources/Scenes/scene-ember-rest.png",
+      "role": "Cutscene-convention master image, same family as scene-intro/scene-stage-entry/scene-transition/scene-boss-entry (Assets/Scripts/View/CutsceneView.cs:54, Resources.Load<Sprite>(\"Scenes/\" + name)). Full uncropped composition, no flattening treatment.",
+      "generatedDims": "1536x1024 (gti codex-cli default, matches sibling scene-*.png raw output)",
+      "generatedBytes": 2183861,
+      "shippedDims": "1024x683",
+      "shippedBytes": 965148,
+      "resizeReason": "2026-08-07 team-lead directive: verify <=1024px and resize if it exceeds, rather than relying on a future Unity import maxTextureSize clamp (the 4 sibling scene-*.png stay at their raw 1536x1024 and are only clamped to 1024 via already-imported .meta files — Assets/Resources/Scenes/scene-intro.png.meta:34 has maxTextureSize:1024 set from a prior session's Unity import; this file had no .meta yet, so the file itself was downsized instead of depending on that step happening correctly later). Uniform LANCZOS resize, aspect ratio preserved (1536:1024 = 1024:683).",
+      "metaStatus": "No .meta yet — this file is not currently referenced by any known call site (CutsceneView's scene table is a code-lane concern; ui-lane's actual consumer is the Icons/ sprite below). Kept per explicit team-lead instruction 2026-08-08 (\"Scenes 컷씬 규약 위치니 유지해도 됨\") as a reserve/master asset, not deleted."
+    },
+    "hudBackground": {
+      "path": "Assets/Resources/Icons/ui-ember-rest-bg.png",
+      "role": "The actual HudView.BuildEmberRestPanel background sprite, per ui-lane's confirmed contract (2026-08-08 relay): panel is 620x420 (aspect 1.4762), so the sprite is cropped/composited to exactly 1024x694 (same aspect) instead of the sceneCutscene image's 1536:1024 (1.5) ratio.",
+      "derivedFrom": "Assets/Resources/Scenes/scene-ember-rest.png (the already-shipped 1024x683 version) — NOT regenerated, per instruction (\"재생성 불요\").",
+      "transform": [
+        "Uniform LANCZOS upscale by height (683 -> 694, ~1.6%) then width center-crop 1040 -> 1024.",
+        "Center-to-bottom flatten: alpha-blended fade to the panel's own backdrop color (Color(0.02,0.05,0.06) from HudView.BuildEmberRestPanel's existing solid Image) starting at 40% down the frame, reaching full flat by 80% down, eased with an x^1.6 curve, plus a 0.6px Gaussian blur to soften the seam. This keeps the archway/glyph motif visible in the top ~40% as atmospheric framing while the lower ~60% (where the 3 offer cards at y~-88..-216 and the 2 buttons at y~18..110 sit, all measured from HudView.cs BuildEmberRestPanel offsets) reads as clean, low-contrast backdrop for UI legibility, per ui-lane's \"중앙~하단은 평탄하게\" requirement.",
+        "Implemented as a one-off script (not added to a reusable tool — this is a single derived asset, unlike the terrain-fx sheets which needed a repeatable generator for 3 themes)."
+      ],
+      "dims": "1024x694",
+      "bytes": 703845,
+      "mode": "RGB, no text/logo/UI baked in",
+      "qualityCheck": "Visually reviewed (Read tool image preview) before shipping: top-40% archway/glyph detail intact, bottom-60% smoothly flat and dark, no visible hard seam."
+    }
+  },
+
+  "twoAssetDecision": "Both files are intentionally kept, not a duplicate: scene-ember-rest.png is the cutscene-family master (full composition, 1536:1024-derived aspect, CutsceneView convention/location) and ui-ember-rest-bg.png is the actual HUD-panel-fitted derivative (1024x694, flattened center-bottom) that Assets/Scripts/View/HudView.cs's BuildEmberRestPanel needs. Deleting either would either break the Scenes/ convention slot or leave ui-lane without an asset that actually fits its panel aspect ratio and legibility requirement.",
+
+  "metaImport": {
+    "path": "Assets/Resources/Icons/ui-ember-rest-bg.png.meta",
+    "authoredBy": "Hand-written (Unity Editor not run this session — batchmode-only automation per CLAUDE.md §1). Per explicit ui-lane instruction (\"기존 Icons/ 하위 스프라이트의 .meta를 템플릿으로 복사해 guid만 신규 발급\"), copied the structure of Assets/Resources/Icons/hud-meters-panel-bg.png.meta (an existing Sprite-mode Icons/ background image) and issued a fresh GUID (c3eeb10907f74160aebb56debcc53c12, collision-checked against every other .meta in Assets/).",
+    "settings": "textureType: 8 (Sprite), spriteMode: 1 (Single) — matches ui-lane's stated requirement exactly. spriteBorder set to 0,0,0,0 (not 9-sliced like the hud-meters-panel-bg template, which is a tileable panel frame — this is a full-bleed single background image). maxTextureSize: 1024 on all platform overrides.",
+    "risk": "Hand-authored .meta is unverified against a live Unity Editor import this session. If Unity re-imports and reassigns settings unexpectedly, re-check textureType/spriteMode after the next Editor open — flagged as a follow-up, not assumed correct."
+  },
+
+  "followUp": [
+    "Unity Editor import verification not performed this session (batchmode-only automation per CLAUDE.md §1) — the hand-authored ui-ember-rest-bg.png.meta should be spot-checked once the Editor actually opens the project.",
+    "Assets/Scripts/View/HudView.cs BuildEmberRestPanel (:825-864) currently draws the Ember Rest popup as a plain 620x420 solid-color Image (new Color(0.02f,0.05f,0.06f,0.96f)) with no background sprite — this is a NEW integration point, not a swap of an existing one. ui-lane needs to add an Image component loading Resources.Load<Sprite>(\"Icons/ui-ember-rest-bg\") behind/within _emberRestPanel."
+  ]
+}

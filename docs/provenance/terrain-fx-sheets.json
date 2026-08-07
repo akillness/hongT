@@ -1,0 +1,83 @@
+{
+  "lane": "asset (W16, additional approved task 2026-08-07)",
+  "goal": "3 animated terrain flipbook sprite sheets — volcano/lava, glacier/ice, moving/shifting terrain — for vfx-lane to consume as UV-flipbook overlays on dungeon terrain.",
+  "revision": "2026-08-07 rev2: relocated + converted to grayscale to match the confirmed vfx-lane consumer contract (orchestrator relay of vfx-lane report §3.5.2). rev1 (superseded) lived at Assets/Resources/Textures/Env/terrain-fx-*.png in full color; those 3 files were deleted, not kept alongside the new ones.",
+  "toolChoice": {
+    "requested": "perfectpixel (ppgen -provider god-tibo-imagen -desc \"...\" -json), per CLAUDE.md §3 2D 스프라이트/시트 row",
+    "checked": "`which ppgen` -> not found in this environment (2026-08-07). Same finding a prior session recorded in docs/provenance/scene-synopsis-art.json:39 (\"perfectpixel/ppgen sprite tool is also not installed in this environment\") — not re-litigated, just re-confirmed before falling back.",
+    "fallbackUsed": "god-tibo-imagen (gti) for one seamless-tileable color 'hero' texture per theme, THEN deterministic per-frame assembly in a new script (tools/gen_terrain_fx_sheets.py) instead of asking gti to draw the whole NxN grid directly in one shot. Rationale: asking a single image-gen call to lay out a clean, evenly-aligned animated grid is unreliable — the existing character-asset-pipeline already rejected a generated atlas for drawing bogus section labels onto the sheet (docs/character-asset-pipeline.md:99, 'v2 was rejected as a reference candidate after visual review found generated section labels'). Deterministic assembly guarantees exact 4x4 alignment and a mathematically seamless loop (phase in [0, 2*pi) wraps exactly at frame 0 == frame N). A color prompt ('seamless tileable game texture, molten volcanic basalt...') still reads much better to the image model than an abstract grayscale-pattern prompt would, so the hero stays color and is reduced to a pattern mask in code afterward (see grayscaleConversion below)."
+  },
+  "heroTextures": {
+    "tool": "god-tibo-imagen (gti) 0.3.0, --provider codex-cli (private-codex is HTTP 429 rate-limited on this machine per docs/provenance/scene-synopsis-art.json / docs/provenance/env-stage-textures.md — not retried here, codex-cli used directly)",
+    "generatedAt": "2026-08-07",
+    "outputDir": "_workspace/current/engineering/icons/terrain-fx-hero/ (live tool-output path, not archived per CLAUDE.md §4)",
+    "sizeNote": "codex-cli ignores --size (documented quirk, env-stage-textures.md:32); returned 1254x1254 for all 3 calls this session — square, so no crop distortion needed before the 256x256 frame resize.",
+    "items": [
+      {
+        "theme": "lava",
+        "file": "_workspace/current/engineering/icons/terrain-fx-hero/lava-hero.png",
+        "dims": "1254x1254",
+        "prompt": "Seamless tileable game texture, molten volcanic basalt terrain surface: dark charcoal-black cracked rock with glowing molten ember-orange cracks running through it, small scattered ember sparks, flat even lighting with no baked shadows or highlights, orthographic top-down flat albedo map for a game engine, edges wrap perfectly, no text, no logo, no border, no vignette, dark fantasy cinder-span stage palette"
+      },
+      {
+        "theme": "ice",
+        "file": "_workspace/current/engineering/icons/terrain-fx-hero/ice-hero.png",
+        "dims": "1254x1254",
+        "prompt": "Seamless tileable game texture, frozen glacier terrain surface: dark regal blue granite cracked with pale silver-blue frost veins and crystalline ice crust, faint spectral-cyan glint highlights, flat even lighting with no baked shadows or highlights, orthographic top-down flat albedo map for a game engine, edges wrap perfectly, no text, no logo, no border, no vignette, dark fantasy echo-throne stage palette"
+      },
+      {
+        "theme": "shift",
+        "file": "_workspace/current/engineering/icons/terrain-fx-hero/shift-hero.png",
+        "dims": "1254x1254",
+        "prompt": "Seamless tileable game texture, shifting abyssal current terrain surface: dark charcoal-black ground with a faint spectral-cyan energy current line rippling across it, subtle pulsing glow, flat even lighting with no baked shadows or highlights, orthographic top-down flat albedo map for a game engine, edges wrap perfectly, no text, no logo, no border, no vignette, dark fantasy tide-current hazard marker"
+      }
+    ]
+  },
+  "grayscaleConversion": {
+    "requirement": "vfx-lane consumer contract (2026-08-07): grayscale/alpha pattern only, no color — runtime applies per-stage tint (lava=emissive pattern, ice=crystal-drift pattern, shift=drifting-ash pattern).",
+    "method": "load_pattern_base() in tools/gen_terrain_fx_sheets.py: per-pixel max(R,G,B) of the color hero texture, then min-max contrast stretch to the full 0-255 range. max(R,G,B) was chosen over standard luminance (0.299R+0.587G+0.114B) because luminance under-weights the blue channel (0.114), which would wash out the ice/shift themes' cyan glow elements relative to lava's orange ones — max-channel isolates 'how bright is the brightest color component here' uniformly regardless of hue, which is what actually reads as 'glowing/bright element vs dark base' across all 3 themes.",
+    "qualityCheck": "Visually reviewed all 3 finished sheets after conversion (Read tool image preview) before shipping: lava shows crack lines as bright strands against a near-black base, ice shows crystal texture + a clearly visible sweeping diagonal glint band, shift shows the ash/current texture + clearly visible vertical drift bands. All read as usable pattern masks; no regeneration of the hero textures was needed."
+  },
+  "assembly": {
+    "tool": "tools/gen_terrain_fx_sheets.py (new script, PIL/Pillow + numpy)",
+    "command": "python3 tools/gen_terrain_fx_sheets.py --hero <hero.png> --theme {lava,ice,shift} --out Assets/Resources/Terrain/terrain-fx-<theme>-sheet.png",
+    "perThemeTransform": {
+      "lava": "Pulsing glow brightness (sine phase over the 16 frames, boosts only already-bright/'hot' texels above a grayscale threshold) + partial vertical roll of the base pattern (bubbling-flow read). frame_lava() in the script, grayscale (numpy) throughout.",
+      "ice": "Diagonal glint band sweeps across the tile once per loop, drawn 3x (current + one cycle earlier/later) so the wrap has no visible gap, Gaussian-blurred, added on top of the base pattern (clipped to 255). frame_ice().",
+      "shift": "Horizontal drift band rolls across the tile (position = phase * width, wrapped modulo width), Gaussian-blurred, added on top of the base pattern. frame_shift()."
+    }
+  },
+  "gridSpec": {
+    "grid": "4x4 (16 frames) — chosen over 8x8 per D8/W16's own '4x4 or 8x8' allowance; 16 frames is enough for a smooth ambient loop at typical ~8-12 fps flipbook playback and keeps each frame at a readable 256px",
+    "sheetSize": "1024x1024 px (<=1024 WebGL ceiling, CLAUDE.md §1 — verified via PIL after generation, no resize needed since GRID*FRAME_SIZE=1024 by construction)",
+    "frameSize": "256x256 px per frame",
+    "frameOrder": "row-major, frame 0 = top-left cell, frame index = row*4 + col, reading left-to-right then top-to-bottom",
+    "loop": "Seamless: every per-theme transform is parameterized by phase = frame_index / 16 (or 2*pi*frame_index/16 for the sine-based lava pulse), so frame 15 -> frame 0 continues the cycle exactly as frame N -> frame N+1 would inside it. No dedicated 'frame 16' duplicate of frame 0 is included — playback should loop directly from index 15 back to index 0.",
+    "pixelFormat": "8-bit grayscale (PNG mode L), no alpha channel, no color — matches the confirmed contract exactly."
+  },
+  "outputs": [
+    {"file": "Assets/Resources/Terrain/terrain-fx-lava-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 445941},
+    {"file": "Assets/Resources/Terrain/terrain-fx-ice-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 476942},
+    {"file": "Assets/Resources/Terrain/terrain-fx-shift-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 402861}
+  ],
+  "deletedSuperseded": [
+    "Assets/Resources/Textures/Env/terrain-fx-lava-sheet.png (rev1, color, wrong path — deleted)",
+    "Assets/Resources/Textures/Env/terrain-fx-ice-sheet.png (rev1, color, wrong path — deleted)",
+    "Assets/Resources/Textures/Env/terrain-fx-shift-sheet.png (rev1, color, wrong path — deleted)"
+  ],
+  "stageThemeMapping": {
+    "investigated": "tools/gen_env_textures.sh STAGES table (source of truth for per-stage env-stone/env-floor concept clauses, per docs/provenance/env-stage-textures.md) + Assets/Scripts/View/StageCatalog.cs stage color/hazard table.",
+    "findings": [
+      "cinder-span (\"재의 다리\"): 'weathered charcoal basalt block masonry veined with dull orange ember cracks' / 'scorched stone bridge decking' -> matches terrain-fx-lava-sheet directly. This is the stage with EmberGalleryHazards (vent hazards) too.",
+      "echo-throne (\"메아리 왕좌\"): 'regal dark blue granite throne-hall masonry with silver-blue veining' / 'mirror-dark throne floor tiles with concentric pale blue echo rings' -> matches terrain-fx-ice-sheet directly. This is also the stage carrying HazardConfig.Current(...) (StageCatalog.cs:147), i.e. the existing TideCurrent hazard kind.",
+      "abyss-chancel (\"서약의 성당\"): violet-grey/indigo cathedral palette — neither lava nor ice; not targeted by this sheet set.",
+      "No stage in StageCatalog.cs is literally named 'volcano' or 'glacier' — cinder-span/echo-throne are this repo's closest thematic matches and are what the lava/ice hero textures were originally prompted against (the color source, before grayscale reduction, explicitly says 'cinder-span stage palette' / 'echo-throne stage palette' — the pattern geometry survives grayscale conversion even though the hue does not).",
+      "terrain-fx-shift-sheet is intentionally generic (not stage-locked): it targets HazardKind.TideCurrent (Assets/Scripts/View/EnvironmentBuilder.cs:809, VfxDirector.cs:128/142/1248/1445), which StageCatalog.cs uses on echo-throne (HazardConfig.Current(768f,604f,120f,0.3f) at :147) and the ash-verdict-adjacent anchor (:485) — i.e. 'moving terrain' maps to the existing current/tide hazard visual, not a new stage."
+    ]
+  },
+  "runtimeConsumer": {
+    "confirmedPath": "Assets/Resources/Terrain/terrain-fx-{lava,ice,shift}-sheet.png — vfx-lane's Resources.Load path (Assets/Resources/Textures/Env/ used by rev1 was NOT loaded by vfx-lane's implementation and has been removed).",
+    "importApplied": "wrapMode Clamp (wrapU/V/W: 1) WAS applied, not just recommended — hand-authored .meta files were written for all 3 sheets (2026-08-08, Unity Editor still not run this session, batchmode-only automation per CLAUDE.md §1). Structure copied from an existing Texture2D .meta template (Assets/Resources/Textures/Env/abyss-chancel-floor.png.meta) with wrapU/V/W flipped from 0 (Repeat, correct for that tiling stage texture) to 1 (Clamp, correct for per-cell flipbook sampling), textureType left at 0 (plain Texture2D, not Sprite — matches how a UV-offset flipbook consumer reads a texture, not a sprite atlas), maxTextureSize 1024 kept from the template. Fresh GUIDs issued per file (f1edf0f01fc141938d64ad821b16683a / baa098c5bd304e43a150048b359996c2 / 8a3a68ea340f4c929a9b7739e1631955), collision-checked against every other .meta in Assets/ before writing.",
+    "risk": "Hand-authored .meta is unverified against a live Unity Editor import this session — flagged as a follow-up (spot-check textureType/wrapMode once the Editor actually opens the project), not assumed correct."
+  }
+}
