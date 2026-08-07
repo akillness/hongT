@@ -12,7 +12,7 @@ namespace CinderCourt.Sim
     /// infinite run, <see cref="Prologue"/> the 3-wave tutorial, <see cref="Dungeon"/>
     /// the campaign stage plus the hack &amp; slash combat kit.
     /// </summary>
-    public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2 }
+    public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2, Training = 3 }
 
     /// <summary>Active dungeon companion locomotion mode. This is the COMMANDED mode and
     /// stays exactly the frozen Amendment #3 pair: the AMENDMENT #7 autonomy state is a
@@ -109,6 +109,76 @@ namespace CinderCourt.Sim
     }
 
     /// <summary>
+    /// Sigil identity (AMENDMENT #6, design/sigil-spec.md). Each sigil binds ONE
+    /// dungeon gimmick; <see cref="None"/> is the inert default so an unequipped
+    /// run is byte-identical to every run before the amendment.
+    /// </summary>
+    public enum SigilKind
+    {
+        None = 0,
+        Countercurrent = 1,   // 역류인 — tide-current
+        Verdict = 2,          // 판결인 — ember-pylon
+        Executioner = 3,      // 집행인 — ash-wall
+        Ignition = 4,         // 점화인 — ember-vent
+        Witness = 5,          // 증언인 — relic-altar
+    }
+
+    /// <summary>
+    /// Which face of a sigil is turned up. A = defensive (survive the gimmick),
+    /// B = offensive (turn the gimmick on the enemy). Sidegrades, never a ladder:
+    /// the survey's rule 3 (design/sigil-spec.md §설계 규칙).
+    /// </summary>
+    public enum SigilFace { A = 0, B = 1 }
+
+    /// <summary>
+    /// Two equipped sigils. Five exist, two fit — the choice is the point
+    /// (sigil-spec §형태). Defaults to two empty slots, which resolves to every
+    /// pre-amendment constant.
+    /// </summary>
+    public struct SigilLoadout
+    {
+        public SigilKind Slot0;
+        public SigilFace Face0;
+        public SigilKind Slot1;
+        public SigilFace Face1;
+
+        /// <summary>Slot count — the equip ceiling the lobby enforces.</summary>
+        public const int Slots = 2;
+
+        public static SigilLoadout Of(SigilKind slot0, SigilFace face0,
+                                      SigilKind slot1, SigilFace face1) => new SigilLoadout
+        {
+            Slot0 = slot0,
+            Face0 = face0,
+            Slot1 = slot1,
+            Face1 = face1,
+        };
+
+        /// <summary>One sigil on one face, in either slot.</summary>
+        public static SigilLoadout One(SigilKind kind, SigilFace face)
+            => Of(kind, face, SigilKind.None, SigilFace.A);
+
+        /// <summary>True when this exact sigil/face pair is equipped.</summary>
+        public bool Has(SigilKind kind, SigilFace face)
+            => kind != SigilKind.None
+               && ((Slot0 == kind && Face0 == face) || (Slot1 == kind && Face1 == face));
+
+        /// <summary>True when this sigil is equipped on EITHER face. The surge
+        /// clause (AMENDMENT #10) is face-independent: it is the sigil waking up,
+        /// not the face doing more of what it already does.</summary>
+        public bool HasKind(SigilKind kind)
+            => kind != SigilKind.None && (Slot0 == kind || Slot1 == kind);
+
+        /// <summary>Slot order for the peril no-stacking rule (slot 0 wins).</summary>
+        public SigilKind PerilPriority(SigilKind a, SigilKind b, SigilKind c)
+        {
+            if (Slot0 == a || Slot0 == b || Slot0 == c) return Slot0;
+            if (Slot1 == a || Slot1 == b || Slot1 == c) return Slot1;
+            return SigilKind.None;
+        }
+    }
+
+    /// <summary>
     /// One hack &amp; slash run setup (docs/SIM_SPEC_HACKSLASH.md §12).
     /// <see cref="Mode"/> selects the rule set; <see cref="StageId"/> is dungeon-only.
     /// </summary>
@@ -141,6 +211,17 @@ namespace CinderCourt.Sim
         /// value is <see cref="PreparationOfferKind.None"/> and is inert.
         /// </summary>
         public PreparationOffer PreparationOffer;
+        /// <summary>
+        /// Equipped sigils (AMENDMENT #6). Default = two empty slots, which
+        /// resolves every gimmick constant to its pre-amendment value. Set by the
+        /// view after <see cref="TryDungeon"/>, the same seam the verdict pact
+        /// uses for <see cref="Hazards"/> — the signature stays put.
+        /// </summary>
+        public SigilLoadout Sigils;
+        /// <summary>
+        /// Trial tier for <see cref="GameMode.Training"/> (0..2). Inert elsewhere.
+        /// </summary>
+        public int TrainingTier;
 
         /// <summary>The frozen arena run expressed as a hack config (no meta/equipment).</summary>
         public static HackConfig Arena() => new HackConfig
@@ -214,6 +295,37 @@ namespace CinderCourt.Sim
                 CompanionIds = companionIds,
                 Hazards = stage.Hazards,
                 RosterMask = rosterMask,
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// A training-ground trial (AMENDMENT #10). One gimmick, one tier, 60 s,
+        /// no spawns. Meta stats and equipment ride along so the numbers you
+        /// practise are the numbers you fight with; sigils do NOT — the trial is
+        /// where you learn the gimmick unaided, and surge never fires here.
+        /// </summary>
+        public static bool TryTraining(
+            string trialId,
+            int tier,
+            MetaStats metaStats,
+            EquipTiers equipTiers,
+            out HackConfig config)
+        {
+            if (!TrainingTrials.TryGet(trialId, out var hazards) || tier < 0 || tier >= HackSpec.TrainingTiers)
+            {
+                config = default;
+                return false;
+            }
+
+            config = new HackConfig
+            {
+                Mode = GameMode.Training,
+                StageId = trialId,
+                MetaStats = metaStats,
+                EquipTiers = equipTiers,
+                Hazards = hazards,
+                TrainingTier = tier,
             };
             return true;
         }
@@ -385,6 +497,9 @@ namespace CinderCourt.Sim
         // --- §1 prologue ---
         public const string PrologueStageId = "prologue";
         public const string PrologueClearReason = "prologue-clear";
+        /// <summary>Trial end marker — the clock ran out, which is the only way
+        /// a trial ends (AMENDMENT #10).</summary>
+        public const string TrainingClearReason = "training-clear";
         public const int PrologueWaves = 3;
         private static readonly int[] PrologueSpawns = { 4, 6, 8 };
 
@@ -723,6 +838,110 @@ namespace CinderCourt.Sim
         public const float AttackPerPoint = 0.03f;
         public const float VitalityHealthPerPoint = 8f;
         public const float SwiftnessSpeedPerPoint = 0.02f;
+
+        // --- §13 sigils (AMENDMENT #6 — design/sigil-spec.md) -----------------
+        // Meta upgrades that touch the GIMMICKS instead of the stat block.
+        // Sourced from .survey/meta-upgrade-gimmick-interaction/. Three rules the
+        // numbers below obey, each one a survey finding:
+        //
+        //  1. NO IMMUNITY, resistance only. The line the survey draws is "does the
+        //     hazard still change your behaviour" — so the current still shoves you
+        //     (100 px/s against 218 move), the wall still hurts (6 a tick), and the
+        //     vent's defensive face does not reduce its damage AT ALL, it converts
+        //     the hit into oil. A sigil never makes standing in a hazard correct.
+        //  2. NO RANDOM PROCS. Every value here is a constant multiplier or
+        //     replacement resolved once at construction. Predictability IS the
+        //     product identity (the D4-affliction backlash vs HoT-wall praise).
+        //  3. SIDEGRADES. A/B are different axes (survive vs kill), not a ladder,
+        //     so neither face is the "correct" pick independent of the stage.
+        //
+        // Unequipped resolves to the pre-amendment constants exactly — proven by
+        // the 15 golden rows staying byte-identical.
+        public const int SigilSlots = SigilLoadout.Slots;
+
+        /// <summary>역류인 A — current push ON THE PLAYER scales by this.</summary>
+        public const float SigilCurrentPlayerPushMult = 0.5f;   // 200 -> 100 vs move 218
+        /// <summary>역류인 B — current push ON ENEMIES scales by this.</summary>
+        public const float SigilCurrentEnemyPushMult = 1.5f;
+
+        /// <summary>판결인 A — pylon aura damage-taken multiplier is RAISED to this
+        /// (0.40 -> 0.70: the shield thins, it does not vanish).</summary>
+        public const float SigilPylonAuraRelief = 0.70f;
+        /// <summary>판결인 B — damage dealt TO a pylon body scales by this.</summary>
+        public const float SigilPylonStrikeMult = 2f;
+
+        /// <summary>집행인 A — wall tick on the player, replacing 10.</summary>
+        public const float SigilWallPlayerTick = 6f;
+        /// <summary>집행인 B — wall tick on enemies, replacing 10.</summary>
+        public const float SigilWallEnemyTick = 18f;
+
+        /// <summary>점화인 A — oil granted when a vent hits the player. The DAMAGE
+        /// IS UNCHANGED: this face buys resource off pain, never safety.</summary>
+        public const float SigilVentOilRefund = 12f;
+        /// <summary>점화인 B — vent damage dealt to enemies, replacing 8. Vents are
+        /// player-only by default (SIM_SPEC_CAMPAIGN); this face opts INTO the
+        /// symmetric doctrine for vents, and only while equipped.</summary>
+        public const float SigilVentEnemyDamage = 14f;
+
+        /// <summary>증언인 A — altar channel seconds, replacing 1.2.</summary>
+        public const float SigilAltarHoldSeconds = 0.8f;
+        /// <summary>증언인 B — altar oil burst, replacing 18.</summary>
+        public const float SigilAltarOilBurst = 30f;
+
+        // --- §14 surge (AMENDMENT #10 — design/training-and-surge-spec.md) -----
+        // Deterministic surge windows. Sourced from
+        // .survey/roguelike-training-and-surge/: the genre builds surges out of a
+        // CLOCK (3/13) and never out of a health threshold (0/13) or a kill count
+        // (0~1/13), because an RNG run cannot reproduce either one. Ours can.
+        //
+        // A window is SIM STATE ONLY. It opens, it publishes, it closes — and by
+        // itself it changes no number. Every mechanical consequence is owned by
+        // an equipped sigil clause (§13 + CinderSim.ResolveSigils).
+        //
+        // That rule is the second correction this feature took, and a probe
+        // forced it: the draft slowed the hazard clock as a base effect of peril,
+        // which fired on plain unequipped runs and would have moved all 15 golden
+        // digests. Making the window inert on its own also fills the exact gap
+        // the survey found — "upgrade layer x surge form" was 0/15 filled — so
+        // the correction is the better design, not just the safer one.
+
+        /// <summary>Peril arms when health first drops below this fraction.</summary>
+        public const float PerilHealthFraction = 0.35f;
+        /// <summary>Peril re-arms only after health recovers past this fraction
+        /// (hysteresis — stops a re-trigger chain around the threshold).</summary>
+        public const float PerilRearmFraction = 0.50f;
+        /// <summary>Peril windows allowed per run (negotiation entry 8 cap).</summary>
+        public const int PerilRunCap = 2;
+        /// <summary>Peril window seconds. 3, not 6: the director's arithmetic put a
+        /// 6 s wall exemption at 100% of base HP avoided — reversal grade.</summary>
+        public const float PerilSeconds = 3f;
+
+        /// <summary>Every Nth cumulative kill opens a surge window.</summary>
+        public const int SurgeKillInterval = 12;
+        /// <summary>Surge windows allowed per wave.</summary>
+        public const int SurgeWaveCap = 1;
+        /// <summary>Surge window seconds.</summary>
+        public const float SurgeSeconds = 6f;
+        /// <summary>Hazard damage dealt to ENEMIES scales by this inside a surge.
+        /// The cross-table cells this comes from are "sweep enemies with the
+        /// current" and "herd enemies into the wall" — both empty in the genre.</summary>
+        public const float SurgeEnemyHazardMult = 2f;
+        /// <summary>점화인 raises the surge multiplier to this instead of adding a
+        /// second payout (a layer on the layer, not a duplicate grant).</summary>
+        public const float SigilSurgeEnemyHazardMult = 3f;
+
+        // --- §15 training ground (AMENDMENT #10) -------------------------------
+        /// <summary>A trial is a fixed 60 s window — no wave table, no spawns.</summary>
+        public const float TrainingSeconds = 60f;
+        /// <summary>Trial tiers. Tier k scales hazard PERIODS by Tier{k}Rate; the
+        /// telegraph seconds never move, because no title in the survey pool uses
+        /// telegraph shortening as a difficulty lever.</summary>
+        public const int TrainingTiers = 3;
+        /// <summary>Period multipliers per tier (견습 / 숙련 / 판결).</summary>
+        public static float TrainingTierRate(int tier) => tier <= 0 ? 1f : tier == 1 ? 0.85f : 0.7f;
+        /// <summary>One-time relic grant for clearing every trial at 판결 tier
+        /// (negotiation entry 7 — repeat currency payouts are banned).</summary>
+        public const int TrainingMasteryRelics = 2;
 
         // --- §7 boss phases (AMENDMENT #4 — boss-phase-metric-definition) -----
         // Three phases on HP thresholds. The stat vector is stored as TIME

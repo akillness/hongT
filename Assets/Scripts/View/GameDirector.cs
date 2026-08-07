@@ -8,7 +8,7 @@ namespace CinderCourt.View
 {
     public sealed class GameDirector : MonoBehaviour
     {
-        public enum State { Lobby, Prologue, Dungeon, Arena }
+        public enum State { Lobby, Prologue, Dungeon, Arena, Training }
 
         GameBootstrap _bootstrap;
         LobbyView _lobby;
@@ -29,6 +29,10 @@ namespace CinderCourt.View
         string _selectedStage = "cinder-span";
         string _runStageId = "";
         bool _runEndPersisted;
+        // v1.3 M3: this run was started under an armed verdict pact (the flag
+        // is latched at StartDungeon — the lobby toggle is session-only view
+        // state and may change while a run is live).
+        bool _runWasPact;
         GameObject _stageTerrain;         // instantiated Resources/Terrain prefab
         string _stageTerrainId = "";
         GameObject _stageDressing;        // instantiated dressing clones (view-only)
@@ -76,6 +80,9 @@ namespace CinderCourt.View
                 OnAllocateStat = OnAllocateStat,
                 OnBuyEquip = OnBuyEquip,
                 OnSelectCompanion = OnSelectCompanion,
+                OnBuySigil = OnBuySigil,
+                OnEquipSigil = OnEquipSigil,
+                OnStartTrial = StartTraining,
             };
             _lobby.Build(_data, callbacks);
 
@@ -92,6 +99,7 @@ namespace CinderCourt.View
 
             if (mode == "arena") StartArena();
             else if (mode == "prologue") StartPrologue();
+            else if (mode == "training") StartTraining(TrialFromQuery(), TierFromQuery());
             else if (mode == "campaign" && IsStageUnlocked(stage)) StartDungeon(stage);
             else EnterLobby();
 
@@ -264,6 +272,79 @@ namespace CinderCourt.View
                 "등불을 들어라. 사슬이 무엇을 붙들고 있는지 확인할 시간이다.");
         }
 
+        // --------------------------------------------------- training ground --
+        int _trialIndex = -1;
+        int _trialTier;
+
+        static int TrialFromQuery()
+        {
+            int index = TrainingTrials.IndexOf(WebGLStorage.QueryParam("trial"));
+            return index < 0 ? 0 : index;
+        }
+
+        static int TierFromQuery()
+        {
+            int tier = 0;
+            int.TryParse(WebGLStorage.QueryParam("tier"), out tier);
+            return tier < 0 ? 0 : (tier >= HackSpec.TrainingTiers ? HackSpec.TrainingTiers - 1 : tier);
+        }
+
+        /// <summary>
+        /// Enter a trial (AMENDMENT #10). The first run of the game still gets the
+        /// original three-wave prologue — a trial only replaces the REPEAT visit,
+        /// so a new player's path and the prologue golden are both untouched.
+        /// </summary>
+        void StartTraining(int trialIndex, int tier)
+        {
+            if (!_data.PrologueDone)
+            {
+                StartPrologue();
+                return;
+            }
+            if (trialIndex < 0 || trialIndex >= TrainingTrials.Ids.Length) return;
+
+            var metaStats = MetaStats.Of(_data.Attack, _data.Vitality, _data.Swiftness);
+            var equipTiers = EquipTiers.Of(_data.Weapon, _data.Lantern, _data.Cloak);
+            if (!HackConfig.TryTraining(TrainingTrials.Ids[trialIndex], tier, metaStats, equipTiers,
+                    out var config))
+            {
+                EnterLobby();
+                return;
+            }
+
+            ClearEmberRestRoute();
+            _state = State.Training;
+            _trialIndex = trialIndex;
+            _trialTier = tier;
+            SetStageTerrain(null);
+            ApplyStageDressing(null);
+            PrepareRunUi();
+            _input.Mode = InputAdapter.Profile.Dungeon;   // full kit: you practise with your tools
+            _rig.SetProfile(CameraRig.Profile.Dungeon);
+            _game.Begin(config, TrialDisplayName(trialIndex, tier), null);
+        }
+
+        static string TrialDisplayName(int trialIndex, int tier)
+            => $"{LobbyView.TrialNames[trialIndex]} • {LobbyView.TierNames[tier]}";
+
+        /// <summary>
+        /// A trial survived to the clock records its tier and nothing else
+        /// (AMENDMENT #10 · negotiation entry 7). The ONLY currency the training
+        /// ground can ever pay is the one-time mastery grant, and only when every
+        /// trial sits at the top tier — PM's band was "one-time <=2 relics,
+        /// repeat payouts banned", and a trial spawns no enemies so there is no
+        /// drop path either.
+        /// </summary>
+        void PersistTrialClear()
+        {
+            CampaignStore.RecordTrial(ref _data, _trialIndex, _trialTier);
+            if (!_data.TrainingMasteryClaimed && CampaignStore.MasteryComplete(in _data))
+            {
+                _data.TrainingMasteryClaimed = true;
+                _data.Relics += HackSpec.TrainingMasteryRelics;
+            }
+        }
+
         void StartDungeon(string stageId, PreparationOffer preparation = default)
         {
             if (!preparation.IsValid) ClearEmberRestRoute();
@@ -281,9 +362,21 @@ namespace CinderCourt.View
                 EnterLobby();
                 return;
             }
-            if (entry.HazardOverride != null)
+            // v1.3 M3: an armed verdict pact swaps in the pact table (base
+            // placements + appended identity-gimmick extras) INSTEAD of the
+            // override/anchor. Pact state is read from the lobby at sortie
+            // time and latched for the whole run (retries included, as long
+            // as the toggle stays armed). Everything downstream is the
+            // ordinary fixed-table path — no RNG, no sim change.
+            _runWasPact = _lobby.IsPactArmed(entry.Id);
+            if (_runWasPact)
+                config.Hazards = StageCatalog.PactFor(entry.Id);
+            else if (entry.HazardOverride != null)
                 config.Hazards = entry.HazardOverride;
             config.PreparationOffer = preparation;
+            // AMENDMENT #6: the equipped loadout rides the same view-composed seam
+            // as the pact table. Empty loadout = every pre-sigil constant.
+            config.Sigils = SigilsOf(in _data);
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;
@@ -292,7 +385,11 @@ namespace CinderCourt.View
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
-            _game.Begin(config, entry.DisplayName, _data.Active, entry.Id);
+            // "— 서약" HUD title suffix: the cheapest always-visible in-run
+            // marker (Begin's stageDisplayName flows to the campaign HUD).
+            _game.Begin(config,
+                _runWasPact ? entry.DisplayName + " — 서약" : entry.DisplayName,
+                _data.Active, entry.Id);
 
             // Stage-entry cutscene loading screen (spec §8): pick the pre-rendered
             // scene frame by context — a mid-campaign continuation from Ember Rest
@@ -487,6 +584,67 @@ namespace CinderCourt.View
             _staging.Show(_selectedStage, _data.Active);
         }
 
+        /// <summary>
+        /// Unlocks a sigil (AMENDMENT #6). One-time relic spend; the FACE stays
+        /// free to flip forever, which is the survey's anti-lock-in rule.
+        /// </summary>
+        void OnBuySigil(int kind)
+        {
+            if (kind <= 0) return;
+            var bit = 1 << kind;
+            if ((_data.SigilsOwned & bit) != 0) return;
+            if (_data.Relics < LobbyView.SigilCost) return;
+            _data.Relics -= LobbyView.SigilCost;
+            _data.SigilsOwned |= bit;
+            CampaignStore.Save(in _data);
+            _lobby.Refresh(_data);
+        }
+
+        /// <summary>
+        /// Equip, flip or unequip. Pressing the face already lit removes the sigil;
+        /// pressing the other face swaps to it. With both slots full the OLDEST
+        /// (slot 0) is evicted — a full loadout must never swallow the tap silently.
+        /// </summary>
+        void OnEquipSigil(int kind, int face)
+        {
+            if (kind <= 0 || (_data.SigilsOwned & (1 << kind)) == 0) return;
+
+            var faceBit = 1 << kind;
+            var wantsB = face == 1;
+            var showingB = (_data.SigilFaces & faceBit) != 0;
+            var slotted = _data.SigilSlot0 == kind || _data.SigilSlot1 == kind;
+
+            if (slotted && showingB == wantsB)
+            {
+                // Same face pressed again → take it off.
+                if (_data.SigilSlot0 == kind) _data.SigilSlot0 = 0;
+                if (_data.SigilSlot1 == kind) _data.SigilSlot1 = 0;
+            }
+            else
+            {
+                if (wantsB) _data.SigilFaces |= faceBit;
+                else _data.SigilFaces &= ~faceBit;
+                if (!slotted)
+                {
+                    if (_data.SigilSlot0 == 0) _data.SigilSlot0 = kind;
+                    else if (_data.SigilSlot1 == 0) _data.SigilSlot1 = kind;
+                    else { _data.SigilSlot0 = _data.SigilSlot1; _data.SigilSlot1 = kind; }
+                }
+            }
+
+            CampaignStore.Save(in _data);
+            _lobby.Refresh(_data);
+        }
+
+        /// <summary>Persisted slots/faces as the sim's loadout struct.</summary>
+        SigilLoadout SigilsOf(in CampaignData data)
+        {
+            return SigilLoadout.Of(
+                (SigilKind)data.SigilSlot0,
+                (data.SigilFaces & (1 << data.SigilSlot0)) != 0 ? SigilFace.B : SigilFace.A,
+                (SigilKind)data.SigilSlot1,
+                (data.SigilFaces & (1 << data.SigilSlot1)) != 0 ? SigilFace.B : SigilFace.A);
+        }
 
         // ------------------------------------------------------------ run events --
         void OnRunEvents(SimEvents events, ICinderSim sim)
@@ -511,6 +669,10 @@ namespace CinderCourt.View
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
                 }
+                else if (_state == State.Training)
+                {
+                    PersistTrialClear();
+                }
                 CampaignStore.Save(in _data);
                 _lobby.Refresh(_data);
                 if (shouldBeginEmberRest) BeginEmberRest();
@@ -532,13 +694,27 @@ namespace CinderCourt.View
                 _runEndPersisted = false;
         }
 
+        /// <summary>v1.3 M3 (negotiation-record entry 5, signed): a pact clear
+        /// grants sim.Relics × this. VIEW-side payout — the sim's relic count
+        /// is untouched. Internal so the EditMode economy test pins it.</summary>
+        internal const int PactRelicMultiplier = 2;
+
         void PersistDungeonClear(ICinderSim sim)
         {
             if (!StageCatalog.TryGet(_runStageId, out var entry)) return;
             StageCatalog.MarkCleared(ref _data, in entry, out var firstClear);
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
             _data.Points += firstClear ? 3 : 2;
-            _data.Relics += sim.Relics;
+            // v1.3 M3 (entry 5): pact clear pays sim.Relics × 2 — the ONLY
+            // doubled term. First-clear bonus stays single (agreed 비중복);
+            // in practice the pact toggle only exists on cleared cards, so a
+            // pact run's firstClear is false unless a QA deep link races the
+            // toggle — the bonus line below stays independent either way.
+            _data.Relics += _runWasPact ? sim.Relics * PactRelicMultiplier : sim.Relics;
+            // Cycle-2 first-clear relic bonus (negotiation-record entry 1,
+            // signed designer+pm): view-side grant, sim untouched. One-time —
+            // gated on firstClear like the companion reward below.
+            if (firstClear) _data.Relics += FirstClearRelicBonus(entry.Id);
 
             // Equipment ranks earned in-run become the new baseline (§6 path a).
             var campaign = sim as ICampaignSnapshot;
@@ -563,6 +739,23 @@ namespace CinderCourt.View
 
             var hack = sim as IHackSnapshot;
             if (hack != null) MergeRoster(hack.RosterMask);
+        }
+
+        /// <summary>
+        /// One-time relic grant per stage id (negotiation-record entry 1:
+        /// +6/+8/+10 sluice/bastion/march, first clear only; agreed cap
+        /// rationale: 합산 +24 = T4 비용 2.2배 억제). Original six stages
+        /// grant 0 — their economy predates the entry and stays untouched.
+        /// </summary>
+        static int FirstClearRelicBonus(string stageId)
+        {
+            switch (stageId)
+            {
+                case "cinder-sluice": return 6;
+                case "ember-bastion": return 8;
+                case "ash-march": return 10;
+                default: return 0;
+            }
         }
 
         void MergeRoster(int rosterMask)

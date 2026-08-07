@@ -126,6 +126,16 @@ namespace CinderCourt.Sim
         /// and none at all while the bar merely wobbles inside a tier.</summary>
         MomentumTierUp = 1 << 23,
 
+        // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
+        // Bits 22 AND 23 collided with main on merge (A8's CompanionSkillCast took 22,
+        // A9's MomentumTierUp took 23). main keeps the low bits; these three shift up.
+        // Nothing pins the numeric values — every reference in the codebase is by
+        // symbol — so the move is free.
+        PylonDown = 1 << 24,
+
+        // --- surge amendment (docs/SIM_SPEC_DUNGEONS.md §14) ---
+        PerilOpened = 1 << 25,
+        SurgeOpened = 1 << 26,
     }
 
     public struct RunDigest

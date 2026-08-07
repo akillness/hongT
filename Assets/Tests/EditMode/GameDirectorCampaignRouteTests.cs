@@ -33,6 +33,32 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>
+        /// Verdict Pact payout contract (meta-fun-pass-spec M3 · negotiation
+        /// entry 5, signed designer+pm): an armed pact pays the in-run relic
+        /// haul TIMES <see cref="GameDirector.PactRelicMultiplier"/> and
+        /// nothing else — progression, stat points and the first-clear bonus
+        /// line stay on their single-count terms. GameDirector's const is
+        /// internal specifically so this test can pin it; until now nothing
+        /// did, and the only evidence for the doubled payout was one browser
+        /// screenshot. Drives the real lobby toggle, so it also pins that the
+        /// toggle is reachable on a cleared card and latches into the sortie.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ArmedPactSortie_DoublesOnlyTheInRunRelicPayout()
+        {
+            var route = new CampaignRoute();
+            try
+            {
+                yield return null; // Let Unity invoke GameView.Start.
+                AssertPactRelicEconomy(route);
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
         [Test]
         public void LobbyMotionLabels_UseGlyphsPresentInShippedHudKoreanFont()
         {
@@ -237,6 +263,76 @@ namespace CinderCourt.Tests
             return player;
         }
 
+        private static void AssertPactRelicEconomy(CampaignRoute route)
+        {
+            var cinderSpan = StageCatalog.Entries[0];
+
+            // --- run 1: no pact. The toggle only exists on a CLEARED card, so
+            // the first descent is necessarily the single-count baseline.
+            route.StartCinderSpanThroughLobbyCallback();
+            var plain = route.Game.Sim as CinderSim;
+            Assert.That(plain, Is.Not.Null, "the sortie callback must start the cinder-span simulation");
+            Assert.That(route.Lobby.IsPactArmed(cinderSpan.Id), Is.False,
+                "an unvisited stage must not carry an armed pact");
+            ClearCinderSpan(plain);
+
+            var beforePlain = CampaignStore.Load();
+            var plainHaul = plain.Relics;
+            route.Game.OnRunEvents.Invoke(plain.Events, plain);
+            var afterPlain = CampaignStore.Load();
+            var plainPayout = afterPlain.Relics - beforePlain.Relics;
+            Assert.That(plainPayout, Is.EqualTo(plainHaul),
+                "a plain clear must bank the in-run relic haul exactly once "
+                + "(cinder-span carries no first-clear bonus)");
+            Assert.That(afterPlain.Points - beforePlain.Points, Is.EqualTo(3),
+                "a first clear grants 2 stat points plus the first-boss point");
+
+            // --- run 2: same stage, pact armed through the real lobby toggle.
+            route.ReturnToLobbyThroughHud();
+            route.ArmPactOnFirstStageCard();
+            var beforePact = CampaignStore.Load();
+            route.StartFirstStageThroughDescentButton();
+            var pact = route.Game.Sim as CinderSim;
+            Assert.That(pact, Is.Not.Null, "the armed sortie must start a fresh simulation");
+            Assert.That(((ICampaignSnapshot)pact).Hazards.Count,
+                Is.EqualTo(StageCatalog.PactFor(cinderSpan.Id).Length),
+                "an armed pact must route the stage's pact hazard table into the run");
+            ClearCinderSpan(pact);
+
+            var pactHaul = pact.Relics;
+            route.Game.OnRunEvents.Invoke(pact.Events, pact);
+            var afterPact = CampaignStore.Load();
+            var pactPayout = afterPact.Relics - beforePact.Relics;
+            Assert.That(pactPayout, Is.EqualTo(pactHaul * GameDirector.PactRelicMultiplier),
+                "an armed pact clear must bank exactly the doubled in-run haul — no bonus term");
+            Assert.That(afterPact.Points - beforePact.Points, Is.EqualTo(2),
+                "a repeat clear grants the 2-point clear award without the first-boss point");
+            Assert.That(StageCatalog.IsCleared(in afterPact, in cinderSpan), Is.True,
+                "a pact run must leave progression exactly where the plain clear left it");
+
+            // negotiation-record entry 5 asks that a pact run pay at most 2.2x a
+            // normal one. What THIS test can prove is the payout RULE: the pact
+            // multiplies the same run's own haul by exactly 2 (asserted above),
+            // so per-haul the ratio is 2.00x — inside the band by construction.
+            //
+            // What it cannot prove is the entry's other half. The two clears are
+            // separate runs, so their in-run HAULS differ (relic drops key off
+            // which enemy ids die), and one sample each is not an average. The
+            // raw cross-run totals are therefore REPORTED, not gated: gating them
+            // would fail on haul noise and say nothing about the multiplier.
+            // Deciding the average needs a sampling study — logged as QA work in
+            // qa/gate-measurements.md, not faked here with n=1.
+            TestContext.WriteLine(
+                $"[entry-5] payout rule: pact banks {pactPayout} on a haul of {pactHaul} "
+                + $"= {(double)pactPayout / pactHaul:F2}x its own haul (band <= 2.2x). "
+                + $"Cross-run sample (n=1, NOT a gate): normal payout {plainPayout} "
+                + $"on haul {plainHaul}, pact payout {pactPayout} on haul {pactHaul}.");
+            Assert.That(pactHaul, Is.GreaterThan(0),
+                "the pact run must actually collect relics for the payout rule to mean anything");
+            Assert.That(pactPayout * 10, Is.LessThanOrEqualTo(pactHaul * 22),
+                $"entry 5 band: pact banked {pactPayout} on a haul of {pactHaul} — over 2.2x its own haul");
+        }
+
         private static void AssertCampaignClearRoute(CampaignRoute route, bool defer)
         {
             route.StartCinderSpanThroughLobbyCallback();
@@ -357,9 +453,62 @@ namespace CinderCourt.Tests
             Assert.Fail("the campaign route pilot did not clear cinder-span");
         }
 
+        /// <summary>
+        /// The route pilot: kite the nearest live enemy, but detour onto a dropped
+        /// pickup whenever one is on the floor.
+        ///
+        /// The detour is not decoration. Relic motes are only collected by walking
+        /// inside <see cref="SimConfig.PickupMagnetRadius"/>, and a pilot that only
+        /// ever chases enemies collects relics purely by accident — the whole run
+        /// banked 0 or 1 relic depending on where bodies happened to fall. That made
+        /// every haul assertion a coin flip: merging an unrelated sim amendment
+        /// nudged positions and flipped a passing 1 into a failing 0. Steering at
+        /// the pickup makes the haul a property of the RULES (drops happen, walking
+        /// over them banks them) instead of a property of the layout.
+        ///
+        /// Enemy kiting still wins while no pickup exists, so clear behaviour and
+        /// the tick-for-tick determinism check at the top of this file are unchanged
+        /// in shape: both sims still receive one identical input stream.
+        /// </summary>
         private static SimInput CombatInput(CinderSim sim)
         {
             var player = sim.Player;
+            var input = new SimInput
+            {
+                AttackQueued = true,
+                BoltQueued = true,
+                PulseQueued = true,
+                NovaQueued = true,
+                WardQueued = true,
+            };
+
+            // A pickup on the floor outranks combat spacing: it expires on a timer,
+            // so the only way to prove the payout rule is to actually go get it.
+            var pickups = sim.Pickups;
+            var bestPickup = -1;
+            var bestPickupDistanceSquared = float.MaxValue;
+            for (var index = 0; index < pickups.Count; index += 1)
+            {
+                var pickup = pickups[index];
+                var px = pickup.X - player.X;
+                var py = (pickup.Y - player.Y) * SimConfig.IsoY;
+                var distanceSquared = px * px + py * py;
+                if (distanceSquared >= bestPickupDistanceSquared) continue;
+                bestPickupDistanceSquared = distanceSquared;
+                bestPickup = index;
+            }
+
+            if (bestPickup >= 0)
+            {
+                var pickup = pickups[bestPickup];
+                var toX = pickup.X - player.X;
+                var toY = pickup.Y - player.Y;
+                var length = Mathf.Max(0.001f, Mathf.Sqrt(toX * toX + toY * toY));
+                input.MoveX = toX / length;
+                input.MoveY = toY / length;
+                return input;
+            }
+
             var bestDistanceSquared = float.MaxValue;
             var deltaX = 0f;
             var deltaY = 0f;
@@ -377,27 +526,19 @@ namespace CinderCourt.Tests
                 deltaY = enemy.Y - player.Y;
             }
 
-            var input = new SimInput
-            {
-                AttackQueued = true,
-                BoltQueued = true,
-                PulseQueued = true,
-                NovaQueued = true,
-                WardQueued = true,
-            };
             if (bestDistanceSquared == float.MaxValue) return input;
 
             var distance = Mathf.Sqrt(bestDistanceSquared);
-            var length = Mathf.Max(0.001f, Mathf.Sqrt(deltaX * deltaX + deltaY * deltaY));
+            var toEnemyLength = Mathf.Max(0.001f, Mathf.Sqrt(deltaX * deltaX + deltaY * deltaY));
             if (distance < 120f)
             {
-                input.MoveX = -deltaX / length;
-                input.MoveY = -deltaY / length;
+                input.MoveX = -deltaX / toEnemyLength;
+                input.MoveY = -deltaY / toEnemyLength;
             }
             else if (distance > 150f)
             {
-                input.MoveX = deltaX / length;
-                input.MoveY = deltaY / length;
+                input.MoveX = deltaX / toEnemyLength;
+                input.MoveY = deltaY / toEnemyLength;
             }
             return input;
         }
@@ -494,6 +635,54 @@ namespace CinderCourt.Tests
                     "the first sortie callback must enter the dungeon route");
                 Assert.That(((ICampaignSnapshot)Game.Sim).StageId, Is.EqualTo(StageCatalog.Entries[0].SimAnchorId),
                     "the first sortie callback must begin cinder-span's frozen Sim stage");
+            }
+
+            /// <summary>Exits a finished run the way the player does — the HUD's
+            /// return-home action, which re-enters and refreshes the lobby.</summary>
+            public void ReturnToLobbyThroughHud()
+            {
+                Assert.That(Hud.OnReturnHome, Is.Not.Null,
+                    "GameDirector must wire the HUD return-home action");
+                Hud.OnReturnHome.Invoke();
+                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Lobby),
+                    "returning home must re-enter the lobby route");
+            }
+
+            /// <summary>Arms the first stage card's 서약 toggle through its real
+            /// button. The toggle is only built-visible on a cleared card, so a
+            /// hidden button here means the reveal contract regressed.</summary>
+            public void ArmPactOnFirstStageCard()
+            {
+                var toggle = FirstButtonLabelled("서약");
+                Assert.That(toggle, Is.Not.Null, "a cleared stage card must expose its 서약 toggle");
+                Assert.That(toggle.gameObject.activeInHierarchy, Is.True,
+                    "the 서약 toggle must be revealed once the stage is cleared");
+                toggle.onClick.Invoke();
+                Assert.That(Lobby.IsPactArmed(StageCatalog.Entries[0].Id), Is.True,
+                    "clicking the toggle must arm the stage's pact for the next sortie");
+            }
+
+            /// <summary>Re-enters the first stage through its 강하 button (a
+            /// cleared stage stays replayable).</summary>
+            public void StartFirstStageThroughDescentButton()
+            {
+                var descent = FirstButtonLabelled("강하");
+                Assert.That(descent, Is.Not.Null, "the lobby must keep the first stage replayable");
+                Assert.That(descent.interactable, Is.True, "a cleared stage must stay enterable");
+                descent.onClick.Invoke();
+                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Dungeon),
+                    "the repeat sortie must enter the dungeon route");
+            }
+
+            private Button FirstButtonLabelled(string prefix)
+            {
+                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
+                {
+                    var label = button.GetComponentInChildren<Text>(true);
+                    if (label != null && label.text.StartsWith(prefix, System.StringComparison.Ordinal))
+                        return button;
+                }
+                return null;
             }
 
             public void Dispose()

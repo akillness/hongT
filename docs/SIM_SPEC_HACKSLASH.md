@@ -434,6 +434,15 @@ Each braced expression is rendered as its evaluated integer: `m = 1` yields
 - Identical complete stage handoffs, selected offers, and simulation inputs
   must yield identical snapshots and digests. The deterministic Ember Rest
   offer hash must remain unchanged from before this amendment.
+
+---
+
+> **번호 충돌 — 병합자 판단 필요.** 두 레인이 각각 "Amendment #6"을 자칭한 채
+> 도착했다: 바로 아래 **멀티슬롯 동료**(main, DRAFT)와 그 뒤의 **각인
+> (Sigils)**. 내용은 겹치지 않으므로 둘 다 보존하되 **번호는 정하지 않았다** —
+> 어느 쪽도 임의 재번호하지 않는다. 동료 증보를 `#6`으로 확정하면 각인은 `#7`,
+> 훈련장·돌발은 `#8`로 밀린다.
+
 ## Frozen Contract Amendment #6 — DRAFT (multi-slot companions + per-companion stats)
 
 **Status: DRAFT — implemented and proven; awaiting operator sign-off to freeze.**
@@ -563,6 +572,26 @@ Proof map — `Assets/Tests/EditMode/HackSimTests.cs`:
 | global hold/recall, tie, restart, inert modes | `CompanionSlots_GlobalHoldAndRecallCommandEverySlot` |
 | D6.5 snapshot back-compat | `CompanionSlots_ScalarSnapshotAliasesSlotZeroAndClampsOutOfRange` |
 
+
+
+---
+
+> **개정 번호 대장 (머지 시점 확정).** 한때 두 레인이 `#7`을 동시에 썼다.
+> **main 기준으로 정리했다** — main이 `#7`(동료 자율)과 `#8`(동료 시그니처
+> 스킬)을 갖고, 모멘텀 레인이 이미 코드에 `A9`로 자신을 적고 있으므로
+> (`View/HudView.cs`), 훈련장·돌발은 **`#10`**으로 올라갔다.
+>
+> | 번호 | 주제 | 소유 |
+> |---|---|---|
+> | #7 | 동료 자율 (타깃락·리시·복귀) | main |
+> | #8 | 동료 시그니처 스킬 | main |
+> | #9 | 모멘텀 게이지 | 미착지 레인 (뷰 절반만 도착) |
+> | #10 | 훈련장 · 돌발 | 이 레인 |
+>
+> **바뀐 것은 이름표뿐이다** — 필드·상수·거동은 하나도 움직이지 않았고
+> 골든도 무이동이다. 함께 있던 `SimEvents` 비트 충돌은 별개의 진짜 충돌로
+> (둘 다 `1 << 22`), main에 22를 넘기고 이 레인의 셋을 23/24/25로 올렸다 —
+> 숫자를 직접 참조하는 코드가 저장소에 하나도 없어 이동이 무해했다.
 
 ## Frozen Contract Amendment #7 — Companion autonomy (2026-08-07)
 
@@ -846,3 +875,134 @@ level-triggered" were all **killed**, each by at least one behaviour test and no
 merely by the constants cross-check. The tenth, "drop the `!_dungeon` guard in
 `GainMomentum`", **survived and is equivalent**: `UpdateCombo` is already
 dungeon-gated, so no non-dungeon melee path exists for it to guard (A9.1).
+
+
+---
+
+# AMENDMENT #6 — 각인 (Sigils): 기믹에 걸리는 메타 강화
+
+**Additive only.** 기존 수치 0개 변경. 미장착 런은 이 증보 이전과 바이트
+동일하고, 골든 15행이 그 증명이다.
+
+설계 근거: `.survey/meta-upgrade-gimmick-interaction/`(신규 조사) →
+`_workspace/current/design/sigil-spec.md`.
+
+## §13.0 왜 필요했나
+
+§5 스탯(공격 +3%/pt · 체력 +8/pt · 이속 +2%/pt)과 §6 장비(+6%/+8%/+8HP)는
+전부 **스칼라**이고, AMENDMENT #5가 도입한 기믹 6종 중 **어느 하나도 건드리지
+않는다.** 플레이어가 배우는 것(고정 시간표 패턴)과 키우는 것(숫자)이 만나지
+않는다. 각인은 그 접점이다.
+
+## §13.1 형태
+
+- 각인 5종, 각 **양면(A/B) 택1**. A = 기믹을 견딘다, B = 기믹을 적에게 돌린다.
+- **슬롯 2개** (`SigilLoadout.Slots`). 5종 중 2개만 — 선택이 강제된다.
+- 해금은 유물 구매(뷰 레인, `LobbyView.SigilCost`), 면 전환은 무료·무제한.
+- **던전 전용.** 아레나/프롤로그는 로드아웃을 무시한다.
+
+## §13.2 설계 규칙 (조사 근거, 위반 금지)
+
+1. **면역 금지 — 저항까지만.** 판정선: 기믹이 여전히 행동을 바꾸는가.
+   틱 피해를 줄여도 이탈해야 하면 OK, 서 있어도 되면 금지.
+2. **무작위 발동 금지.** 전부 상수 배율/치환. 확률 0개.
+3. **사이드그레이드.** A/B는 서로 다른 축(생존 vs 처치), 우열은 상황 의존.
+
+## §13.3 수치 (전부 `HackSpec` §13)
+
+| 각인 | 기믹 | A면 | 상수 | B면 | 상수 |
+|---|---|---|---|---|---|
+| 역류인 | tide-current | 내 밀기 ×0.5 | `SigilCurrentPlayerPushMult` | 적 밀기 ×1.5 | `SigilCurrentEnemyPushMult` |
+| 판결인 | ember-pylon | 오라 0.40→0.70 | `SigilPylonAuraRelief` | 방벽주 피해 ×2 | `SigilPylonStrikeMult` |
+| 집행인 | ash-wall | 내 틱 10→6 | `SigilWallPlayerTick` | 적 틱 10→18 | `SigilWallEnemyTick` |
+| 점화인 | ember-vent | 피격 시 기름 +12 (**피해 불변**) | `SigilVentOilRefund` | 적에게 피해 14 | `SigilVentEnemyDamage` |
+| 증언인 | relic-altar | 채널 1.2→0.8초 | `SigilAltarHoldSeconds` | 기름 +18→+30 | `SigilAltarOilBurst` |
+
+## §13.4 대칭 독트린 확장 (점화인 B 한정)
+
+분출구는 기본적으로 **플레이어 전용 피해**다(SIM_SPEC_CAMPAIGN §ember-vent).
+점화인 B는 이 예외를 **장착 중에만** 해제해 해류·벽과 같은 대칭 규칙으로
+편입시킨다. 미장착 시 기존 비대칭이 그대로라 골든이 보호된다.
+
+## §13.5 결정론
+
+로드아웃은 생성자에서 1회 해석되어 필드로 캐시된다(`ResolveSigils`).
+per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 무작위가
+들어갈 자리가 구조적으로 없다.
+
+## §13.6 검증 계약
+
+- 미장착 == 사전 증보: 골든 15행 무이동 + 4앵커 락스텝 동치.
+- 10면 각각 격리 테스트: 효과 발생 · 방향 · **면역 아님**(하한 어서션).
+- 장착 런 2회 동일 다이제스트.
+- 아레나/프롤로그는 로드아웃이 새어들어도 불변.
+
+## AMENDMENT #10 — 훈련장 · 돌발 (Training / Surge)
+
+**Additive only.** 기존 수치 0개 변경, 골든 15행 무이동(295/295 게이트가 증명).
+조사 근거: `.survey/roguelike-training-and-surge/` (훈련 11타이틀 / 돌발 13타이틀).
+설계 전문: `_workspace/current/design/training-and-surge-spec.md`.
+
+### §14 돌발 (Surge) — 심 상태 전용
+
+두 개의 결정론 문. 장르 표본은 돌발을 **시계**로만 만들고(3/13) 체력 임계
+(0/13)·누적 처치(0~1/13)로는 만들지 않는다 — RNG 런이 그 둘을 재현 못 하기
+때문이다. 우리는 재현한다.
+
+| 상수 | 값 | 의미 |
+|---|---|---|
+| `PerilHealthFraction` | 0.35 | 체력이 최대의 35% **미만으로 처음 내려간 틱** |
+| `PerilRearmFraction` | 0.50 | 50% 이상 회복해야 재무장 (히스테리시스) |
+| `PerilRunCap` | 2 | 런당 위기 총 2회 |
+| `PerilSeconds` | 3 | 위기 창 |
+| `SurgeKillInterval` | 12 | 누적 처치가 12의 배수를 **교차**할 때 |
+| `SurgeWaveCap` | 1 | 웨이브당 기세 1회 |
+| `SurgeSeconds` | 6 | 기세 창 |
+| `SurgeEnemyHazardMult` | 2 | 기세 중 기믹의 **적** 피해 배수 |
+| `SigilSurgeEnemyHazardMult` | 3 | 점화인 장착 시 위 배수 대체 |
+
+**하드 인바리언트 — 창은 그 자체로 아무 수치도 바꾸지 않는다.** 열리고,
+게시되고, 닫힌다. 모든 기계적 효과는 장착된 각인 조항이 소유한다(§13).
+이 규칙이 골든 불변의 근거이며, 조사가 발견한 "강화층 × 돌발형태 0/15" 빈 칸을
+채우는 설계이기도 하다.
+
+**임계 건너뜀 금지 — 두 문 모두.** 한 틱에 임계를 뛰어넘어도 정확히 1회
+발동한다. 위기는 이전 틱 대비 교차 판정, 기세는 `kills >= mark + 12` 교차 판정
+후 지나간 최고 경계로 스냅. (`% 12 == 0` 정확일치는 멀티킬 틱에서 문을
+영구히 건너뛴다 — 실측 14킬/0발동으로 확인된 결함.)
+
+### §13 증보 — 각인 서지 조항
+
+각인 5종에 창 한정 조항 1개씩. 슬롯·양면·가격 불변.
+
+| 각인 | 창 | 조항 |
+|---|---|---|
+| 역류인 | 위기 | 해류 밀기 0 (직접 피해 0이므로 comeback 밴드 무관) |
+| 집행인 | 위기 | 벽 틱 **절반** — 면제 아님 |
+| 증언인 | 위기 | 제단 채널 즉시 완료 (기름 획득, 피해 회피 아님) |
+| 판결인 | 기세 | 방벽주 오라 정지 (적 보호 해제) |
+| 점화인 | 기세 | 적 피해 배수 2 → 3 |
+
+**위기 조항 중첩 금지**: 슬롯 0 우선, 한 번에 하나만.
+집행인 6초 면제안은 director 산술로 기각됐다 — 회피 100 = 기본HP 100%,
+역전급. 3초 × 절반으로 강등해 회피 25(실측 24.5% maxHP), 밴드 통과.
+
+### §15 훈련장 (Training Ground)
+
+`GameMode.Training`. 시련 5종(`TrainingTrials`) × 등급 3단, 60초 고정.
+
+- **적을 스폰하지 않는다** — 처치 0, 유물 0. 경제 오염 경로가 구조적으로 없다.
+- 등급은 **기믹 시계만** 조인다: `TrainingTierRate` = 1.00 / 0.85 / 0.70.
+  **예고 상수는 절대 변하지 않는다** — 표본 어느 타이틀도 예고 단축을 난이도
+  레버로 쓰지 않는다.
+- 최초 1회는 기존 3웨이브 프롤로그 그대로(`PrologueDone=false` 경로 불변).
+- 보상: 전 시련 판결 등급 완주 시 **일회성** 유물 +2. 반복 지급 0.
+- 돌발은 던전 전용 — 시련에서 발동하지 않는다.
+
+### 검증
+
+- 미장착 == 사전 증보: 골든 7스위트 무이동.
+- 위기/기세 각 트리거의 임계 건너뜀·캡·히스테리시스 격리 테스트.
+- 각인 조항 5종 격리: 발생 · 방향 · **면역 아님** · 밴드 하한.
+- 시련: 시계 종료 · 무경제 · 등급 배율 · 예고 불변.
+

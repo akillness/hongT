@@ -105,7 +105,15 @@ namespace CinderCourt.View
             else
             {
                 instance = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                Destroy(instance.GetComponent<Collider>());
+                // Same guard as ActorView/VfxDirector: Destroy is a no-op
+                // outside play mode, so an unguarded strip leaves a live
+                // collider on lobby decoration and logs an editor error.
+                var collider = instance.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    if (Application.isPlaying) Destroy(collider);
+                    else DestroyImmediate(collider);
+                }
             }
             instance.transform.SetParent(transform, false);
             instance.transform.position = position;

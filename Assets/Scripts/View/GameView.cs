@@ -74,6 +74,14 @@ namespace CinderCourt.View
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
+        bool _isTraining;
+        /// <summary>Training borrows the DUNGEON presentation whole — hazard
+        /// visuals, skill row, level and combo readouts. A trial exists to
+        /// practise a gimmick with your full kit, so a trial rendered on the
+        /// arena HUD draws no hazards and shows no skills, which teaches
+        /// nothing (caught in the browser, not by any test). Sim behaviour
+        /// stays split on <see cref="_isDungeon"/>; only presentation is shared.</summary>
+        bool _dungeonPresentation;
         bool _campaignUiOn;
         bool _dungeonUiOn;
         string _logicalStageId;
@@ -159,6 +167,8 @@ namespace CinderCourt.View
                           string logicalStageId = null)
         {
             _isDungeon = config.Mode == GameMode.Dungeon;
+            _isTraining = config.Mode == GameMode.Training;
+            _dungeonPresentation = _isDungeon || _isTraining;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
             // Arena/prologue resolve to "" and the HUD chip stays hidden; a dungeon
@@ -182,22 +192,27 @@ namespace CinderCourt.View
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
 
-            if (_isDungeon)
+            if (_dungeonPresentation)
             {
                 if (Hud != null)
                 {
+                    // Latched for the WHOLE run, ceremony included.
+                    Hud.SetTrialMode(_isTraining);
+                    // A trial has no wave table, so the wave counter reads 0 and
+                    // the trial banner carries the clock instead.
+                    var waves = _isDungeon ? config.ToCampaignConfig().Waves : 0;
+                    var bossName = _isDungeon ? BossNameFor(_logicalStageId) : string.Empty;
                     if (!_campaignUiOn)
                     {
                         _campaignUiOn = true;
-                        Hud.EnableCampaignUi(stageDisplayName, config.ToCampaignConfig().Waves);
+                        Hud.EnableCampaignUi(stageDisplayName, waves);
                     }
                     if (!_dungeonUiOn)
                     {
                         _dungeonUiOn = true;
-                        Hud.EnableDungeonUi(BossNameFor(_logicalStageId));
+                        Hud.EnableDungeonUi(bossName);
                     }
-                    Hud.RefreshDungeonStage(stageDisplayName, config.ToCampaignConfig().Waves,
-                        BossNameFor(_logicalStageId), companionActive);
+                    Hud.RefreshDungeonStage(stageDisplayName, waves, bossName, companionActive);
                     Hud.SetCampaignSurfacesVisible(true);
                 }
 
@@ -216,6 +231,7 @@ namespace CinderCourt.View
             }
             else if (Hud != null)
             {
+                Hud.SetTrialMode(false);
                 Hud.SetCampaignSurfacesVisible(false);
             }
         }
@@ -453,7 +469,9 @@ namespace CinderCourt.View
             // the attack pose. ActorView only re-issues the animator value when
             // it CHANGES, so a tier that arrives after the swing starts would
             // lock the wrong variant for the entire swing, not just one frame.
-            if (_isDungeon) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
+            // AMENDMENT #10 widens main's dungeon gate to include a trial, so the
+            // combo tier drives the pose there too. Everything else is main's.
+            if (_dungeonPresentation) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
             _playerView.SyncPlayer(_sim.Player, _simDelta);
 
             if (playerDamage > 0.01f && _damageNumbers != null)
@@ -465,6 +483,10 @@ namespace CinderCourt.View
             if (_elementTintTime > 0f) _elementTintTime -= Time.deltaTime;
             var liveTint = _elementTintTime > 0f ? _elementTint : default;
             var enemies = _sim.Enemies;
+            // Retune R2 ("-60% must be VISIBLE"): pylon shield coverage is
+            // judged per enemy per frame against the published hazard list —
+            // cheap loop, list is already allocated by the sim's Publish.
+            var hazards = _sim.Hazards;
             // Mark-and-sweep: sync live ids, recycle views whose id vanished.
             for (var i = 0; i < enemies.Count; i++)
             {
@@ -490,6 +512,12 @@ namespace CinderCourt.View
                 // SyncEnemy reports the health delta since last frame — the
                 // view-side hit signal (presentation #5) that also feeds the
                 // floating damage numbers (#6).
+                // Retune R2: cyan shield tint while ANY live pylon covers this
+                // enemy — same iso metric as the sim judge, so the visual and
+                // the damage mult can never disagree. The tint drops the frame
+                // after the last covering pylon dies (re-judged every frame).
+                view.SetShieldTint(CoveredByLivePylon(hazards, state.X, state.Y));
+                view.SetElementTint(liveTint);
                 var damage = view.SyncEnemy(in state, _simDelta);
 
                 if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
@@ -538,8 +566,23 @@ namespace CinderCourt.View
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
+            // AMENDMENT #10: the surge window is readable for EVERY player, sigils
+            // or not — the beat is the narrative (G1), the clause is the payoff.
+            //
+            // A finished run publishes ZERO. UpdateSurge stops running at
+            // GameOver, so the timer freezes wherever it was and the banner
+            // would sit on top of the defeat panel forever — seen in the browser
+            // reading "위기 0.1" behind 잿불 법정 함락.
+            var surgeSim = _sim as CinderSim;
+            var runLive = _sim.Mode != SimMode.GameOver;
+            if (Hud != null && surgeSim != null)
+                Hud.SyncSurge(
+                    runLive ? surgeSim.PerilRemaining : 0f,
+                    runLive ? surgeSim.SurgeRemaining : 0f,
+                    surgeSim.TrainingElapsed, surgeSim.TrainingHits,
+                    _isTraining && runLive);
 
-            if (_isDungeon)
+            if (_dungeonPresentation)
             {
                 if (Vfx != null) Vfx.SyncHazards(_sim.Hazards);
                 if (Hud != null)
@@ -731,7 +774,10 @@ namespace CinderCourt.View
             // element or otherwise. ActorView restores its resting block on the
             // frame the flash ends and this re-tints in the same frame (it runs
             // after SyncEnemy), so the handoff costs no visible frame.
-            if (view.FlashLive) return;
+            // Retune R2: the shield read outranks the catalog tint too — the
+            // boss is a prime target to route INTO an aura, and a permanent
+            // catalog re-tint after SyncEnemy would silently erase the cyan.
+            if (view.FlashLive || view.ShieldLive) return;
             if (!_bossRenderers.TryGetValue(view, out var renderers))
             {
                 renderers = view.GetComponentsInChildren<Renderer>();
@@ -741,6 +787,29 @@ namespace CinderCourt.View
             _bossPresentationBlock.SetColor(BaseColorId, stage.Boss.Tint);
             for (var i = 0; i < renderers.Length; i++)
                 renderers[i].SetPropertyBlock(_bossPresentationBlock);
+        }
+
+        /// <summary>
+        /// True when a living Ember Pylon's aura covers the sim position —
+        /// mirrors CinderSim.EnemyDamageTakenMult (Hp &gt; 0 + iso-weighted
+        /// distance &lt;= CampaignSpec.PylonAuraRadius) so the shield tint and
+        /// the -60% judge stay one truth. Non-pylon kinds skip in O(1); the
+        /// arena path publishes zero hazards so this is dungeon-only cost.
+        /// </summary>
+        static bool CoveredByLivePylon(
+            IReadOnlyList<HazardState> hazards, float x, float y)
+        {
+            for (var i = 0; i < hazards.Count; i++)
+            {
+                var hazard = hazards[i];
+                if (hazard.Kind != HazardKind.EmberPylon || hazard.Hp <= 0f) continue;
+                var deltaX = x - hazard.X;
+                var deltaY = (y - hazard.Y) * SimConfig.IsoY;
+                if (deltaX * deltaX + deltaY * deltaY
+                    <= CampaignSpec.PylonAuraRadius * CampaignSpec.PylonAuraRadius)
+                    return true;
+            }
+            return false;
         }
 
         ActorView Rent(EnemyVisual visual)

@@ -4,13 +4,14 @@
 // every new field at its default. Fixed-shape micro-parsing, mirroring
 // WebGLStorage.ReadCampaign (no external JSON dependency).
 using System.Text;
+using CinderCourt.Sim;
 
 namespace CinderCourt.View
 {
     /// <summary>Full lobby meta state, one struct, all fields explicit.</summary>
     public struct CampaignData
     {
-        // v3 clear progression (six catalog stages, bits 0-5).
+        // v3 clear progression (nine catalog stages, bits 0-8).
         public int ClearedMask;
         public int Weapon, Lantern, Cloak;          // equipment tiers T0-T5
 
@@ -26,6 +27,19 @@ namespace CinderCourt.View
         /// older client reading this key still sees the right single companion.</summary>
         public string[] ActiveSlots;
         public bool PrologueDone;
+
+        // v4 sigils (AMENDMENT #6 · design/sigil-spec.md). Three ints, all
+        // additive: a save written before this cycle parses them as 0, which is
+        // "nothing owned, nothing equipped" — exactly the pre-sigil game.
+        public int SigilsOwned;                     // bitmask over SigilKind (bit k = kind k)
+        public int SigilFaces;                      // bitmask, bit k set = kind k shows face B
+        public int SigilSlot0, SigilSlot1;          // equipped SigilKind ints, 0 = empty
+
+        // v5 training ground (AMENDMENT #10 · design/training-and-surge-spec.md).
+        // Two ints, both additive, same forward-compat grammar as v4: a pre-v5
+        // save parses them as 0 = "no trial cleared, no mastery claimed".
+        public int TrialTiers;                      // 5 trials x 2 bits, best tier per trial + 1 (0 = never cleared)
+        public bool TrainingMasteryClaimed;         // one-time +2 relics, negotiation entry 7
     }
 
     public static class CampaignStore
@@ -48,10 +62,16 @@ namespace CinderCourt.View
             var hasClearedMask = raw.IndexOf("\"clearedMask\":", System.StringComparison.Ordinal) >= 0;
             if (hasClearedMask)
             {
-                data.ClearedMask = ExtractInt(raw, "\"clearedMask\":") & 0x3F;
+                // Mask with the live catalog width (bits 0-8 for the 9-entry
+                // catalog) so persisted future/garbage bits never leak in.
+                data.ClearedMask = ExtractInt(raw, "\"clearedMask\":") & StageCatalog.ValidClearMask;
             }
             else
             {
+                // Legacy v0.1 blobs predate clearedMask and store cleared ids.
+                // Only the original 3 anchor ids ever existed in v0.1 (bits
+                // 0/2/4); later logical stages — including the cycle-2 ids on
+                // bits 6-8 — cannot appear here. Do not extend this mapping.
                 // Legacy ids may also appear in roster; scope this scan to cleared only.
                 var cleared = Section(raw, "\"cleared\":[", ']');
                 if (cleared.Contains("\"cinder-span\"")) data.ClearedMask |= 1 << 0;
@@ -72,6 +92,16 @@ namespace CinderCourt.View
             data.Roster = ExtractStrings(Section(raw, "\"roster\":[", ']'));
             data.Active = ExtractString(raw, "\"active\":\"");
             data.PrologueDone = raw.Contains("\"prologueDone\":true");
+            // v4 sigils — absent in every pre-amendment blob, so the parser's
+            // missing-key-is-zero rule loads them as "none owned, none equipped".
+            data.SigilsOwned = ExtractInt(raw, "\"sigilsOwned\":");
+            data.SigilFaces = ExtractInt(raw, "\"sigilFaces\":");
+            data.SigilSlot0 = ExtractInt(raw, "\"sigilSlot0\":");
+            data.SigilSlot1 = ExtractInt(raw, "\"sigilSlot1\":");
+            // v5 training — same missing-key-is-zero rule: no trial cleared.
+            data.TrialTiers = ExtractInt(raw, "\"trialTiers\":");
+            data.TrainingMasteryClaimed = raw.Contains("\"trainingMastery\":true");
+
 
             // AMENDMENT #6 (D6.6): "activeSlots" wins when present; a save
             // written before this amendment only has "active", which migrates
@@ -87,7 +117,7 @@ namespace CinderCourt.View
         public static void Save(in CampaignData data)
         {
             Builder.Length = 0;
-            Builder.Append("{\"clearedMask\":").Append(data.ClearedMask & 0x3F)
+            Builder.Append("{\"clearedMask\":").Append(data.ClearedMask & StageCatalog.ValidClearMask)
                 .Append(",\"equipment\":{\"weapon\":").Append(data.Weapon)
                 .Append(",\"lantern\":").Append(data.Lantern)
                 .Append(",\"cloak\":").Append(data.Cloak)
@@ -123,8 +153,53 @@ namespace CinderCourt.View
                 }
             }
             Builder.Append("],\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
+                // v4 sigils + v5 training ride at the tail: additive keys only,
+                // so a save written by main alone still parses (missing = 0).
+                .Append(",\"sigilsOwned\":").Append(data.SigilsOwned)
+                .Append(",\"sigilFaces\":").Append(data.SigilFaces)
+                .Append(",\"sigilSlot0\":").Append(data.SigilSlot0)
+                .Append(",\"sigilSlot1\":").Append(data.SigilSlot1)
+                .Append(",\"trialTiers\":").Append(data.TrialTiers)
+                .Append(",\"trainingMastery\":").Append(data.TrainingMasteryClaimed ? "true" : "false")
                 .Append('}');
             WebGLStorage.SetString(Key, Builder.ToString());
+        }
+
+        // --------------------------------------------------- training records --
+        // Two bits per trial, value = best tier + 1, so 0 reads as "never
+        // cleared" and a pre-v5 save decodes to an empty record for free.
+        const int TrialBits = 2;
+        const int TrialMask = (1 << TrialBits) - 1;
+
+        /// <summary>Best tier cleared for a trial, or -1 when never cleared.</summary>
+        public static int BestTier(in CampaignData data, int trialIndex)
+        {
+            if (trialIndex < 0 || trialIndex >= TrainingTrials.Ids.Length) return -1;
+            return ((data.TrialTiers >> (trialIndex * TrialBits)) & TrialMask) - 1;
+        }
+
+        /// <summary>Records a clear, keeping the best tier. Returns true when the
+        /// record actually improved (the caller only saves on a change).</summary>
+        public static bool RecordTrial(ref CampaignData data, int trialIndex, int tier)
+        {
+            if (trialIndex < 0 || trialIndex >= TrainingTrials.Ids.Length) return false;
+            if (tier < 0 || tier >= HackSpec.TrainingTiers) return false;
+            if (BestTier(in data, trialIndex) >= tier) return false;
+
+            int shift = trialIndex * TrialBits;
+            data.TrialTiers = (data.TrialTiers & ~(TrialMask << shift)) | ((tier + 1) << shift);
+            return true;
+        }
+
+        /// <summary>True when every trial is cleared at the top tier — the one
+        /// condition that pays the one-time mastery relics (negotiation entry 7).</summary>
+        public static bool MasteryComplete(in CampaignData data)
+        {
+            for (int index = 0; index < TrainingTrials.Ids.Length; index += 1)
+            {
+                if (BestTier(in data, index) < HackSpec.TrainingTiers - 1) return false;
+            }
+            return true;
         }
 
         // ------------------------------------------------------------ parsing --
