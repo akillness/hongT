@@ -7,6 +7,18 @@
 - 테스트 기반선 [OBSERVED]: `_workspace/current/engineering/unity-logs/test-results-094459.xml`
   **365/365 통과** (2026-08-07 00:45Z, A7/A8/A9 포함; 루트 `unity-logs/`의 195/195본은 08-05 구판).
 
+> **후속 상태 (2026-08-07 11:30 갱신)** — PR #3(훈련장·돌발·각인, `685605f`) 머지 반영:
+> - **H4 해소**: `SetElementTint(liveTint)` 배선이 `GameView.cs:520`에 도착
+>   (다른 세션, `57f8afd`). 원소 피격색 §K3 작동 경로 복원.
+> - **감사 기준 변경**: 스테이지 6 → **9개**(cinder-sluice/ember-bastion/ash-march 추가),
+>   SimEvents 26비트(PylonDown=24/PerilOpened=25/SurgeOpened=26), 각인(Sigils)·
+>   훈련장(GameMode.Training)·돌발(Peril/Surge) 신설. H2(최종보스 동일체)·M3(적 조합
+>   동일)·M4(곡선 평탄) 판정은 6스테이지 기준 — 9스테이지 재감사 필요 시 별도 사이클.
+> - **신규 문서 부채**: PR 각인 증보가 "AMENDMENT #6" 번호를 재사용 — main의
+>   Amendment #6(멀티슬롯 동료 DRAFT)과 충돌. D-큐에 D13으로 추가.
+> - 착수(결정 불필요분): M2(P3 대사)·G-2(EquipCosts 단일화)·M7(matchMedia)·
+>   M9(테스트 공백 3건) — 2026-08-07 11:30 구현 레인 진행.
+
 ## 0. 사람 판단 필요 항목 (의사결정 큐 — 병합·중복 제거)
 
 | # | 결정 | 배경 | 출처 레인 |
