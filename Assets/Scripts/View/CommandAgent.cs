@@ -62,7 +62,7 @@ namespace CinderCourt.View
 
         public readonly CommandAgentSignalKind Kind;
         public readonly CompanionCommandIntent Intent;
-        /// <summary>Progress prefix for Dispatch ("2/4 · "), full copy otherwise.</summary>
+        /// <summary>Progress prefix for Dispatch ("2/4 • "), full copy otherwise.</summary>
         public readonly string Message;
         /// <summary>Optional model rationale for this step ("몰린 적 정리").</summary>
         public readonly string Detail;
@@ -386,13 +386,13 @@ namespace CinderCourt.View
             if (_index < _plan.Count) return CommandAgentSignal.None;
 
             var finished = Signal(CommandAgentSignalKind.Finished, CompanionCommandIntent.Unknown,
-                _plan.Count > 1 ? $"시퀀스 완료 · {_plan.Count}단계" : "명령 완료", null);
+                _plan.Count > 1 ? $"시퀀스 완료 • {_plan.Count}단계" : "명령 완료", null);
             _plan = CommandPlan.Empty;
             _index = 0;
             return finished;
         }
 
-        string Progress() => _plan.Count > 1 ? $"{_index + 1}/{_plan.Count} · " : "";
+        string Progress() => _plan.Count > 1 ? $"{_index + 1}/{_plan.Count} • " : "";
 
         CommandAgentSignal Signal(CommandAgentSignalKind kind, CompanionCommandIntent intent,
             string message, string detail)

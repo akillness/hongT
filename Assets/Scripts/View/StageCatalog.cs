@@ -60,11 +60,26 @@ namespace CinderCourt.View
         /// </summary>
         public readonly string Epithet;
 
+        /// <summary>
+        /// Campaign-map node position, normalised 0..1 over the map viewport
+        /// (x right, y up). Presentation-only — nothing in the Sim or in the
+        /// frozen numeric contract reads it, so moving a node re-draws the
+        /// lobby minimap and changes nothing else.
+        ///
+        /// The constellation is hand-placed rather than derived from the prereq
+        /// chain: the chain is linear (0→1→…→8) and an evenly spaced line reads
+        /// as a progress bar, not a map. Placements keep ≥0.10 normalised
+        /// separation on at least one axis so two nodes never collide at the
+        /// smallest audited viewport (<see cref="CampaignMapLayout"/> pins this).
+        /// </summary>
+        public readonly float NodeX, NodeY;
+
         public StageEntry(
             int catalogIndex, string id, string displayName, string kicker, string title,
             string hazardIcon, string simAnchorId, HazardConfig[] hazardOverride,
             string prereqId, string terrainId, Color accentColor, BossPresentation boss,
-            string storyKey, string companionReward, string roomObjective, string epithet)
+            string storyKey, string companionReward, string roomObjective, string epithet,
+            float nodeX, float nodeY)
         {
             CatalogIndex = catalogIndex;
             Id = id;
@@ -82,6 +97,8 @@ namespace CinderCourt.View
             CompanionReward = companionReward;
             RoomObjective = roomObjective;
             Epithet = epithet;
+            NodeX = nodeX;
+            NodeY = nodeY;
         }
 
     }
@@ -149,42 +166,48 @@ namespace CinderCourt.View
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.9f, 0.3f, 0.45f), 1f, "Cinder Warden"),
                 "cinder-span", "ember-cohort",
-                "다리를 건너오는 전열을 끊고 재의 워든을 처단하라", "분출구 입문"),
+                "다리를 건너오는 전열을 끊고 재의 워든을 처단하라", "분출구 입문",
+                0.08f, 0.50f),
             new StageEntry(1, "ember-gallery", "Ember Gallery", "EMBER GALLERY", "불씨 회랑",
                 "skill-nova", "cinder-span", EmberGalleryHazards, "cinder-span", "abyss-chancel",
                 new Color(0.95f, 0.43f, 0.20f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.95f, 0.45f, 0.16f), 1.08f, "Cinder Warden"),
                 "ember-gallery", null,
-                "분출하는 화구를 피해 회랑의 잔당을 소각하라", "불씨 윤무"),
+                "분출하는 화구를 피해 회랑의 잔당을 소각하라", "불씨 윤무",
+                0.22f, 0.74f),
             new StageEntry(2, "abyss-chancel", "Abyss Chancel", "ABYSS CHANCEL", "서약의 성당",
                 "skill-aegis", "abyss-chancel", null, "ember-gallery", "abyss-chancel",
                 new Color(0.56f, 0.40f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.56f, 0.40f, 1f), 1.1f, "Veil Tactician"),
                 "abyss-chancel", "shade-echo",
-                "서약 제단을 사수하고 장막의 책략가를 끌어내라", "흑요석 미로"),
+                "서약 제단을 사수하고 장막의 책략가를 끌어내라", "흑요석 미로",
+                0.34f, 0.36f),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
                 "witness-well", null,
-                "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라", "쌍 제단"),
+                "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라", "쌍 제단",
+                0.46f, 0.68f),
             new StageEntry(4, "echo-throne", "Echo Throne", "ECHO THRONE", "메아리 왕좌",
                 "skill-pulse", "echo-throne", EchoThroneHazards, "witness-well", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.75f, 0.3f, 0.9f), 1.15f, "Gate Sovereign"),
                 "echo-throne", "possessed-echo",
-                "왕좌의 메아리를 끊고 관문의 군주를 봉인하라", "왕좌의 조류"),
+                "왕좌의 메아리를 끊고 관문의 군주를 봉인하라", "왕좌의 조류",
+                0.57f, 0.28f),
             new StageEntry(5, "ash-verdict", "Ash Verdict", "ASH VERDICT", "재의 판결",
                 "skill-pulse", "echo-throne", AshVerdictHazards, "echo-throne", "echo-throne",
                 new Color(0.87f, 0.78f, 0.41f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.87f, 0.78f, 0.41f), 1.18f, "Gate Sovereign"),
                 "ash-verdict", null,
-                "판결이 선고되기 전 재의 법정을 완전히 정화하라", "판결의 방벽"),
+                "판결이 선고되기 전 재의 법정을 완전히 정화하라", "판결의 방벽",
+                0.66f, 0.62f),
             // --- cycle-2 dungeon expansion (docs/SIM_SPEC_DUNGEONS.md) -------
             // New SIM anchors (not overrides): each id matches its frozen
             // CampaignStages anchor, so HazardOverride stays null.
@@ -194,21 +217,24 @@ namespace CinderCourt.View
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.247f, 0.659f, 0.784f), 1.2f, "Sluice Keeper"),
                 "cinder-sluice", null,
-                "역류에 밀리지 않고 수문의 파수꾼을 물살 밖으로 끌어내라", "해류 숙달"),
+                "역류에 밀리지 않고 수문의 파수꾼을 물살 밖으로 끌어내라", "해류 숙달",
+                0.77f, 0.34f),
             new StageEntry(7, "ember-bastion", "Ember Bastion", "EMBER BASTION", "불씨 요새",
                 "skill-ward", "ember-bastion", null, "cinder-sluice", "cinder-span",
                 new Color(0.910f, 0.541f, 0.180f),                       // #E88A2E
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.910f, 0.541f, 0.180f), 1.22f, "Bastion Sentinel"),
                 "ember-bastion", null,
-                "적을 감싸는 불씨 기둥을 먼저 무너뜨리고 요새의 파수병을 베어라", "방벽 숙달"),
+                "적을 감싸는 불씨 기둥을 먼저 무너뜨리고 요새의 파수병을 베어라", "방벽 숙달",
+                0.87f, 0.70f),
             new StageEntry(8, "ash-march", "Ash March", "ASH MARCH", "재의 행진",
                 "skill-strike", "ash-march", null, "ember-bastion", "echo-throne",
                 new Color(0.722f, 0.690f, 0.643f),                       // #B8B0A4
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.722f, 0.690f, 0.643f), 1.25f, "Ash Magistrate"),
                 "ash-march", "scout-echo",
-                "양쪽에서 닫혀오는 잿벽 사이에서 집행관을 판결하라", "집행 수렴"),
+                "양쪽에서 닫혀오는 잿벽 사이에서 집행관을 판결하라", "집행 수렴",
+                0.95f, 0.44f),
 
         };
 

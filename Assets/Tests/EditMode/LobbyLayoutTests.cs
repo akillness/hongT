@@ -168,6 +168,29 @@ namespace CinderCourt.Tests
         }
 
 
+        /// <summary>
+        /// W8 added the campaign map panel, and it is the ONLY route to the tab
+        /// meta screen on a phone — the stacked layout has no other entry point.
+        /// Both of its actions are therefore measured positively here, not just
+        /// left to the debt table's absence check: a control that is unreachable
+        /// on the one layout where it is the sole route is a dead end.
+        /// </summary>
+        [Test]
+        public void CampaignMapActions_AreReachableAndClearTheTouchFloor()
+        {
+            var canvas = BuildClearedLobby();   // 390x844 -> stacked layout
+            foreach (var label in new[] { "지도", "정비" })
+            {
+                var button = FindButton(canvas, label);
+                Assert.That(button, Is.Not.Null, $"the map panel must expose {label}");
+                Assert.That(button.gameObject.activeInHierarchy, Is.True,
+                    $"{label} is the phone's only route to the meta screen and must stay active");
+                var world = WorldRect(button.GetComponent<RectTransform>());
+                Assert.That(world.width * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
+                Assert.That(world.height * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
+            }
+        }
+
         private Canvas BuildClearedLobby()
         {
             // cinder-span cleared: the only state that reveals a pact toggle.

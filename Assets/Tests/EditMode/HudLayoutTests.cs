@@ -827,6 +827,76 @@ namespace CinderCourt.Tests
             AssertVisibleText(canvas, "다음 방에 적용 (이전 준비 대체)");
         }
 
+        /// <summary>
+        /// W15: the painted Ember Rest plate is produced on the asset lane and
+        /// may not exist yet, so BOTH states are real shipping states. This
+        /// asserts whichever one is live rather than assuming the art is there —
+        /// and in both cases the panel must stay fully actionable, because a
+        /// decorative layer that swallowed the offer taps is a softlock.
+        /// </summary>
+        [Test]
+        public void EmberRestBackdrop_IsOptional_AndNeverBlocksTheOffers()
+        {
+            var canvas = ArrangePhone(dungeon: true);
+            var attack = Preparation(PreparationOfferKind.Stat, 1, 1);
+            var gravePulse = Preparation(PreparationOfferKind.SkillRune, 2, 2);
+            var companionRange = Preparation(PreparationOfferKind.GuardianResonance, 2, 1);
+
+            _hud.ShowEmberRestForTest(2, attack, gravePulse, companionRange);
+            Canvas.ForceUpdateCanvases();
+
+            var panel = FindDescendant(canvas.transform, "EmberRestPanel");
+            Assert.That(panel, Is.Not.Null, "the Ember Rest panel must exist");
+            var backdrop = FindDescendant(panel, "EmberRestBackdrop");
+            var scrim = FindDescendant(panel, "EmberRestScrim");
+
+            if (_hud.EmberRestBackdropPresent)
+            {
+                Assert.That(backdrop, Is.Not.Null);
+                Assert.That(scrim, Is.Not.Null, "art without a scrim is unreadable copy");
+                Assert.That(_hud.EmberRestScrimOpacity,
+                    Is.EqualTo(HudView.EmberRestScrimAlpha).Within(0.001f));
+                // uGUI draws in sibling order, so readability is an ORDERING
+                // property, stated exactly: art at 0, scrim at 1, and every
+                // readable element after them.
+                Assert.That(backdrop.GetSiblingIndex(), Is.Zero,
+                    "the art must be the panel's first child");
+                Assert.That(scrim.GetSiblingIndex(), Is.EqualTo(1),
+                    "the scrim must be drawn over the art and under everything else");
+                Assert.That(panel.childCount, Is.GreaterThan(2),
+                    "the panel must carry readable content above the scrim");
+                foreach (var layer in new[] { backdrop, scrim })
+                    Assert.That(layer.GetComponent<Image>().raycastTarget, Is.False,
+                        $"{layer.name} must never intercept a tap meant for an offer");
+            }
+            else
+            {
+                Assert.That(backdrop, Is.Null, "no art means no backdrop layer at all");
+                Assert.That(scrim, Is.Null, "no art means nothing to darken");
+                Assert.That(_hud.EmberRestScrimOpacity, Is.Zero);
+            }
+
+            // The contract that matters is identical either way.
+            var actions = new[]
+            {
+                VisibleButtonWithText(canvas, "Attack +1"),
+                VisibleButtonWithText(canvas, "준비 보류"),
+                VisibleButtonWithText(canvas, "계속"),
+            };
+            AssertRaycastableActions(actions);
+            actions[0].onClick.Invoke();
+            Assert.That(actions[2].interactable, Is.True,
+                "an offer must remain selectable whether or not the plate loaded");
+        }
+
+        private static Transform FindDescendant(Transform root, string name)
+        {
+            foreach (var child in root.GetComponentsInChildren<Transform>(true))
+                if (child.name == name && child != root)
+                    return child;
+            return null;
+        }
+
         [Test]
         public void EmberRest_HideAndRunReset_RemovePanelRaycastsAndDecisionState()
         {

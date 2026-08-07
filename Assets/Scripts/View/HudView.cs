@@ -71,6 +71,9 @@ namespace CinderCourt.View
         GameObject _emberRestBlocker, _emberRestPanel;
         Text _emberRestRoomText, _emberRestDecisionText;
         readonly Image[] _emberRestOfferCards = new Image[3];
+        // W15: optional painted backdrop + its readability scrim. Both stay null
+        // when the art is absent, and the panel's own flat fill is the fallback.
+        Image _emberRestBackdrop, _emberRestScrim;
         readonly PreparationOffer[] _emberRestOffers = new PreparationOffer[3];
         Button _emberRestContinueButton;
         bool _emberRestDecisionMade;
@@ -833,6 +836,11 @@ namespace CinderCourt.View
                 Vector2.zero, new Vector2(620, 420), new Color(0.02f, 0.05f, 0.06f, 0.96f));
             _emberRestPanel.name = "EmberRestPanel";
             _emberRestPanel.GetComponent<Image>().raycastTarget = true;
+            // Built BEFORE the title/cards/buttons on purpose: uGUI draw order is
+            // sibling order, so creating the art and its scrim first is what puts
+            // every readable thing on top of them. No sorting call needed, and
+            // none can be forgotten later.
+            BuildEmberRestBackdrop();
             var title = Label(_emberRestPanel.transform, 0, -18, 620, 34, "잿불 휴식", 26,
                 TextAnchor.MiddleCenter);
             title.color = new Color(1f, 0.83f, 0.45f);
@@ -861,6 +869,87 @@ namespace CinderCourt.View
                 TextAnchor.MiddleCenter);
             _emberRestDecisionText.color = new Color(0.92f, 0.94f, 1f);
             _emberRestBlocker.SetActive(false);
+        }
+
+        // ------------------------------------------- W15 Ember Rest backdrop --
+        // The interlude is the one moment the run stops and the player reads.
+        // A painted plate behind it is worth having, but the art is produced on a
+        // different lane and may simply not be there — so its ABSENCE is a
+        // supported state, not an error. Missing art means the panel renders
+        // exactly as it did before this feature existed.
+
+        /// <summary>
+        /// Resources id (no extension, no directory) of the Ember Rest backdrop.
+        /// This constant is the contract with the asset lane; see the lane report
+        /// for the accepted drop paths and the requested aspect.
+        /// </summary>
+        internal const string EmberRestBackdropId = "ui-ember-rest-bg";
+
+        /// <summary>Scrim opacity over the art. Sized for 15 pt body text on an
+        /// unknown painting: the art must still read as art, but no plausible
+        /// bright passage may win against the copy on top of it.</summary>
+        internal const float EmberRestScrimAlpha = 0.62f;
+
+        /// <summary>True when the painted plate actually loaded. Test seam —
+        /// both branches are real shipping states, so the fixture asserts the
+        /// one that is live rather than assuming the art exists.</summary>
+        internal bool EmberRestBackdropPresent => _emberRestBackdrop != null;
+
+        /// <summary>Live scrim opacity, 0 when there is no art to darken.</summary>
+        internal float EmberRestScrimOpacity => _emberRestScrim == null ? 0f : _emberRestScrim.color.a;
+
+        void BuildEmberRestBackdrop()
+        {
+            var sprite = TryLoadOptionalSprite(EmberRestBackdropId);
+            // Fallback IS the previous look: the panel's own near-opaque fill.
+            // Nothing below runs, nothing downstream reads these fields without
+            // a null check, and no code path can softlock on a missing file.
+            if (sprite == null) return;
+
+            _emberRestBackdrop = StretchedChild("EmberRestBackdrop", Color.white);
+            _emberRestBackdrop.sprite = sprite;
+            _emberRestBackdrop.type = Image.Type.Simple;
+            // Deliberately NOT preserveAspect: a letterboxed plate would expose
+            // the flat fill along two edges and read as a bug rather than as a
+            // frame. The asset lane is given the panel's aspect instead, so the
+            // stretch is nominally zero and degrades gently if it is not.
+            _emberRestBackdrop.preserveAspect = false;
+
+            _emberRestScrim = StretchedChild("EmberRestScrim",
+                new Color(0.02f, 0.03f, 0.05f, EmberRestScrimAlpha));
+        }
+
+        /// <summary>Full-bleed child of the Ember Rest panel. Never a raycast
+        /// target: the panel underneath already blocks, and a decorative layer
+        /// that ate the offer taps would be a softlock.</summary>
+        Image StretchedChild(string name, Color color)
+        {
+            var child = new GameObject(name);
+            child.transform.SetParent(_emberRestPanel.transform, false);
+            var image = child.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            var rect = child.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+            return image;
+        }
+
+        /// <summary>
+        /// Same three-directory search order HudIconIntegration uses
+        /// (regenerated → generated → flat), minus its theme material and minus
+        /// its not-found warning: this sprite is optional by design, so a miss
+        /// is not worth a log line every time the HUD builds.
+        /// </summary>
+        static Sprite TryLoadOptionalSprite(string iconKey)
+        {
+            var sprite = Resources.Load<Sprite>($"Icons/regenerated/{iconKey}");
+            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/generated/{iconKey}");
+            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/{iconKey}");
+            return sprite;
         }
 
         void SelectEmberRestOffer(int offerIndex)
@@ -1327,7 +1416,9 @@ namespace CinderCourt.View
             text.supportRichText = false;
 
             var placeholder = Label(fieldObject.transform, 0, 0, 440, 32,
-                "명령 입력: 집중공격 · 방어 · 복귀 · 노바 · 결계 …", 16, TextAnchor.MiddleLeft);
+                // The trigger half of the syntax is in the placeholder because a
+                // queue nobody knows how to fill is not a feature.
+                "명령: 집중공격 · 노바 · 결계 / 대기: 셋 잡으면 노바", 15, TextAnchor.MiddleLeft);
             var placeholderRect = placeholder.rectTransform;
             placeholderRect.anchorMin = Vector2.zero;
             placeholderRect.anchorMax = Vector2.one;
@@ -1354,6 +1445,11 @@ namespace CinderCourt.View
             toastRect.pivot = new Vector2(0.5f, 0f);
             toastRect.anchoredPosition = new Vector2(0, 346);
             _consoleToast.color = new Color(0.62f, 0.95f, 0.88f, 0f);
+
+            // W10: the parked-order readout. Built with the console because the
+            // console is the only thing that can create a queue entry, and it
+            // stays hidden until one exists.
+            BuildCommandQueuePanel();
 
             _consoleRoot.SetActive(false);
         }
@@ -1449,6 +1545,11 @@ namespace CinderCourt.View
             // Sequence control ("취소"/"중단"/"stop") outranks everything else:
             // it is the one order a player gives while another is still running.
             if (TryHandleAgentControl(raw)) return;
+
+            // W10: an order that names an EVENT ("셋 잡으면 노바") is parked in
+            // the work queue instead of firing now. Falls through untouched when
+            // the sentence carries no trigger, so a plain order is unaffected.
+            if (TryQueueCommand(raw)) return;
 
             // Local plan first — zero latency, no key, and it reads the sentence
             // in POSITION order, so "노바 쓰고 결계 쳐" is two steps rather than
@@ -2519,6 +2620,7 @@ namespace CinderCourt.View
             }
             var button = buttonObject.AddComponent<Button>();
             button.onClick.AddListener(onClick);
+            if (Audio != null) button.onClick.AddListener(Audio.PlayClick);   // W12
             var text = Label(buttonObject.transform, 0, 0, size.x, size.y, label, fontSize, TextAnchor.MiddleCenter);
             var rect = text.rectTransform;
             rect.anchorMin = Vector2.zero;
@@ -2545,6 +2647,7 @@ namespace CinderCourt.View
             group = card.AddComponent<CanvasGroup>();
             var button = card.AddComponent<Button>();
             button.onClick.AddListener(onClick);
+            if (Audio != null) button.onClick.AddListener(Audio.PlayClick);   // W12
             // Icon backdrop sits between the panel fill and the text rows so the
             // cooldown overlay (created last, full-stretch) still darkens it.
             if (iconId != null)
@@ -2784,6 +2887,10 @@ namespace CinderCourt.View
         public void OnEvents(SimEvents events, ISimSnapshot sim)
         {
             _bossAliveAtDeath = sim is ICampaignSnapshot campaign && campaign.BossAlive;
+            // W10: the command queue advances on the SAME per-tick mask the
+            // audio and VFX directors read, so a trigger can never disagree with
+            // the cue the player just heard.
+            ObserveCommandQueueEvents(events);
             if ((events & SimEvents.HazardPulse) != 0)
                 _recentHazardTime = Time.unscaledTime;
             if ((events & SimEvents.WaveStarted) != 0)

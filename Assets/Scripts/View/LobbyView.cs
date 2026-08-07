@@ -67,12 +67,14 @@ namespace CinderCourt.View
             SigilKind.Countercurrent, SigilKind.Verdict, SigilKind.Executioner,
             SigilKind.Ignition, SigilKind.Witness,
         };
-        static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
+        /// <summary>Internal so MetaScreenView can name the same sigils —
+        /// one copy of the vocabulary, two surfaces reading it.</summary>
+        internal static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
         /// <summary>Which gimmick each sigil binds — the line that tells the
         /// player WHERE it matters, not just what number moves.</summary>
-        static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
+        internal static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
         // Face copy: [kind][face]. A = survive the gimmick, B = turn it on them.
-        static readonly string[][] SigilFaceNames =
+        internal static readonly string[][] SigilFaceNames =
         {
             new[] { "역류 저항", "와류" },
             new[] { "관통 판결", "파쇄" },
@@ -80,7 +82,7 @@ namespace CinderCourt.View
             new[] { "재점화", "연쇄" },
             new[] { "속기", "증폭" },
         };
-        static readonly string[][] SigilFaceEffects =
+        internal static readonly string[][] SigilFaceEffects =
         {
             new[] { "내가 받는 해류 밀기 절반", "적이 받는 해류 밀기 1.5배" },
             new[] { "방벽주 실드 40% → 70%", "방벽주에 주는 피해 2배" },
@@ -157,6 +159,19 @@ namespace CinderCourt.View
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
 
+        // W8 campaign minimap + W7 tab meta screen. The minimap occupies the
+        // centre gutter between SANCTUM and SORTIE on desktop; the stacked
+        // (phone) layout has no gutter, so there it hides and the full-screen
+        // 지도 tab of the meta screen is the route instead — a third full-width
+        // card would push the already-tall stacked column further off screen.
+        CampaignMapView _map;
+        RectTransform _mapPanelRect;
+        MetaScreenView _meta;
+        /// <summary>Last save handed to <see cref="Refresh"/>. The meta screen is
+        /// opened by a button, not by the director, so it needs the snapshot the
+        /// lobby is currently displaying.</summary>
+        CampaignData _lastData;
+
         // v1.5 각인 rows (AMENDMENT #6). Built once, Refresh flips state only.
         readonly Text[] _sigilTitles = new Text[5];
         readonly Text[] _sigilEffects = new Text[5];
@@ -225,17 +240,67 @@ namespace CinderCourt.View
             BuildTopBar(root);
             BuildSortiePanel(root);
             BuildSanctumPanel(root);
+            BuildMapPanel(root);
             SelectTab(0);
+
+            // The meta screen is a sibling canvas on this same object: it is a
+            // LOBBY surface (seed D6), so its lifetime is the lobby's and the
+            // combat HUD never learns it exists.
+            _meta = gameObject.AddComponent<MetaScreenView>();
+            _meta.Build(_font, in data);
+
             ApplyLobbyTier(true);
             Refresh(data);
         }
+
+        // ------------------------------------------------------ campaign map --
+        /// <summary>W8: the lit-as-you-go campaign map. Reads the same
+        /// CampaignData the sortie cards read, through CampaignMapLayout, so a
+        /// node can never claim a state the card next to it denies.</summary>
+        void BuildMapPanel(Transform root)
+        {
+            // Width is FIXED at 424 in both layouts. The map field and its two
+            // actions are placed in panel-local units, so a panel that changed
+            // width between tiers would need a second geometry pass for every
+            // node; keeping it constant and re-anchoring the panel itself costs
+            // nothing and keeps the constellation identically readable.
+            var panel = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
+                new Vector2(432, -72), new Vector2(424, 320), PanelColor);
+            _mapPanelRect = panel.GetComponent<RectTransform>();
+            Border(panel.transform, true);
+            Eyebrow(panel.transform, 16, -12, "CAMPAIGN", "심연 지도");
+
+            _map = new CampaignMapView();
+            _map.Build(panel.transform, _font, new Vector2(8, -46), new Vector2(408, 150),
+                showEpithets: false);
+
+            // Two actions, 196 x 96 each: 95.6 x 46.8 CSS px at the worst
+            // audited phone scale (0.488 px/u), so both clear the 44 px touch
+            // floor on BOTH axes with margin and neither joins the lobby's
+            // debt table (LobbyLayoutTests holds that table exactly).
+            var mapButton = TextButton(panel.transform, new Vector2(0, 1),
+                new Vector2(16, -208), new Vector2(196, 96), "지도", 17,
+                () => _meta?.Show(in _lastData, MetaScreenView.TabMap));
+            mapButton.name = "OpenMapButton";
+            var gearButton = TextButton(panel.transform, new Vector2(0, 1),
+                new Vector2(212, -208), new Vector2(196, 96), "정비", 17,
+                () => _meta?.Show(in _lastData, MetaScreenView.TabEquip));
+            gearButton.name = "MetaScreenButton";
+        }
+
+        /// <summary>Opens the tab meta screen on its default tab. Public so a
+        /// future deep link (or a QA route) can reach it without a click.</summary>
+        public void OpenMetaScreen() => _meta?.Show(in _lastData, MetaScreenView.TabEquip);
 
         /// <summary>Re-render balances/card states. Text + interactable only —
         /// never re-instantiates.</summary>
         public void Refresh(CampaignData data)
         {
+            _lastData = data;
             _relicText.text = $"유물 {data.Relics}";
             _pointText.text = $"포인트 {data.Points}";
+            _map?.Refresh(in data);
+            _meta?.Refresh(in data);
 
             // --- sortie: prologue gates everything, stages unlock in order ----
             // v1.6: the repeat visit is no longer a replay of the three waves —
@@ -427,11 +492,11 @@ namespace CinderCourt.View
         {
             var profile = Sim.DifficultySpec.For(difficulty);
             var pack = profile.GroupAi
-                ? $"협동 AI ON · 동시 {profile.AttackTokens}"
+                ? $"협동 AI ON • 동시 {profile.AttackTokens}"
                 : "협동 AI OFF";
             var step = Sim.DifficultySpec.OrderOf(difficulty) + 1;
             return $"난이도: {DifficultyName(difficulty)} [{step}/{Sim.DifficultySpec.Count}]\n"
-                + $"받는 피해 ×{profile.IncomingDamageMul:0.00} · 공격 간격 ×{profile.AttackCooldownMul:0.00}\n"
+                + $"받는 피해 ×{profile.IncomingDamageMul:0.00} • 공격 간격 ×{profile.AttackCooldownMul:0.00}\n"
                 + pack;
         }
 
@@ -545,7 +610,15 @@ namespace CinderCourt.View
         }
 
         public void Show() { if (_root != null) _root.SetActive(true); }
-        public void Hide() { if (_root != null) _root.SetActive(false); }
+
+        /// <summary>Leaving the lobby closes the meta screen with it: its canvas
+        /// sorts above everything the lobby draws, so an open meta screen would
+        /// otherwise hang over the dungeon that just started.</summary>
+        public void Hide()
+        {
+            _meta?.Hide();
+            if (_root != null) _root.SetActive(false);
+        }
 
         // =============================================== mobile layout core --
         void Update()
@@ -553,6 +626,10 @@ namespace CinderCourt.View
             // Resolution dirty-check only (two int compares, no alloc).
             if (_root == null || !_root.activeSelf) return;
             ApplyLobbyTier(false);
+
+            // Frontier heartbeat on the map (skipped internally under reduced
+            // motion). Colour/size writes only — no layout, no allocation.
+            _map?.Tick(Time.unscaledTime);
 
             // cycle2 B3: first-run guide — prologue border pulses ember.
             // PingPong 0→1 over 1.2s round trip, SmoothStep ease, alpha
@@ -632,6 +709,29 @@ namespace CinderCourt.View
                 _sanctumRect.pivot = new Vector2(0f, 1f);
                 _sanctumRect.anchoredPosition = new Vector2(16, -72);
                 _sanctumRect.sizeDelta = new Vector2(400, 560);
+            }
+
+            // W8: the map lives in the centre gutter side-by-side, and drops to
+            // the bottom of the single column when stacked. It keeps its 424 u
+            // width in both, centring itself on the phone rather than
+            // stretching — the constellation is placed, not laid out.
+            if (_mapPanelRect != null)
+            {
+                if (stack)
+                {
+                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0.5f, 1f);
+                    _mapPanelRect.pivot = new Vector2(0.5f, 1f);
+                    // Under SANCTUM (-708, 560 tall) with the same 16 u gap the
+                    // rest of the stacked column uses.
+                    _mapPanelRect.anchoredPosition = new Vector2(0f, -1284f);
+                }
+                else
+                {
+                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0f, 1f);
+                    _mapPanelRect.pivot = new Vector2(0f, 1f);
+                    _mapPanelRect.anchoredPosition = new Vector2(432f, -72f);
+                }
+                _mapPanelRect.sizeDelta = new Vector2(424f, 320f);
             }
 
             // A phone layout must enlarge the complete route grammar (card +
