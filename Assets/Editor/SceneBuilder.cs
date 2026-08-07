@@ -167,7 +167,25 @@ namespace CinderCourt.EditorTools
             // reads as "the world ends here" even though floor IS present.
             // The floor must be dark enough to recede but close enough that
             // the apron edge becomes a gradient rather than a cliff.
-            voidMaterial.SetColor("_BaseColor", new Color(0.105f, 0.092f, 0.125f, 1f));
+            // 0.105/0.092/0.125 was the UNTEXTURED tuning. URP Unlit is
+            // _BaseColor x _BaseMap, so binding a map below (mean luma 0.336)
+            // multiplies that value down to an effective 0.035 - 1.6x DARKER
+            // than the 0.055 this very comment records as already failing
+            // ("the world ends here"). Compensate by the measured texture mean
+            // so the tuned appearance survives the multiply.
+            //
+            // Re-tuned the same way the original was: sampled the deployed
+            // frame either side of the plate edge. apron 48.34 vs void 22.28 =
+            // a 2.17x step; x1.36 brings it to ~1.6x, a gradient rather than
+            // the 4x cliff. Deliberately still DARKER than the apron - the
+            // arena must stay the bright centre (E0.5 readability, and the
+            // key art's own composition).
+            const float voidTextureMeanLuma = 0.336f;
+            const float voidSeamCorrection = 1.36f;
+            var voidTone = new Color(0.105f, 0.092f, 0.125f, 1f)
+                * (voidSeamCorrection / voidTextureMeanLuma);
+            voidTone.a = 1f;
+            voidMaterial.SetColor("_BaseColor", voidTone);
             // MEASURED: this quad is the dark mass that owns the frame. Landing
             // the stage textures took the dominant 24-step colour bucket from
             // 86.2% to 54.5%, and realigning the painted backdrop moved it a
