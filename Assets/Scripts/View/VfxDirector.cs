@@ -227,20 +227,37 @@ namespace CinderCourt.View
             };
 
             // V3 element particle pool: 4 systems pre-created, emission off,
-            // Emit(count) on events only. Unlit transparent seed material —
-            // spec §V3 shader-stripping contract.
+            // Emit(count) on events only. Materials are SEED CLONES —
+            // spec §V3 shader-stripping contract, see MakeParticleAdditive.
+            // Bolt: violet pierce afterglow. Light drag downward — it trails the
+            // shot rather than falling out of it.
             _boltSparks = BuildElementParticles("BoltSparks",
-                new Color(0.75f, 0.55f, 1f, 0.9f), 0.05f, 0.35f, 2.6f);
+                new Color(0.75f, 0.55f, 1f, 0.9f), 0.05f, 0.35f, 2.6f,
+                gravity: 0.35f, shapeRadius: 0.12f);
+            // Pulse: green tick ripple on the FIELD FLOOR. Gravity 0 — a ground
+            // resonance that sags is a spray, and the field does not move.
             _pulseRipple = BuildElementParticles("PulseRipple",
-                new Color(0.35f, 0.85f, 0.5f, 0.8f), 0.045f, 0.5f, 1.4f);
+                new Color(0.35f, 0.85f, 0.5f, 0.8f), 0.045f, 0.5f, 1.4f,
+                gravity: 0f, shapeRadius: 0.12f);
+            // Nova: ember debris. The heaviest gravity in the set because the
+            // spec word is 낙하 파편 — the arc down IS the read.
             _novaDebris = BuildElementParticles("NovaDebris",
-                new Color(0.953f, 0.42f, 0.2f, 0.9f), 0.06f, 0.7f, 3.2f);
+                new Color(0.953f, 0.42f, 0.2f, 0.9f), 0.06f, 0.7f, 3.2f,
+                gravity: 0.9f, shapeRadius: 0.12f);
+            // Aegis: cyan ABSORPTION. Negative speed on a wide emission shell
+            // converges the particles onto the caster instead of throwing them
+            // away from it — the same inversion the ward's eruption crown uses
+            // (everything else in the kit grows outward; the defensive skill is
+            // the one that contracts). An outward puff here was the one element
+            // whose motion contradicted its own name.
             _aegisFlash = BuildElementParticles("AegisFlash",
-                new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, 2.0f);
+                new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, -2.0f,
+                gravity: 0f, shapeRadius: 0.55f);
         }
 
         ParticleSystem BuildElementParticles(
-            string name, Color color, float size, float life, float speed)
+            string name, Color color, float size, float life, float speed,
+            float gravity, float shapeRadius)
         {
             var host = new GameObject(name);
             host.transform.SetParent(transform, false);
@@ -251,24 +268,26 @@ namespace CinderCourt.View
             main.startLifetime = life;
             main.startSpeed = speed;
             main.startSize = size;
-            // NOTE: URP/Unlit ignores per-particle vertex color — element color
-            // lives in the per-system material; fades are system-level (spec
-            // V3 amended: no per-particle gradients on the unlit seed path).
             main.maxParticles = 96;                       // hard budget per system
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 0.6f;                  // debris arcs read grounded
+            main.gravityModifier = gravity;               // per element, see call sites
             var emission = system.emission;
             emission.enabled = false;                     // Emit(count) only
             var shape = system.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.12f;
+            shape.radius = shapeRadius;
+            // A negative speed is this file's "converge inward" signal (Aegis).
+            // It only reads as absorption if the particles START on the rim, so
+            // an inward system emits from the SHELL (thickness 0) while outward
+            // systems keep the default filled volume.
+            shape.radiusThickness = speed < 0f ? 0f : 1f;
             // --- Unity advanced-VFX guide techniques, ported to the built-in
             // ParticleSystem. VFX Graph itself CANNOT ship here: it requires
             // compute shaders, which WebGL lacks and CLAUDE.md L27 forbids.
-            // These four modules are the guide's portable ideas — organic
-            // noise motion, lifetime shaping, and strip trails — at zero
-            // texture cost and zero new shader variants.
+            // These modules are the guide's portable ideas — organic noise
+            // motion, lifetime shaping, rotation and lifetime colour — at zero
+            // texture cost and ONE seeded shader (the particle-additive seed).
 
             // 1) Noise: the guide's headline technique. Straight-line debris
             // reads as a particle system; curled debris reads as fire, ash and
@@ -301,13 +320,40 @@ namespace CinderCourt.View
             rotation.enabled = true;
             rotation.z = new ParticleSystem.MinMaxCurve(-Mathf.PI, Mathf.PI);
 
+            // 4) Colour over lifetime. This is the module the earlier pass had
+            // to leave out: URP/Unlit ignores per-particle vertex colour, so a
+            // gradient here did nothing and the burst ended by POPPING out at
+            // full alpha (only size-over-lifetime hid it). The particle seed
+            // (RuntimeMaterialSeeds.SeedParticleAdditive, _ColorMode multiply)
+            // restores the vertex-colour channel, so the tail can finally fade.
+            // Harmless on the fallback path — an ignored module, not a wrong one.
+            var colorOverLife = system.colorOverLifetime;
+            colorOverLife.enabled = true;
+            var fade = new Gradient();
+            fade.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(Color.white, 0f),
+                    new GradientColorKey(Color.white, 1f),
+                },
+                new[]
+                {
+                    new GradientAlphaKey(1f, 0f),
+                    new GradientAlphaKey(1f, 0.45f),
+                    new GradientAlphaKey(0f, 1f),
+                });
+            colorOverLife.color = new ParticleSystem.MinMaxGradient(fade);
+
             var renderer = system.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            // PROVEN seed path (MakeUnlit) — URP Particles shader would be
-            // variant-stripped on WebGL (zero material references in build).
-            renderer.sharedMaterial = ViewWorld.MakeAdditive(color);
+            // SEED CLONE ONLY (spec §V3 WebGL stripping contract): the URP
+            // Particles shader has zero material references in this build, so
+            // Shader.Find would hand back a stripped variant and render pink.
+            // MakeParticleAdditive clones the serialized seed and degrades to
+            // the proven URP/Unlit additive path when the seed is absent.
+            renderer.sharedMaterial = ViewWorld.MakeParticleAdditive(color);
             // Emission is off — Play() once so Emit(count) bursts actually
             // simulate (a stopped system spawns particles that never age).
             system.Play();
@@ -1133,11 +1179,19 @@ namespace CinderCourt.View
                         _hazardViews[i].PrevCycleT = hazard.CycleT;
 
                         // Telegraph: ring brightens and pulses before the burst.
+                        // Reduced motion holds it STEADY at the pulse ceiling
+                        // instead of strobing at 6 Hz — this ring was the last
+                        // hazard telegraph still un-gated (TideCurrent edges and
+                        // AshWall boundary already do this), and 6 Hz is inside
+                        // the band the accessibility contract exists to exclude.
+                        // Steady-at-peak, never steady-at-trough: the warning
+                        // must not get QUIETER for the players who need it most.
                         var color = view.RingMaterial.color;
                         if (hazard.Telegraphing)
                         {
-                            var pulse = 0.55f + 0.45f * Mathf.PingPong(Time.time * 6f, 1f);
-                            color.a = pulse;
+                            color.a = ViewPrefs.ReducedMotion
+                                ? 1f
+                                : 0.55f + 0.45f * Mathf.PingPong(Time.time * 6f, 1f);
                             color.r = 1f; color.g = 0.42f; color.b = 0.18f;
                         }
                         else
@@ -1156,8 +1210,27 @@ namespace CinderCourt.View
                             var fillRadius = hazard.Radius * ViewWorld.Scale * progress;
                             view.FillDisc.localScale = new Vector3(
                                 fillRadius * 2f, 0.010f, fillRadius * 2f / SimConfig.IsoY);
+                            // Contrast-safe imminence: the fill used to be a
+                            // two-step alpha (0.16 idle / 0.5 telegraph), which
+                            // failed exactly where it mattered — at high fill the
+                            // disc sits on the ring in the SAME ember hue at a
+                            // similar value, so the leading edge (the "how soon"
+                            // read) dissolved into the ring it was drawn inside.
+                            // Ramping BOTH value and hue with the cycle keeps
+                            // that boundary alive to the last frame and survives
+                            // grayscale, which is this file's stated readability
+                            // lever (§S1) rather than more alpha.
+                            //
+                            // Reduced motion needs no branch here: this is a
+                            // monotonic ramp over the whole vent period, not an
+                            // oscillation — the imminence stays fully readable
+                            // as a static state at any instant.
+                            var urgency = hazard.Telegraphing ? 1f : progress;
                             var fillColor = view.FillMaterial.color;
-                            fillColor.a = hazard.Telegraphing ? 0.5f : 0.16f;
+                            fillColor.r = 1f;
+                            fillColor.g = Mathf.Lerp(0.42f, 0.72f, urgency);
+                            fillColor.b = Mathf.Lerp(0.18f, 0.42f, urgency);
+                            fillColor.a = Mathf.Lerp(0.20f, 0.62f, urgency);
                             view.FillMaterial.color = fillColor;
                         }
                         break;
@@ -1693,6 +1766,14 @@ namespace CinderCourt.View
         readonly Dictionary<int, float> _pickupLife = new Dictionary<int, float>(16);
 
         public void SyncPickups(IReadOnlyList<PickupState> pickups)
+            => SyncPickups(pickups, null);
+
+        /// <summary>AMENDMENT #14 (V-3): graded loot must be readable at a
+        /// glance or the grade system is invisible. Grades arrive index-aligned
+        /// with pickups (IDungeonProgressionSnapshot.PickupGrades); a null or
+        /// short list (gate off, legacy callers) reads as Basic. Grade is fixed
+        /// per pickup id, so the dressing is applied once at spawn.</summary>
+        public void SyncPickups(IReadOnlyList<PickupState> pickups, IReadOnlyList<LootGrade> grades)
         {
             for (var i = 0; i < pickups.Count; i++)
             {
@@ -1700,6 +1781,13 @@ namespace CinderCourt.View
                 if (!_pickupViews.TryGetValue(pickup.Id, out var view))
                 {
                     view = SpawnPickupIcon(pickup) ?? SpawnGem(pickup);
+                    var grade = grades != null && i < grades.Count ? grades[i] : LootGrade.Basic;
+                    if (grade == LootGrade.Fine) view.localScale *= 1.18f;
+                    else if (grade == LootGrade.Epic)
+                    {
+                        view.localScale *= 1.35f;
+                        AttachEpicGlow(view);
+                    }
                     _pickupViews[pickup.Id] = view;
                 }
                 _pickupLife[pickup.Id] = pickup.Life;
@@ -1750,6 +1838,26 @@ namespace CinderCourt.View
                 }
             }
             _pickupCollectedFlag = false;
+        }
+
+        Material _epicGlowMaterial;   // one shared additive gold, lazily seeded
+
+        /// <summary>Epic underglow: a single additive quad child. The material
+        /// is cached — MakeAdditive clones the serialized seed, so per-pickup
+        /// clones would leak one material per drop.</summary>
+        void AttachEpicGlow(Transform view)
+        {
+            if (_epicGlowMaterial == null)
+                _epicGlowMaterial = ViewWorld.MakeAdditive(new Color(1f, 0.78f, 0.25f, 0.55f));
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(glow);
+            glow.name = "EpicGlow";
+            var renderer = glow.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = _epicGlowMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glow.transform.SetParent(view, false);
+            glow.transform.localPosition = Vector3.zero;
+            glow.transform.localScale = Vector3.one * 1.8f;
         }
 
         Transform SpawnGem(PickupState pickup)

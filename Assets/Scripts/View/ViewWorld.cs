@@ -92,6 +92,38 @@ namespace CinderCourt.View
             return material;
         }
 
+        static Material _particleSeed;
+        static bool _particleSeedProbed;
+
+        /// <summary>
+        /// §V3 additive material for the pooled element ParticleSystems.
+        /// Clones the serialized seed written by
+        /// <c>RuntimeMaterialSeeds.SeedParticleAdditive</c> — URP's Particles
+        /// Unlit shader is otherwise referenced by NO material in this project,
+        /// so WebGL variant stripping removes it and a runtime
+        /// <c>new Material(Shader.Find(...))</c> renders pink. Direct shader
+        /// construction is therefore forbidden on this path.
+        ///
+        /// Falls back to <see cref="MakeAdditive"/> (URP/Unlit, the seed path
+        /// already proven in this build) when the asset has not been generated
+        /// yet: the systems lose per-particle colour-over-lifetime but render
+        /// correctly at the material's flat colour, which is exactly the
+        /// behaviour they had before the seed existed.
+        /// </summary>
+        public static Material MakeParticleAdditive(Color color)
+        {
+            if (!_particleSeedProbed)
+            {
+                _particleSeedProbed = true;
+                _particleSeed = Resources.Load<Material>("Materials/particle-additive-seed");
+            }
+            if (_particleSeed == null) return MakeAdditive(color);
+            var clone = new Material(_particleSeed);
+            clone.SetColor("_BaseColor", color);
+            clone.color = color;
+            return clone;
+        }
+
         static Shader _lit;
 
         /// <summary>
