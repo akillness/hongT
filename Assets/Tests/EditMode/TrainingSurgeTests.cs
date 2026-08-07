@@ -1,4 +1,4 @@
-// AMENDMENT #7 — 훈련장 (training ground) + 돌발 (surge) + 각인 서지 조항.
+// AMENDMENT #10 — 훈련장 (training ground) + 돌발 (surge) + 각인 서지 조항.
 // Numeric truth: HackSpec §14/§15 + design/training-and-surge-spec.md.
 // Research the numbers answer to: .survey/roguelike-training-and-surge/.
 //

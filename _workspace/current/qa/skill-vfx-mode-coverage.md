@@ -11,7 +11,7 @@ run-id 20260806-skill-vfx · View 레인 · 인수인계 문서
 **훈련 던전(`GameMode.Training`)에서는 2/5만 동작**한다 — VFX 결함이 아니라
 심이 해당 스킬을 캐스팅하지 않기 때문이다. VFX는 발행되지 않은 이벤트를 그릴 수 없다.
 
-이 문서는 그 미배선을 기록한다. **소유자는 AMENDMENT #7(훈련장) 레인이다.**
+이 문서는 그 미배선을 기록한다. **소유자는 AMENDMENT #10(훈련장) 레인이다.**
 View 레인은 심 계약을 건드리지 않으므로 여기서 고치지 않았다.
 
 ---
@@ -82,7 +82,7 @@ _input.Mode = InputAdapter.Profile.Dungeon;   // full kit: you practise with you
 ## [OBSERVED] 배선 진행도
 
 `GameView._isTraining`은 이미 존재하나(`GameView.cs:147`) 현재 소비처가
-`Hud.SyncSurge` 한 곳뿐이다. AMENDMENT #7이 배선 중이며 미완이다.
+`Hud.SyncSurge` 한 곳뿐이다. AMENDMENT #10이 배선 중이며 미완이다.
 
 ---
 

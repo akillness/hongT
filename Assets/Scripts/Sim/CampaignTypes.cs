@@ -405,7 +405,7 @@ namespace CinderCourt.Sim
     }
 
     /// <summary>
-    /// Training-ground trials (AMENDMENT #7 — design/training-and-surge-spec.md).
+    /// Training-ground trials (AMENDMENT #10 — design/training-and-surge-spec.md).
     /// One dominant gimmick per trial and NOTHING else: no spawns, no boss, no
     /// wave table. The survey's training cross-table is empty in exactly this
     /// column (T8 gimmick-only trial, 0/11) because an RNG title cannot make a

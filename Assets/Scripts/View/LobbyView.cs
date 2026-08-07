@@ -750,7 +750,7 @@ namespace CinderCourt.View
         }
 
         // ----------------------------------------------------- training ground --
-        /// <summary>Trial display names, catalog order (AMENDMENT #7).</summary>
+        /// <summary>Trial display names, catalog order (AMENDMENT #10).</summary>
         public static readonly string[] TrialNames =
             { "불씨 시련", "해류 시련", "방벽 시련", "행진 시련", "증언 시련" };
         /// <summary>Tier names — the ladder the survey's T3 archetype asks for.</summary>

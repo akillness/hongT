@@ -654,7 +654,7 @@ namespace CinderCourt.View
             // Built with the dungeon wording: PresentationFeedbackTests IDENTIFIES
             // this panel by finding "구역 정화" among its children, so an empty
             // default makes the panel invisible to the audit. A trial swaps the
-            // text at reveal time instead (AMENDMENT #7).
+            // text at reveal time instead (AMENDMENT #10).
             var clearTitle = Label(_stageClearPanel.transform, 0, -18, 480, 36, "구역 정화", 28, TextAnchor.MiddleCenter);
             _stageClearTitle = clearTitle;
             clearTitle.color = new Color(0.56f, 0.91f, 1f);
@@ -1780,7 +1780,7 @@ namespace CinderCourt.View
             ShowRotateHintIfPortrait(); // spec #14: one-time landscape nudge
         }
 
-        // --- AMENDMENT #7 surge / trial banner ---------------------------------
+        // --- AMENDMENT #10 surge / trial banner ---------------------------------
         Text _surgeBanner;
         Text _trialBanner;
         string _lastSurgeText = "";
@@ -1791,7 +1791,7 @@ namespace CinderCourt.View
         int _lastTrialHits;
 
         /// <summary>
-        /// Surge windows and the trial clock (AMENDMENT #7). Text only, reusing
+        /// Surge windows and the trial clock (AMENDMENT #10). Text only, reusing
         /// the toast band — no new geometry, so the audited HUD rects the layout
         /// tests froze are untouched.
         ///
@@ -1838,7 +1838,7 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// Latches the run's mode ONCE at start (AMENDMENT #7). Separate from
+        /// Latches the run's mode ONCE at start (AMENDMENT #10). Separate from
         /// the per-frame sync on purpose: the clear ceremony reads this AFTER
         /// the run has ended, so a flag that decays with the run would hand the
         /// trial the dungeon's "구역 정화 · 점수 0 • 유물 0" wording — a line

@@ -458,7 +458,7 @@ namespace CinderCourt.View
             // the attack pose. ActorView only re-issues the animator value when
             // it CHANGES, so a tier that arrives after the swing starts would
             // lock the wrong variant for the entire swing, not just one frame.
-            // AMENDMENT #7 widens main's dungeon gate to include a trial, so the
+            // AMENDMENT #10 widens main's dungeon gate to include a trial, so the
             // combo tier drives the pose there too. Everything else is main's.
             if (_dungeonPresentation) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
             _playerView.SyncPlayer(_sim.Player, _simDelta);
@@ -555,7 +555,7 @@ namespace CinderCourt.View
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
-            // AMENDMENT #7: the surge window is readable for EVERY player, sigils
+            // AMENDMENT #10: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.
             //
             // A finished run publishes ZERO. UpdateSurge stops running at

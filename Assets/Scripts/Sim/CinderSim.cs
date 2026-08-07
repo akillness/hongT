@@ -208,11 +208,12 @@ namespace CinderCourt.Sim
         private readonly float[] _companionAttackInterval = new float[MaxCompanions];
         private readonly float[] _companionAttackRange = new float[MaxCompanions];
         private readonly float[] _companionDamageScale = new float[MaxCompanions];
-        // NOTE — amendment-number collision, merge-time. main landed A7
-        // (companion autonomy) and A8 (signature skills) while this lane was
-        // using #7 for the training ground + surge. Both field blocks are kept
-        // verbatim below; only the NUMBERS clash, never the state. Renumbering
-        // is the merger's call — see the banner in docs/SIM_SPEC_HACKSLASH.md.
+        // NOTE — amendment numbering, settled at merge time. main owns #7
+        // (companion autonomy) and #8 (signature skills); the momentum lane
+        // already writes itself as A9 in HudView. The training-ground + surge
+        // work below, which briefly also called itself #7, is therefore
+        // **AMENDMENT #10** everywhere. Only the label moved — no field, no
+        // constant and no behaviour changed with it.
         // AMENDMENT #7 (A7.1-A7.4): per-slot autonomy state. All of it is derived from
         // counters and fixed-step accumulation — no RNG, so §13 still holds. The target is
         // stored as an ENEMY ID, never an index: RemoveEnemyAt (CinderSim.cs:2245) shifts
@@ -247,7 +248,7 @@ namespace CinderCourt.Sim
         private float _sigilVentEnemyDamage;                   // 0 = vents stay player-only
         private float _sigilAltarHoldSeconds = CampaignSpec.AltarHoldSeconds;
         private float _sigilAltarOilBurst = CampaignSpec.AltarOilBurst;
-        // --- AMENDMENT #7 surge: two deterministic windows, different axes.
+        // --- AMENDMENT #10 surge: two deterministic windows, different axes.
         // Peril slows the hazard CLOCK (only ever lengthens a telegraph); surge
         // multiplies hazard damage dealt to ENEMIES (never touches timing). Both
         // are inert in a run that never trips them, so the goldens do not move.
@@ -264,7 +265,7 @@ namespace CinderCourt.Sim
         private bool _sigilPerilWallHalf;                      // 집행인 peril clause
         private bool _sigilPerilAltarInstant;                  // 증언인 peril clause
         private bool _sigilSurgePylonAuraStop;                 // 판결인 surge clause
-        // --- AMENDMENT #7 training: a fixed-length trial with no spawn table.
+        // --- AMENDMENT #10 training: a fixed-length trial with no spawn table.
         private readonly bool _training;
         // 1, NOT default(float). The arena/classic-campaign constructors never
         // touch this field, and a 0 here freezes the hazard clock for every
@@ -408,7 +409,7 @@ namespace CinderCourt.Sim
             _companionActive = _companionCount > 0;
 
             ResolveSigils(_dungeon ? configured.Sigils : default);
-            // AMENDMENT #7: a trial carries its hazards on the config directly
+            // AMENDMENT #10: a trial carries its hazards on the config directly
             // (there is no campaign table for it), so the routing gains a third
             // arm. The dungeon and non-dungeon arms are main's, unchanged.
             _hazards = _dungeon
@@ -464,7 +465,7 @@ namespace CinderCourt.Sim
             if (loadout.Has(SigilKind.Witness, SigilFace.B))
                 _sigilAltarOilBurst = HackSpec.SigilAltarOilBurst;
 
-            // --- AMENDMENT #7 surge clauses. Face-independent: the clause is the
+            // --- AMENDMENT #10 surge clauses. Face-independent: the clause is the
             // sigil waking up inside a window, not the face doing more.
             //
             // The three PERIL clauses are the ones that looked like immunity in
@@ -609,7 +610,7 @@ namespace CinderCourt.Sim
         public float NovaX => _novaX;
         public float NovaY => _novaY;
 
-        // --- AMENDMENT #7 surge / training (view-read only) -------------------
+        // --- AMENDMENT #10 surge / training (view-read only) -------------------
         /// <summary>Seconds left in the peril window (0 = closed).</summary>
         public float PerilRemaining => _perilTimer;
         /// <summary>Seconds left in the surge window (0 = closed).</summary>
@@ -932,7 +933,7 @@ namespace CinderCourt.Sim
             {
                 UpdateBossPhase();
             }
-            // AMENDMENT #7: surge windows resolve BEFORE the hazards they modify,
+            // AMENDMENT #10: surge windows resolve BEFORE the hazards they modify,
             // so a window that opens this tick is already in force for this tick's
             // hazard arithmetic (no one-tick lag between "you dropped below 35%"
             // and "the clock slowed").
@@ -982,7 +983,7 @@ namespace CinderCourt.Sim
 
             // §2.2/§2.3: the dungeon replaces the arena kit with dash + four skills.
             //
-            // AMENDMENT #7: a TRIAL gets the same kit. The view already promised
+            // AMENDMENT #10: a TRIAL gets the same kit. The view already promised
             // it — GameDirector sets InputAdapter.Profile.Dungeon on entry with
             // the comment "full kit: you practise with your tools" — but the sim
             // fell through to the arena branch, which reads only Nova and Ward.
@@ -2878,7 +2879,7 @@ namespace CinderCourt.Sim
             _spawnTimer = SimConfig.FirstSpawnDelay;
             _intermission = 0f;
             _mode = SimMode.Running;
-            // AMENDMENT #7: the surge cap is per wave, so a new wave re-arms it.
+            // AMENDMENT #10: the surge cap is per wave, so a new wave re-arms it.
             // Peril's cap is per RUN and deliberately not touched here.
             _surgeUsedThisWave = false;
 
@@ -3024,7 +3025,7 @@ namespace CinderCourt.Sim
             _stageTime = 0f;
             _stageCleared = false;
             _livingBosses = 0;
-            // AMENDMENT #7: both windows and both caps are run-scoped.
+            // AMENDMENT #10: both windows and both caps are run-scoped.
             _perilTimer = 0f;
             _perilUsed = 0;
             _perilArmed = true;
@@ -3051,7 +3052,7 @@ namespace CinderCourt.Sim
                 // §5/§6: meta stats and equipment tiers apply to dungeon runs only —
                 // the prologue and the arena keep the frozen SIM_SPEC numbers.
                 //
-                // AMENDMENT #7: a trial rides them too. The point of the training
+                // AMENDMENT #10: a trial rides them too. The point of the training
                 // ground is to practise the gimmick at YOUR numbers; a trial run
                 // at stock stats would teach the wrong spacing.
                 if (_dungeon || _training)
@@ -3272,7 +3273,7 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// Deterministic surge windows (AMENDMENT #7 · design/training-and-surge-spec.md).
+        /// Deterministic surge windows (AMENDMENT #10 · design/training-and-surge-spec.md).
         ///
         /// Two doors, both opened by state the sim already keeps, neither by a
         /// clock and neither by chance. The survey found the genre builds surges
@@ -3360,7 +3361,7 @@ namespace CinderCourt.Sim
             => _surgeTimer > 0f && _sigilSurgeEnemyBoost ? _sigilSurgeEnemyHazardMult : 1f;
 
         /// <summary>
-        /// A trial is a fixed 60 s window with no spawn table (AMENDMENT #7).
+        /// A trial is a fixed 60 s window with no spawn table (AMENDMENT #10).
         /// It ends by the clock, never by a wave count, and it never spawns an
         /// enemy — so no kill can drop a relic here and the training ground
         /// cannot feed the economy (negotiation entry 7).
@@ -3394,7 +3395,7 @@ namespace CinderCourt.Sim
         /// telegraph cue and apply band damage on the global 0.6 s tick grid. All run
         /// on stage time, so they keep ticking through the wave intermission.
         ///
-        /// AMENDMENT #7: <see cref="HazardRate"/> scales how fast stage time
+        /// AMENDMENT #10: <see cref="HazardRate"/> scales how fast stage time
         /// accumulates — peril halves it, a trial tier tightens it. Everything
         /// downstream reads <see cref="_stageTime"/>, so ONE multiply moves every
         /// gimmick together and the monotonic cycle guards stay valid: time still
@@ -3502,7 +3503,7 @@ namespace CinderCourt.Sim
                         // 집행인 A: 10 -> 6. Still a tick you must walk out of —
                         // the wall keeps owning the space (AMENDMENT #6).
                         //
-                        // AMENDMENT #7 peril clause: HALVED for the window, not
+                        // AMENDMENT #10 peril clause: HALVED for the window, not
                         // waived. The draft waived it and the director's
                         // arithmetic killed that: 6 s of exemption avoids 100
                         // damage, 100% of base HP — reversal grade. Halved for
@@ -3558,7 +3559,7 @@ namespace CinderCourt.Sim
                 // 증언인 A shortens the channel (1.2 -> 0.8): still a window the
                 // gimmick rhythm has to allow, just a narrower one. AMENDMENT #6.
                 //
-                // AMENDMENT #7 peril clause: the channel completes instantly.
+                // AMENDMENT #10 peril clause: the channel completes instantly.
                 // Cleared by the director's arithmetic unchanged — the altar
                 // grants OIL, so this avoids no damage and never touches the
                 // comeback band. What it buys is a resource you still have to
@@ -3748,7 +3749,7 @@ namespace CinderCourt.Sim
         /// </summary>
         private float PylonAuraMultiplier(float enemyX, float enemyY)
         {
-            // AMENDMENT #7 판결인 surge clause: inside a surge window the aura
+            // AMENDMENT #10 판결인 surge clause: inside a surge window the aura
             // stops entirely. This IS a full lift, and it is allowed where the
             // peril clauses were not, for one reason the arithmetic settles: the
             // aura protects ENEMIES, so lifting it costs the player nothing in

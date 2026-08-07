@@ -290,7 +290,7 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// Enter a trial (AMENDMENT #7). The first run of the game still gets the
+        /// Enter a trial (AMENDMENT #10). The first run of the game still gets the
         /// original three-wave prologue — a trial only replaces the REPEAT visit,
         /// so a new player's path and the prologue golden are both untouched.
         /// </summary>
@@ -329,7 +329,7 @@ namespace CinderCourt.View
 
         /// <summary>
         /// A trial survived to the clock records its tier and nothing else
-        /// (AMENDMENT #7 · negotiation entry 7). The ONLY currency the training
+        /// (AMENDMENT #10 · negotiation entry 7). The ONLY currency the training
         /// ground can ever pay is the one-time mastery grant, and only when every
         /// trial sits at the top tier — PM's band was "one-time <=2 relics,
         /// repeat payouts banned", and a trial spawns no enemies so there is no

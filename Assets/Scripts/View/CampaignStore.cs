@@ -35,7 +35,7 @@ namespace CinderCourt.View
         public int SigilFaces;                      // bitmask, bit k set = kind k shows face B
         public int SigilSlot0, SigilSlot1;          // equipped SigilKind ints, 0 = empty
 
-        // v5 training ground (AMENDMENT #7 · design/training-and-surge-spec.md).
+        // v5 training ground (AMENDMENT #10 · design/training-and-surge-spec.md).
         // Two ints, both additive, same forward-compat grammar as v4: a pre-v5
         // save parses them as 0 = "no trial cleared, no mastery claimed".
         public int TrialTiers;                      // 5 trials x 2 bits, best tier per trial + 1 (0 = never cleared)

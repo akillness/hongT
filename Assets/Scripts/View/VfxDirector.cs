@@ -130,7 +130,7 @@ namespace CinderCourt.View
                     return hazards[h].PushX < 0f ? -1f : 1f;
                 }
             }
-            // AMENDMENT #7: trial placements live outside CampaignStages. Without
+            // AMENDMENT #10: trial placements live outside CampaignStages. Without
             // this pass both bands of the current trial drew the same chevrons,
             // so the one thing that trial teaches — 순류 vs 역류 — was invisible.
             var trials = TrainingTrials.Ids;

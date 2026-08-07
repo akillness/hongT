@@ -329,7 +329,7 @@ Active mitigation)를 서술하지만 로그라이트는 대부분 인런 아이
 
 ---
 
-## v1.6 훈련장·돌발 게이트 (2026-08-06, AMENDMENT #7)
+## v1.6 훈련장·돌발 게이트 (2026-08-06, AMENDMENT #10)
 
 run-id `20260806-training-and-upgrade`. 측정 = 값 + 방법 + 증거 경로.
 
@@ -337,7 +337,7 @@ run-id `20260806-training-and-upgrade`. 측정 = 값 + 방법 + 증거 경로.
 
 | 게이트 | 값 | 증거 |
 |---|---|---|
-| EditMode | **319/319** (직전 295 + AMENDMENT #7 커버리지 23, 타 세션 1) | `unity-logs/test-results-151826.xml` |
+| EditMode | **319/319** (직전 295 + AMENDMENT #10 커버리지 23, 타 세션 1) | `unity-logs/test-results-151826.xml` |
 | 신규 커버리지 | `TrainingSurgeTests` **23건 전부 Passed** · 123 어서션 | 같은 XML |
 | 골든 | **7스위트 전 행 무이동** | 같은 XML — `Golden_*` 7건 Passed |
 | WebGL 빌드 | **57.5MB · errors 0 · warnings 0 · 47.2s** | `unity-logs/build-151907.log` |

@@ -18,7 +18,7 @@
 
 ## 2026-08-06 15:30 — HudView.cs: 596e862가 게이지 렌더 수정을 되돌림
 
-- **관측**: `596e862`(AMENDMENT #7)가 `Assets/Scripts/View/HudView.cs`를 +80줄로
+- **관측**: `596e862`(AMENDMENT #10)가 `Assets/Scripts/View/HudView.cs`를 +80줄로
   커밋했는데, 그 시점 HEAD 버전에 View 레인의 게이지 수정이 **없다**.
   측정: `git show HEAD:...HudView.cs` → `MakeFilled` 0회 / `FillSprite` 0회.
   작업 트리 → 각각 7회 / 4회. **지금 HEAD에서 빌드하면 체력·기름 게이지가
@@ -55,7 +55,7 @@
 
 ---
 
-## 2026-08-06 16:45 — AMENDMENT #7 레인 (훈련장·돌발) ↔ VFX/클립 레인
+## 2026-08-06 16:45 — AMENDMENT #10 레인 (훈련장·돌발) ↔ VFX/클립 레인
 
 **공유 파일 2개에서 실제로 부딪혔고, 인덱스 사고 2건이 났다. 둘 다 해소.**
 

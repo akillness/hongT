@@ -1,6 +1,6 @@
 # Cycle 3 Retrospective — 훈련장 · 돌발 · 각인 서지
 
-run-id `20260806-training-and-upgrade` · AMENDMENT #7
+run-id `20260806-training-and-upgrade` · AMENDMENT #10
 요청: "다시 훈련 강화 및 던전을 하는데 survey 로그라이크 게임 다시 분석해서
 강화 훈련 다시 기획해주고, 기믹을 받을 수 있게 추가해서"
 
@@ -17,7 +17,7 @@ run-id `20260806-training-and-upgrade` · AMENDMENT #7
 | G7 루프 | **조건부** | 첫 기세 33.3~58.3s (대역 내), 단 4중 2 스테이지 미도달 |
 | G8 참신성 | **부분** | 빈도 PASS (0/11, 0~1/13), 인상 미측정 |
 
-EditMode **319/319** (AMENDMENT #7 신규 커버리지 23건 포함), 골든 7스위트
+EditMode **319/319** (AMENDMENT #10 신규 커버리지 23건 포함), 골든 7스위트
 무이동, WebGL 57.5MB errors 0 warnings 0.
 
 ## 2. 조사가 실제로 바꾼 것

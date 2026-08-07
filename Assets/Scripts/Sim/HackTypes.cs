@@ -164,7 +164,7 @@ namespace CinderCourt.Sim
                && ((Slot0 == kind && Face0 == face) || (Slot1 == kind && Face1 == face));
 
         /// <summary>True when this sigil is equipped on EITHER face. The surge
-        /// clause (AMENDMENT #7) is face-independent: it is the sigil waking up,
+        /// clause (AMENDMENT #10) is face-independent: it is the sigil waking up,
         /// not the face doing more of what it already does.</summary>
         public bool HasKind(SigilKind kind)
             => kind != SigilKind.None && (Slot0 == kind || Slot1 == kind);
@@ -300,7 +300,7 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// A training-ground trial (AMENDMENT #7). One gimmick, one tier, 60 s,
+        /// A training-ground trial (AMENDMENT #10). One gimmick, one tier, 60 s,
         /// no spawns. Meta stats and equipment ride along so the numbers you
         /// practise are the numbers you fight with; sigils do NOT — the trial is
         /// where you learn the gimmick unaided, and surge never fires here.
@@ -489,7 +489,7 @@ namespace CinderCourt.Sim
         public const string PrologueStageId = "prologue";
         public const string PrologueClearReason = "prologue-clear";
         /// <summary>Trial end marker — the clock ran out, which is the only way
-        /// a trial ends (AMENDMENT #7).</summary>
+        /// a trial ends (AMENDMENT #10).</summary>
         public const string TrainingClearReason = "training-clear";
         public const int PrologueWaves = 3;
         private static readonly int[] PrologueSpawns = { 4, 6, 8 };
@@ -815,7 +815,7 @@ namespace CinderCourt.Sim
         /// <summary>증언인 B — altar oil burst, replacing 18.</summary>
         public const float SigilAltarOilBurst = 30f;
 
-        // --- §14 surge (AMENDMENT #7 — design/training-and-surge-spec.md) -----
+        // --- §14 surge (AMENDMENT #10 — design/training-and-surge-spec.md) -----
         // Deterministic surge windows. Sourced from
         // .survey/roguelike-training-and-surge/: the genre builds surges out of a
         // CLOCK (3/13) and never out of a health threshold (0/13) or a kill count
@@ -857,7 +857,7 @@ namespace CinderCourt.Sim
         /// second payout (a layer on the layer, not a duplicate grant).</summary>
         public const float SigilSurgeEnemyHazardMult = 3f;
 
-        // --- §15 training ground (AMENDMENT #7) -------------------------------
+        // --- §15 training ground (AMENDMENT #10) -------------------------------
         /// <summary>A trial is a fixed 60 s window — no wave table, no spawns.</summary>
         public const float TrainingSeconds = 60f;
         /// <summary>Trial tiers. Tier k scales hazard PERIODS by Tier{k}Rate; the
