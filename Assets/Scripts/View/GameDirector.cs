@@ -37,6 +37,8 @@ namespace CinderCourt.View
         string _stageTerrainId = "";
         GameObject _stageDressing;        // instantiated dressing clones (view-only)
         string _stageDressingId = "";
+        GameObject _stageEnvironment;     // EnvironmentBuilder root (AMENDMENT #12)
+        string _stageEnvironmentId = "";
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -113,6 +115,7 @@ namespace CinderCourt.View
             if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
             SetStageTerrain(null);        // back to the base court plate
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             _game.EndRun();
             _lobby.Refresh(_data);
             _lobby.Show();
@@ -204,6 +207,28 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Modular tile environment (docs/SIM_SPEC_ENVIRONMENT.md AMENDMENT #12):
+        /// Zone A floor accents + Zone B boundary ring/gates + Zone C outer
+        /// verticality + §E6 lights, built deterministically ONCE at stage entry
+        /// (same cadence as SetStageTerrain/ApplyStageDressing — never per
+        /// frame). Pass null to clear (lobby/arena/prologue/training keep the
+        /// bare court; the diamond-clamp modes are §E3 out of scope).
+        /// </summary>
+        void SetStageEnvironment(string stageId)
+        {
+            if (_stageEnvironmentId == (stageId ?? "")) return;
+            if (_stageEnvironment != null)
+            {
+                if (Application.isPlaying) Destroy(_stageEnvironment);
+                else DestroyImmediate(_stageEnvironment);
+                _stageEnvironment = null;
+            }
+            _stageEnvironmentId = stageId ?? "";
+            if (string.IsNullOrEmpty(stageId)) return;
+            _stageEnvironment = EnvironmentBuilder.Build(stageId);
+        }
+
         void ReturnToLobby() => EnterLobby();
 
         void RetryStage()
@@ -242,6 +267,7 @@ namespace CinderCourt.View
             _state = State.Arena;
             SetStageTerrain(null);
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Arena;
             _rig.SetProfile(CameraRig.Profile.Arena);
@@ -257,6 +283,7 @@ namespace CinderCourt.View
             _state = State.Prologue;
             SetStageTerrain(null);        // tutorial runs on the court plate
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Prologue;
             _rig.SetProfile(CameraRig.Profile.Prologue);
@@ -318,6 +345,7 @@ namespace CinderCourt.View
             _trialTier = tier;
             SetStageTerrain(null);
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;   // full kit: you practise with your tools
             _rig.SetProfile(CameraRig.Profile.Dungeon);
@@ -387,6 +415,7 @@ namespace CinderCourt.View
             _runEndPersisted = false;
             SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
             ApplyStageDressing(entry.Id);     // per-LOGICAL-stage dressing (spec §T-a)
+            SetStageEnvironment(entry.Id);    // modular environment (AMENDMENT #12)
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
