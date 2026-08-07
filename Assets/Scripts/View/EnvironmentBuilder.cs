@@ -362,6 +362,20 @@ namespace CinderCourt.View
                 // LightShadows.None and these cast no shadow, so value contrast
                 // is the only channel left.
                 var tint = tints.Stone * piece.Shade;
+                if (piece.Uncapped)
+                {
+                    // Outer silhouettes desaturate toward neutral stone.
+                    // MEASURED at Shade 3.2: the ring came back rgb(34,15,13),
+                    // saturation 0.63 against the floor's 0.13 and R/G 2.35
+                    // against 1.12 - it read as raw flesh, not rock. tints.Stone
+                    // carries the stage ACCENT (cinder-span is ember red) and
+                    // the Shade boost amplifies that hue along with the value.
+                    // Luminance was already right (20.2 vs floor 41.2 = 0.49,
+                    // inside the E0.5 rule that the centre stays brightest), so
+                    // only the chroma needed pulling.
+                    var grey = tint.r * 0.299f + tint.g * 0.587f + tint.b * 0.114f;
+                    tint = Color.Lerp(tint, new Color(grey, grey, grey, 1f), 0.72f);
+                }
                 tint.a = 1f;
                 var block = new MaterialPropertyBlock();
                 block.SetColor(BaseColorId, tint);
