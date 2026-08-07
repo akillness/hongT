@@ -60,6 +60,25 @@ W4~W16 + W-MV를 4개 병렬 레인(sim/ui/vfx/asset)으로 구현하고 통합�
   `.meta`(Sprite type, wrapMode)까지 계약에 포함해야 한다 — 임포터 설정이
   틀리면 실패가 아니라 **무음 폴백**이라 늦게 발견된다.
 
+## 5-B. [OBSERVED] WebGL 빌드는 열린 에디터(MCP 활성)에서 구조적으로 불가
+
+- unity-mcp 패키지 Runtime이 WebGL 플레이어 컴파일에서 CS0246/CS0115로 깨진다.
+  `BuildScript.ExcludeEditorToolingFromWebGl()`이 빌드 직전 `UNITY_MCP_READY`
+  define을 제거하지만, **살아 있는 에디터에서는 MCP 리졸버가 도메인 리로드마다
+  define을 재설치**해 제거가 유지되지 않는다. 즉 MCP 브리지로 빌드를 걸면
+  그 브리지가 빌드를 깨뜨린다 → **WebGL 빌드는 반드시 에디터 종료 후
+  배치모드**(`tools/unity_batch.sh`가 `UNITY_MCP_KEEP_CONNECTED=false`로
+  리졸버를 잠재움).
+- 에디터 원격 종료: `EditorApplication.delayCall += Exit`는 발화하지 않을 수
+  있다 — **동기 `EditorApplication.Exit(0)`** 이 확실하다 (응답이 안 돌아오는
+  것이 정상, 종료 전 씬 dirty 확인 필수).
+- 에디터 강제 종료 직후 첫 배치 빌드는 Bee 내부 오류("Backend has requested
+  a buildprogram run 6 times")로 실패할 수 있다 — **단순 재시도로 해소**
+  (이전 진행분을 이어받아 2차는 41초 만에 성공).
+- 빌드 로그의 `size=`(uncompressed player summary, 86.4MB)와 배포 디렉터리
+  실크기(gzip unityweb, 62MB)는 다른 수치다. 120MB 게이트 판정은 배포
+  디렉터리 기준.
+
 ## 6. [OBSERVED] 잔여 미결 (다음 사이클 인계)
 
 - **W-MV(AMENDMENT #15) bounds 게이트는 아직 OFF.** 켜려면
