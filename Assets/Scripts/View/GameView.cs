@@ -77,6 +77,11 @@ namespace CinderCourt.View
         bool _campaignUiOn;
         bool _dungeonUiOn;
         string _logicalStageId;
+        // Room objective line for the live room, resolved ONCE per Begin from the
+        // catalog. Cached rather than looked up per frame: the sync path runs at
+        // 60 Hz and the catalog lookup is a linear id scan.
+        string _roomObjective = string.Empty;
+
 
         // --- presentation state (presentation-impact-spec #1/#3/#6) ----------
         // Hit-stop / slow-mo drive Time.timeScale ONLY. Determinism-safe: the
@@ -156,6 +161,10 @@ namespace CinderCourt.View
             _isDungeon = config.Mode == GameMode.Dungeon;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
+            // Arena/prologue resolve to "" and the HUD chip stays hidden; a dungeon
+            // room resolves to its own catalog objective.
+            _roomObjective = _isDungeon ? StageCatalog.ObjectiveFor(_logicalStageId) : string.Empty;
+
             // AMENDMENT #6 (D6.6): companionId is kept for legacy single-
             // companion call sites, but the spawned roster always comes from
             // the config itself, so a config carrying 2-3 CompanionIds
@@ -239,6 +248,8 @@ namespace CinderCourt.View
             _lastPlayerHealth = 0f;
             _deathNumberPunchTimer = 0f;
             _logicalStageId = string.Empty;
+            _roomObjective = string.Empty;
+
             Time.timeScale = 1f;
         }
 
@@ -563,7 +574,13 @@ namespace CinderCourt.View
                     for (var slot = 0; slot < readySlots; slot++)
                         if (hack.CompanionEngagedAt(slot)) { stanceEngaged = true; break; }
                     Hud.SyncCompanionStance(readySlots, hack.CompanionBehavior, stanceEngaged);
+
+                    // Room objective readout: the contiguous route never returns to the
+                    // lobby between rooms, so BossAlive is what re-frames the same
+                    // objective as the room's final beat.
+                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive);
                 }
+
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
                 // §P2 rank glow. ComboIndex IS the current swing during Attack

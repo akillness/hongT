@@ -41,12 +41,19 @@ namespace CinderCourt.View
         public readonly BossPresentation Boss;
         public readonly string StoryKey;
         public readonly string CompanionReward;
+        /// <summary>
+        /// The room's own win condition, phrased for the player (dungeon-revival
+        /// spec §"each room needs a distinct objective"). Presentation-only text:
+        /// the Sim still decides clears. Must be non-empty and unique per room so
+        /// a contiguous route never repeats the same instruction twice.
+        /// </summary>
+        public readonly string RoomObjective;
 
         public StageEntry(
             int catalogIndex, string id, string displayName, string kicker, string title,
             string hazardIcon, string simAnchorId, HazardConfig[] hazardOverride,
             string prereqId, string terrainId, Color accentColor, BossPresentation boss,
-            string storyKey, string companionReward)
+            string storyKey, string companionReward, string roomObjective)
         {
             CatalogIndex = catalogIndex;
             Id = id;
@@ -62,7 +69,9 @@ namespace CinderCourt.View
             Boss = boss;
             StoryKey = storyKey;
             CompanionReward = companionReward;
+            RoomObjective = roomObjective;
         }
+
     }
 
     /// <summary>
@@ -104,37 +113,44 @@ namespace CinderCourt.View
                 new Color(0.95f, 0.35f, 0.17f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.9f, 0.3f, 0.45f), 1f, "Cinder Warden"),
-                "cinder-span", "ember-cohort"),
+                "cinder-span", "ember-cohort",
+                "다리를 건너오는 전열을 끊고 재의 워든을 처단하라"),
             new StageEntry(1, "ember-gallery", "Ember Gallery", "EMBER GALLERY", "불씨 회랑",
                 "skill-nova", "cinder-span", EmberGalleryHazards, "cinder-span", "abyss-chancel",
                 new Color(0.95f, 0.43f, 0.20f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.95f, 0.45f, 0.16f), 1.08f, "Cinder Warden"),
-                "ember-gallery", null),
+                "ember-gallery", null,
+                "분출하는 화구를 피해 회랑의 잔당을 소각하라"),
             new StageEntry(2, "abyss-chancel", "Abyss Chancel", "ABYSS CHANCEL", "서약의 성당",
                 "skill-aegis", "abyss-chancel", null, "ember-gallery", "abyss-chancel",
                 new Color(0.56f, 0.40f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.56f, 0.40f, 1f), 1.1f, "Veil Tactician"),
-                "abyss-chancel", "shade-echo"),
+                "abyss-chancel", "shade-echo",
+                "서약 제단을 사수하고 장막의 책략가를 끌어내라"),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
-                "witness-well", null),
+                "witness-well", null,
+                "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라"),
             new StageEntry(4, "echo-throne", "Echo Throne", "ECHO THRONE", "메아리 왕좌",
                 "skill-pulse", "echo-throne", null, "witness-well", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.75f, 0.3f, 0.9f), 1.15f, "Gate Sovereign"),
-                "echo-throne", "possessed-echo"),
+                "echo-throne", "possessed-echo",
+                "왕좌의 메아리를 끊고 관문의 군주를 봉인하라"),
             new StageEntry(5, "ash-verdict", "Ash Verdict", "ASH VERDICT", "재의 판결",
                 "skill-pulse", "echo-throne", AshVerdictHazards, "echo-throne", "echo-throne",
                 new Color(0.87f, 0.78f, 0.41f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.87f, 0.78f, 0.41f), 1.18f, "Gate Sovereign"),
-                "ash-verdict", null),
+                "ash-verdict", null,
+                "판결이 선고되기 전 재의 법정을 완전히 정화하라"),
+
         };
 
         // ------------------------------------------------------------ dressing --
@@ -251,6 +267,15 @@ namespace CinderCourt.View
             entry = default;
             return false;
         }
+
+        /// <summary>
+        /// The room objective line for a logical stage id. Returns "" for arena /
+        /// prologue / unknown ids so the HUD chip simply stays hidden instead of
+        /// showing a stale instruction from the previous room.
+        /// </summary>
+        public static string ObjectiveFor(string stageId)
+            => TryGet(stageId, out var entry) ? entry.RoomObjective : "";
+
 
         public static bool IsCleared(in CampaignData data, in StageEntry entry)
             => (data.ClearedMask & (1 << entry.CatalogIndex)) != 0;
