@@ -68,6 +68,15 @@
     <script>
       var canvas = document.querySelector("#unity-canvas");
 
+      /* CinderCourt OS reduced-motion hint (integrated-combat-vfx-spec §2.4):
+         mirrored into localStorage on every load, before the Unity loader,
+         so ViewPrefs can seed its default when the player never chose.
+         An explicit lobby toggle (PlayerPrefs key) always wins. */
+      try {
+        window.localStorage.setItem("al:os-reduced-motion",
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "1" : "0");
+      } catch (e) { /* storage unavailable: C# default (off) applies */ }
+
       // Shows a temporary message banner/ribbon for a few seconds, or
       // a permanent error message on top of the canvas if type=='error'.
       // If type=='warning', a yellow highlight color is used.
@@ -93,14 +102,14 @@
         updateBannerVisibility();
       }
 
-      /* CinderCourt WebGL build cache version: a6ebb2c7052e634f */
+      /* CinderCourt WebGL build cache version: bfc69ae99c8172e8 */
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/build-webgl.loader.js?v=a6ebb2c7052e634f";
+      var loaderUrl = buildUrl + "/build-webgl.loader.js?v=bfc69ae99c8172e8";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/build-webgl.data.unityweb?v=a6ebb2c7052e634f",
-        frameworkUrl: buildUrl + "/build-webgl.framework.js.unityweb?v=a6ebb2c7052e634f",
-        codeUrl: buildUrl + "/build-webgl.wasm.unityweb?v=a6ebb2c7052e634f",
+        dataUrl: buildUrl + "/build-webgl.data.unityweb?v=bfc69ae99c8172e8",
+        frameworkUrl: buildUrl + "/build-webgl.framework.js.unityweb?v=bfc69ae99c8172e8",
+        codeUrl: buildUrl + "/build-webgl.wasm.unityweb?v=bfc69ae99c8172e8",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "HongT",
         productName: "Abyssal Lantern — Cinder Court",
