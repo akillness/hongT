@@ -3,6 +3,20 @@
 // FROZEN CONTRACT AMENDMENT — SIM_SPEC.md의 모든 규칙은 유지된다. 이 문서는
 // 캠페인 모드가 **추가**하는 규칙만 정의한다. 사용자 지시: campaign.html까지
 // 개발, 아이템 드롭 + 던전 기믹 배치, 원작 구성 참고해 페이지 흐름 연결.
+//
+// ── 2026-08-07 최신화 (additive — 본문 재작성 없음) ──────────────────
+// 이 문서는 개정 원장 #1이다 (SIM_SPEC_HACKSLASH.md 부록 A).
+// 후속 개정이 대체(supersede)한 조항:
+// - §Page flow의 campaign.html 정적 허브 → HACKSLASH §0이 대체:
+//   campaign.html은 index.html 즉시 리다이렉트(구 링크 보존), 허브 역할은
+//   단일 씬 로비(§9)가 승계. 딥링크 `?mode=campaign&stage=<id>`는 유지.
+// - §Stages 보스 스탯 "SIM_SPEC §Bosses 그대로" → HACKSLASH §7(3페이즈,
+//   DungeonBossHealthMul ×6 추가)이 던전 경로에서 대체. v0.2.0부터 캠페인
+//   런은 전부 GameMode.Dungeon(타원 클램프·던전 전투킷) 경로다.
+// - 스테이지 3종 → 9종: 논리 6종(StageCatalog, HazardOverride) +
+//   앵커 3종(SIM_SPEC_DUNGEONS.md #5). 환경 시각 구조는
+//   SIM_SPEC_ENVIRONMENT.md #12.
+// - localStorage 스키마는 v2로 확장(HACKSLASH §11 — 하위호환 유지).
 
 ## Page flow (원작 index → campaign 구성 이식)
 

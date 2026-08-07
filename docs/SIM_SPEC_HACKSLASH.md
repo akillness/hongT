@@ -1006,3 +1006,92 @@ per-tick 비용은 필드 읽기 하나이고, 분기가 상수 치환뿐이라 
 - 각인 조항 5종 격리: 발생 · 방향 · **면역 아님** · 밴드 하한.
 - 시련: 시계 종료 · 무경제 · 등급 배율 · 예고 불변.
 
+
+## Frozen Contract Amendment #11 — 난이도와 적 그룹 AI (2026-08-08)
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/DifficultySpec.cs`, `HackConfig.Difficulty`, `CinderSim.PlanEnemyGroup`/`MayAttackThisTick`/`UpdateEnemy`), gated by `Assets/Tests/EditMode/DifficultyTests.cs`. Amends §0, §12, §13 only as specified.
+
+### §13.1 난이도 티어 (Difficulty)
+
+`Difficulty` 4단계 enum (순서: Normal=0, Story=1, Hard=2, Nightmare=3).
+`Normal=0` 이 기본값이라 `default(HackConfig)` 및 기존 모든 초기화가 개정 이전 수치를 그대로 재현한다 → **골든 다이제스트 재핀 불필요**.
+
+### §13.2 수치 프로필 표 (`DifficultySpec.For`)
+
+| Difficulty | enum | IncomingDamageMul | AttackCooldownMul | AttackTokens | GroupAi | RingRadiusMul | FlankBias |
+|---|---|---|---|---|---|---|---|
+| Normal | 0 | 1.00 | 1.00 | 0 | false | 1.00 | 1.00 |
+| Story | 1 | 0.65 | 1.22 | 2 | false | 1.00 | 1.00 |
+| Hard | 2 | 1.35 | 0.84 | 3 | true | 1.55 | 0.75 |
+| Nightmare | 3 | 1.70 | 0.70 | 4 | true | 1.35 | 0.75 |
+
+- `IncomingDamageMul`: 플레이어 수신 피해 배율.
+- `AttackCooldownMul`: 적 공격 쿨다운 배율 (1 미만 = 빠른 재공격).
+- `AttackTokens`: 동시 시전 허용 적 상한 (0 = 무제한, 개정 이전).
+- `GroupAi`: 적 그룹 AI(포위 링 오비팅 및 토큰 차례 부여) 활성화 여부.
+- `RingRadiusMul`: 토큰 미획득 적의 대기 링 반경 배율 (`SimConfig.EnemyAttackRange` 기준).
+- `FlankBias`: 정면 외 적의 토큰 우선순위 거리 배율 (1 미만 = 측/후방 적 우선 선택).
+
+### §13.3 적 그룹 AI 규칙 (`CinderSim.PlanEnemyGroup` / `UpdateEnemy`)
+
+1. **상수 계약**: `RingSlots = 8`, `RingArriveTolerance = 16`, `ForwardThreshold = -18`.
+2. **토큰 선정 규칙**:
+   - 매 틱 `UpdateEnemy` 실행 전 사전 패스 `PlanEnemyGroup()`으로 토큰 부여 대상을 결정 (배열 순서 편향 방지).
+   - 보스는 공용 팩 토큰을 소비하지 않고 상시 시전 허용 (`_mayAttack[index] = true`).
+   - 사거리 안(`distance <= EnemyAttackRange`) 및 쿨다운 완료(`AttackCooldown <= 0`) 후보 중 `score` 최소 적에게 부여.
+   - `inFront` 판정 (`(enemy.X - player.X) * player.Facing >= -18`) 이 참이면 `score = distance`, 거짓(측/후방)이면 `score = distance * FlankBias`.
+   - 점수 동점 시 `enemy.Id`가 낮은 적 우선.
+3. **포위 링 좌표식 (`DifficultySpec.RingTarget`)**:
+   - 적 `Id`에 의해 고정 슬롯 할당: `slot = enemyId & 7`.
+   - `angle = 2π * slot / 8`.
+   - `targetX = playerX + radius * cos(angle)`
+   - `targetY = playerY + (radius * sin(angle) / 1.42)` (아이소메트릭 1.42 보정 적용).
+4. **대기 거동**:
+   - `GroupAi`가 켜져 있고 토큰을 얻지 못한 적은 플레이어를 직접 추격하지 않고 포위 링 목표점(`targetX`, `targetY`)으로 이동하며, 도착 오차 16 px 이내 진입 시 이동을 멈추고 `Idle` 상태를 유지.
+
+### §13.4 불변식과 결정론
+
+- **기본값 불변식**: `Difficulty.Normal` (0) 값이 기본이므로 `default(HackConfig)` 및 기존 레거시 설정은 완벽히 개정 이전 시뮬레이션을 재현한다.
+- **결정론**: 모든 계산은 고정 스텝 적구형 수식과 ID 기반 정렬로 수행되며 RNG를 일절 사용하지 않는다.
+
+---
+
+# 부록 A — 개정 원장 (canonical ledger, 2026-08-07 최신화)
+
+번호 충돌을 canonical 원장으로 해소한다. **기존 헤딩 문자열은 재작성하지
+않는다**(코드/커밋/리포트가 원문 헤딩을 인용) — 이 표가 유일한 진실이다.
+
+| # | 주제 | 문서 위치 | 상태 |
+|---|---|---|---|
+| 1 | 캠페인 v0.1 | SIM_SPEC_CAMPAIGN.md (무번호) | frozen |
+| 2 | 핵앤슬래시 v0.2.0 | 본 문서 본문 §0–§14 | frozen |
+| 3 | 동료 홀드/리콜 | 본 문서 "Amendment #3" | frozen |
+| 4 | Ember Rest 준비 오퍼 + 던전 타원 클램프 | 본 문서 "Amendment #4" | frozen |
+| 5 | 던전 확장(스테이지 6-8, 기믹 3종) | SIM_SPEC_DUNGEONS.md | frozen (v1.2) |
+| 6 | 멀티슬롯 동료 + 개체별 스탯 | 본 문서 "Amendment #6 — DRAFT" | **DRAFT — 오퍼레이터 서명 대기** (구현·증명 완료) |
+| 7 | 동료 자율성 | 본 문서 "Amendment #7" | frozen |
+| 8 | 동료 시그니처 스킬 | 본 문서 "Amendment #8" | frozen |
+| 9 | 모멘텀 게이지 | 본 문서 "Amendment #9" | frozen |
+| 10 | 훈련장 · 돌발 | 본 문서 "AMENDMENT #10" | frozen |
+| (미정) | **각인 (Sigils)** — 원문 헤딩 "# AMENDMENT #6 — 각인"으로 도착(레인 번호 충돌, conflicts.md 2026-08-07 기록). 내부 §13.x는 이 증보 로컬 번호이며 본문 §13 결정론과 무관 | 본 문서 "# AMENDMENT #6 — 각인 (Sigils)" | frozen(내용) — **canonical 번호는 D13 오퍼레이터 결정 대기.** 제안: "10-b" (#10/#11이 코드·커밋에 박혀 밀 수 없음). L440 노트의 "동료=#6 확정 시 각인=#7" 경로는 #7이 이미 동료 자율성에 소비되어 무효 |
+| 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" | frozen |
+| 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **제안 — 구현·게이트 대기** (§E8 7계약 초록 시 frozen 승격. #5 선례) |
+
+# 부록 B — 정오표 (2026-08-07 감사 반영, additive)
+
+동결 본문의 문언과 구현 사이에서 **코드가 옳다고 판정된** 항목. 본문은
+재작성하지 않고 여기서 정정한다 (근거: llm-wiki/wiki/reports/
+2026-08-07-spec-vs-impl-audit.md + _workspace/current/qa/audit-20260807/).
+
+| 본문 | 문언 | 정정 (코드 = 진실) |
+|---|---|---|
+| §9 L161-162 | 로비 배경 보스 "'show' 루프" | **Idle 고정** — show 소스 모션이 이종 릭이라 리타겟이 구겨짐 (achilles §L1 진단, LobbyStaging 주석) |
+| §10 L175-176 | 던전 카메라 거리 "평시 17, 빅웨이브 21" | **20 / 24.5** — 캐릭터 축소 결정(2026-08, camera-distance-only)이 두 티어를 ×1.17 |
+| §10 L177 | 보스 인트로 "1.2 s 푸시인" | 구성요소(레터박스·이름판·포커스 펄스·말풍선)는 전부 구현, 지속 **0.45 s** — 페이싱 단축이 의도인지 드리프트인지는 D8 오퍼레이터 결정 대기. 결정 전까지 코드 값이 사실 |
+| §12 | `IHackSnapshot.Mode` | **`HackMode`** — `ISimSnapshot.Mode`(SimMode 타입)가 이름 선점 |
+| §12 동결 목록 | HackConfig 필드 목록 | **+RosterMask**(§3 보상 분기 필수 입력), **+PreparationOffer**(A4), **+CompanionIds**(A6) — 각 증보가 소급 추가 |
+| §3 "피격 시 채널 리셋" | "피격" | **체력이 실제로 깎인 피격** — void-aegis 실드 전량 흡수는 채널을 끊지 않는다 (F 스킬 존재 의의와 정합) |
+| §2.5 "피해 +4%" | 합성 방식 무언 | **단리** `×(1+0.04·(lv−1))` |
+| A9.4 "스윙당 1회 샘플링" | once per swing | 구현은 **스윙-틱당** 샘플링(같은 틱 히트 적립 전) — 교차-틱 신규 진입 적은 승급 배율 수령 가능. 문언 개정 vs 심 래치는 D6 오퍼레이터 결정 대기. 결정 전까지 코드 의미론이 사실 |
+| §7 표 시간 열 | 공격간격/텔레그래프/스킬쿨 | **선언만 존재, 심 소비 0** — S8-b/c 미착수의 알려진 상태 (D1). 표는 목표 계약으로 유지 |
+| 통합 설계문서 "2페이즈 + 소환" | integrated-campaign-level-spec §1.2 | **3페이즈**(AMENDMENT #4 개정) + Monarch P2 호위 3기 |

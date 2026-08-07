@@ -5,7 +5,16 @@
 AMENDMENT #5)가 갖는다. 여기 적힌 좌표·수치는 전부 **코드에서 직접 추출**했다
 (`Assets/Scripts/Sim/CampaignTypes.cs`, `Assets/Scripts/View/StageCatalog.cs`).
 
-기준 시점: 2026-08-06, `dungen` 브랜치 (origin/main 머지 후).
+기준 시점: **2026-08-07, `main` (PR #3 머지 후)**. 이 시점 이후 추가된 층위와
+그 진실 문서:
+
+| 층위 | 진실 문서 |
+|---|---|
+| 각인 5종 (기믹에 걸리는 메타 강화, 로비 각인 탭) | HACKSLASH "AMENDMENT #6 — 각인" (원장 번호 D13 대기, 부록 A) |
+| 훈련장(시련 5종×3등급) · 돌발(위기/기세 창) | HACKSLASH AMENDMENT #10 |
+| 난이도 4단계 + 적 그룹 AI(포위 링·공격 토큰) | HACKSLASH Amendment #11 |
+| 스테이지 카드 Epithet(기믹 계보 한 줄) + 방 목표(RoomObjective) | StageCatalog.cs (뷰 데이터) |
+| 던전 환경(모듈러 타일·링 아키텍처·조명) | **SIM_SPEC_ENVIRONMENT.md (#12 제안)** |
 
 ---
 
