@@ -101,10 +101,39 @@ def process_split(path: Path, names) -> str:
 
 
 def main() -> int:
+    # Scoped by default-refusal, NOT by "process everything found".
+    #
+    # gen_icons.sh is incremental (run_one prints "SKIP (exists)"), but this
+    # matter used to be exhaustive: adding two icons re-wrote all 22. That
+    # asymmetry produced a real regression in cycle-7 — ui-button came back
+    # 256x106 instead of 256x96 from an UNCHANGED raw master, because the
+    # committed plate carries a 1px transparent margin this pass does not
+    # reproduce. spriteBorder (30,14,30,14) indexes real plate pixels, so a
+    # 10px height shift moves the 9-slice corners off the corner art of every
+    # button in the game.
+    #
+    # Same input, different output means this pass is not reproducible across
+    # environments, so re-matting an icon nobody asked for can only lose.
+    # Name the icons you mean:  python3 tools/icons/mat_icons.py ui-codex ...
+    # `--all` still exists for a deliberate full re-derive.
+    args = [a for a in sys.argv[1:] if a != "--all"]
+    want_all = "--all" in sys.argv[1:]
     raws = sorted(RAW.glob("*.png"))
     if not raws:
         print("no raw icons found", file=sys.stderr)
         return 1
+    if not want_all:
+        if not args:
+            print("refusing to re-matte every icon. Name the stems you mean, "
+                  "or pass --all for a deliberate full re-derive.\n"
+                  f"  available: {', '.join(p.stem for p in raws)}", file=sys.stderr)
+            return 2
+        wanted = set(args)
+        raws = [p for p in raws if p.stem in wanted]
+        missing = wanted - {p.stem for p in raws}
+        if missing:
+            print(f"no raw master for: {', '.join(sorted(missing))}", file=sys.stderr)
+            return 2
     bad = 0
     for p in raws:
         if p.stem in SPLITS:

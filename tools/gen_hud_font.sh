@@ -9,10 +9,26 @@ python3 - <<'EOF'
 import glob, re, string
 chars = set(string.ascii_letters + string.digits + string.punctuation + ' ')
 chars.update('•▲▼◀▶—')
+# AMENDMENT #8: two quote rules, unioned.
+#
+# The original rule alone shipped a live defect. `"([^"\\]*)"` refuses to match
+# any literal containing a backslash, so a run of such literals leaves the
+# alternation mis-paired and whole strings fall into the gaps between matches.
+# HudView's "Companion cadence −{...}%" landed in one of those gaps: its U+2212
+# never reached the charset, the subset never carried the glyph, and the
+# coverage check below compared the font against the same short charset and
+# printed FULL. A checker that validates against its own blind spot is not a
+# checker.
+#
+# The escape-aware rule closes the gap. Both are kept: neither is a superset of
+# the other on real C# (verbatim strings, char literals, interpolation braces),
+# and the union is free — an over-harvested char costs a few bytes of subset.
+QUOTED = (r'"([^"\\]*)"', r'"((?:[^"\\\n]|\\.)*)"')
 for path in glob.glob('Assets/Scripts/View/*.cs'):
     source = open(path, encoding='utf-8').read()
-    for quoted in re.findall(r'"([^"\\]*)"', source):
-        chars.update(quoted)
+    for rule in QUOTED:
+        for quoted in re.findall(rule, source):
+            chars.update(quoted)
     chars.update(re.findall(r'[가-힣]', source))
 text = ''.join(sorted(c for c in chars if c.isprintable()))
 open('/tmp/hud-charset.txt', 'w', encoding='utf-8').write(text)
