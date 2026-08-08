@@ -618,8 +618,42 @@ namespace CinderCourt.Tests
                 Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx, Game, speech, cutscene);
             }
 
+            /// <summary>
+            /// Opens 출정 the way the player does — by clicking the rail icon.
+            ///
+            /// NOT LobbyView.SelectRail. This class exists to drive the real
+            /// route, and the rail is now part of that route: since D-12 the
+            /// lobby opens CLOSED, so a player who wants a sortie clicks 출정
+            /// first. A setter call here would skip the one control the whole
+            /// descent path now depends on, and this harness would keep
+            /// reporting a working route over a rail icon that had stopped
+            /// opening anything.
+            ///
+            /// Idempotent on purpose, because the click is not: ToggleRail
+            /// closes the live entry (that IS the dismiss), so calling this
+            /// twice with a naive click would leave the sortie panel shut and
+            /// fail the next step with a message about a missing button.
+            /// </summary>
+            public void OpenSortieThroughRail()
+            {
+                if (Lobby.SelectedRailForTest == LobbyView.RailSortie) return;
+
+                var icon = FirstButtonNamed("Railui-sortie");
+                Assert.That(icon, Is.Not.Null,
+                    "the lobby must expose its 출정 rail icon (LobbyView.BuildRail) — without it "
+                    + "the sortie panel has no route, because the lobby opens closed (D-12)");
+                Assert.That(icon.gameObject.activeInHierarchy, Is.True,
+                    "the rail is always drawn; an inactive 출정 icon is a descent path with no "
+                    + "entrance");
+                icon.onClick.Invoke();
+                Assert.That(Lobby.SelectedRailForTest, Is.EqualTo(LobbyView.RailSortie),
+                    "clicking the 출정 rail icon must open the sortie panel");
+            }
+
             public void StartCinderSpanThroughLobbyCallback()
             {
+                OpenSortieThroughRail();
+
                 Button firstDescent = null;
                 foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
                 {
@@ -632,6 +666,10 @@ namespace CinderCourt.Tests
                 }
 
                 Assert.That(firstDescent, Is.Not.Null, "the lobby must expose the first stage's sortie action");
+                Assert.That(firstDescent.gameObject.activeInHierarchy, Is.True,
+                    "the 강하 button must be ON SCREEN once 출정 is open. GetComponentsInChildren "
+                    + "returns inactive objects and onClick fires on them, so without this line a "
+                    + "closed sortie panel would route a descent no player could start");
                 Assert.That(firstDescent.interactable, Is.True,
                     "the initially available cinder-span sortie must be enterable");
                 firstDescent.onClick.Invoke();
@@ -654,9 +692,14 @@ namespace CinderCourt.Tests
 
             /// <summary>Arms the first stage card's 서약 toggle through its real
             /// button. The toggle is only built-visible on a cleared card, so a
-            /// hidden button here means the reveal contract regressed.</summary>
+            /// hidden button here means the reveal contract regressed — which is
+            /// why the rail is opened first rather than asserted around: since
+            /// D-12 a closed lobby hides the toggle for a reason that has
+            /// nothing to do with the clear state this is testing.</summary>
             public void ArmPactOnFirstStageCard()
             {
+                OpenSortieThroughRail();
+
                 var toggle = FirstButtonLabelled("서약");
                 Assert.That(toggle, Is.Not.Null, "a cleared stage card must expose its 서약 toggle");
                 Assert.That(toggle.gameObject.activeInHierarchy, Is.True,
@@ -670,12 +713,24 @@ namespace CinderCourt.Tests
             /// cleared stage stays replayable).</summary>
             public void StartFirstStageThroughDescentButton()
             {
+                OpenSortieThroughRail();
+
                 var descent = FirstButtonLabelled("강하");
                 Assert.That(descent, Is.Not.Null, "the lobby must keep the first stage replayable");
+                Assert.That(descent.gameObject.activeInHierarchy, Is.True,
+                    "the 강하 button must be on screen once 출정 is open");
                 Assert.That(descent.interactable, Is.True, "a cleared stage must stay enterable");
                 descent.onClick.Invoke();
                 Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Dungeon),
                     "the repeat sortie must enter the dungeon route");
+            }
+
+            private Button FirstButtonNamed(string name)
+            {
+                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
+                    if (string.Equals(button.gameObject.name, name, System.StringComparison.Ordinal))
+                        return button;
+                return null;
             }
 
             private Button FirstButtonLabelled(string prefix)

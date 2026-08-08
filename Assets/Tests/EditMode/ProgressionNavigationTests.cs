@@ -715,11 +715,31 @@ namespace CinderCourt.Tests
         /// The four fold headers are new geometry dropped into a panel that was
         /// already full. Cycle-3 shipped "label covers button" twice because the
         /// tests read values and never compared rectangles.
+        ///
+        /// SORTIE-state only, on purpose. The sweep compares each header against
+        /// every ACTIVE button, and the rail makes exactly one panel active — so
+        /// walking the other two rail states would compare headers belonging to a
+        /// deactivated sortie panel against the sanctum's controls. Those two
+        /// panels are pinned to the SAME coordinate (LobbyView.PinPanel), so that
+        /// comparison reports a full-panel collision between two things that are
+        /// never drawn together. The radio is what makes the question well-posed;
+        /// asking it across states would un-pose it.
+        ///
+        /// Cycle-8 also removed a false-positive source rather than adding one:
+        /// the sanctum tab strip used to sit directly beneath the sortie panel in
+        /// the stacked column, and headers scrolled past the viewport edge
+        /// "collided" with it four times per fold state until the clip below was
+        /// added. Those controls are now in a different rail state entirely.
         /// </summary>
         [Test]
         public void AccordionHeaders_CoverNoExistingControl_InAnyFoldState()
         {
             var canvas = BuildLobby(Save(true, 1));
+            // Premise, stated not inherited: the headers only exist on screen
+            // while 출정 is the live destination.
+            _lobby.SelectRail(LobbyView.RailSortie);
+            Rebuild(canvas.GetComponent<RectTransform>());
+
             var collisions = new StringBuilder();
             var pairsChecked = 0;
 
@@ -787,11 +807,22 @@ namespace CinderCourt.Tests
         /// An accordion that can show two open groups is not an accordion, and
         /// one that forgets to reflow leaves the group the player just opened
         /// underneath the one above it. Both are checked in all four fold states.
+        ///
+        /// "Open" is read as activeInHierarchy, which since cycle-8 also answers
+        /// "is the sortie panel the live rail destination". Two different
+        /// questions through one property: with the rail on 성소 or 지도 every
+        /// body reports inactive and the exactly-one assertion fails with a count
+        /// of 0, describing a broken accordion when the accordion is fine. The
+        /// SelectRail below pins the outer state so the count means what the
+        /// message says it means.
         /// </summary>
         [Test]
         public void Accordion_KeepsOneGroupOpen_AndReflowsEveryGroupBelow()
         {
             var canvas = BuildLobby(Save(true, 1));
+            _lobby.SelectRail(LobbyView.RailSortie);
+            Rebuild(canvas.GetComponent<RectTransform>());
+
             var origins = new float[ProgressionGuide.GroupCount][];
 
             for (var open = 0; open < ProgressionGuide.GroupCount; open++)
@@ -834,20 +865,76 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
-        /// The spec justifies the accordion with two numbers: an open act is
-        /// 416 u (fits the viewport whole) and the open training group is 626 u
-        /// (does not, and keeps the ScrollRect as its overflow). Those numbers
-        /// are the ARGUMENT for the feature, so they are measured here rather
-        /// than trusted — and the claim that matters, "an act fits", is checked
-        /// against the measured viewport instead of restated as a constant.
+        /// The accordion's content arithmetic, at the ONLY card pitch the product
+        /// can now produce.
+        ///
+        /// READ FIRST, BEFORE THE DIFF MISLEADS YOU. This test's numbers moved
+        /// 416/626 -> 542/878 in cycle-8 and the rail did not cause that. Nothing
+        /// about the content height changed this cycle. What changed is that the
+        /// codebase stopped CONTAINING a second answer:
+        ///
+        ///   · The 70 u card pitch was reachable only through the desktop arm of
+        ///     a tier branch. The shipped WebGL template pins E_w at ~1176
+        ///     (build-webgl/index.html:18-20), and the old SideBySideFloor was
+        ///     1248. 1176 < 1248, always, at every window size, for every player.
+        ///     So the stacked arm was taken 100% of the time and the stacked arm
+        ///     called ApplySortieTouchLayout(true) — pitch 112.
+        ///   · Cycle-8 pinned that call unconditionally (LobbyView.cs:1056) and
+        ///     deleted the branch. It removed an arm nothing could select.
+        ///
+        /// "Cycle-8 changed the content height" is the wrong lesson and it is the
+        /// one the diff suggests. The right one: 416 u was never on anyone's
+        /// screen, and a test asked for it by name for two cycles.
+        ///
+        /// AND THE ACCORDION'S JUSTIFICATION WAS NEVER VALIDATED.
+        ///
+        /// Do not read this test as evidence that folding was checked out. Spec
+        /// §2.2 argued for the accordion on one number: an open act is 416 u and
+        /// therefore FITS THE VIEWPORT WHOLE, 100% visible, which is what made
+        /// folding better than the scroll it replaced. That claim was measured at
+        /// `desktop: true` — a configuration no player has ever loaded. In the
+        /// build that actually shipped, an open act has always been 542 u against
+        /// a 422 u viewport: 77.9%, overflowing, from the day the accordion
+        /// landed. The feature may well be worth having. This test has never
+        /// shown that, and the version that appeared to was measuring a frame the
+        /// product does not draw.
+        ///
+        /// Third failure mode of this cycle, and the cleanest instance of it: a
+        /// pass obtained by picking the most flattering scale available. The other
+        /// two were a 16-width sweep with no y samples, and a test named
+        /// "AreReachable" that measured only size (both in LobbyLayoutTests).
+        ///
+        /// So the old test is split in two, because one half survived and one did
+        /// not:
+        ///
+        ///   · The ARITHMETIC still holds and is still worth pinning. It just
+        ///     evaluates at pitch 112 instead of pitch 70:
+        ///       act      = ContentTop 6 + (HeaderPitch 48 + 3 x CardPitch)
+        ///                              + 3 x HeaderPitch 48 + 4 x GroupGap 2
+        ///       training = same shape with 6 rows in the open group
+        ///     At pitch 70 that is 416 / 626 — the spec §2.2 numbers, reproduced
+        ///     EXACTLY. That reproduction is the evidence the formula is right and
+        ///     only its input moved; without it, 542 would just be a number
+        ///     someone typed to make a red test green. At pitch 112: 542 / 878.
+        ///
+        ///   · The PRODUCT CLAIM is inverted, not re-pointed. A green test must
+        ///     not carry a false justification along with corrected numbers —
+        ///     that is how 416 survived two cycles in the first place. The
+        ///     assertion below states the CURRENT truth (an act overflows) and
+        ///     says what to do when it flips back.
         /// </summary>
         [Test]
         public void Accordion_ContentHeightMatchesTheSpecArithmetic()
         {
-            // Desktop: §2.2's 416/626 are computed from the 70 u desktop card
-            // pitch. At the 112 u touch pitch an open act is 542 u, which is
-            // correct and a different claim than the one this test makes.
-            var canvas = BuildLobby(Save(true, 1), desktop: true);
+            var canvas = BuildLobby(Save(true, 1));
+            // Premise: every measurement below lives in the SORTIE panel, and
+            // the lobby opens CLOSED (D-12), so this call is what puts it on
+            // screen rather than a tidy-up of an inherited default. Without it
+            // the four rects below resolve on a deactivated panel and the
+            // failure reads as broken arithmetic instead of a closed lobby.
+            _lobby.SelectRail(LobbyView.RailSortie);
+            Rebuild(canvas.GetComponent<RectTransform>());
+
             var viewport = WorldRect(FindDescendant(canvas.transform, "StageScroll"));
 
             OpenGroup(canvas, 0);
@@ -855,26 +942,51 @@ namespace CinderCourt.Tests
             OpenGroup(canvas, ProgressionGuide.TrainingGroup);
             var training = ContentHeight(canvas);
 
-            TestContext.WriteLine($"[accordion content] act group {act:F1} u, "
-                + $"training group {training:F1} u, viewport {viewport.height:F1} u "
-                + $"({(act <= viewport.height ? 100f : viewport.height / act * 100f):F1}% / "
-                + $"{Mathf.Min(1f, viewport.height / training) * 100f:F1}% visible)");
+            TestContext.WriteLine($"[accordion content @ shipped 112 u pitch] act group "
+                + $"{act:F1} u, training group {training:F1} u, viewport {viewport.height:F1} u "
+                + $"({Mathf.Min(1f, viewport.height / act) * 100f:F1}% / "
+                + $"{Mathf.Min(1f, viewport.height / training) * 100f:F1}% visible). "
+                + "Spec §2.2's 416/626 are the same formula at the 70 u pitch, which the "
+                + "shipped template could never select — those figures were never on screen.");
 
-            Assert.That(act, Is.EqualTo(416f).Within(0.01f),
-                "spec §2.2 puts an open act at 416 u. A different measurement means "
-                + "either the spec arithmetic or the layout constants moved — report "
-                + "which, do not adjust this number to match.");
-            Assert.That(training, Is.EqualTo(626f).Within(0.01f),
-                "spec §2.2 puts the open training group at 626 u.");
+            Assert.That(act, Is.EqualTo(542f).Within(0.01f),
+                "an open act is ContentTop 6 + (48 + 3x112) + 3x48 + 4x2 = 542 u at the "
+                + "shipped pitch. The same formula at the 70 u pitch gives spec §2.2's 416 — "
+                + "which is how you know the formula is right and only its input changed, NOT "
+                + "that 416 was ever drawn. If this number moves, say WHICH input moved: a "
+                + "changed CardPitch is a design decision, a changed formula is a layout bug. "
+                + "Do not adjust it to match a measurement without naming one.");
+            Assert.That(training, Is.EqualTo(878f).Within(0.01f),
+                "the open training group is 6 rows: 6 + (48 + 6x112) + 3x48 + 4x2 = 878 u. "
+                + "Spec §2.2's 626 is the same shape at the never-selected 70 u pitch.");
 
-            // The product claim, not the constant: this is why 416 matters.
-            Assert.That(act, Is.LessThanOrEqualTo(viewport.height),
-                $"an open act must fit the viewport whole (act {act:F1} u vs "
-                + $"viewport {viewport.height:F1} u) — the 100% figure the spec "
-                + "used to justify folding");
+            // INVERTED CLAIM — see the docstring. This asserts the current truth,
+            // which is the opposite of what the spec argued for the feature.
+            Assert.That(act, Is.GreaterThan(viewport.height),
+                $"an open act ({act:F1} u) now fits inside the viewport ({viewport.height:F1} u). "
+                + "That is a FIX, and it is the FIRST time the accordion's justification has "
+                + "actually held: spec §2.2 argued for folding on 'an act fits whole, 100% "
+                + "visible', measured at a 70 u pitch the shipped template could not select. "
+                + "In the build players ran it was 542 u against 422 u — 77.9% — from the day "
+                + "the accordion landed. So restore the original assertion (act <= viewport), "
+                + "delete this one, and record that the claim finally became true rather than "
+                + "that it stopped being false. The ScrollRect also stops being load-bearing "
+                + "for acts, which the next two assertions cover.");
             Assert.That(training, Is.GreaterThan(viewport.height),
-                "the training group is the one group that overflows — if it stopped "
-                + "overflowing the ScrollRect is now dead weight");
+                "the training group overflows too — if it stopped, the ScrollRect is dead weight");
+
+            // What the overflow costs, asserted rather than left as a comment: the
+            // ScrollRect is now the ONLY way to reach the bottom of ANY group, not
+            // just the training one. Deleting it because "the accordion made
+            // scrolling unnecessary" — which is what the spec's 100% figure would
+            // lead a reader to believe — strands 22% of every act.
+            var scroll = FindDescendant(canvas.transform, "StageScroll").GetComponent<ScrollRect>();
+            Assert.That(scroll, Is.Not.Null,
+                "StageScroll lost its ScrollRect. At the shipped 112 u pitch EVERY group "
+                + "overflows the viewport, so the scroll is the only route to the last rows "
+                + "of every act — not just the training group's overflow any more");
+            Assert.That(scroll.vertical, Is.True,
+                "the one axis that overflows is the one that must scroll");
         }
 
         // ================================================================ T-A8 ==
@@ -1116,29 +1228,34 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
-        /// Builds the lobby AND runs the tier layout pass.
+        /// Builds the lobby AND runs the layout pass.
         ///
-        /// Build leaves every panel at its CONSTRUCTION coordinate, where the
-        /// sortie panel (local x 390..783) and the campaign map panel (local x
-        /// 432..856) genuinely overlap — the tier pass is what separates them,
-        /// side by side on desktop and stacked on phone. Skipping it audits a
-        /// screen the game never draws, and once main's map/gear buttons arrived
-        /// that showed up as fold headers "covering" two controls they are
-        /// nowhere near at any real tier.
+        /// Build leaves every panel at its CONSTRUCTION coordinate; the layout
+        /// pass is what pins them under the rail. Skipping it audits a screen the
+        /// game never draws, and once main's map/gear buttons arrived that showed
+        /// up as fold headers "covering" two controls they are nowhere near at
+        /// any real layout.
         ///
-        /// Phone by default (390x844, the worst viewport LobbyLayoutTests audits
-        /// with, so both files reason about one geometry). Callers asserting the
-        /// spec's desktop arithmetic pass <paramref name="desktop"/> — the 416 u
-        /// and 626 u figures in §2.2 are computed from the 70 u desktop card
-        /// pitch and are simply a different number at the 112 u touch pitch.
+        /// 390x844 always. There USED to be a `desktop: true` arm, taken by one
+        /// caller to reach the 70 u card pitch that the spec's 416/626 figures
+        /// were computed from. Cycle-8 deleted the tier branch and pinned
+        /// ApplySortieTouchLayout(true) unconditionally (LobbyView.cs:1056), so
+        /// the pitch is 112 at EVERY viewport and the parameter selected nothing
+        /// but a different effective width. Keeping it would have left one caller
+        /// naming a mode the product cannot enter.
+        ///
+        /// Worth being precise about what died: the 70 u arm was already
+        /// unreachable in the shipped build BEFORE this cycle. The WebGL template
+        /// pins E_w at ~1176 (build-webgl/index.html:18-20), which was below the
+        /// old SideBySideFloor of 1248, so every player got the stacked arm and
+        /// the stacked arm called ApplySortieTouchLayout(true). `desktop: true`
+        /// described an editor-only configuration.
         /// </summary>
-        private Canvas BuildLobby(CampaignData data, bool desktop = false)
+        private Canvas BuildLobby(CampaignData data)
         {
             _lobby.Build(data, default);
             _lobby.Refresh(data);
-            if (desktop) _lobby.ApplyLobbyLayoutForTest(1280, 720);
-            else _lobby.ApplyLobbyLayoutForTest(390, 844);
-
+            _lobby.ApplyLobbyLayoutForTest(390, 844);
 
             var canvas = _lobbyObject.GetComponentInChildren<Canvas>(true);
             Assert.That(canvas, Is.Not.Null, "the lobby must build its canvas");
