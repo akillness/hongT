@@ -34,7 +34,7 @@ namespace CinderCourt.View
     public static class EnvironmentBuilder
     {
         // §E3: derived from SimConfig margins — NO literals. The clamp stops
-        // enemies at halfW−margin on x and halfH−margin/2 on y; the min of the
+        // enemies at halfW-margin on x and halfH-margin/2 on y; the min of the
         // two axis ratios is the x one, so a single conservative constant is
         // the x-axis quotient (spec §E3 "구현은 보수적으로 min").
         //
@@ -323,15 +323,15 @@ namespace CinderCourt.View
             if (renderers.Length == 0) return;
 
             // ORDER MATTERS. An authored part's position is baked into its mesh
-            // vertices, so the XZ centering below solves P + S·C = pivot for a
-            // FIXED scale S. Changing S afterwards re-breaks it by (k-1)·S·C —
+            // vertices, so the XZ centering below solves P + S•C = pivot for a
+            // FIXED scale S. Changing S afterwards re-breaks it by (k-1)•S•C —
             // the part drifts off the gimmick it is framing, and no gate sees
             // it because the clearance test inspects module PIVOTS, not these
             // child clones. So: finalise scale first, then centre.
             //
             // SizeY is a TARGET WORLD HEIGHT, not a multiplier. Multiplying and
             // then capping cancels the factor algebraically
-            // (s·k·(cap/(h·k)) == s·cap/h), which would flatten every part to
+            // (s•k•(cap/(h•k)) == s•cap/h), which would flatten every part to
             // one cap height and silently delete the per-gimmick grammar.
             // Solving for the height directly keeps vent shards low and altar
             // stones tall while §E8's occlusion cap still binds the maximum: a
@@ -631,7 +631,7 @@ namespace CinderCourt.View
                  * ((SimConfig.ArenaHalfWidth - (double)SimConfig.EnemyMarginClamp)
                     / SimConfig.ArenaHalfWidth);
 
-        // §E3 heights (contract): gallery +0.8, bridge +1.1, channel −0.5.
+        // §E3 heights (contract): gallery +0.8, bridge +1.1, channel -0.5.
         const float GalleryH = 0.8f;
         const float BridgeH = 1.1f;
         const float ChannelH = -0.5f;
@@ -1583,7 +1583,7 @@ namespace CinderCourt.View
                 (Kind.Bridge, 880.0, 190.0, BridgeH, 220.0, 70.0, 0f),
                 (Kind.Bridge, 1110.0, 200.0, BridgeH, 220.0, 70.0, 0f),
                 // 행진로 발광 스트립: glowing road strips on the void
-                // floor south of the ring (pivot −0.3, ember quad).
+                // floor south of the ring (pivot -0.3, ember quad).
                 (Kind.Channel, 560.0, 950.0, -0.30f, 360.0, 40.0, 0f),
                 (Kind.Channel, 980.0, 950.0, -0.30f, 360.0, 40.0, 0f),
             },
@@ -1621,7 +1621,7 @@ namespace CinderCourt.View
             // goal is REDUCING VoidFloor exposure in frame, so Zone C must
             // stretch to the frustum). Camera-frame arithmetic (pitch 55°,
             // FOV 42, crowd orbit 24.5, 21:9): the UNFOGGED ground band spans
-            // sim x ≈ −1650..3200 and sim y ≈ 256..1510; the plate covers
+            // sim x ≈ -1650..3200 and sim y ≈ 256..1510; the plate covers
             // 0..1536 × 0..1024. Four terraces tile the remainder — wings
             // OVERLAP the plate edge slightly (x 0/1536) so no sample-width
             // sliver survives at the seam (32×32 grid, verified numerically:
@@ -1644,14 +1644,14 @@ namespace CinderCourt.View
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 0,
                 775.0, (apronInner + 1570.0) * 0.5, 4900.0, 1570.0 - apronInner);
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 1,
-                -860.0, 730.0, 1760.0, 1740.0);      // west wing x −1740..20
+                -860.0, 730.0, 1760.0, 1740.0);      // west wing x -1740..20
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 2,
                 2380.0, 730.0, 1760.0, 1740.0);      // east wing x 1500..3260
             // The north rim retreats ONTO the plate (y 0..1024), so nothing it
             // vacates is void either.
             var rimInner = Math.Max(270.0 - growthY, -70.0 + TerraceMinDepth);
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 3,
-                775.0, (rimInner - 70.0) * 0.5, 4900.0, rimInner + 70.0);
+                775.0, (rimInner - 70.0) * 0.5, 4900.0, rimInner + 70.0);   // north rim, derived
 
             // 2) Fixed landmarks (§E4 identity — manual anchors, no shuffle).
             for (var i = 0; i < palette.Fixed.Length; i++)
@@ -1707,7 +1707,7 @@ namespace CinderCourt.View
 
             if (kind == Kind.Channel)
             {
-                // Sunken slab: top −0.28 clears the VoidFloor (−0.35); water on top.
+                // Sunken slab: top -0.28 clears the VoidFloor (-0.35); water on top.
                 module.Pieces.Add(new Piece
                 {
                     Part = Part.Body, LocalY = 0.11f,

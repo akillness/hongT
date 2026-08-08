@@ -80,7 +80,7 @@ namespace CinderCourt.View
                 }
             }
 
-            Debug.Log("[HudView.ApplyRegeneratedIcons] ✓ All icon integrations applied");
+            Debug.Log("[HudView.ApplyRegeneratedIcons] OK All icon integrations applied");
         }
 
         /// <summary>

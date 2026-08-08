@@ -1,0 +1,54 @@
+{
+  "category": "HUD stack button icons",
+  "created": "2026-08-08",
+  "styleContract": "flat vector game icon, dark fantasy hack-and-slash style, bold readable silhouette, thin ember-orange rim light, deep navy interior shading, consistent 3px outline, centered, fills 80% of frame. Solid pure magenta #FF00FF background on every pixel outside the icon. No text, no watermark, no border frame.",
+  "tool": {
+    "generator": "god-tibo-imagen (gti)",
+    "provider": "private-codex",
+    "model": "gpt-5.4",
+    "mattingScript": "tools/icons/mat_icons.py",
+    "dryRunValidated": true
+  },
+  "icons": [
+    {
+      "id": "ui-codex",
+      "purpose": "HUD stack button icon for opening the Codex view",
+      "promptCore": "open tome or codex book with a glowing cyan rune on the page, thin brass corner fittings",
+      "fullPrompt": "open tome or codex book with a glowing cyan rune on the page, thin brass corner fittings, flat vector game icon, dark fantasy hack-and-slash style, bold readable silhouette, thin ember-orange rim light, deep navy interior shading, consistent 3px outline, centered, fills 80% of frame. Solid pure magenta #FF00FF background on every pixel outside the icon. No text, no watermark, no border frame.",
+      "command": "gti --prompt \"open tome or codex book with a glowing cyan rune on the page, thin brass corner fittings, flat vector game icon, dark fantasy hack-and-slash style, bold readable silhouette, thin ember-orange rim light, deep navy interior shading, consistent 3px outline, centered, fills 80% of frame. Solid pure magenta #FF00FF background on every pixel outside the icon. No text, no watermark, no border frame.\" --output _workspace/current/engineering/icons/raw/ui-codex.png",
+      "rawMaster": "_workspace/current/engineering/icons/raw/ui-codex.png",
+      "mattedSprite": "Assets/Resources/Icons/ui-codex.png",
+      "metrics": {
+        "dimensions": "256x256",
+        "mode": "RGBA",
+        "totalPixels": 65536,
+        "transparentPixelsA0": 28988,
+        "transparentRatioA0": "44.23%",
+        "nonOpaquePixelsA254": 30614,
+        "nonOpaqueRatio": "46.71%",
+        "opaquePixelsA255": 34922,
+        "opaqueRatio": "53.29%"
+      }
+    },
+    {
+      "id": "ui-abandon",
+      "purpose": "HUD stack button icon for run abandon / leave run action",
+      "promptCore": "stone archway doorway with an outward-pointing ember-orange exit arrow passing through it",
+      "fullPrompt": "stone archway doorway with an outward-pointing ember-orange exit arrow passing through it, flat vector game icon, dark fantasy hack-and-slash style, bold readable silhouette, thin ember-orange rim light, deep navy interior shading, consistent 3px outline, centered, fills 80% of frame. Solid pure magenta #FF00FF background on every pixel outside the icon. No text, no watermark, no border frame.",
+      "command": "gti --prompt \"stone archway doorway with an outward-pointing ember-orange exit arrow passing through it, flat vector game icon, dark fantasy hack-and-slash style, bold readable silhouette, thin ember-orange rim light, deep navy interior shading, consistent 3px outline, centered, fills 80% of frame. Solid pure magenta #FF00FF background on every pixel outside the icon. No text, no watermark, no border frame.\" --output _workspace/current/engineering/icons/raw/ui-abandon.png",
+      "rawMaster": "_workspace/current/engineering/icons/raw/ui-abandon.png",
+      "mattedSprite": "Assets/Resources/Icons/ui-abandon.png",
+      "metrics": {
+        "dimensions": "256x256",
+        "mode": "RGBA",
+        "totalPixels": 65536,
+        "transparentPixelsA0": 32095,
+        "transparentRatioA0": "48.97%",
+        "nonOpaquePixelsA254": 33662,
+        "nonOpaqueRatio": "51.36%",
+        "opaquePixelsA255": 31874,
+        "opaqueRatio": "48.64%"
+      }
+    }
+  ]
+}

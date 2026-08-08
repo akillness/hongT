@@ -420,9 +420,9 @@ namespace CinderCourt.View
         // Telegraph budget (≤3 concurrent, ≤2 same-kind — qa band 5) verified
         // by phase arithmetic per table below. Windows (CampaignSpec, absolute
         // stage time t):
-        //   vent    tel: t ≡ [1.6−ph, 2.4−ph) mod 2.4  (VentPeriod−VentTelegraph)
-        //   current tel: t ≡ [−ph, 0.8−ph)    mod 6
-        //   wall    tel: t ≡ [4.5−ph, 6.0−ph) mod 23   (WallRest..+WallTelegraph)
+        //   vent    tel: t ≡ [1.6-ph, 2.4-ph) mod 2.4  (VentPeriod-VentTelegraph)
+        //   current tel: t ≡ [-ph, 0.8-ph)    mod 6
+        //   wall    tel: t ≡ [4.5-ph, 6.0-ph) mod 23   (WallRest..+WallTelegraph)
         //   pillar / altar / pylon never telegraph.
 
         /// <summary>Base-prefix + appended-extras pact table (M3 contract:
@@ -487,9 +487,9 @@ namespace CinderCourt.View
             WitnessWellHazards,
             HazardConfig.Vent(560f, 500f, 0.9f));
 
-        // Stage 4 왕좌의 조류 — +1 counter-current lane (768,740) push −120
+        // Stage 4 왕좌의 조류 — +1 counter-current lane (768,740) push -120
         // ph 3.3. Position deliberately matches the sluice anchor current so
-        // the view's CurrentPushSign build-time lookup resolves the −x flow.
+        // the view's CurrentPushSign build-time lookup resolves the -x flow.
         // LCM(6,2.4)=12 s: vents [1.6,2.4)/[0.4,1.2) disjoint (max 1);
         // currents [5.7,6)∪[0,0.5) vs [2.7,3.5) disjoint (max 1) → max 2.
         static readonly HazardConfig[] EchoThronePact = Pact(
@@ -515,7 +515,7 @@ namespace CinderCourt.View
         // 1.7→[2.3,2.4)∪[0,0.7); only pair zone (2.1∧1.7) = [2.3,2.4)∪[0,0.3)
         // and 0.9 is disjoint from 1.7 → no vent triple (max 2v). Currents
         // [0,0.8)/[3,3.8) mod 6 disjoint (max 1). Upper bound 2v+1c = 3;
-        // attained at t∈[0,0.3) and [9.5,9.8) in the LCM. ≤3 ✓ ≤2 same ✓.
+        // attained at t∈[0,0.3) and [9.5,9.8) in the LCM. ≤3 OK ≤2 same OK.
         static readonly HazardConfig[] CinderSluicePact = Pact(
             AnchorHazards(CampaignStages.CinderSluice),
             HazardConfig.Vent(768f, 604f, 1.7f));
@@ -534,7 +534,7 @@ namespace CinderCourt.View
         // Vents: 0.6→[1.0,1.8), 1.8→[2.2,2.4)∪[0,0.6), 1.2→[0.4,1.2); pair
         // zones [1.0,1.2)/[0.4,0.6), and 0.6∧1.8 disjoint → no vent triple
         // (max 2v). Walls [4.5,6.0)+23k / [16,17.5)+23k disjoint (max 1).
-        // Upper bound 2v+1w = 3 over the 276 s LCM. ≤3 ✓ ≤2 same-kind ✓.
+        // Upper bound 2v+1w = 3 over the 276 s LCM. ≤3 OK ≤2 same-kind OK.
         static readonly HazardConfig[] AshMarchPact = Pact(
             AnchorHazards(CampaignStages.AshMarch),
             HazardConfig.Vent(768f, 796f, 1.2f));

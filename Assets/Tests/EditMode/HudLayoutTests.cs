@@ -989,5 +989,196 @@ namespace CinderCourt.Tests
             Assert.That(float.IsFinite(_hud.LastEffectiveWidth) && _hud.LastEffectiveWidth > 0f,
                 Is.True, "effective width must stay finite across orientations");
         }
+
+        // ---------------------------------------------------------------
+        // Left column below the meters — the band four functions write to.
+        //
+        // Written BEFORE the fix, deliberately, to settle which overlaps are
+        // real. The interview reported three; one of them (phone stats x
+        // shield, 24 u) came from reading the shield's BUILD coordinate
+        // (HudView.cs:1902, y -98) without noticing ApplyDungeonTier:587-590
+        // moves it to -252 on phone. That claim is refuted below rather than
+        // quietly dropped: the shield is a child of dungeonRoot (:1898), so
+        // the guard at :536 that would leave it at build y also means there
+        // is no shield to collide with.
+        //
+        // Bands are [y - h, y]: Label/Panel measure y DOWN from the parent's
+        // top-left (CLAUDE.md §4f).
+        // ---------------------------------------------------------------
+
+        private static float Overlap(RectTransform a, RectTransform b)
+        {
+            if (a == null || b == null) return 0f;
+            float aTop = a.anchoredPosition.y, aBot = aTop - a.sizeDelta.y;
+            float bTop = b.anchoredPosition.y, bBot = bTop - b.sizeDelta.y;
+            return Mathf.Min(aTop, bTop) - Mathf.Max(aBot, bBot);
+        }
+
+        private RectTransform FindLeftRect(string name)
+        {
+            foreach (var rect in _hudObject.GetComponentsInChildren<RectTransform>(true))
+                if (rect.name == name) return rect;
+            return null;
+        }
+
+        [Test]
+        public void LeftColumn_PhoneAbandonOverlapsStats()
+        {
+            ArrangePhone(dungeon: true);
+            _hud.SetLeftStackAvailable(true);
+
+            var abandon = _hud.AbandonRectForTest;
+            var stats = _hud.StatsRectForTest;
+            Assert.That(abandon, Is.Not.Null, "abandon button must exist once available");
+            Assert.That(stats, Is.Not.Null);
+
+            // Was 34 u before the shared stack existed (포기 pinned at a static
+            // (16,-100) in every tier). Clearance is negative overlap, so the
+            // assertion is <= 0 rather than == 0 — a stack placed further away
+            // is more correct, not less.
+            Assert.That(Overlap(abandon, stats), Is.LessThanOrEqualTo(0f),
+                $"phone: 포기 {abandon.anchoredPosition.y} h{abandon.sizeDelta.y} "
+                + $"must clear stats {stats.anchoredPosition.y} h{stats.sizeDelta.y}");
+        }
+
+        [Test]
+        public void LeftColumn_DesktopAbandonOverlapsShield()
+        {
+            _hud.EnableCampaignUi("차가운 회랑", 3);
+            _hud.EnableDungeonUi("재의 감시자");
+            _hud.SetCampaignSurfacesVisible(true);
+            _hud.ApplyLayout(1280, 720, new Rect(0, 0, 1280, 720));
+            _hud.SetLeftStackAvailable(true);
+            Assert.That(_hud.CurrentTier, Is.EqualTo(HudView.LayoutTier.Full));
+
+            // No touch: shield stays at -98 (:590 else-branch). Was 22 u.
+            Assert.That(Overlap(_hud.AbandonRectForTest, _hud.ShieldRectForTest),
+                Is.LessThanOrEqualTo(0f),
+                "desktop, no touch: 포기 must clear the shield readout");
+        }
+
+        [Test]
+        public void LeftColumn_LandscapePhoneAbandonOverlapsEquip()
+        {
+            // 844x390: effective width ~1412 u -> Full tier WITH touch live.
+            // Not in the interview's defect list; found by the planner while
+            // re-deriving the arithmetic. One rotation away from the reported set.
+            _hud.ForceTouchControlsForTest();
+            _hud.EnableCampaignUi("차가운 회랑", 3);
+            _hud.EnableDungeonUi("재의 감시자");
+            _hud.SetCampaignSurfacesVisible(true);
+            _hud.ApplyLayout(PhoneHeight, PhoneWidth, new Rect(0, 0, PhoneHeight, PhoneWidth));
+            _hud.SetLeftStackAvailable(true);
+            Assert.That(_hud.CurrentTier, Is.EqualTo(HudView.LayoutTier.Full));
+
+            // Was 32 u. The stack pairs horizontally here, so 포기 sits beside
+            // the codex on one row rather than below it.
+            Assert.That(Overlap(_hud.AbandonRectForTest, _hud.EquipRectForTest),
+                Is.LessThanOrEqualTo(0f),
+                "landscape phone: 포기 must clear the equip strip");
+        }
+
+        [Test]
+        public void LeftStack_BothButtonsClearEveryOccupant()
+        {
+            // AC-1. The 포기 tests above pin the three defects that shipped;
+            // this pins the whole band, including the button those tests did
+            // not know about. Sweeps tier x touch x mode, because the occupant
+            // SET is mode-dependent: ApplyDungeonTier early-returns when
+            // _dungeonRoot is null (HudView.cs:536), so the shield and equip
+            // strip do not exist outside a dungeon.
+            var configs = new (int w, int h, bool touch, bool dungeon, string label)[]
+            {
+                (1280, 720, false, true,  "desktop dungeon"),
+                (1280, 720, false, false, "desktop prologue"),
+                (PhoneHeight, PhoneWidth, true, true, "landscape 844x390"),
+                (844, 344, true, true,  "landscape 844x344 (Safari toolbar)"),
+                (PhoneWidth, PhoneHeight, true, true, "phone portrait"),
+            };
+
+            foreach (var c in configs)
+            {
+                Object.DestroyImmediate(_hudObject);
+                _hudObject = new GameObject("LeftStackSweep");
+                _hud = _hudObject.AddComponent<HudView>();
+                _hud.Build();
+                if (c.touch) _hud.ForceTouchControlsForTest();
+                if (c.dungeon)
+                {
+                    _hud.EnableCampaignUi("차가운 회랑", 3);
+                    _hud.EnableDungeonUi("재의 감시자");
+                    _hud.SetCampaignSurfacesVisible(true);
+                    _hud.HidePrologueToast();
+                }
+                _hud.ApplyLayout(c.w, c.h, new Rect(0, 0, c.w, c.h));
+                _hud.SetLeftStackAvailable(true);
+
+                // World rects, not anchoredPosition. The desktop stats panel
+                // anchors top-RIGHT (HudView.cs:486-488) while the stack
+                // anchors top-left, so their local y values are not comparable
+                // — comparing them directly reports a 26 u collision between
+                // two rects that are 900 u apart. Corners are the only frame
+                // both live in.
+                var canvas = _hudObject.GetComponentInChildren<Canvas>(true);
+                canvas.renderMode = RenderMode.WorldSpace;
+                var canvasRect = (RectTransform)canvas.transform;
+                var effH = _hud.LastEffectiveWidth * c.h / (float)c.w;
+                canvasRect.sizeDelta = new Vector2(_hud.LastEffectiveWidth, effH);
+                Canvas.ForceUpdateCanvases();
+
+                var stack = new[] { _hud.CodexButtonRectForTest, _hud.AbandonRectForTest };
+                var occupants = new[]
+                {
+                    ("stats", _hud.StatsRectForTest),
+                    ("equip", _hud.EquipRectForTest),
+                    ("shield", _hud.ShieldRectForTest),
+                };
+                foreach (var button in stack)
+                {
+                    Assert.That(button, Is.Not.Null, $"{c.label}: stack button missing");
+                    var b = WorldRect(button);
+                    foreach (var (name, occupant) in occupants)
+                    {
+                        if (occupant == null || !occupant.gameObject.activeInHierarchy) continue;
+                        var o = WorldRect(occupant);
+                        var area = OverlapArea(b, o);
+                        Assert.That(area, Is.LessThanOrEqualTo(1f),
+                            $"{c.label}: {button.name} {b} overlaps {name} {o} by {area:F0} u^2");
+                    }
+                }
+                var codexRect = WorldRect(stack[0]);
+                var abandonRect = WorldRect(stack[1]);
+                Assert.That(OverlapArea(codexRect, abandonRect), Is.LessThanOrEqualTo(1f),
+                    $"{c.label}: codex {codexRect} and 포기 {abandonRect} overlap");
+            }
+        }
+
+        /// <summary>Overlap AREA in canvas units. Zero when the rects are
+        /// disjoint on either axis, which is what makes it safe for a
+        /// horizontal pair: same row, different columns, no collision.</summary>
+        private static float OverlapArea(Rect a, Rect b)
+        {
+            var w = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+            var h = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+            return w <= 0f || h <= 0f ? 0f : w * h;
+        }
+
+        [Test]
+        public void LeftColumn_PhoneShieldIsBelowStats_NotOverlapping()
+        {
+            // Refutes the interview's third reported defect (24 u). This one
+            // passes TODAY and must keep passing: the shield lives at -252 on
+            // phone, two bands below the stats panel. Pinned so a future
+            // placement change cannot silently create the overlap that was
+            // mistakenly reported here.
+            ArrangePhone(dungeon: true);
+
+            var shield = _hud.ShieldRectForTest;
+            Assert.That(shield, Is.Not.Null);
+            Assert.That(shield.anchoredPosition.y, Is.EqualTo(-252f).Within(0.5f),
+                "ApplyDungeonTier:589 moves the shield off its build y of -98 on phone");
+            Assert.That(Overlap(_hud.StatsRectForTest, shield), Is.LessThanOrEqualTo(0f),
+                "phone stats x shield was reported as 24 u; it is not reachable");
+        }
     }
 }

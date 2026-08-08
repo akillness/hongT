@@ -10,6 +10,8 @@ using UnityEngine.UI;
 
 namespace CinderCourt.View
 {
+    // partial: the codex half lives in HudViewCodex.cs. `sealed` is retained —
+    // this splits one class across two files, it does not open it to subclasses.
     public sealed partial class HudView : MonoBehaviour
     {
         static readonly string[] LoreBeats =
@@ -110,6 +112,10 @@ namespace CinderCourt.View
         int _lastScreenWidth = -1, _lastScreenHeight = -1;
         Rect _lastSafeArea;
         bool _touchActive;
+        /// <summary>Which copy variant guidance should use. Read by
+        /// GameDirector — a control lesson that names WASD on a phone is worse
+        /// than no lesson.</summary>
+        public bool TouchActive => _touchActive;
         bool _touchCombatControlsVisible = true;
         float _rotateHintTimer;
 
@@ -118,6 +124,11 @@ namespace CinderCourt.View
         RectTransform _novaRect, _wardRect;
         RectTransform _equipRect, _shieldRect;
         RectTransform _skillRowRect, _dashCardRect;
+        // AMENDMENT #9 (entry 15): the bottom-centre stack is lift-aware. These
+        // two used to carry static y values chosen against the DESKTOP row and
+        // were buried the moment touch raised the skill row by 120 u — which is
+        // the recommended configuration (ShowRotateHintIfPortrait steers to it).
+        RectTransform _levelToastRect, _growthPanelRect;
         readonly RectTransform[] _skillCardRects = new RectTransform[4];
         readonly RectTransform[] _comboPipRects = new RectTransform[3];
         RectTransform _xpBackRect;            // §U1 readout-overlap test seam
@@ -306,8 +317,29 @@ namespace CinderCourt.View
             _gameOverTitle = overTitle;
             overTitle.color = new Color(1f, 0.55f, 0.4f);
             _finalText = Label(_gameOverPanel.transform, 0, -70, 460, 60, "", 18, TextAnchor.MiddleCenter);
-            var retryButton = TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 26),
-                new Vector2(200, 44), "재강하 (R)", 20, RetryRun);
+            // AMENDMENT #9 (D2): the retry button moves off centre to make room
+            // for the campaign link beside it. EnableCampaignUi used to append
+            // that link at y=76, which landed [-34,6] — 26 u inside the death
+            // text at [-20,40]. It was clickable the whole time, which is why
+            // the report was "I died and STILL cannot leave": the way out was
+            // drawn underneath the sentence explaining the death.
+            //
+            // Both buttons live here, in ONE function, on the retry row — the
+            // same two-across layout the stage-clear panel uses.
+            //
+            // The back link used to be appended by EnableCampaignUi, which runs
+            // only for dungeon presentation. That had two costs, and a user hit
+            // both: in a dungeon the late-added button landed 26 u inside the
+            // death-cause text (D2), and in the PROLOGUE it was never added at
+            // all — dying there left one button, 재강하, and no way back to the
+            // lobby. Building it here fixes the second by construction and the
+            // first by the single-builder rule.
+            var backButton = TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(-105, 26), new Vector2(200, 44), "캠페인으로", 18, ReturnHome);
+            backButton.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+            var retryButton = TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(105, 26), new Vector2(200, 44), "재강하 (R)", 20, RetryRun);
+            retryButton.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
             _retryLabel = retryButton.GetComponentInChildren<Text>();
             _gameOverPanel.SetActive(false);
 
@@ -322,11 +354,18 @@ namespace CinderCourt.View
             _waveBanner.color = new Color(0.95f, 0.35f, 0.17f, 0f);
             _waveBanner.fontStyle = FontStyle.Bold;
 
-            _levelToast = Label(root, 0, 170, 480, 34, "", 17, TextAnchor.MiddleCenter);
+            // AMENDMENT #9 (negotiation entry 15): y was a static 170, which put
+            // the toast [170,204] entirely inside the growth plate [150,212] —
+            // 100% buried, every time. GainXp raises LevelUp and the growth
+            // offer in the SAME frame and the 1.4 s toast is fully contained by
+            // the 5 s offer, so the two were never NOT overlapping.
+            // Both now live on the lift-aware bottom stack (ApplyLayoutTier).
+            _levelToast = Label(root, 0, 236, 480, 34, "", 17, TextAnchor.MiddleCenter);
             var toastRect = _levelToast.rectTransform;
             toastRect.anchorMin = toastRect.anchorMax = new Vector2(0.5f, 0f);
             toastRect.pivot = new Vector2(0.5f, 0f);
-            toastRect.anchoredPosition = new Vector2(0, 170);
+            toastRect.anchoredPosition = new Vector2(0, 236);
+            _levelToastRect = toastRect;
             _levelToast.color = new Color(0.56f, 0.91f, 1f, 0f);
 
             // --- touch controls: mobile platforms, plus touch-only devices
@@ -360,6 +399,19 @@ namespace CinderCourt.View
             SyncLayout(false);
 
             UpdateCommandConsole();
+
+            // AMENDMENT #9 — the dismiss poll. MonoBehaviour.Update runs on
+            // unscaled wall-clock, so it keeps ticking at timeScale 0; anything
+            // driven by Time.deltaTime would not. This is what makes the freeze
+            // escapable, and it is the single reason an 8-pause budget is
+            // defensible: the survey found the variable is not how often a game
+            // stops the player but whether the player can wave it off.
+            if (_guidancePaused && AnyDismissInput()) DismissGuidancePause();
+            // The codex uses its own poll: a press on a tab button switches
+            // tabs rather than closing. Ordered after the guidance card because
+            // a card can never be up while the codex is (both freeze the run,
+            // and the codex only opens from a live HUD).
+            else if (_codexOpen && CodexDismissInput()) CloseCodex();
 
             if (_rotateHintTimer > 0f)
             {
@@ -511,6 +563,10 @@ namespace CinderCourt.View
 
             ApplyDungeonTier(tier);
             ApplyEquipPlacement();
+            // LAST: the stack reads the edges the two calls above just wrote.
+            // Ordering is the whole mechanism — placing it earlier would make
+            // it assume coordinates instead of measuring them.
+            ApplyLeftStackPlacement();
         }
 
         /// <summary>Spec #3: dungeon skill row per tier. Phone: 4 cards of
@@ -565,6 +621,7 @@ namespace CinderCourt.View
                 if (_speakerLine != null)
                     _speakerLine.rectTransform.anchoredPosition = new Vector2(0f, 132f + lift);
             }
+            ApplyBottomStackPlacement();
             // Left-column stack (below meters -16..-90): phone puts stats at
             // -98..-206, so dungeon shield text drops to -252 (equip strip
             // occupies -214..-248); with touch on wider tiers the equip strip
@@ -573,6 +630,37 @@ namespace CinderCourt.View
                 _shieldRect.anchoredPosition = tier == LayoutTier.Phone
                     ? new Vector2(16, -252)
                     : _touchActive ? new Vector2(16, -136) : new Vector2(16, -98);
+        }
+
+        /// <summary>
+        /// AMENDMENT #9 (negotiation entry 15) — the level-up plate and toast
+        /// sit ABOVE the whole bottom-centre control stack, in every tier.
+        ///
+        /// Both used to carry a static y chosen against one configuration:
+        /// the toast at 170 was inside the plate at 150 (100% buried, and
+        /// unavoidably so — GainXp raises LevelUp and the growth offer in the
+        /// same frame, and the 1.4 s toast is fully contained by the 5 s
+        /// offer), and the plate at 150 was measured against the DESKTOP skill
+        /// row and lost 81.6% of its height the moment touch lifted that row
+        /// by 120 u. Touch landscape is the configuration the rotate hint
+        /// steers players into, so the recommended setup was the broken one.
+        ///
+        /// Anchoring to the speaker line (the existing top of the stack)
+        /// instead of to a literal means a future tier change moves these two
+        /// with everything else rather than silently burying them again.
+        /// </summary>
+        void ApplyBottomStackPlacement()
+        {
+            if (_growthPanelRect == null && _levelToastRect == null) return;
+            var lift = _touchActive ? 120f : 0f;
+            // Speaker line is the current stack top in both tier branches.
+            var speakerY = (_tier == LayoutTier.Phone ? 232f : 132f) + lift;
+            const float SpeakerH = 24f, Gap = 14f, PlateH = 62f, Pad = 4f;
+            var plateY = speakerY + SpeakerH + Gap;
+            if (_growthPanelRect != null)
+                _growthPanelRect.anchoredPosition = new Vector2(0f, plateY);
+            if (_levelToastRect != null)
+                _levelToastRect.anchoredPosition = new Vector2(0f, plateY + PlateH + Pad);
         }
 
         /// <summary>Spec #4: the campaign equip strip is entombed inside the
@@ -682,9 +770,9 @@ namespace CinderCourt.View
             _stageClearRetryLabel = stageClearRetryButton.GetComponentInChildren<Text>();
             _stageClearPanel.SetActive(false);
 
-            // Campaign game-over also offers the way back to the hub.
-            TextButton(_gameOverPanel.transform, new Vector2(0.5f, 0f), new Vector2(0, 76),
-                new Vector2(200, 40), "캠페인으로", 16, ReturnHome);
+            // The game-over back link is NOT added here any more. It is built
+            // with the panel in Build(), so every mode has it — the prologue
+            // never called this method and therefore never got an exit.
             ApplyLayoutTier();   // re-grade with the new campaign surfaces
         }
 
@@ -1005,7 +1093,12 @@ namespace CinderCourt.View
                         : offer.Variant == 2 ? $"Grave Pulse +{10 * magnitude}% tick damage"
                         : offer.Variant == 3 ? $"Ash Nova +{10 * magnitude}% damage" : "Invalid preparation";
                 case PreparationOfferKind.GuardianResonance:
-                    return offer.Variant == 1 ? $"Companion cadence −{10 * magnitude}% (min 0.5 s)"
+                    // AMENDMENT #8: ASCII '-', not U+2212. The source font
+                    // NanumBarunGothic has no U+2212, so no amount of font
+                    // regeneration can ship it — and gen_hud_font.sh's quote
+                    // regex never harvested it, so the coverage check went
+                    // green while this label rendered a blank box.
+                    return offer.Variant == 1 ? $"Companion cadence -{10 * magnitude}% (min 0.5 s)"
                         : offer.Variant == 2 ? $"Companion range +{20 * magnitude} px"
                         : offer.Variant == 3 ? $"Companion damage +{10 * magnitude}%" : "Invalid preparation";
                 default:
@@ -1024,6 +1117,20 @@ namespace CinderCourt.View
             // Without this, CommandConsoleOpen pins timeScale at 0.2 and
             // TextInputActive keeps the keyboard dead into the lobby.
             CloseCommandConsole(submit: false);
+            // AMENDMENT #9 — the same trap, one order of magnitude worse. A run
+            // can end while a guidance card is up (a vent kills you on the frame
+            // the card explaining vents appears), and GuidancePaused pins
+            // timeScale at a hard 0. The console's 0.2 was survivable; 0 freezes
+            // Time.deltaTime itself, so nothing would ever run to undo it.
+            // Cleared WITHOUT raising OnGuidanceDismissed: the run is over, and
+            // marking the bit here would silently consume a lesson the player
+            // never got to read.
+            if (_guidancePaused)
+            {
+                _guidancePaused = false;
+                _guidancePendingBit = -1;
+                if (_guidanceCard != null) _guidanceCard.SetActive(false);
+            }
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             SetTouchCombatControlsVisible(true);
             if (_bossBar != null) _bossBar.SetActive(false);
@@ -1037,6 +1144,177 @@ namespace CinderCourt.View
             _lastCombo = -1;
             for (var i = 0; i < _comboPipRects.Length; i++)
                 if (_comboPipRects[i] != null) _comboPipRects[i].localScale = Vector3.one;
+        }
+
+        // ================================================ AMENDMENT #9 =====
+        // Guidance: one pause card, one toast line, one codex.
+        //
+        // SINGLE BUILDER, deliberately. QA's audit of the death-panel overlap
+        // found the rule with zero exceptions: a panel built inside one function
+        // never overlaps itself, and every band assembled across two or more
+        // functions does. The death panel's back link was added by a second
+        // function that could not see the first function's rects, and it landed
+        // 26 u inside the death-cause text. So the body, the labels and the
+        // dismiss hint below are all created here, in one place, measured
+        // against each other once.
+        GameObject _guidanceCard;
+        Text _guidanceKicker, _guidanceTitle, _guidanceBody, _guidanceHint;
+        bool _guidancePaused;
+        int _guidancePendingBit = -1;
+        /// <summary>Raised when the player dismisses a card. GameDirector marks
+        /// the bit and saves.</summary>
+        public System.Action<int> OnGuidanceDismissed;
+        /// <summary>
+        /// True while any modal holds the run. GameView reads this to pin
+        /// timeScale at 0.
+        ///
+        /// The abandon modal counts. Without it the player keeps taking damage
+        /// while deciding whether to leave — measured in the browser: health
+        /// dropped and the damage vignette kept flashing under an open modal.
+        /// A confirmation dialog you can die inside is worse than none, because
+        /// it punishes the caution it exists to reward.
+        ///
+        /// Note this is deliberately NOT the flag the dismiss poll reads. Any
+        /// key closes a guidance card; only an explicit button closes the
+        /// abandon modal, because one of its two answers is destructive.
+        /// </summary>
+        public bool GuidancePaused =>
+            _guidancePaused
+            || (_abandonModal != null && _abandonModal.activeSelf)
+            || _codexOpen;
+
+        const float GuidanceCardW = 560f, GuidanceCardH = 220f;
+
+        void EnsureGuidanceCard()
+        {
+            if (_guidanceCard != null || _safeRoot == null) return;
+            var root = (Transform)_safeRoot;
+
+            _guidanceCard = Panel(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(GuidanceCardW, GuidanceCardH),
+                new Color(0.02f, 0.04f, 0.07f, 0.95f));
+            // Modal backdrop: while the card holds the run, taps must not reach
+            // the combat HUD underneath (same reasoning as the game-over panel).
+            _guidanceCard.GetComponent<Image>().raycastTarget = true;
+
+            // Rows measured against the 220 u body, top-down, no gaps under 8 u.
+            // Label() measures y DOWN from the parent's top-left, so every row
+            // below is [220 + y - h, 220 + y] in panel-local space:
+            //   kicker  [186, 204]   title  [148, 182]
+            //   body    [ 56, 140]   hint   [ 14,  38]
+            _guidanceKicker = Label(_guidanceCard.transform, 28, -16, 504, 18,
+                "GUIDANCE", 11, TextAnchor.MiddleLeft);
+            // Spectral cyan (#2CADD6) at 0.85 — the worldview's memory/guardian
+            // token, the same one the lobby eyebrows use.
+            _guidanceKicker.color = new Color(0x2C / 255f, 0xAD / 255f, 0xD6 / 255f, 0.85f);
+
+            _guidanceTitle = Label(_guidanceCard.transform, 28, -38, 504, 34,
+                "", 24, TextAnchor.MiddleLeft);
+            _guidanceTitle.color = new Color(1f, 0.83f, 0.45f);
+
+            _guidanceBody = Label(_guidanceCard.transform, 28, -80, 504, 84,
+                "", 17, TextAnchor.UpperLeft);
+            _guidanceBody.color = new Color(0.92f, 0.94f, 1f);
+            // The only multi-line label on the card — wrap instead of overflow.
+            _guidanceBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            // The refusability line. This is the whole reason the card is
+            // allowed to exist at eight occurrences: the survey found the
+            // variable is not how often a game pauses but whether the player can
+            // wave it off (Returnal pauses zero times and was still panned for
+            // over-explaining; Into the Breach pauses and draws no complaints).
+            _guidanceHint = Label(_guidanceCard.transform, 28, -182, 504, 24,
+                "", 13, TextAnchor.MiddleLeft);
+            // InkDim (0.62,0.66,0.8) — 8.69:1 on charcoal, clears AA. The
+            // dismiss line is the card's most load-bearing sentence; it must not
+            // be the least readable one.
+            _guidanceHint.color = new Color(0.62f, 0.66f, 0.8f);
+
+            _guidanceCard.SetActive(false);
+        }
+
+        /// <summary>
+        /// Shows a pause card and freezes the run. Returns false when the entry
+        /// is already seen or another card is up — the caller does not have to
+        /// track that.
+        /// </summary>
+        public bool ShowGuidancePause(int bit, string kicker, string title, string body)
+        {
+            if (_guidancePaused) return false;
+            EnsureGuidanceCard();
+            if (_guidanceCard == null) return false;
+            _guidancePendingBit = bit;
+            _guidanceKicker.text = kicker;
+            _guidanceTitle.text = title;
+            _guidanceBody.text = body;
+            _guidanceHint.text = _touchActive ? "화면을 눌러 계속" : "아무 키나 눌러 계속";
+            _guidanceCard.SetActive(true);
+            _guidancePaused = true;
+            SetTouchCombatControlsVisible(false);
+            return true;
+        }
+
+        /// <summary>
+        /// Any key, any tap, any click, any face button. Deliberately the widest
+        /// possible net — a dismiss the player has to hunt for is not a dismiss,
+        /// and refusability is the entire justification for eight pauses.
+        ///
+        /// Reads devices directly rather than through InputAdapter: the adapter's
+        /// latches are consumed by the sim tick loop, which is frozen while a
+        /// card is up, so a press routed through it would either be swallowed or
+        /// fire into the sim the instant the freeze lifts.
+        /// </summary>
+        static bool AnyDismissInput()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.anyKey.wasPressedThisFrame) return true;
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) return true;
+            var touch = UnityEngine.InputSystem.Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame) return true;
+            var gamepad = UnityEngine.InputSystem.Gamepad.current;
+            if (gamepad != null &&
+                (gamepad.buttonSouth.wasPressedThisFrame || gamepad.startButton.wasPressedThisFrame))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// The codex's dismiss poll. Same net as <see cref="AnyDismissInput"/>,
+        /// with one hole in it: a pointer or touch press that lands on a tab
+        /// button switches tabs instead of closing. Keyboard and gamepad
+        /// presses have no position, so they always close.
+        ///
+        /// Returns false when the press was positional and hit a tab — the
+        /// Button's own onClick has already handled it.
+        /// </summary>
+        bool CodexDismissInput()
+        {
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard != null && keyboard.anyKey.wasPressedThisFrame) return true;
+            var gamepad = UnityEngine.InputSystem.Gamepad.current;
+            if (gamepad != null &&
+                (gamepad.buttonSouth.wasPressedThisFrame || gamepad.startButton.wasPressedThisFrame))
+                return true;
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                return CodexPressDismisses(mouse.position.ReadValue(), positional: true);
+            var touch = UnityEngine.InputSystem.Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
+                return CodexPressDismisses(touch.primaryTouch.position.ReadValue(), positional: true);
+            return false;
+        }
+
+        /// <summary>Dismisses the card and releases the run.</summary>
+        public void DismissGuidancePause()
+        {
+            if (!_guidancePaused) return;
+            _guidancePaused = false;
+            if (_guidanceCard != null) _guidanceCard.SetActive(false);
+            SetTouchCombatControlsVisible(true);
+            var bit = _guidancePendingBit;
+            _guidancePendingBit = -1;
+            if (bit >= 0) OnGuidanceDismissed?.Invoke(bit);
         }
 
         void ResetTransientCeremonies()
@@ -1107,6 +1385,10 @@ namespace CinderCourt.View
                 if (_stageClearPanel != null) _stageClearPanel.SetActive(false);
                 HidePrologueToast();
                 HideEmberRest();
+                // The left stack belongs to a live run. Left up, it would sit
+                // over the lobby offering to forfeit a run that has ended, and
+                // a codex whose numbers describe a sim that no longer exists.
+                SetLeftStackAvailable(false);
             }
         }
 
@@ -1204,7 +1486,220 @@ namespace CinderCourt.View
             }
             _prologueToast.SetActive(true);
             _prologueToastText.text = steps[step];
+            // Colour is set per call, not just at build: ShowGuidanceToast
+            // reuses this surface and leaves it gold, so a later prologue step
+            // would inherit the wrong colour.
+            _prologueToastText.color = new Color(0.62f, 0.95f, 0.88f);
         }
+
+        /// <summary>
+        /// AMENDMENT #9 toast tier — the 15 entries that do NOT stop the run.
+        ///
+        /// Reuses the prologue toast surface rather than adding a fourth
+        /// top-centre band. QA's audit found every overlap in this HUD came from
+        /// a band assembled across two functions, and a new surface at the same
+        /// altitude as the wave banner, the surge banner and this toast would be
+        /// a fourth chance to make that mistake. The rotate hint already
+        /// piggybacks here with an auto-hide timer; this follows that precedent.
+        /// </summary>
+        public void ShowGuidanceToast(string title, string body)
+        {
+            ShowPrologueToast(0);            // ensures the surface exists
+            if (_prologueToastText == null) return;
+            _prologueToastText.text = $"{title} — {body}";
+            // Gold: this is a reward-shaped line (you learned something), not a
+            // warning. 12.20:1 on charcoal.
+            _prologueToastText.color = new Color(0.87f, 0.78f, 0.41f);
+            _rotateHintTimer = GuidanceToastSeconds;
+        }
+
+        // ------------------------------------------------- abandon (C4) -----
+        // The reported gap: once inside a campaign stage there was no way out.
+        // The death panel's back link existed but sat 26 u under the death-cause
+        // text, so "I died and still could not leave" was an accurate report of
+        // what the screen showed.
+        //
+        // Built in ONE function — body, labels and both buttons — because the
+        // death panel's overlap came from exactly the opposite: a body built in
+        // Build() and a button appended later by EnableCampaignUi(), where the
+        // second function could not see the first one's rects.
+        GameObject _abandonButton, _abandonModal, _codexButton;
+        /// <summary>Gap between left-stack buttons and the occupant above them.
+        /// 8 u is the guidance card's own minimum — same eye, same surface.</summary>
+        const float LeftStackGap = 8f;
+        Text _abandonModalBody;
+        /// <summary>Raised when the player confirms. GameDirector forfeits and
+        /// returns to the lobby.</summary>
+        public System.Action OnAbandonConfirmed;
+        /// <summary>Asked for the relic count the modal must name. Returning it
+        /// through a callback keeps HudView out of the economy.</summary>
+        public System.Func<int> AbandonRelicsAtRisk;
+
+        void EnsureLeftStackSurfaces()
+        {
+            if (_abandonButton != null || _safeRoot == null) return;
+            var root = (Transform)_safeRoot;
+
+            // AMENDMENT #9 — one function owns this band (§4f).
+            //
+            // The 포기 button used to place itself at a static (16,-100) in
+            // every tier, which collided with three different neighbours
+            // depending on tier and touch state (22 u desktop x shield, 32 u
+            // landscape x equip strip, 34 u phone x stats panel). All three
+            // are pinned RED in HudLayoutTests before this function existed.
+            //
+            // Both buttons are now placed by ApplyLeftStackPlacement, which
+            // reads the live occupant edges instead of assuming them.
+            _codexButton = TextButton(root, new Vector2(0f, 1f),
+                Vector2.zero, new Vector2(96f, 34f), "정보", 14, OpenCodex,
+                iconId: "ui-codex");
+            _codexButton.GetComponent<RectTransform>().pivot = new Vector2(0f, 1f);
+            _codexButton.SetActive(false);
+
+            // Deliberately NOT beside the mute toggle: an accidental abandon
+            // costs the whole run, so it does not sit in the row a player taps
+            // casually. For the same reason it keeps its word next to the glyph.
+            _abandonButton = TextButton(root, new Vector2(0f, 1f),
+                Vector2.zero, new Vector2(96f, 34f), "포기", 14, OpenAbandonModal,
+                iconId: "ui-abandon");
+            _abandonButton.GetComponent<RectTransform>().pivot = new Vector2(0f, 1f);
+            _abandonButton.SetActive(false);
+            ApplyLeftStackPlacement();
+
+            _abandonModal = Panel(root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(480f, 200f), new Color(0.03f, 0.02f, 0.06f, 0.95f));
+            _abandonModal.GetComponent<Image>().raycastTarget = true;
+
+            // Rows against the 200 u body: title [148,182], body [72,136],
+            // buttons [20,64]. Buttons split 480 with a 16 u gutter.
+            var title = Label(_abandonModal.transform, 24, -18, 432, 34,
+                "강하를 포기하는가", 22, TextAnchor.MiddleCenter);
+            // Ember #F3592C — 6.11:1, clears AA. The survey's one confirmed
+            // abandon-modal example (Slay the Spire) still loses runs because
+            // its dialog looks like the safe one next to it, so this one is
+            // coloured as a warning and states the loss instead of asking a
+            // neutral question.
+            title.color = new Color(0xF3 / 255f, 0x59 / 255f, 0x2C / 255f);
+
+            _abandonModalBody = Label(_abandonModal.transform, 24, -64, 432, 64,
+                "", 16, TextAnchor.UpperCenter);
+            _abandonModalBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _abandonModalBody.color = new Color(0.92f, 0.94f, 1f);
+
+            var back = TextButton(_abandonModal.transform, new Vector2(0.5f, 0f),
+                new Vector2(-114f, 20f), new Vector2(212f, 44f), "계속 싸운다", 16,
+                CloseAbandonModal);
+            back.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+            var quit = TextButton(_abandonModal.transform, new Vector2(0.5f, 0f),
+                new Vector2(114f, 20f), new Vector2(212f, 44f), "포기하고 나간다", 16,
+                ConfirmAbandon);
+            quit.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+
+            _abandonModal.SetActive(false);
+        }
+
+        /// <summary>Shows or hides the whole left stack — codex and abandon.
+        /// Every run mode gets both; the lobby gets neither.</summary>
+        public void SetLeftStackAvailable(bool available)
+        {
+            if (available) EnsureLeftStackSurfaces();
+            if (_codexButton != null) _codexButton.SetActive(available);
+            if (_abandonButton != null) _abandonButton.SetActive(available);
+            if (!available)
+            {
+                CloseAbandonModal();
+                CloseCodex();
+            }
+            else ApplyLeftStackPlacement();
+        }
+
+        /// <summary>
+        /// AMENDMENT #9 — places both left-stack buttons against the LIVE
+        /// occupant edges, in the arrangement the orientation can afford.
+        ///
+        /// Vertical in portrait and on the desktop. HORIZONTAL in landscape
+        /// with touch, and that is the load-bearing case: a 2-high stack wants
+        /// 192 u of vertical room in the one orientation where vertical room is
+        /// scarce, and the joystick catch box owns the bottom 260 u. Measured,
+        /// a vertical stack clears by +32.6 u at 844x390 with NO browser chrome
+        /// and goes NEGATIVE the moment a toolbar appears (-7.1 u at 844x344,
+        /// -12.8 u on a Pixel 7). Clamping cannot rescue it: staying below the
+        /// occupants and above the joystick become contradictory below 379.8
+        /// CSS px. Pairing the buttons drops the requirement to 92 u and moves
+        /// that floor to 271.0 — a chrome budget of 119 px instead of 10.
+        /// </summary>
+        void ApplyLeftStackPlacement()
+        {
+            if (_codexButton == null || _abandonButton == null) return;
+            var codex = (RectTransform)_codexButton.transform;
+            var abandon = (RectTransform)_abandonButton.transform;
+
+            // Lowest live edge in the left column. Read, never assumed — the
+            // shield and equip strip move per tier and per touch state, and
+            // assuming their build coordinates is what produced the 22/32/34 u
+            // collisions this function exists to close.
+            var occupied = -90f;                      // meters [-90,-16], always live
+            if (_statsRect != null && _statsRect.gameObject.activeInHierarchy
+                && _statsRect.anchorMin.x < 0.5f)     // left-column only; desktop parks it top-right
+                occupied = Mathf.Min(occupied, _statsRect.anchoredPosition.y - _statsRect.sizeDelta.y);
+            if (_equipRect != null && _equipRect.gameObject.activeInHierarchy
+                && _equipRect.anchorMax.y > 0.5f)     // top-anchored only; desktop parks it bottom-left
+                occupied = Mathf.Min(occupied, _equipRect.anchoredPosition.y - _equipRect.sizeDelta.y);
+            if (_shieldRect != null && _shieldRect.gameObject.activeInHierarchy)
+                occupied = Mathf.Min(occupied, _shieldRect.anchoredPosition.y - _shieldRect.sizeDelta.y);
+
+            var phone = _tier == LayoutTier.Phone;
+            var height = phone ? 92f : 34f;
+            var width = phone ? 92f : 96f;
+            var top = occupied - LeftStackGap;
+
+            // Horizontal whenever the joystick is live and the screen is wide:
+            // width is abundant there (216 u needed against ~1500 u) and height
+            // is not.
+            var horizontal = _touchActive && !phone;
+            codex.sizeDelta = new Vector2(width, height);
+            abandon.sizeDelta = new Vector2(width, height);
+            codex.anchoredPosition = new Vector2(16f, top);
+            abandon.anchoredPosition = horizontal
+                ? new Vector2(16f + width + LeftStackGap, top)
+                : new Vector2(16f, top - height - LeftStackGap);
+        }
+
+        void OpenAbandonModal()
+        {
+            EnsureLeftStackSurfaces();
+            // Symmetric with OpenCodex: the two run-holding surfaces are
+            // mutually exclusive. This direction matters more than the other —
+            // the codex is 620x440 and covers the modal's buttons outright, so
+            // stacking here would hide the very choice the modal exists to ask.
+            CloseCodex();
+            var relics = AbandonRelicsAtRisk != null ? AbandonRelicsAtRisk() : 0;
+            // Name the number. A modal that says "are you sure?" and a modal
+            // that says "you lose 7 relics" are different safeguards, and only
+            // the second one survives muscle memory.
+            _abandonModalBody.text = relics > 0
+                ? $"이번 강하에서 모은 유물 {relics}개를 잃는다.\n정화 기록도 남지 않는다."
+                : "정화 기록이 남지 않는다.\n아직 모은 유물은 없다.";
+            _abandonModal.SetActive(true);
+            SetTouchCombatControlsVisible(false);
+        }
+
+        void CloseAbandonModal()
+        {
+            if (_abandonModal == null || !_abandonModal.activeSelf) return;
+            _abandonModal.SetActive(false);
+            SetTouchCombatControlsVisible(true);
+        }
+
+        void ConfirmAbandon()
+        {
+            CloseAbandonModal();
+            OnAbandonConfirmed?.Invoke();
+        }
+
+        /// <summary>Seconds a guidance toast holds. Long enough to read 33 words
+        /// at the survey's 3.3 words/s reading rate, plus a beat.</summary>
+        public const float GuidanceToastSeconds = 4.5f;
 
         /// <summary>Input depth §3: charge gauge. Lazily built like the
         /// prologue toast so it costs nothing until a player first holds the
@@ -1226,7 +1721,7 @@ namespace CinderCourt.View
                 fillObject.transform.SetParent(_chargeGauge.transform, false);
                 _chargeGaugeFill = fillObject.AddComponent<Image>();
                 _chargeGaugeFill.raycastTarget = false;
-                MakeFilled(_chargeGaugeFill, Image.FillMethod.Horizontal);
+                AsFilled(_chargeGaugeFill, Image.FillMethod.Horizontal);
                 var fillRect = _chargeGaugeFill.rectTransform;
                 fillRect.anchorMin = Vector2.zero;
                 fillRect.anchorMax = Vector2.one;
@@ -1343,15 +1838,31 @@ namespace CinderCourt.View
             if (_growthPanel == null)
             {
                 var root = (Transform)_safeRoot;
+                // AMENDMENT #9 (entry 15): y 150 was measured against the
+                // desktop skill row [18,94] and cleared it by 56 u. Touch lifts
+                // that row to [138,214], which swallowed 62 of the card's 76 u
+                // — 81.6%, in the configuration the rotate hint recommends.
+                // The plate is raycast-off so taps still landed: the same
+                // "works but is invisible" signature as the death-panel button.
                 _growthPanel = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                    new Vector2(0, 150), new Vector2(440, 62), new Color(0.03f, 0.03f, 0.06f, 0.88f));
-                _growthPanel.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
-                _growthTitle = Label(_growthPanel.transform, 0, 16, 440, 22,
+                    new Vector2(0, 170), new Vector2(440, 62), new Color(0.03f, 0.03f, 0.06f, 0.88f));
+                _growthPanelRect = _growthPanel.GetComponent<RectTransform>();
+                _growthPanelRect.pivot = new Vector2(0.5f, 0f);
+                // Label() measures y DOWN from the parent's top-left, so the
+                // original y=+16 put the title 16 u ABOVE the plate's top edge.
+                // Pre-existing, and invisible only because the plate itself was
+                // buried in the skill row — moving the plate exposed it.
+                // Plate is 62 u: title [34,58], options [8,32], both inside.
+                _growthTitle = Label(_growthPanel.transform, 0, -4, 440, 24,
                     "", 15, TextAnchor.MiddleCenter);
                 _growthTitle.color = new Color(0.87f, 0.78f, 0.41f);
-                _growthOptions = Label(_growthPanel.transform, 0, -6, 440, 24,
-                    "1 공격  ·  2 생명  ·  3 민첩", 16, TextAnchor.MiddleCenter);
+                _growthOptions = Label(_growthPanel.transform, 0, -30, 440, 24,
+                    "1 공격  •  2 생명  •  3 민첩", 16, TextAnchor.MiddleCenter);
                 _growthOptions.color = new Color(0.72f, 0.86f, 0.95f);
+                // Built lazily on the first level-up, which can land AFTER the
+                // last ApplyLayoutTier — place it against the current tier now
+                // or it keeps the desktop y until the next resolution change.
+                ApplyBottomStackPlacement();
             }
             _growthPanel.SetActive(true);
             _growthTitle.text = $"레벨 업 — 강화 선택 ({Mathf.CeilToInt(secondsLeft)})";
@@ -1430,7 +1941,29 @@ namespace CinderCourt.View
             var placeholder = Label(fieldObject.transform, 0, 0, 440, 32,
                 // The trigger half of the syntax is in the placeholder because a
                 // queue nobody knows how to fill is not a feature.
-                "명령: 집중공격 · 노바 · 결계 / 대기: 셋 잡으면 노바", 15, TextAnchor.MiddleLeft);
+                //
+                // Separator is BULLET (U+2022), not MIDDLE DOT (U+00B7). Main's
+                // copy used the middle dot and main ships a font that cannot
+                // render it — five of its player-visible strings were tofu on
+                // WebGL when this merge measured them (difficulty badge,
+                // objective lines, companion toast). All were converted.
+                //
+                // The codepoints are NAMED here, not typed. gen_hud_font.sh
+                // harvests every non-ASCII character in this file including
+                // comments, so a comment explaining that a glyph is unusable
+                // would itself demand that glyph — the first draft of this note
+                // did exactly that and turned the font gate red.
+                //
+                // U+00B7 IS in NanumBarunGothic, which is what makes the trap
+                // work: it lives ONLY in the platform-1 Macintosh format-6
+                // subtable, 189 entries. fontTools.subset and getBestCmap both
+                // read the Unicode subtable, where it is absent — the glyph
+                // exists in the file, cannot enter the subset, and renders as a
+                // box. A cmap probe that unions every subtable reports it
+                // present and is answering a question no part of the toolchain
+                // asks. CLAUDE.md §4b was right; a union-probe during this merge
+                // briefly said otherwise, and the union-probe was wrong.
+                "명령: 집중공격 • 노바 • 결계 / 대기: 셋 잡으면 노바", 15, TextAnchor.MiddleLeft);
             var placeholderRect = placeholder.rectTransform;
             placeholderRect.anchorMin = Vector2.zero;
             placeholderRect.anchorMax = Vector2.one;
@@ -1502,7 +2035,7 @@ namespace CinderCourt.View
                 keyboard.onTextInput += _consoleTextHandler;
             }
             if (!GeminiCommandClient.HasKey)
-                ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 · 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
+                ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 • 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
         }
 
 
@@ -1661,7 +2194,7 @@ namespace CinderCourt.View
         /// AMENDMENT #8 added the one case where the companion itself acts —
         /// CompanionSkill — and its copy names the companion for that reason.
         ///
-        /// <paramref name="prefix"/> ("2/4 · ") and <paramref name="detail"/> (the
+        /// <paramref name="prefix"/> ("2/4 • ") and <paramref name="detail"/> (the
         /// plan's own rationale for this beat) are what a SEQUENCE step adds. A
         /// typed one-off passes neither and reads exactly as it did before the
         /// command agent existed — one switch, so the latch mapping stays single-
@@ -1677,7 +2210,7 @@ namespace CinderCourt.View
                     // Follow drives A7 autonomy: the slot pursues the nearest target inside its
                     // leash instead of freezing in place, so "집중공격/싸워" actually chases.
                     Input.QueueCompanionRecall();
-                    copy = "수호자: 집중공격 — 근접 표적 추격·교전";
+                    copy = "수호자: 집중공격 — 근접 표적 추격•교전";
                     seconds = 2.5f;
                     break;
                 case CompanionCommandIntent.Defend:
@@ -1846,13 +2379,11 @@ namespace CinderCourt.View
             xpFillObject.transform.SetParent(xpBack.transform, false);
             _xpFill = xpFillObject.AddComponent<Image>();
             _xpFill.color = new Color(0.56f, 0.91f, 1f);
-            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
-            // fillAmount path entirely when it is), then main's atlas sprite
-            // replaces the 1x1 placeholder when it is present.
-            MakeFilled(_xpFill, Image.FillMethod.Horizontal);
-            var xpFillSprite = Resources.Load<Sprite>("Icons/hud-xp-bar-fill");
-            if (xpFillSprite != null) _xpFill.sprite = xpFillSprite;
-
+            // Placeholder only — `hud-xp-bar-fill` is a centred medallion with a
+            // 58.6% opaque x-extent, not an edge-to-edge bar fill, and
+            // Image.Type.Filled trims to that. See Bar() for the measured table
+            // of all five and what the art has to become before it can be used.
+            AsFilled(_xpFill, Image.FillMethod.Horizontal);
             _xpFill.raycastTarget = false;   // decorative fill must not eat taps
             var xpRect = xpFillObject.GetComponent<RectTransform>();
             xpRect.anchorMin = Vector2.zero;
@@ -1986,13 +2517,9 @@ namespace CinderCourt.View
             bossFillObject.transform.SetParent(bossBack.transform, false);
             _bossFill = bossFillObject.AddComponent<Image>();
             _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
-            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
-            // fillAmount path entirely when it is), then main's atlas sprite
-            // replaces the 1x1 placeholder when it is present.
-            MakeFilled(_bossFill, Image.FillMethod.Horizontal);
-            var bossFillSprite = Resources.Load<Sprite>("Icons/hud-boss-bar-fill");
-            if (bossFillSprite != null) _bossFill.sprite = bossFillSprite;
-
+            // Placeholder only — `hud-boss-bar-fill` has a 32.4% opaque
+            // x-extent. See Bar() for the measured table.
+            AsFilled(_bossFill, Image.FillMethod.Horizontal);
             _bossFill.raycastTarget = false;
             var bossFillRect = bossFillObject.GetComponent<RectTransform>();
             bossFillRect.anchorMin = Vector2.zero;
@@ -2013,13 +2540,9 @@ namespace CinderCourt.View
             extractFillObject.transform.SetParent(extractBack.transform, false);
             _extractRing = extractFillObject.AddComponent<Image>();
             _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
-            // MakeFilled first so activeSprite is NEVER null (uGUI drops the
-            // fillAmount path entirely when it is), then main's atlas sprite
-            // replaces the 1x1 placeholder when it is present.
-            MakeFilled(_extractRing, Image.FillMethod.Horizontal);
-            var extractFillSprite = Resources.Load<Sprite>("Icons/hud-extraction-ring-fill");
-            if (extractFillSprite != null) _extractRing.sprite = extractFillSprite;
-
+            // Placeholder only — `hud-extraction-ring-fill` has a 24.6% opaque
+            // x-extent. See Bar() for the measured table.
+            AsFilled(_extractRing, Image.FillMethod.Horizontal);
             _extractRing.raycastTarget = false;
             var extractRect = extractFillObject.GetComponent<RectTransform>();
             extractRect.anchorMin = Vector2.zero;
@@ -2096,7 +2619,7 @@ namespace CinderCourt.View
         /// Latches the run's mode ONCE at start (AMENDMENT #10). Separate from
         /// the per-frame sync on purpose: the clear ceremony reads this AFTER
         /// the run has ended, so a flag that decays with the run would hand the
-        /// trial the dungeon's "구역 정화 · 점수 0 • 유물 0" wording — a line
+        /// trial the dungeon's "구역 정화 • 점수 0 • 유물 0" wording — a line
         /// that reads like a failure for a mode with no score by design.
         ///
         /// A trial has no waves, no spawns and no economy, so 웨이브 / 유물 / 적
@@ -2151,7 +2674,7 @@ namespace CinderCourt.View
         {
             var name = LobbyView.DifficultyName(difficulty);
             return Sim.DifficultySpec.For(difficulty).GroupAi
-                ? $"난이도 {name} · 협동"
+                ? $"난이도 {name} • 협동"
                 : $"난이도 {name}";
         }
 
@@ -2163,7 +2686,7 @@ namespace CinderCourt.View
         /// </summary>
         internal static string DifficultyResultSuffix(Sim.Difficulty difficulty)
             => ShowsDifficultyBadge(difficulty)
-                ? " · " + LobbyView.DifficultyName(difficulty)
+                ? " • " + LobbyView.DifficultyName(difficulty)
                 : string.Empty;
 
         /// <summary>
@@ -2216,7 +2739,14 @@ namespace CinderCourt.View
             surgeRect.anchorMin = new Vector2(0.5f, 1f);
             surgeRect.anchorMax = new Vector2(0.5f, 1f);
             surgeRect.pivot = new Vector2(0.5f, 1f);
-            surgeRect.anchoredPosition = new Vector2(0f, -150f);
+            // AMENDMENT #9 (entry 15): y was -150, which put the surge rect
+            // [-180,-150] ENTIRELY inside the wave banner [-200,-140] — 100%
+            // containment, 9000 u². Both fire on the same beats (a surge opens
+            // on a kill threshold and kills are what end waves), so the banner
+            // announcing 위기/기세 sat behind the one announcing the wave.
+            // 위기/기세 are two of the 23 things this amendment must teach, so
+            // the collision had to clear before guidance could point at them.
+            surgeRect.anchoredPosition = new Vector2(0f, -208f);
             surgeRect.sizeDelta = new Vector2(300f, 30f);
             _surgeBanner.fontStyle = FontStyle.Bold;
             _surgeBanner.gameObject.SetActive(false);
@@ -2318,12 +2848,12 @@ namespace CinderCourt.View
             _lastRoomObjectiveKey = key;
             if (bossAlive)
             {
-                _roomObjectiveText.text = "최종 목표 · " + objective;
+                _roomObjectiveText.text = "최종 목표 • " + objective;
                 _roomObjectiveText.color = new Color(1f, 0.83f, 0.45f);
             }
             else
             {
-                _roomObjectiveText.text = "목표 · " + objective;
+                _roomObjectiveText.text = "목표 • " + objective;
                 _roomObjectiveText.color = new Color(0.82f, 0.88f, 0.96f);
             }
         }
@@ -2354,7 +2884,7 @@ namespace CinderCourt.View
                 {
                     _levelPunchTimer = 0.35f;
                     _xpFlashTimer = 0.4f;
-                    _levelToast.text = "레벨 업! 피해 +4% · 최대 체력 +6";
+                    _levelToast.text = "레벨 업! 피해 +4% • 최대 체력 +6";
                     _levelToastTimer = 1.4f;
                 }
                 _lastLevel = level;
@@ -2611,10 +3141,22 @@ namespace CinderCourt.View
             return _fillSprite;
         }
 
-        /// <summary>The ONLY sanctioned way to make a Filled Image in this HUD.
+        /// <summary>
+        /// The ONLY sanctioned way to make a Filled Image in this HUD.
+        ///
         /// Assigning the sprite is not decoration — it is what makes fillAmount
-        /// reach the mesh at all (see <see cref="FillSprite"/>).</summary>
-        static void MakeFilled(Image image, Image.FillMethod method, int origin = 0)
+        /// reach the mesh at all (see <see cref="FillSprite"/>). Seven gauges
+        /// shipped without it — health, oil, XP, boss HP, extraction ring, skill
+        /// cooldowns, charge — every one rendering permanently full while Sync()
+        /// dutifully wrote the correct fillAmount into a field nothing read.
+        /// Caught in a browser smoke: the death panel showed 체력 0 over a bar
+        /// measured at 98% lit pixels (CLAUDE.md §4k, which names this method).
+        ///
+        /// Callers that also want atlas art assign it AFTER this returns. The
+        /// first line here overwrites `sprite`, so the reverse order silently
+        /// discards the art and leaves a working-but-flat gauge.
+        /// </summary>
+        static void AsFilled(Image image, Image.FillMethod method, int origin = 0)
         {
             image.sprite = FillSprite();
             image.type = Image.Type.Filled;
@@ -2622,7 +3164,6 @@ namespace CinderCourt.View
             image.fillOrigin = origin;
             image.preserveAspect = false;
         }
-
 
 
         Image Bar(Transform parent, float x, float y, float width, float height,
@@ -2644,26 +3185,39 @@ namespace CinderCourt.View
             rect.anchorMax = new Vector2(1, 1);
             rect.offsetMin = new Vector2(2, 2);
             rect.offsetMax = new Vector2(-2, -2);
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            if (fillSpriteId != null)
-            {
-                // Filled type crops a rect of the raw texture — no 9-slice
-                // border math, so unlike frames this is safe at any height.
-                // .color stays fillColor: the existing dynamic tint logic
-                // (health flash, boss phase colors, ...) keeps working
-                // unchanged, just multiplied over the new gradient art.
-                var fillSprite = Resources.Load<Sprite>("Icons/" + fillSpriteId);
-                if (fillSprite != null) fill.sprite = fillSprite;
-            }
+            // The 1x1 placeholder is the fill, and the `hud-*-bar-fill` atlas
+            // art is deliberately NOT applied. Measured, not assumed:
+            //
+            //   hud-hp-bar-fill        256x64  opaque x-extent 22.7%
+            //   hud-oil-bar-fill       256x64  opaque x-extent 12.9%
+            //   hud-xp-bar-fill        256x64  opaque x-extent 58.6%
+            //   hud-boss-bar-fill      256x38  opaque x-extent 32.4%
+            //   hud-extraction-ring    256x64  opaque x-extent 24.6%
+            //
+            // They are centred medallions on transparent canvases, not
+            // edge-to-edge bar fills. Image.Type.Filled trims to the sprite's
+            // opaque rect, so a full health bar renders as a blob across the
+            // middle 22.7% — HudLayoutTests measured exactly 0.242 the moment
+            // this code applied them.
+            //
+            // Main applied them and shipped correct bars anyway, because main
+            // called the fill helper AFTER the Resources.Load and the helper's
+            // first line is `image.sprite = FillSprite()`. The art was being
+            // discarded on every bar. The ordering looked like the bug; it was
+            // the only thing holding the gauges together, and "fixing" it is
+            // what surfaced the real one. §4k's family again: the value was
+            // right and nothing read it, here the read is right and the value
+            // is unusable.
+            //
+            // Reinstate this when the fill art is regenerated edge-to-edge (a
+            // horizontal gradient spanning the full 256, no transparent
+            // margins). The frame sprites are unaffected and still applied.
+            AsFilled(fill, Image.FillMethod.Horizontal);
             // Sibling order: back (flat track) -> Fill -> Frame -> Label, so
             // the ornate border bezel draws over the fill's edges but the
             // readout text still draws over the bezel and stays legible.
             ApplyFrameOverlay(back.transform, frameSpriteId);
-            MakeFilled(fill, Image.FillMethod.Horizontal);
             valueText = Label(back.transform, 6, 0, width - 12, height, label, 14, TextAnchor.MiddleLeft);
-            valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
-
             valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
             return fill;
         }
@@ -2692,7 +3246,8 @@ namespace CinderCourt.View
 
         GameObject TextButton(Transform parent, Vector2 anchor, Vector2 anchored,
                               Vector2 size, string label, int fontSize,
-                              UnityEngine.Events.UnityAction onClick)
+                              UnityEngine.Events.UnityAction onClick,
+                              string iconId = null)
         {
             var buttonObject = Panel(parent, anchor, anchor, anchored, size,
                 new Color(0.16f, 0.13f, 0.24f, 0.9f));
@@ -2710,6 +3265,48 @@ namespace CinderCourt.View
             var button = buttonObject.AddComponent<Button>();
             button.onClick.AddListener(onClick);
             if (Audio != null) button.onClick.AddListener(Audio.PlayClick);   // W12
+
+            // AMENDMENT #10 — optional glyph, and the label STAYS.
+            //
+            // Icon-only was considered and rejected for 포기 specifically: one
+            // mis-tap costs the whole run, and a door-with-an-arrow is not worth
+            // a run to a player who reads it wrong. The icon is recognition; the
+            // word is confirmation. Button size does not change, so the touch
+            // ratchet table in HudLayoutTests does not move.
+            var textInset = 0f;
+            if (iconId != null)
+            {
+                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                if (sprite != null)   // missing sprite would render a white quad
+                {
+                    var square = size.y >= size.x - 1f;   // phone tier is 92x92
+                    var side = square ? Mathf.Min(40f, size.x - 8f) : Mathf.Min(24f, size.y - 8f);
+                    var iconObject = new GameObject("Icon");
+                    iconObject.transform.SetParent(buttonObject.transform, false);
+                    var icon = iconObject.AddComponent<Image>();
+                    icon.sprite = sprite;
+                    icon.preserveAspect = true;
+                    icon.raycastTarget = false;
+                    var iconRect = iconObject.GetComponent<RectTransform>();
+                    iconRect.sizeDelta = new Vector2(side, side);
+                    if (square)
+                    {
+                        // Stacked: glyph over the word.
+                        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 1f);
+                        iconRect.pivot = new Vector2(0.5f, 1f);
+                        iconRect.anchoredPosition = new Vector2(0f, -8f);
+                        textInset = -(side + 8f);   // shove the label below the glyph
+                    }
+                    else
+                    {
+                        // Inline: glyph left, word in the remaining width.
+                        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 0.5f);
+                        iconRect.pivot = new Vector2(0f, 0.5f);
+                        iconRect.anchoredPosition = new Vector2(6f, 0f);
+                        textInset = side + 6f;
+                    }
+                }
+            }
             var text = Label(buttonObject.transform, 0, 0, size.x, size.y, label, fontSize, TextAnchor.MiddleCenter);
             var rect = text.rectTransform;
             rect.anchorMin = Vector2.zero;
@@ -2717,6 +3314,10 @@ namespace CinderCourt.View
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = Vector2.zero;
+            if (textInset > 0f)        // inline: inset the left edge
+                rect.offsetMin = new Vector2(textInset, rect.offsetMin.y);
+            else if (textInset < 0f)   // stacked: inset the top edge
+                rect.offsetMax = new Vector2(rect.offsetMax.x, textInset);
             return buttonObject;
         }
 
@@ -2767,7 +3368,7 @@ namespace CinderCourt.View
             overlayObject.transform.SetParent(card.transform, false);
             cooldownOverlay = overlayObject.AddComponent<Image>();
             cooldownOverlay.color = new Color(0f, 0f, 0f, 0.65f);
-            MakeFilled(cooldownOverlay, Image.FillMethod.Vertical,
+            AsFilled(cooldownOverlay, Image.FillMethod.Vertical,
                 (int)Image.OriginVertical.Top);
             cooldownOverlay.raycastTarget = false;
             var overlayRect = overlayObject.GetComponent<RectTransform>();
@@ -2785,6 +3386,40 @@ namespace CinderCourt.View
             if (!_touchActive) BuildTouchControls(_safeRoot);
             SyncTouchModeSurfaces();
         }
+
+        /// <summary>Test seams for the left column below the meters. Four
+        /// functions write this band (ApplyLayoutTier :469, ApplyDungeonTier
+        /// :587, ApplyEquipPlacement :627, EnsureAbandonSurfaces :1374) and
+        /// arithmetic done by hand against build coordinates got one of the
+        /// overlaps wrong — the shield is read at its build y unless you
+        /// notice ApplyDungeonTier moves it. These expose the RESOLVED rects
+        /// so the audit measures what ships.</summary>
+        internal RectTransform AbandonRectForTest =>
+            _abandonButton == null ? null : (RectTransform)_abandonButton.transform;
+        // StatsRectForTest lives at :2634 with the badge-row note. Main added it
+        // there while this lane added it here; one had to go and the documented
+        // one stays.
+        internal RectTransform ShieldRectForTest => _shieldRect;
+        internal RectTransform EquipRectForTest => _equipRect;
+        /// <summary>Whether the abandon modal is on screen. Distinct from the
+        /// pause predicate: GuidancePaused ORs the codex in, so it answers
+        /// "is the run held" and cannot answer "which surface is holding it".
+        /// Cycle-7 needed the second question and had only the first.</summary>
+        internal bool AbandonModalActiveForTest =>
+            _abandonModal != null && _abandonModal.activeSelf;
+        internal void OpenAbandonModalForTest() => OpenAbandonModal();
+        /// <summary>
+        /// Whether the touch combat controls are meant to be up.
+        ///
+        /// Exposed because the ORDER of two correct statements is load-bearing
+        /// and nothing could see it. OpenCodex calls CloseAbandonModal (which
+        /// sets this TRUE) and then sets it FALSE; the end state is right, but
+        /// swapping those two lines leaves the joystick live under a panel that
+        /// has frozen the sim. SyncTouchModeSurfaces applies the value on the
+        /// spot, so the failure is visible on screen and invisible to every
+        /// assertion that only reads the final pause state.
+        /// </summary>
+        internal bool TouchCombatControlsVisibleForTest => _touchCombatControlsVisible;
 
         /// <summary>Test seam (§U1): the non-interactive dungeon readouts the
         /// skill row must never cover — InteractiveRects() only sees pointer
@@ -2991,7 +3626,7 @@ namespace CinderCourt.View
             {
                 var digest = sim.Digest;
                 // A trial has no legion, no waves and no score. The dungeon
-                // defeat line ("군단에 함락됐다 · 웨이브 1 도달") names three
+                // defeat line ("군단에 함락됐다 • 웨이브 1 도달") names three
                 // things that do not exist in a trial, so it reads as a bug.
                 if (_trialStatsHidden)
                 {
@@ -3018,11 +3653,19 @@ namespace CinderCourt.View
                 ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
                 SetTouchCombatControlsVisible(false);
+                // The left stack belongs to a LIVE run. Measured in the browser:
+                // the death panel came up in the arena with 포기 still armed, so
+                // the abandon modal opened on top of it — offering to forfeit a
+                // run that had already ended. The codex is the same shape of
+                // wrong: its numbers describe a sim that is over.
+                SetLeftStackAvailable(false);
             }
             if ((events & SimEvents.WaveStarted) != 0 && _gameOverPanel.activeSelf)
             {
                 _gameOverPanel.SetActive(false);
                 SetTouchCombatControlsVisible(true);
+                // A restart re-arms it; PrepareRunUi also re-enables per mode.
+                SetLeftStackAvailable(true);
             }
 
             // --- juice: wave banner (#20) -------------------------------------
@@ -3126,6 +3769,9 @@ namespace CinderCourt.View
             }
 
             SyncJuice(sim);
+            // AMENDMENT #9: latch the codex's numbers on the first frame after
+            // it opens. No-op when closed or already latched.
+            SyncCodex(sim);
 
             if (_gameOverPanel.activeSelf && sim.Mode != SimMode.GameOver)
             {
@@ -3344,6 +3990,9 @@ namespace CinderCourt.View
                 _stageClearTitle.text = _trialStatsHidden ? "시련 완료" : "구역 정화";
             _stageClearPanel.SetActive(true);
             SetTouchCombatControlsVisible(false);
+            // Same reasoning as the death panel: the run is over, so forfeiting
+            // it is meaningless and the codex's numbers are a past tense.
+            SetLeftStackAvailable(false);
         }
 
         void SyncComboPips()
