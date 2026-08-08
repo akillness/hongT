@@ -353,10 +353,22 @@ namespace CinderCourt.View
         static readonly DressingPlacement[] EmberBastionDressing =
         {
             // Rampart battlements ringing the fort on every closed edge.
+            //
+            // COUNTED, not eyeballed: split the six dressed tables by quadrant
+            // about the arena centre (768,604) and this one read NW 2 / NE 2 /
+            // SW 1 / SE 3 - the thinnest quadrant in the set, against a comment
+            // that claims EVERY closed edge. feature-023 sits at (205,500) with
+            // no southern partner, while cinder-sluice pairs (200,420) with
+            // (190,700). feature-025 restores the pair: outside the plate
+            // (x 248..1288, y 334..874), 420 px from the nearest hazard (the
+            // verdict-pact pylon at 620,720) against a clearance requirement in
+            // the tens, 220 px from the nearest neighbouring placement, and the
+            // table lands at 9 with quadrants 2/2/2/3.
             new DressingPlacement("terrain-cinder-span-feature-020",  470f, 250f,   0f, 18f),
             new DressingPlacement("terrain-cinder-span-feature-021",  770f, 215f,   0f, 20f),
             new DressingPlacement("terrain-cinder-span-feature-022", 1070f, 250f,   0f, 18f),
             new DressingPlacement("terrain-cinder-span-feature-023",  205f, 500f,  35f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-025",  200f, 720f,  35f, 15f),
             new DressingPlacement("terrain-cinder-span-feature-024", 1335f, 620f, -35f, 15f),
             new DressingPlacement("terrain-cinder-span-prop-020",     380f, 940f,  10f, 12f),
             new DressingPlacement("terrain-cinder-span-prop-021",     900f, 955f, 340f, 12f),

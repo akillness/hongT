@@ -156,5 +156,45 @@ namespace CinderCourt.Tests
                 }
             }
         }
+
+        // A dressed stage must put something in all four quadrants of the ring.
+        // Count, not appearance: comparing stages by screenshot does not work
+        // here - dominance and luminance move with each stage's own palette and
+        // hazard overlays, so a nine-stage pixel sweep ranks the overlays rather
+        // than the dressing. Quadrant occupancy is the same question asked where
+        // it is actually decidable.
+        //
+        // This caught ember-bastion at SW 1 while its own comment claimed every
+        // closed edge; the west wall had a north battlement and no south one.
+        // The floor is presence, not balance - ash-march legitimately runs 1/3/1/3
+        // because its wall hazard sweeps x 248..608 and dressing there would sit
+        // inside the crush lane.
+        [Test]
+        public void DressedStages_OccupyEveryQuadrant()
+        {
+            const float centreX = 768f;
+            const float centreY = 604f;
+            foreach (var stageId in DressedStages)
+            {
+                var table = StageCatalog.DressingFor(stageId);
+                var quadrant = new int[4];
+                foreach (var placement in table)
+                {
+                    var index = (placement.SimX < centreX ? 0 : 1)
+                        + (placement.SimY < centreY ? 0 : 2);
+                    quadrant[index]++;
+                }
+                TestContext.WriteLine(
+                    $"{stageId}: n={table.Length} quadrants NW/NE/SW/SE = "
+                    + $"{quadrant[0]}/{quadrant[1]}/{quadrant[2]}/{quadrant[3]}");
+                for (var i = 0; i < 4; i++)
+                {
+                    Assert.That(quadrant[i], Is.GreaterThan(0),
+                        $"{stageId}: quadrant {"NW NE SW SE".Split(' ')[i]} is empty "
+                        + $"({quadrant[0]}/{quadrant[1]}/{quadrant[2]}/{quadrant[3]}) "
+                        + "- the ring has a hole the fixed camera will show");
+                }
+            }
+        }
     }
 }
