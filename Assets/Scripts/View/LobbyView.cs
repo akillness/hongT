@@ -47,26 +47,26 @@ namespace CinderCourt.View
         static readonly Color ButtonActive = new Color(0.32f, 0.28f, 0.16f, 0.95f);
 
 
-        const int StatCap = 10;
-        const int EquipCap = 5;
+        // AMENDMENT #8: caps and prices moved to ProgressionGuide. The badge
+        // rule has to compare the same prices the buy buttons charge, and this
+        // file used to hold one copy while GameDirector held another — a third
+        // reader was the moment to collapse them, not to add a third copy.
+        const int StatCap = ProgressionGuide.StatCap;
+        static readonly int EquipCap = ProgressionGuide.EquipCap;
         static readonly string[] StatIds = { "attack", "vitality", "swiftness" };
         static readonly string[] StatNames = { "공격", "체력", "이속" };
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
-        static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };  // relics for T(i)->T(i+1)
+        static readonly int[] EquipCosts = ProgressionGuide.EquipCosts;
 
         // --- v1.5 sigils (AMENDMENT #6 · design/sigil-spec.md) ------------------
         const int TabCount = 4;
         /// <summary>Relics to unlock one sigil, once. Internal so the economy
         /// test pins it and a negotiation can move it in one line.</summary>
-        internal const int SigilCost = 12;
+        internal const int SigilCost = ProgressionGuide.SigilCost;
         /// <summary>Catalog order. Index 0 is deliberately the inert None so the
         /// stored ints are the SigilKind enum values with no remapping.</summary>
-        internal static readonly SigilKind[] SigilOrder =
-        {
-            SigilKind.Countercurrent, SigilKind.Verdict, SigilKind.Executioner,
-            SigilKind.Ignition, SigilKind.Witness,
-        };
+        internal static readonly SigilKind[] SigilOrder = ProgressionGuide.SigilOrder;
         static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
         /// <summary>Which gimmick each sigil binds — the line that tells the
         /// player WHERE it matters, not just what number moves.</summary>
@@ -140,6 +140,36 @@ namespace CinderCourt.View
         // cycle2 B3: prologue card border lines pulse ember until PrologueDone.
         Image[] _prologueBorder;
         bool _prologueGuide;
+
+        // --- AMENDMENT #8 accordion (design/progression-navigation-spec.md) ---
+        /// <summary>Fold-header height. 44 u is the tab strip's height, chosen
+        /// so the new controls join an existing debt class instead of setting a
+        /// new worst (negotiation entry 12).</summary>
+        const float HeaderHeight = 44f;
+        const float HeaderPitch = 48f;
+        const float GroupGap = 2f;
+        /// <summary>Card pitch, frozen since cycle 2. Compressing it is what
+        /// would sink the 강하 button under the touch floor.</summary>
+        const float CardPitch = 70f;
+        const float ContentTop = 6f;
+        RectTransform _stageContentRect;
+        ScrollRect _stageScroll;
+        RectTransform[] _groupRects;
+        GameObject[] _groupBodies;
+        Image[] _groupHeaderBacks;
+        Text[] _groupCounts;
+        Text[] _groupCarets;
+        int _expandedGroup;
+        /// <summary>The player tapped a header this visit, so stop following
+        /// the target until they leave the lobby.</summary>
+        bool _groupPinned;
+        Text _sortieProgress;
+        /// <summary>SANCTUM tab badges — one dot per tab, lit by
+        /// ProgressionGuide.Badges.</summary>
+        Image[] _tabBadges;
+        /// <summary>각인 context labels (N11): does this sigil's gimmick appear
+        /// in the next target stage?</summary>
+        readonly Text[] _sigilContext = new Text[5];
 
         // Tabs.
         GameObject[] _tabContents;
@@ -226,33 +256,57 @@ namespace CinderCourt.View
             // v1.6: the repeat visit is no longer a replay of the three waves —
             // it is the training ground below, so the cleared state points there
             // instead of promising the same tutorial again.
-            _prologueStatus.text = data.PrologueDone ? "훈련장 개방" : "필수 훈련";
+            var target = ProgressionGuide.NextTarget(in data);
+            var prologueTarget = target.Kind == GuideTargetKind.Prologue;
+            _prologueStatus.text = data.PrologueDone ? "훈련장 개방"
+                : prologueTarget ? "다음 재판" : "필수 훈련";
             _prologueStatus.color = data.PrologueDone ? Gold : Ember;
             _prologueButtonLabel.text = data.PrologueDone ? "재훈련" : "점화 훈련";
             // cycle2 B3: first-run guide — ember border pulse until done.
             SetPrologueGuide(!data.PrologueDone);
             RefreshTrials(in data);
 
+            // N6: the gauge the save has always been able to answer. 9 bits of
+            // ClearedMask, never once counted on screen.
+            var clearedTotal = ProgressionGuide.ClearedTotal(in data);
+            _sortieProgress.text =
+                $"정화 {clearedTotal}/{StageCatalog.Entries.Count}" + TargetSuffix(in data, in target);
+
             for (var i = 0; i < StageCatalog.Entries.Count; i++)
             {
                 var entry = StageCatalog.Entries[i];
                 var cleared = StageCatalog.IsCleared(in data, in entry);
                 var unlocked = StageCatalog.IsUnlocked(in data, in entry);
-                _stageStatus[i].text = cleared ? "정화 완료" : unlocked ? "강하 가능" : "잠김";
-                _stageStatus[i].color = cleared ? Gold : unlocked ? Cyan : Lock;
+                // N2 (공개형): the target card says WHICH door is next. It does
+                // not say to go through it — every other unlocked 강하 button
+                // stays live. The survey found next-best-action recommendation
+                // in 0 of 6 comparable titles and Hades excluding it on
+                // purpose; what the genre does instead is disclose.
+                var isTarget = target.Kind == GuideTargetKind.Stage && target.Index == i;
+                _stageStatus[i].text = cleared ? "정화 완료"
+                    : isTarget ? "다음 재판" : unlocked ? "강하 가능" : "잠김";
+                _stageStatus[i].color = cleared ? Gold : isTarget ? Ember : unlocked ? Cyan : Lock;
                 _stageButtons[i].interactable = unlocked;
                 _stageGroups[i].alpha = unlocked ? 1f : 0.45f;
+
+                // N3: the reason lives on the sub-line, which keeps leading with
+                // the epithet so a locked card never stops previewing its
+                // gimmick. Colour follows the line's job: gold while it is
+                // advertising a reward, ink-dim while it is explaining a lock.
+                var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
+                    ? "동행 없음"
+                    : CompanionNameFor(entry.CompanionReward);
+                _stageSubLabels[i].text = ProgressionGuide.StageSubLine(in data, in entry, rewardText);
+                _stageSubLabels[i].color = unlocked ? Gold : InkDim;
 
                 // v1.3 M3b: 서약 toggle appears once the stage is cleared. The
                 // cleared card drops its redeemed '보상:' tail at the same
                 // moment, so the toggle never covers live reward text.
                 _pactButtons[i].SetActive(cleared);
-                if (cleared)
-                {
-                    _stageSubLabels[i].text = entry.Epithet;
-                    SyncPactVisual(i, IsPactArmed(entry.Id));
-                }
+                if (cleared) SyncPactVisual(i, IsPactArmed(entry.Id));
             }
+
+            RefreshGroupHeaders(in data, in target);
 
             _pointsLeftText.text = $"남은 포인트 {data.Points}";
             // v1.3 M1: real effective values through the sim's OWN derived-stat
@@ -336,6 +390,23 @@ namespace CinderCourt.View
                     ? SigilFaceEffects[i][face]
                     : $"{SigilGimmicks[i]} 기믹에 걸리는 각인";
 
+                // N11 context. Reads the target stage's EFFECTIVE hazard table
+                // (override, else the frozen sim anchor) — the verdict pact is
+                // excluded on purpose: it is a per-visit opt-in, and a label
+                // that flipped under a toggle would be advice about a run the
+                // player has not chosen yet.
+                if (target.Kind == GuideTargetKind.Stage)
+                {
+                    var live = ProgressionGuide.SigilLiveInTarget(in data, SigilOrder[i], in target);
+                    _sigilContext[i].text = live ? "다음 재판 대상" : "휴면";
+                    _sigilContext[i].color = live ? Gold : InkDim;
+                }
+                else
+                {
+                    _sigilContext[i].text = "대기";
+                    _sigilContext[i].color = InkDim;
+                }
+
                 _sigilBuyButtons[i].SetActive(!owned);
                 if (!owned)
                 {
@@ -360,6 +431,15 @@ namespace CinderCourt.View
             _sigilFooter.text = used >= SigilLoadout.Slots
                 ? $"슬롯 {used}/{SigilLoadout.Slots} — 새로 끼우면 먼저 낀 각인이 빠진다."
                 : $"슬롯 {used}/{SigilLoadout.Slots} — 면 전환은 무료다.";
+
+            // N5 badges last: they read the same prices the buy buttons above
+            // just charged, so computing them here keeps one evaluation order
+            // and no chance of a badge disagreeing with the button under it.
+            var badges = ProgressionGuide.Badges(in data);
+            _tabBadges[0].gameObject.SetActive(badges.Growth);
+            _tabBadges[1].gameObject.SetActive(badges.Equip);
+            _tabBadges[2].gameObject.SetActive(badges.Legion);
+            _tabBadges[3].gameObject.SetActive(badges.Sigil);
         }
 
         void RefreshMotionLabel()
@@ -464,7 +544,17 @@ namespace CinderCourt.View
         }
 
         public void Show() { if (_root != null) _root.SetActive(true); }
-        public void Hide() { if (_root != null) _root.SetActive(false); }
+
+        /// <summary>Leaving the lobby drops the fold pin. A header tap is a
+        /// decision about this visit; on the next one the accordion goes back to
+        /// following the target, which is the whole point of the automatic
+        /// follow — a player returning from a clear should find the group that
+        /// just changed already open.</summary>
+        public void Hide()
+        {
+            if (_root != null) _root.SetActive(false);
+            _groupPinned = false;
+        }
 
         // =============================================== mobile layout core --
         void Update()
@@ -606,6 +696,13 @@ namespace CinderCourt.View
             Border(panel.transform, true);
 
             Eyebrow(panel.transform, 16, -12, "SORTIE", "출정");
+            // N6 gauge. The eyebrow's right shoulder is the only clear span in
+            // the panel header — 정화 n/9 plus the target's epithet fits there
+            // without touching the prologue card's audited 174 u band below.
+            _sortieProgress = Label(panel.transform, -16, -14, 250, 32, "", 11,
+                TextAnchor.UpperRight);
+            AnchorTopRight(_sortieProgress.rectTransform);
+            _sortieProgress.color = Gold;
 
             // Prologue card (sole entry until cleared; retrainable after).
             var prologue = Card(panel.transform, -60, 100);
@@ -637,11 +734,24 @@ namespace CinderCourt.View
             prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
-            // Cycle-2: nine logical stages no longer fit the fixed panel at
-            // the 70 u card pitch (9*70+174 > 620), and compressing the pitch
-            // would sink the 강하 button below the 44 CSS px touch floor
-            // (HudLayoutTests contract). The list scrolls instead: pitch,
-            // card height and every touch target keep their audited sizes.
+            // AMENDMENT #8 — the flat scroll becomes four folded groups.
+            //
+            // Cycle-2 added three stages to a fixed panel and paid for it with
+            // a scroll: 1058 u of content behind a 434 u viewport, 41.0% of the
+            // list visible, no scrollbar, no position cue of any kind. The
+            // survey's answer was not "add a scrollbar" — 11 of 11 comparable
+            // titles bound the list spatially instead, and a scroll list with
+            // no position indicator appeared in exactly zero of them.
+            //
+            // worldview.md already groups the nine stages into three acts, so
+            // the grouping is not an invention: folding to one open act puts
+            // 416 u on screen (100%) and folding to the training group puts
+            // 626 u (69.3%, two whole trial rows — today it is zero, because
+            // the first trial card starts 272 u below the viewport floor).
+            //
+            // The ScrollRect stays as the training group's overflow. It is no
+            // longer the navigation model, only the fallback for the one group
+            // that cannot fit.
             var stageViewport = new GameObject("StageScroll");
             stageViewport.transform.SetParent(panel.transform, false);
             var viewportImage = stageViewport.AddComponent<Image>();
@@ -657,31 +767,129 @@ namespace CinderCourt.View
 
             var stageContent = new GameObject("StageContent");
             stageContent.transform.SetParent(stageViewport.transform, false);
-            var contentRect = stageContent.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.anchoredPosition = Vector2.zero;
-            // 9 stage cards + 1 tier-selector card + 5 trial cards at the 70 u
-            // pitch + trailing margin. The training rows sit BELOW the stages so
-            // every audited stage-card coordinate keeps the value the layout
-            // tests froze.
-            contentRect.sizeDelta = new Vector2(
-                0f, (StageCatalog.Entries.Count + 1 + TrainingTrials.Ids.Length) * 70f + 8f);
+            _stageContentRect = stageContent.AddComponent<RectTransform>();
+            _stageContentRect.anchorMin = new Vector2(0f, 1f);
+            _stageContentRect.anchorMax = new Vector2(1f, 1f);
+            _stageContentRect.pivot = new Vector2(0.5f, 1f);
+            _stageContentRect.anchoredPosition = Vector2.zero;
+            _stageContentRect.sizeDelta = new Vector2(0f, ContentTop);   // LayoutGroups owns the rest
 
-            var scroll = stageViewport.AddComponent<ScrollRect>();
-            scroll.content = contentRect;
-            scroll.viewport = viewportRect;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 24f;
+            _stageScroll = stageViewport.AddComponent<ScrollRect>();
+            _stageScroll.content = _stageContentRect;
+            _stageScroll.viewport = viewportRect;
+            _stageScroll.horizontal = false;
+            _stageScroll.vertical = true;
+            _stageScroll.movementType = ScrollRect.MovementType.Clamped;
+            _stageScroll.scrollSensitivity = 24f;
 
-            // Nine logical stages share the same compact card grammar.
-            for (var i = 0; i < StageCatalog.Entries.Count; i++)
+            _groupRects = new RectTransform[ProgressionGuide.GroupCount];
+            _groupBodies = new GameObject[ProgressionGuide.GroupCount];
+            _groupHeaderBacks = new Image[ProgressionGuide.GroupCount];
+            _groupCounts = new Text[ProgressionGuide.GroupCount];
+            _groupCarets = new Text[ProgressionGuide.GroupCount];
+
+            for (var g = 0; g < ProgressionGuide.GroupCount; g++)
             {
+                var group = new GameObject("Group" + g);
+                group.transform.SetParent(stageContent.transform, false);
+                var groupRect = group.AddComponent<RectTransform>();
+                groupRect.anchorMin = new Vector2(0f, 1f);
+                groupRect.anchorMax = new Vector2(1f, 1f);
+                groupRect.pivot = new Vector2(0.5f, 1f);
+                groupRect.sizeDelta = Vector2.zero;
+                _groupRects[g] = groupRect;
+
+                var training = g == ProgressionGuide.TrainingGroup;
+                BuildGroupHeader(group.transform, g,
+                    training ? ProgressionGuide.TrainingKicker : ProgressionGuide.ActKickers[g],
+                    training ? ProgressionGuide.TrainingTitle : ProgressionGuide.ActTitles[g],
+                    training ? Cyan : ActAccent(g));
+
+                var body = new GameObject("Body");
+                body.transform.SetParent(group.transform, false);
+                var bodyRect = body.AddComponent<RectTransform>();
+                bodyRect.anchorMin = new Vector2(0f, 1f);
+                bodyRect.anchorMax = new Vector2(1f, 1f);
+                bodyRect.pivot = new Vector2(0.5f, 1f);
+                bodyRect.anchoredPosition = new Vector2(0f, -HeaderPitch);
+                bodyRect.sizeDelta = new Vector2(0f, RowsInGroup(g) * CardPitch);
+                _groupBodies[g] = body;
+
+                if (training) BuildTrialCards(body.transform);
+                else BuildActStages(body.transform, g);
+            }
+
+            SelectGroup(0, pin: false);
+        }
+
+        /// <summary>Act accent — the worldview colour language, not a new one:
+        /// 기록 = memory = cyan, 증언 = judgement = gold, 집행 = danger = ember.</summary>
+        static Color ActAccent(int act) => act == 0 ? Cyan : act == 1 ? Gold : Ember;
+
+        /// <summary>Rows a group shows when open. The training group carries the
+        /// shared tier selector plus one card per trial.</summary>
+        static int RowsInGroup(int group)
+            => group == ProgressionGuide.TrainingGroup
+                ? 1 + TrainingTrials.Ids.Length
+                : ProgressionGuide.StagesPerAct;
+
+        /// <summary>
+        /// A fold header. Stateful button grammar (sprite swap, flat fill) —
+        /// the same language the tabs and the roster use, because it carries the
+        /// same kind of state: which one of a set is open.
+        ///
+        /// Measured 179.6 x 21.5 CSS px at the worst phone tier. The height is
+        /// the tab strip's existing debt class and the width is the widest
+        /// control in the lobby, so this joins the frozen table without setting
+        /// a new worst (negotiation entry 12).
+        /// </summary>
+        void BuildGroupHeader(Transform parent, int group, string kicker, string title, Color accent)
+        {
+            var header = Panel(parent, new Vector2(0, 1), new Vector2(1, 1),
+                Vector2.zero, Vector2.zero, ButtonBack);
+            var rect = header.GetComponent<RectTransform>();
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.offsetMin = new Vector2(12f, -HeaderHeight);
+            rect.offsetMax = new Vector2(-12f, 0f);
+            var background = header.GetComponent<Image>();
+            background.raycastTarget = true;
+            _groupHeaderBacks[group] = background;
+
+            var index = group;
+            header.AddComponent<Button>().onClick.AddListener(() => SelectGroup(index, pin: true));
+
+            // Korean title FIRST. Audits and layout tests identify a control by
+            // its first Text child, and the thing a player sees on this header
+            // is the act name — an English kicker as the audit key would name
+            // the control something no player has ever read. Visual order is
+            // unchanged: the kicker still sits above, by anchor, not by index.
+            var titleText = Label(header.transform, 12, -16, 200, 24, title, 16, TextAnchor.MiddleLeft);
+            titleText.color = new Color(0.92f, 0.94f, 1f);
+            var kickerText = Label(header.transform, 12, -3, 200, 13, kicker, 9, TextAnchor.MiddleLeft);
+            kickerText.color = new Color(accent.r, accent.g, accent.b, 0.85f);
+
+            _groupCounts[group] = Label(header.transform, -34, -12, 62, 20, "", 12,
+                TextAnchor.MiddleRight);
+            AnchorTopRight(_groupCounts[group].rectTransform);
+            _groupCounts[group].color = accent;
+
+            _groupCarets[group] = Label(header.transform, -12, -12, 18, 20, "\u25b6", 12,
+                TextAnchor.MiddleRight);
+            AnchorTopRight(_groupCarets[group].rectTransform);
+            _groupCarets[group].color = InkDim;
+        }
+
+        /// <summary>The three stage cards of one act. Card geometry is unchanged
+        /// from the flat list — only the parent moved.</summary>
+        void BuildActStages(Transform body, int act)
+        {
+            var first = act * ProgressionGuide.StagesPerAct;
+            for (var slot = 0; slot < ProgressionGuide.StagesPerAct; slot++)
+            {
+                var i = first + slot;
+                if (i >= StageCatalog.Entries.Count) break;
                 var entry = StageCatalog.Entries[i];
-                var card = Card(stageContent.transform, -6 - i * 70, 68);
+                var card = Card(body, -slot * CardPitch, 68);
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
                 var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)
@@ -699,9 +907,6 @@ namespace CinderCourt.View
                     glyphRect.anchoredPosition = new Vector2(12f, -44f);
                     glyphRect.sizeDelta = new Vector2(24f, 24f);
                 }
-                var rewardText = string.IsNullOrEmpty(entry.CompanionReward)
-                    ? "동행 없음"
-                    : CompanionNameFor(entry.CompanionReward);
                 // Fun-pass v1.2: gimmick epithet leads the reward line (spec
                 // "기존 보상 라인 문법에 기믹 별칭 추가"). Merged instead of a new
                 // row: the 68 u card has no vertical slack between the reward
@@ -709,10 +914,24 @@ namespace CinderCourt.View
                 // row would break the audited pitch/44 px touch floor. The
                 // hazard glyph at (12,-44) already sits directly left of this
                 // label, so it doubles as the epithet's gimmick marker.
-                var sub = Label(card.transform, 34, -44, 220, 16,
-                    $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
+                //
+                // AMENDMENT #8 gives this line a third job: on a locked card it
+                // carries the lock REASON. That forced the CanvasGroup below.
+                // A locked card sits at alpha 0.45, and every lobby colour
+                // composited through 0.45 lands under 3.1:1 — gold 3.07, cyan
+                // 2.31, the lock grey 1.71. There is no colour that passes, so
+                // the fix cannot be a colour. The card stays dimmed because it
+                // is not actionable; the sentence explaining WHY it is not
+                // actionable is exempted from the dimming and reads at 8.69:1.
+                var sub = Label(card.transform, 34, -44, 220, 16, "", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
+                var subGroup = sub.gameObject.AddComponent<CanvasGroup>();
+                subGroup.alpha = 1f;
+                subGroup.ignoreParentGroups = true;
+                subGroup.interactable = false;
+                subGroup.blocksRaycasts = false;
                 _stageSubLabels[i] = sub;
+
                 _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
@@ -741,8 +960,82 @@ namespace CinderCourt.View
 
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
             }
+        }
 
-            BuildTrialCards(stageContent.transform, StageCatalog.Entries.Count);
+        /// <summary>
+        /// Open one group, close the rest, and re-stack every group's origin.
+        ///
+        /// Exactly one open group is what makes the height budget hold: the
+        /// worst case is the training group at 626 u, and two open groups would
+        /// blow past anything the viewport can show. <paramref name="pin"/>
+        /// separates a player's tap from the automatic follow — while the
+        /// player is in the lobby their choice stands, and leaving the lobby
+        /// (Hide) drops the pin so the next visit opens on wherever they are.
+        /// </summary>
+        void SelectGroup(int group, bool pin)
+        {
+            if (_groupRects == null) return;
+            _expandedGroup = group;
+            if (pin) _groupPinned = true;
+
+            var cursor = ContentTop;
+            for (var g = 0; g < _groupRects.Length; g++)
+            {
+                var expanded = g == _expandedGroup;
+                _groupBodies[g].SetActive(expanded);
+                _groupRects[g].anchoredPosition = new Vector2(0f, -cursor);
+                _groupCarets[g].text = expanded ? "\u25bc" : "\u25b6";
+                PlateStateful(_groupHeaderBacks[g], expanded);
+
+                var height = HeaderPitch + (expanded ? RowsInGroup(g) * CardPitch : 0f);
+                _groupRects[g].sizeDelta = new Vector2(0f, height);
+                cursor += height + GroupGap;
+            }
+            _stageContentRect.sizeDelta = new Vector2(0f, cursor);
+
+            // A fold moves everything below it. Keeping the old scroll offset
+            // would leave the group the player just opened partly above the
+            // viewport — the one outcome a navigation feature must not produce.
+            if (_stageScroll != null) _stageScroll.verticalNormalizedPosition = 1f;
+        }
+
+        /// <summary>
+        /// Per-group counts, and the automatic follow to the target's group.
+        ///
+        /// The follow is what makes the fold a navigation aid rather than a
+        /// space saving: opening the lobby puts the player's actual position on
+        /// screen without a tap. A tap of their own overrides it until they
+        /// leave (see <see cref="Hide"/>).
+        /// </summary>
+        void RefreshGroupHeaders(in CampaignData data, in GuideTarget target)
+        {
+            if (_groupCounts == null) return;
+            for (var act = 0; act < ProgressionGuide.ActCount; act++)
+                _groupCounts[act].text =
+                    $"{ProgressionGuide.ClearedInAct(in data, act)}/{ProgressionGuide.StagesPerAct}";
+            _groupCounts[ProgressionGuide.TrainingGroup].text = data.PrologueDone
+                ? $"{ProgressionGuide.MasteredTrials(in data)}/{TrainingTrials.Ids.Length}"
+                : "잠김";
+
+            if (!_groupPinned) SelectGroup(ProgressionGuide.GroupOfTarget(in target), pin: false);
+        }
+
+        /// <summary>The gauge's tail: which door is next, named by its gimmick.
+        /// Disclosure, not instruction — the survey found recommendation in 0 of
+        /// 6 comparable titles and disclosure everywhere.</summary>
+        static string TargetSuffix(in CampaignData data, in GuideTarget target)
+        {
+            switch (target.Kind)
+            {
+                case GuideTargetKind.Prologue:
+                    return "\n다음 재판: 점화 훈련";
+                case GuideTargetKind.Stage:
+                    return "\n다음 재판: " + StageCatalog.Entries[target.Index].Epithet;
+                case GuideTargetKind.Trial:
+                    return "\n다음 재판: " + TrialNames[target.Index];
+                default:
+                    return "\n전 구역 정화 완료";
+            }
         }
 
         // ----------------------------------------------------- training ground --
@@ -779,10 +1072,10 @@ namespace CinderCourt.View
         /// table update, so the tier choice moved to one shared row and every
         /// button here now matches the audited stage-card button exactly.
         /// </summary>
-        void BuildTrialCards(Transform content, int rowOffset)
+        void BuildTrialCards(Transform content)
         {
-            var tierCard = Card(content, -6 - rowOffset * 70, 68);
-            Eyebrow(tierCard.transform, 12, -6, "TRAINING", "훈련장 • 등급");
+            var tierCard = Card(content, 0f, 68);
+            Eyebrow(tierCard.transform, 12, -6, "TIER", "등급 선택");
             // Only 76 u is clear beside three buttons, so this row carries the
             // tier COUNT and nothing else. The mastery line is on the prologue
             // card, which has the width for a sentence.
@@ -805,7 +1098,7 @@ namespace CinderCourt.View
 
             for (var i = 0; i < TrainingTrials.Ids.Length; i++)
             {
-                var card = Card(content, -6 - (rowOffset + 1 + i) * 70, 68);
+                var card = Card(content, -(1 + i) * CardPitch, 68);
                 Eyebrow(card.transform, 12, -6, "TRIAL", TrialNames[i]);
                 var lesson = Label(card.transform, 12, -44, 230, 16, TrialLessons[i], 10,
                     TextAnchor.MiddleLeft);
@@ -885,6 +1178,7 @@ namespace CinderCourt.View
             string[] tabNames = { "성장", "장비", "군단", "각인" };
             _tabContents = new GameObject[TabCount];
             _tabBackgrounds = new Image[TabCount];
+            _tabBadges = new Image[TabCount];
             for (var i = 0; i < TabCount; i++)
             {
                 var tabIndex = i;
@@ -892,6 +1186,19 @@ namespace CinderCourt.View
                     new Vector2(16 + i * 95, -60), new Vector2(91, 44), tabNames[i], 15,
                     () => SelectTab(tabIndex), plated: false);
                 _tabBackgrounds[i] = tab.GetComponent<Image>();
+
+                // N5 badge — a 7 u ember dot in the tab's top-right corner.
+                // Deliberately NOT a count and NOT a price: the survey's
+                // sharpest failure case is Darkest Dungeon 2's Altar of Hope,
+                // where a screen added to answer "no progression" became the
+                // source of "grindfest" complaints. A badge that quantifies is
+                // a purchase prompt. This one only says a door is open.
+                var badge = Panel(tab.transform, new Vector2(1, 1), new Vector2(1, 1),
+                    new Vector2(-6, -6), new Vector2(7, 7), Ember);
+                badge.name = "Badge";
+                badge.GetComponent<RectTransform>().pivot = new Vector2(1f, 1f);
+                _tabBadges[i] = badge.GetComponent<Image>();
+                badge.SetActive(false);
             }
 
             _tabContents[0] = BuildGrowthTab(panel.transform);
@@ -1063,10 +1370,22 @@ namespace CinderCourt.View
                 var row = i;
                 var y = -32 - i * 74;
 
-                var title = Label(content.transform, 16, y, 150, 18,
+                var title = Label(content.transform, 16, y, 130, 18,
                     $"{SigilNames[i]} • {SigilGimmicks[i]}", 13, TextAnchor.MiddleLeft);
                 title.color = Gold;
                 _sigilTitles[i] = title;
+
+                // N11 — the axis the genre could not have: 0 of 17 surveyed
+                // titles mark whether a meta upgrade is live in what comes
+                // next, because in all 17 the upgrade is a global constant and
+                // the question has no answer. Ours bind to gimmicks: 집행인
+                // fires in one stage of nine, 점화인 in nine of nine, and both
+                // cost the same 12 relics. Price cannot say that. This can.
+                //
+                // It says only whether the gimmick appears. It never says buy.
+                _sigilContext[i] = Label(content.transform, 150, y, 78, 18, "", 9,
+                    TextAnchor.MiddleLeft);
+                _sigilContext[i].color = InkDim;
 
                 var effect = Label(content.transform, 16, y - 18, 210, 16, "", 10, TextAnchor.MiddleLeft);
                 effect.color = InkDim;

@@ -35,6 +35,15 @@ namespace CinderCourt.View
         // save parses them as 0 = "no trial cleared, no mastery claimed".
         public int TrialTiers;                      // 5 trials x 2 bits, best tier per trial + 1 (0 = never cleared)
         public bool TrainingMasteryClaimed;         // one-time +2 relics, negotiation entry 7
+
+        // v6 guidance (AMENDMENT #9 · design/ingame-guidance-spec.md). One int,
+        // additive: a pre-v6 save parses it as 0 = "nothing seen yet", which is
+        // exactly right for a player who never had guidance. 23 bits used; the
+        // usable ceiling is 31, not 32 — ExtractInt below reads digits only, so
+        // a sign-bit-set value serialises as negative and reads back as 0,
+        // wiping every bit. GuidanceCatalog.BitCeiling states it and a test
+        // pins it.
+        public int GuidanceSeen;                    // bit i = GuidanceCatalog.Entries[i] shown once
     }
 
     public static class CampaignStore
@@ -95,6 +104,9 @@ namespace CinderCourt.View
             // v5 training — same missing-key-is-zero rule: no trial cleared.
             data.TrialTiers = ExtractInt(raw, "\"trialTiers\":");
             data.TrainingMasteryClaimed = raw.Contains("\"trainingMastery\":true");
+            // v6 guidance — same rule: a save from before AMENDMENT #9 loads 0,
+            // which reads as "has seen nothing", the truth for that player.
+            data.GuidanceSeen = ExtractInt(raw, "\"guidanceSeen\":");
             return data;
         }
 
@@ -128,6 +140,7 @@ namespace CinderCourt.View
                 .Append(",\"sigilSlot1\":").Append(data.SigilSlot1)
                 .Append(",\"trialTiers\":").Append(data.TrialTiers)
                 .Append(",\"trainingMastery\":").Append(data.TrainingMasteryClaimed ? "true" : "false")
+                .Append(",\"guidanceSeen\":").Append(data.GuidanceSeen)
                 .Append('}');
             WebGLStorage.SetString(Key, Builder.ToString());
         }

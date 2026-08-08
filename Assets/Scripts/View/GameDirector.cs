@@ -66,6 +66,17 @@ namespace CinderCourt.View
             _hud.OnEmberRestOfferSelected = SelectEmberRestOffer;
             _hud.OnEmberRestDeferred = DeferEmberRest;
             _hud.OnEmberRestContinue = ContinueFromEmberRest;
+            // Marking happens on DISMISS, never on show: a card the player never
+            // read must not be consumed (a run can end with one up).
+            _hud.OnGuidanceDismissed = MarkGuidanceSeen;
+            _hud.OnAbandonConfirmed = AbandonRun;
+            _hud.AbandonRelicsAtRisk = () =>
+                _game != null && _game.Sim != null ? _game.Sim.Relics : 0;
+            // A PREDICATE, not the record. The codex is a re-read surface: if
+            // it could reach CampaignData it could mark a bit, and browsing an
+            // entry would suppress the pause card that entry was meant to
+            // deliver. Reading cannot consume.
+            _hud.CodexEntrySeen = bit => GuidanceCatalog.Seen(in _data, bit);
             var callbacks = new LobbyCallbacks
             {
                 OnSortie = OnSortie,
@@ -187,6 +198,35 @@ namespace CinderCourt.View
         }
 
         void ReturnToLobby() => EnterLobby();
+
+        /// <summary>
+        /// AMENDMENT #9 (negotiation entry 14) — leave a run in progress.
+        ///
+        /// Everything earned this run is forfeit: no relics, no clear bit, no
+        /// roster merge. That is stricter than the genre (total forfeit is 2 of
+        /// 16 surveyed titles; Loop Hero grades it 100/60/30%), and the reason
+        /// is local rather than fashionable — DEFEAT already banks relics here
+        /// (see the GameOver branch in OnRunEvents). Give abandonment the same
+        /// or a graded payout and "walk in, grab the drops, walk out" becomes
+        /// the safest way to farm, since it removes the death risk that is
+        /// supposed to price those relics.
+        ///
+        /// No CampaignStore.Save call: forfeiting means the in-memory _data is
+        /// already what the save on disk says. Writing would only risk
+        /// persisting something else that changed mid-run.
+        /// </summary>
+        void AbandonRun()
+        {
+            // Any run state, not just Dungeon. The lobby has no abandon button,
+            // so reaching here at all means a run is up; a state check would
+            // only re-open the prologue trap this method exists to close.
+            if (_state == State.Lobby) return;
+            // Block the run-end handlers from firing on the way out — otherwise
+            // teardown could still trip the GameOver branch and bank the relics
+            // this method exists to forfeit.
+            _runEndPersisted = true;
+            EnterLobby();
+        }
 
         void RetryStage()
         {
@@ -379,6 +419,27 @@ namespace CinderCourt.View
             _hud.ResetRunUi();             // clears interrupted ceremony timers on every entry/retry
             _hud.SetPrologueMode(false);   // every run resets; prologue re-enables
             _hud.SetHudVisible(true);
+            // AMENDMENT #9: the way out, in EVERY run mode.
+            //
+            // The first draft gated this to dungeons, reasoning that "the
+            // prologue ends on its own in three waves and a trial is a 60 s
+            // clock, so neither can trap anyone". That reasoning assumed the
+            // player SURVIVES. A user opened the prologue, died, and got a
+            // panel with exactly one button — 재강하 — because the campaign
+            // back-link is added by EnableCampaignUi, which only runs for
+            // dungeon presentation. Retry, die, retry: a closed loop.
+            //
+            // "It ends on its own" is a statement about the winning path only.
+            // Every mode gets the exit.
+            _hud.SetLeftStackAvailable(_state == State.Dungeon
+                || _state == State.Prologue
+                || _state == State.Training
+                || _state == State.Arena);
+            // A fresh run re-scans its hazard table; without this the second
+            // visit to a stage would skip hazards the player has not met yet
+            // (a pact table adds gimmicks the base table never had).
+            _guidanceScannedStage = null;
+            _guidanceQueue.Clear();
         }
 
         static int EmberRestSeedFor(in StageEntry entry) => entry.CatalogIndex;
@@ -484,7 +545,9 @@ namespace CinderCourt.View
             _lobby.Refresh(_data);
         }
 
-        static readonly int[] EquipCosts = { 2, 4, 7, 11, 16 };
+        // AMENDMENT #8: the second copy of the price table is gone. It agreed
+        // with LobbyView's copy by luck, not by construction.
+        static readonly int[] EquipCosts = ProgressionGuide.EquipCosts;
 
         void OnBuyEquip(string slot)
         {
@@ -494,7 +557,7 @@ namespace CinderCourt.View
                 "lantern" => _data.Lantern,
                 _ => _data.Cloak,
             };
-            if (tier >= 5) return;
+            if (tier >= ProgressionGuide.EquipCap) return;
             var cost = EquipCosts[tier];
             if (_data.Relics < cost) return;
             _data.Relics -= cost;
@@ -584,6 +647,8 @@ namespace CinderCourt.View
             if (_state == State.Dungeon)
                 DispatchStory(events, sim);
 
+            PumpGuidance(events, sim);
+
             if ((events & SimEvents.StageCleared) != 0 && !_runEndPersisted)
             {
                 _runEndPersisted = true;
@@ -591,6 +656,13 @@ namespace CinderCourt.View
                 if (_state == State.Prologue)
                 {
                     _data.PrologueDone = true;
+                    // The prologue's own four-step toast already taught movement
+                    // and striking, so mark those entries delivered rather than
+                    // repeating them the first time the player enters a dungeon.
+                    // A lesson told twice teaches the player that the guidance
+                    // is not tracking what they know.
+                    GuidanceCatalog.MarkSeen(ref _data, GuidanceCatalog.IndexOf("이동"));
+                    GuidanceCatalog.MarkSeen(ref _data, GuidanceCatalog.IndexOf("연격"));
                     // The 2D->2.5D reveal (spec §1): 2.2 s camera sweep, then lobby.
                     _hud.HidePrologueToast();
                     _rig.SetProfile(CameraRig.Profile.PrologueReveal);
@@ -624,6 +696,174 @@ namespace CinderCourt.View
             }
             if ((events & SimEvents.WaveStarted) != 0)
                 _runEndPersisted = false;
+        }
+
+        // ============================================ AMENDMENT #9 guidance ==
+        // Triggers. Everything here is edge-driven off sim events or a one-shot
+        // stage scan — nothing polls, and nothing runs once an entry is seen.
+        //
+        // Order matters: the pause queue is drained one card at a time, because
+        // two cards at once would stack modals and the second would be dismissed
+        // by the keypress that closed the first.
+        readonly System.Collections.Generic.List<int> _guidanceQueue =
+            new System.Collections.Generic.List<int>(8);
+        string _guidanceScannedStage = null;
+
+        /// <summary>Queues an entry if it has never been shown. Deduplicates
+        /// against the queue as well as the save, so a hazard appearing twice in
+        /// one table cannot enqueue itself twice.</summary>
+        void QueueGuidance(int bit)
+        {
+            if (bit < 0 || GuidanceCatalog.Seen(in _data, bit)) return;
+            if (_guidanceQueue.Contains(bit)) return;
+            _guidanceQueue.Add(bit);
+        }
+
+        /// <summary>
+        /// One-shot scan when a stage starts: every hazard kind present in the
+        /// table the run will actually use. Reading the table rather than
+        /// waiting for a hazard to hurt the player is deliberate — the vent
+        /// lesson is worthless after the vent has already landed.
+        /// </summary>
+        void ScanStageGuidance(string stageId, ICinderSim sim)
+        {
+            if (_guidanceScannedStage == stageId) return;
+            // Hazards live on the campaign surface, not the base sim. An arena
+            // run has none, and a cast that fails means there is nothing to
+            // teach — mark the stage scanned either way so this never retries.
+            _guidanceScannedStage = stageId;
+            if (!(sim is ICampaignSnapshot campaign)) return;
+            var hazards = campaign.Hazards;
+            if (hazards == null) return;
+            for (var i = 0; i < hazards.Count; i++)
+                QueueGuidance(GuidanceCatalog.BitForHazard(hazards[i].Kind));
+        }
+
+        void PumpGuidance(SimEvents events, ICinderSim sim)
+        {
+            // Trials are the practice mode — a player entering one has chosen
+            // the gimmick deliberately, and its lesson is on the lobby card that
+            // sent them there. Pausing again would be the third telling.
+            if (_state == State.Dungeon)
+            {
+                ScanStageGuidance(_runStageId, sim);
+
+                if ((events & SimEvents.PickupCollected) != 0)
+                    QueuePickupGuidance(sim);
+                if ((events & SimEvents.PerilOpened) != 0)
+                    QueueGuidance(GuidanceCatalog.PerilBit);
+                if ((events & SimEvents.SurgeOpened) != 0)
+                    QueueGuidance(GuidanceCatalog.SurgeBit);
+                // Win and lose are taught BEFORE they can be experienced.
+                //
+                // Victory rides BossSpawned: the boss wave is the last moment
+                // "clear the waves, then the boss" is still actionable advice
+                // rather than a description of what already happened.
+                //
+                // Defeat rides the FIRST time the player is hit, not GameOver.
+                // On GameOver the run is over and ResetRunUi tears the card down
+                // (it has to — a card up at timeScale 0 with no run left is a
+                // hard freeze), so a lesson queued there would never be read.
+                // First damage is the moment the health bar starts meaning
+                // something, which is exactly when the rule is worth knowing.
+                if ((events & SimEvents.BossSpawned) != 0)
+                    QueueGuidance(GuidanceCatalog.VictoryBit);
+                if ((events & SimEvents.PlayerDamaged) != 0)
+                    QueueGuidance(GuidanceCatalog.DefeatBit);
+                QueueAffordableSkillGuidance(sim);
+            }
+
+            DrainGuidanceQueue();
+        }
+
+        /// <summary>Queues the entry for whatever was just picked up. Scans the
+        /// live pickup list for kinds not yet seen rather than trusting an event
+        /// payload the sim does not carry.</summary>
+        void QueuePickupGuidance(ICinderSim sim)
+        {
+            var pickups = sim.Pickups;
+            if (pickups == null) return;
+            for (var i = 0; i < pickups.Count; i++)
+                QueueGuidance(GuidanceCatalog.BitForPickup(pickups[i].Kind));
+        }
+
+        /// <summary>
+        /// Teaches a skill the first frame the player can actually cast it.
+        ///
+        /// This is the survey's G7 (progressive teaching, 12/19): a skill
+        /// explained before there is oil to cast it is a fact, and a skill
+        /// explained the moment it lights up is an instruction. Cheap enough to
+        /// run per event — five int compares that stop entirely once the bits
+        /// are set, and Seen() short-circuits inside QueueGuidance.
+        /// </summary>
+        void QueueAffordableSkillGuidance(ICinderSim sim)
+        {
+            var charge = sim.Charge;
+            // Combo needs no oil — it is the first thing available, so it goes
+            // out the moment the player is in a dungeon at all. Movement rides
+            // along for the same reason: the prologue normally teaches it and
+            // marks the bit, but a save that arrives with PrologueDone already
+            // true (deep link, imported save, a future skip button) never ran
+            // that path, and "how do I walk" is not a lesson to leave to chance.
+            QueueGuidance(GuidanceCatalog.FirstControlBit);
+            QueueGuidance(GuidanceCatalog.IndexOf("연격"));
+            if (charge >= HackSpec.DashCost) QueueGuidance(GuidanceCatalog.IndexOf("질주"));
+            if (charge >= HackSpec.BoltCost) QueueGuidance(GuidanceCatalog.IndexOf("균열 화살"));
+            if (charge >= HackSpec.PulseCost) QueueGuidance(GuidanceCatalog.IndexOf("묘지 파동"));
+            if (charge >= HackSpec.AegisCost) QueueGuidance(GuidanceCatalog.IndexOf("공허 방패"));
+            if (charge >= HackSpec.AshNovaCost) QueueGuidance(GuidanceCatalog.IndexOf("잿불 노바"));
+            // Companion orders only exist when one was actually taken along.
+            // Read from the lobby's active slot, not the sim: the sim exposes a
+            // companion position and behaviour but no "is there one" predicate,
+            // and CompanionX defaults to 0 rather than being absent.
+            if (!string.IsNullOrEmpty(_data.Active))
+            {
+                QueueGuidance(GuidanceCatalog.IndexOf("동료 대기"));
+                QueueGuidance(GuidanceCatalog.IndexOf("동료 호출"));
+            }
+        }
+
+        /// <summary>Shows the next queued card, one at a time. Toast-tier
+        /// entries never pause; they mark themselves seen immediately.</summary>
+        void DrainGuidanceQueue()
+        {
+            if (_guidanceQueue.Count == 0 || _hud == null || _hud.GuidancePaused) return;
+            var bit = _guidanceQueue[0];
+            _guidanceQueue.RemoveAt(0);
+            if (GuidanceCatalog.Seen(in _data, bit)) return;
+
+            var entry = GuidanceCatalog.Entries[bit];
+            var body = entry.BodyFor(_hud.TouchActive);
+            if (entry.Tier == GuidanceTier.Pause)
+            {
+                if (_hud.ShowGuidancePause(bit, GuidanceKicker(entry.Group), entry.Title, body))
+                    return;   // OnGuidanceDismissed marks and saves
+                _guidanceQueue.Insert(0, bit);   // card busy — retry next event
+                return;
+            }
+            _hud.ShowGuidanceToast(entry.Title, body);
+            MarkGuidanceSeen(bit);
+        }
+
+        static string GuidanceKicker(GuidanceGroup group)
+        {
+            switch (group)
+            {
+                case GuidanceGroup.Hazard: return "HAZARD";
+                case GuidanceGroup.Outcome: return "OUTCOME";
+                case GuidanceGroup.Pickup: return "PICKUP";
+                case GuidanceGroup.Surge: return "SURGE";
+                default: return "CONTROL";
+            }
+        }
+
+        /// <summary>Marks a lesson delivered and persists it. Called on dismiss
+        /// for pause cards and immediately for toasts — never on queueing, so a
+        /// card the player never saw is never consumed.</summary>
+        void MarkGuidanceSeen(int bit)
+        {
+            if (!GuidanceCatalog.MarkSeen(ref _data, bit)) return;
+            CampaignStore.Save(in _data);
         }
 
         /// <summary>v1.3 M3 (negotiation-record entry 5, signed): a pact clear
