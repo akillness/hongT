@@ -1027,6 +1027,48 @@ namespace CinderCourt.View
                     // lit court, just not holes in it.
                     Shade = 3.2f + (float)Signed(seed, 24, 4) * 0.35f,
                 });
+                // Warm point on the colonnade. The key art rings the court with
+                // lit braziers, and that is the one element of it the frame
+                // still lacks — the eight §E6 torches all sit at e ~1.01, just
+                // outside the stop line, so the outer ring reads unlit.
+                //
+                // No new machinery and no budget: Part.Ember already routes to
+                // _emberMaterial (ViewWorld.MakeAdditive), the same additive
+                // quad the torch heads use, so this is a COUNT and PLACEMENT
+                // change on shipping code. It also spends no light — §E6's
+                // ceiling of 4 is POINT lights, and an additive quad is none.
+                //
+                // Height rides the silhouette it sits on, so a taller statue
+                // carries its flame higher. Kept small (0.16 u) so the ring
+                // reads as points, not as a second light source competing with
+                // the arena centre (§E0.5).
+                //
+                // MEASURED, and this is why there are TWO: one head rendered a
+                // 140-luminance patch whose radial profile fell 140 -> 44 in a
+                // single 3 px step. That is a cliff, i.e. a flat bright chip,
+                // not a glow. StageTints Clamp01s the ember colour on purpose,
+                // so one additive quad lands just UNDER CinderPostProfile's
+                // 1.05 bloom threshold and can never flare on its own. The
+                // documented way past it is the one ViewWorld.MakeAdditive
+                // states outright - overlapping quads ACCUMULATE - so the head
+                // is two concentric shells rather than a brighter tint. Doing
+                // it here keeps the change local: unclamping StageTints would
+                // have relit every gate, bridge and torch in all nine stages.
+                var headY = height * (float)SimToWorld * 0.92f;
+                module.Pieces.Add(new Piece
+                {
+                    Part = Part.Ember,
+                    LocalY = headY,
+                    SizeX = 0.16f, SizeY = 0.16f, SizeZ = 0.16f,
+                    Shade = 1f,
+                });
+                module.Pieces.Add(new Piece   // inner shell: the accumulator
+                {
+                    Part = Part.Ember,
+                    LocalY = headY,
+                    SizeX = 0.11f, SizeY = 0.11f, SizeZ = 0.11f,
+                    Shade = 1f,
+                });
                 modules.Add(module);
                 index++;
             }

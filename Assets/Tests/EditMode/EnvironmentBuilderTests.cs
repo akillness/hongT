@@ -436,6 +436,9 @@ namespace CinderCourt.Tests
                     root = BuildOrFail(stageId);
                     var found = 0;
                     var overCap = 0;
+                    var lit = 0;
+                    var lowHead = 0;
+                    var scattered = 0;
                     foreach (Transform child in root.transform)
                     {
                         if (!child.name.StartsWith("env-pillar-7", System.StringComparison.Ordinal))
@@ -447,6 +450,35 @@ namespace CinderCourt.Tests
                         for (var r = 1; r < rends.Length; r++) b.Encapsulate(rends[r].bounds);
                         if (b.size.y > tallest) tallest = b.size.y;
                         if (b.size.y > EnvironmentLayout.FurnitureMaxHeight * 1.5f) overCap++;
+
+                        // Each silhouette carries a stack of additive quads at
+                        // ONE point near the top of the shaft. Two things are
+                        // load-bearing and both are asserted: the head rides the
+                        // TOP (a warm point at the base is just a lit rock), and
+                        // the quads are COINCIDENT. StageTints Clamp01s ember, so
+                        // a lone quad sits under CinderPostProfile's 1.05 bloom
+                        // threshold and renders as a flat chip; only overlapping
+                        // quads accumulate past it (ViewWorld.MakeAdditive). Two
+                        // ember quads on opposite ends of the statue would pass a
+                        // naive count and still never glow, so proximity is the
+                        // assertion that actually protects the look.
+                        var heads = new List<Renderer>();
+                        foreach (var rend in rends)
+                        {
+                            var mat = rend.sharedMaterial;
+                            if (mat == null || mat.name != "env-ember") continue;
+                            heads.Add(rend);
+                            var rise = (rend.bounds.center.y - b.min.y)
+                                / Mathf.Max(b.size.y, 1e-4f);
+                            if (rise < 0.75f) lowHead++;
+                        }
+                        if (heads.Count >= 2) lit++;
+                        for (var h = 1; h < heads.Count; h++)
+                        {
+                            if (Vector3.Distance(heads[0].bounds.center,
+                                    heads[h].bounds.center) > 0.02f)
+                                scattered++;
+                        }
                     }
                     Assert.That(found, Is.GreaterThan(0),
                         $"{stageId}: no outer silhouettes were built");
@@ -455,6 +487,19 @@ namespace CinderCourt.Tests
                         + $"1.5x the occlusion cap ({EnvironmentLayout.FurnitureMaxHeight:F3}u) "
                         + "- the cap is being applied where it must not be, so the "
                         + "ring is flat chips instead of silhouette");
+                    Assert.That(lit, Is.EqualTo(found),
+                        $"{stageId}: {found} silhouette(s) but only {lit} carry a "
+                        + "stacked (>=2 quad) ember head - a single additive quad "
+                        + "cannot clear the 1.05 bloom threshold, so those posts "
+                        + "render as flat chips instead of warm points");
+                    Assert.That(scattered, Is.Zero,
+                        $"{stageId}: {scattered} ember quad(s) sit >0.02u from "
+                        + "their stack centre - separated quads do not accumulate, "
+                        + "so the head stops blooming");
+                    Assert.That(lowHead, Is.Zero,
+                        $"{stageId}: {lowHead} ember head(s) sit below 75% of "
+                        + "their own shaft - a brazier crowns the column, it "
+                        + "does not hug its base");
                     covered++;
                 }
                 finally { if (root != null) Object.DestroyImmediate(root); }
