@@ -54,6 +54,28 @@ CUES = {
     "footstep": (0.5, "Single soft dungeon footstep on stone, muffled leather boot "
                  "fall, low thud with faint grit scrape, dry, no reverb tail, "
                  "game SFX one-shot"),
+    # Loot rarity pickups (ui-lane3 loot popup contract): richer sibling of
+    # "pickup" for Fine-tier drops, and a distinct gold/resonant sting for
+    # Epic-tier drops. Both stay in the dark-fantasy charcoal/ember/spectral-cyan
+    # palette established by the cue set above.
+    "loot-fine": (0.6, "Fine-tier relic pickup shimmer, richer layered sparkle "
+                  "than a plain collect blip, spectral cyan crystal resonance "
+                  "with a quick ascending glass chime, dark fantasy arcade "
+                  "collect confirm, dry, no long tail, game SFX one-shot"),
+    "loot-epic": (1.0, "Epic-tier relic pickup fanfare, short bright gold chime "
+                  "struck once with a low warm resonant drone layer underneath, "
+                  "unmistakably precious and rare, dark fantasy arcade reward "
+                  "confirm, tight tail, game SFX one-shot"),
+    # UI toast popup: very short soft slide/pop, midrange and up only so it
+    # layers cleanly over loot cues without muddying the low end.
+    # NOTE: 0.5s is the ElevenLabs sound-generation API's hard floor for
+    # duration_seconds (0.3 was rejected with HTTP 400 invalid_generation_settings);
+    # the prompt still asks for the tightest possible transient within that floor.
+    "toast": (0.5, "Extremely short soft UI toast popup sound, gentle upward "
+              "slide into a light airy pop that decays almost instantly, "
+              "midrange and high frequencies only, no bass, no low end, no "
+              "reverb tail, subtle dark-fantasy interface notification, dry, "
+              "game SFX one-shot"),
     "wave": (1.4, "Ominous war horn signaling a new enemy wave, rising dark brass "
              "swell with distant ember hiss, short stinger, game SFX"),
     "gameover": (2.2, "Lantern extinguishing defeat sting, deep descending sine "

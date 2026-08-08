@@ -1,7 +1,7 @@
 {
   "tool": "elevenlabs sound-generation",
   "endpoint": "https://api.elevenlabs.io/v1/sound-generation",
-  "generatedAt": "2026-08-07T23:28:40+0900",
+  "generatedAt": "2026-08-08T11:25:52+0900",
   "cues": {
     "strike": {
       "file": "Assets/Resources/Audio/cue-strike.mp3",
@@ -85,6 +85,27 @@
       "bytes": 8821,
       "durationSeconds": 0.5,
       "prompt": "Single soft dungeon footstep on stone, muffled leather boot fall, low thud with faint grit scrape, dry, no reverb tail, game SFX one-shot",
+      "promptInfluence": 0.55
+    },
+    "loot-fine": {
+      "file": "Assets/Resources/Audio/cue-loot-fine.mp3",
+      "bytes": 10493,
+      "durationSeconds": 0.6,
+      "prompt": "Fine-tier relic pickup shimmer, richer layered sparkle than a plain collect blip, spectral cyan crystal resonance with a quick ascending glass chime, dark fantasy arcade collect confirm, dry, no long tail, game SFX one-shot",
+      "promptInfluence": 0.55
+    },
+    "loot-epic": {
+      "file": "Assets/Resources/Audio/cue-loot-epic.mp3",
+      "bytes": 17180,
+      "durationSeconds": 1.0,
+      "prompt": "Epic-tier relic pickup fanfare, short bright gold chime struck once with a low warm resonant drone layer underneath, unmistakably precious and rare, dark fantasy arcade reward confirm, tight tail, game SFX one-shot",
+      "promptInfluence": 0.55
+    },
+    "toast": {
+      "file": "Assets/Resources/Audio/cue-toast.mp3",
+      "bytes": 8821,
+      "durationSeconds": 0.5,
+      "prompt": "Extremely short soft UI toast popup sound, gentle upward slide into a light airy pop that decays almost instantly, midrange and high frequencies only, no bass, no low end, no reverb tail, subtle dark-fantasy interface notification, dry, game SFX one-shot",
       "promptInfluence": 0.55
     }
   }
