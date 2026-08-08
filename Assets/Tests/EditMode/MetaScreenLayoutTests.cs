@@ -77,10 +77,10 @@ namespace CinderCourt.Tests
             => $"[x {r.xMin:F0}..{r.xMax:F0}, y {r.yMin:F0}..{r.yMax:F0}]";
 
         /// <summary>
-        /// Opens the screen and sizes its canvas to the phone-portrait
-        /// effective width, so world rects read directly in canvas units.
+        /// Opens the screen and sizes its canvas to the effective width for a
+        /// given viewport, so world rects read directly in canvas units.
         /// </summary>
-        Canvas OpenPortrait(out float effectiveWidth)
+        Canvas OpenAt(int screenWidth, int screenHeight, out float effectiveWidth)
         {
             // Build is mandatory: Show early-returns on a null root, which
             // would leave an empty canvas and a vacuously passing test. The
@@ -92,13 +92,18 @@ namespace CinderCourt.Tests
             _meta.Build(font, in data);
             _meta.Show(in data, MetaScreenView.TabEquip);
 
+            // Orientation is pushed in, never read from Screen: EditMode cannot
+            // resize the editor window, so a test that trusted Screen.width
+            // would measure the machine it runs on (HudView L386 grammar).
+            _meta.ApplyLayout(screenWidth, screenHeight);
+
             var canvas = _host.GetComponentInChildren<Canvas>(true);
             Assert.That(canvas, Is.Not.Null, "meta screen built no canvas");
             var scaler = canvas.GetComponent<CanvasScaler>();
             Assert.That(scaler, Is.Not.Null, "meta screen canvas has no scaler");
 
-            effectiveWidth = EffectiveWidth(scaler, PhoneWidth, PhoneHeight);
-            var effectiveHeight = effectiveWidth * PhoneHeight / PhoneWidth;
+            effectiveWidth = EffectiveWidth(scaler, screenWidth, screenHeight);
+            var effectiveHeight = effectiveWidth * screenHeight / screenWidth;
             canvas.renderMode = RenderMode.WorldSpace;
             var canvasRect = (RectTransform)canvas.transform;
             canvasRect.sizeDelta = new Vector2(effectiveWidth, effectiveHeight);
@@ -107,6 +112,9 @@ namespace CinderCourt.Tests
             Canvas.ForceUpdateCanvases();
             return canvas;
         }
+
+        Canvas OpenPortrait(out float effectiveWidth)
+            => OpenAt(PhoneWidth, PhoneHeight, out effectiveWidth);
 
         static List<(string label, RectTransform rect)> InteractiveRects(Canvas canvas)
         {
@@ -128,12 +136,6 @@ namespace CinderCourt.Tests
         /// purpose ("invisible rects cannot eat taps") for the combat HUD.
         /// </summary>
         [Test]
-        [Explicit("Portrait defect in 6379b1a (MetaScreenView pins match 0.5 and "
-            + "never syncs on orientation). Kept OFF the shared gate so other "
-            + "lanes do not see a red they did not cause - run with "
-            + "--testFilter MetaScreenLayoutTests. Remove this attribute when "
-            + "the screen reflows in portrait; the assert prints the measured "
-            + "653 u overlaps.")]
         public void PhonePortrait_CloseButtonDoesNotCoverTheLastTab()
         {
             var canvas = OpenPortrait(out var effectiveWidth);
@@ -173,12 +175,6 @@ namespace CinderCourt.Tests
         /// HudView's portrait match of 0.35 the canvas is ~799 u, still short.
         /// </summary>
         [Test]
-        [Explicit("Portrait defect in 6379b1a (MetaScreenView pins match 0.5 and "
-            + "never syncs on orientation). Kept OFF the shared gate so other "
-            + "lanes do not see a red they did not cause - run with "
-            + "--testFilter MetaScreenLayoutTests. Remove this attribute when "
-            + "the screen reflows in portrait; the assert prints the measured "
-            + "653 u overlaps.")]
         public void PhonePortrait_TabsDoNotCollideWithCurrencyReadouts()
         {
             var canvas = OpenPortrait(out var effectiveWidth);
@@ -232,6 +228,79 @@ namespace CinderCourt.Tests
                 + "\n  A scaler change alone cannot fix this - even at HudView's "
                 + "portrait match of 0.35 the canvas is ~799 u, and the row needs "
                 + "> 1042 u to clear. Portrait wants a reflow.");
+        }
+
+        /// <summary>
+        /// The wide layout is the one nobody is complaining about, which is
+        /// exactly why it needs a gate. Both portrait cases above are
+        /// [Explicit] and therefore invisible to the shared run, so a portrait
+        /// reflow could wreck desktop and the suite would stay green. This test
+        /// is NOT Explicit: it is the tripwire that makes the reflow honest.
+        ///
+        /// Derived, not guessed: at 1280x800 the effective width is ~1214 u and
+        /// the single row needs ~1026 u (tabs end at 572, the currency+close
+        /// cluster occupies the last 454), so wide has ~188 u of slack. If a
+        /// reflow starts applying its portrait rules here, that slack vanishes
+        /// and this fails first.
+        /// </summary>
+        [Test]
+        public void Landscape_NothingStacksOnTheTabRow()
+        {
+            const int wide = 1280;
+            const int tall = 800;
+            var canvas = OpenAt(wide, tall, out var effectiveWidth);
+
+            // Selected by LABEL, exactly like the two portrait tests above.
+            // The first draft filtered by a y band instead and was VACUOUS: the
+            // threshold expression evaluated to the canvas half-height, which
+            // with OpenAt's centred position and 0.5 pivot IS the top edge, so
+            // every pair was skipped and the test passed on any layout. A guard
+            // that cannot fail is worse than no guard, and "it passes on HEAD"
+            // cannot tell the two apart - hence the comparison count assert.
+            var bar = new List<(string label, RectTransform rect)>();
+            foreach (var (label, rect) in InteractiveRects(canvas))
+            {
+                if (label == "장비" || label == "각인" || label == "지도"
+                    || label == "조작" || label == "닫기")
+                    bar.Add((label, rect));
+            }
+            foreach (var text in canvas.GetComponentsInChildren<Text>(true))
+            {
+                if (text.text.StartsWith("유물") || text.text.StartsWith("포인트"))
+                    bar.Add((text.text, text.rectTransform));
+            }
+            Assert.That(bar.Count, Is.EqualTo(7),
+                "expected 4 tabs + 닫기 + 유물 + 포인트 on the bar, found "
+                + string.Join(", ", bar.ConvertAll(e => e.label)));
+
+            var collisions = new List<string>();
+            var compared = 0;
+            for (var i = 0; i < bar.Count; i++)
+            {
+                for (var j = i + 1; j < bar.Count; j++)
+                {
+                    compared++;
+                    var a = WorldRect(bar[i].rect);
+                    var b = WorldRect(bar[j].rect);
+                    var ox = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+                    var oy = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+                    if (ox > OverlapEpsilon && oy > OverlapEpsilon)
+                        collisions.Add($"{bar[i].label} {Describe(a)} over "
+                            + $"{bar[j].label} {Describe(b)} by {ox:F0}x{oy:F0} u");
+                }
+            }
+
+            TestContext.WriteLine(
+                $"[meta landscape @{wide}x{tall}, effective width "
+                + $"{effectiveWidth:F0} u] compared {compared} pair(s), "
+                + $"{collisions.Count} collision(s)");
+
+            Assert.That(compared, Is.EqualTo(21),
+                "7 rects must yield 21 pairs - a lower count means rects went "
+                + "missing and the guard stopped guarding");
+            Assert.That(collisions, Is.Empty,
+                "the wide tab bar must stay a single clean row:\n  "
+                + string.Join("\n  ", collisions));
         }
     }
 }
