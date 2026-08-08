@@ -138,11 +138,13 @@ false 아암은 84×28u 강하를 만드는데, 이는 **어떤 출하 구성에
 ### g6.2 테스트·빌드 `[OBSERVED]`
 
 ```
-EditMode   808 / 808 passed, 0 failed   (test-results-145644.xml)
+EditMode   808 / 808 passed, 0 failed   (test-results-162755.xml)
 변이 스윕  14 / 14 검출                  (qa/mutation-sweep-cycle8.json)
-WebGL      result=Succeeded errors=0 warnings=1  88.2MB
-           (BuildWebGL-145924.log)
-브라우저   4상태, 콘솔 에러 0, pageerror 0  (qa/lobby-rail-smoke/)
+WebGL      result=Succeeded errors=0 warnings=1  88.1MB
+           (build-165822.log)
+브라우저   5상태, 콘솔 에러 0, pageerror 0  (qa/lobby-rail-smoke/)
+           D-12 이후 재측정. 초안 4장 중 2행(기본값=출정, 3회 클릭 후
+           열림)은 D-12가 뒤집은 동작이라 폐기하고 다시 찍었다.
 ```
 
 변이 첫 스윕은 **11/14**였다. 못 잡힌 셋(D-3 터치 기하, D-7 배지, D-8 레일
