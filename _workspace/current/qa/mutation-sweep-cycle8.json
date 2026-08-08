@@ -1,0 +1,159 @@
+{
+  "suite_total": 808,
+  "caught": 14,
+  "of": 14,
+  "mutations": {
+    "M-A restore stacked column (the shipped defect)": {
+      "counts": [
+        "805",
+        "801",
+        "4"
+      ],
+      "red": [
+        "CampaignMapActions_AreDrawnInsideTheCanvas_AndClearTheTouchFloor",
+        "LobbyPanels_HoldTheirPinnedGeometry_AtAnyEffectiveWidth",
+        "RailAndSelectedPanel_DoNotOverlap",
+        "SelectedPanel_IsFullyInsideTheCanvas_AtEveryShippingViewport"
+      ]
+    },
+    "M-B map at old side-by-side constant 432": {
+      "counts": [
+        "805",
+        "803",
+        "2"
+      ],
+      "red": [
+        "LobbyPanels_HoldTheirPinnedGeometry_AtAnyEffectiveWidth",
+        "SelectedPanel_IsFullyInsideTheCanvas_AtEveryShippingViewport"
+      ]
+    },
+    "M-C delete the radio (all three panels active)": {
+      "counts": [
+        "805",
+        "803",
+        "2"
+      ],
+      "red": [
+        "AccordionHeaders_CoverNoExistingControl_InAnyFoldState",
+        "RailSelection_KeepsExactlyOnePanelActive"
+      ]
+    },
+    "M-D SelectRail becomes a toggle": {
+      "counts": [
+        "805",
+        "802",
+        "3"
+      ],
+      "red": [
+        "CampaignMapActions_AreDrawnInsideTheCanvas_AndClearTheTouchFloor",
+        "ClearedStageCard_PactToggleAndDescentDoNotOverlap",
+        "RailSelection_KeepsExactlyOnePanelActive"
+      ]
+    },
+    "M-E RailIcon 103.3 -> 90.2 (the interview spec number)": {
+      "counts": [
+        "805",
+        "803",
+        "2"
+      ],
+      "red": [
+        "LobbyPanels_HoldTheirPinnedGeometry_AtAnyEffectiveWidth",
+        "RailIcons_ClearTheTouchFloor_AtTheSupportFloorViewport"
+      ]
+    },
+    "M-F Hide stops resetting the rail (D-7 click tax)": {
+      "counts": [
+        "805",
+        "804",
+        "1"
+      ],
+      "red": [
+        "RailSelection_KeepsExactlyOnePanelActive"
+      ]
+    },
+    "M-G default rail 출정 -> 성소 (AC-5 regression)": {
+      "counts": [
+        "805",
+        "802",
+        "3"
+      ],
+      "red": [
+        "ArmedPactSortie_DoublesOnlyTheInRunRelicPayout",
+        "ClearedStageCard_PactToggleAndDescentDoNotOverlap",
+        "RailSelection_KeepsExactlyOnePanelActive"
+      ]
+    },
+    "M-H MAP button reverts to the colliding label 지도": {
+      "counts": [
+        "805",
+        "804",
+        "1"
+      ],
+      "red": [
+        "CampaignMapActions_AreDrawnInsideTheCanvas_AndClearTheTouchFloor"
+      ]
+    },
+    "M-I touch layout back to the E_w branch (D-3 reversal)": {
+      "counts": [
+        "806",
+        "805",
+        "1"
+      ],
+      "red": [
+        "SortieActions_HoldTheirTouchGeometry_AtEveryShippingFrame"
+      ]
+    },
+    "M-J rail decoupled from PanelLeft (rail grows over the panel)": {
+      "counts": [
+        "805",
+        "802",
+        "3"
+      ],
+      "red": [
+        "AccordionHeaders_CoverNoExistingControl_InAnyFoldState",
+        "LobbyPanels_HoldTheirPinnedGeometry_AtAnyEffectiveWidth",
+        "RailAndSelectedPanel_DoNotOverlap"
+      ]
+    },
+    "M-K D-2: revive the tier branch (side-by-side above 1248)": {
+      "counts": [
+        "806",
+        "805",
+        "1"
+      ],
+      "red": [
+        "LobbyPanels_HoldTheirPinnedGeometry_AtAnyEffectiveWidth"
+      ]
+    },
+    "M-L D-8: add a 4th rail entry (Altar of Hope)": {
+      "counts": [
+        "808",
+        "807",
+        "1"
+      ],
+      "red": [
+        "Rail_CarriesExactlyThreeDestinations"
+      ]
+    },
+    "M-M D-7: rail badge always off (spend door invisible)": {
+      "counts": [
+        "808",
+        "807",
+        "1"
+      ],
+      "red": [
+        "SanctumRailBadge_MirrorsTheTabDots_InBothDirections"
+      ]
+    },
+    "M-N D-7: rail badge nailed ON (permanent = unread)": {
+      "counts": [
+        "808",
+        "807",
+        "1"
+      ],
+      "red": [
+        "SanctumRailBadge_MirrorsTheTabDots_InBothDirections"
+      ]
+    }
+  }
+}

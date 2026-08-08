@@ -127,7 +127,77 @@ namespace CinderCourt.View
         CanvasScaler _scaler;
         RectTransform _sortieRect, _sanctumRect;
         int _lastScreenWidth = -1, _lastScreenHeight = -1;
-        bool _stacked;
+
+        // --- cycle-8 rail (decision-log D-2/D-4/D-5/D-8/D-11) -------------------
+        /// <summary>
+        /// 103.3 u square. NOT a round number and not a tier-dependent one: it
+        /// is 44 CSS px at the support floor this cycle finally named (375x667,
+        /// iPhone SE2 — D-11), where the scale is 0.4383 px/u.
+        ///
+        /// The number the interview spec carried was 90.2 u, derived from the
+        /// phone fill band's 0.488 px/u. That band is not the worst the shipped
+        /// template produces: build-webgl/index.html:18-20 letterboxes every
+        /// viewport at or above 501 CSS into 1280:853, and at exactly 501 CSS
+        /// the scale is 0.4261 px/u. 90.2 u renders 38.4 px there.
+        ///
+        /// It is deliberately NOT 117.7 u (the size that would also clear the
+        /// 320 CSS iPhone SE). That tier is outside the named support floor,
+        /// and buying it costs every supported tier a navigation rail 28%
+        /// larger than the 강하 button it navigates to — inverting the visual
+        /// hierarchy for a viewport where a 392 u panel already eats a third of
+        /// the screen.
+        /// </summary>
+        const float RailIcon = 103.3f;
+        const float RailGap = 12f;
+        const float RailLeft = 16f;
+        const float PanelTop = -72f;
+        /// <summary>Panels start where the rail ends. One number, so a rail
+        /// resize can never leave the panels behind on top of it.</summary>
+        const float PanelLeft = RailLeft + RailIcon + RailGap;
+        internal const int RailSanctum = 0, RailSortie = 1, RailMap = 2;
+        /// <summary>No panel drawn. NOT an out-of-range index — both SelectRail
+        /// and ToggleRail clamp 0..2 and neither can produce it from a bad
+        /// argument. It is reached two ways, and both are deliberate: the
+        /// player re-clicking the live icon (ToggleRail) or CloseRailPanel.
+        /// That is what keeps "blanked by accident" and "closed on purpose"
+        /// apart (D-12).</summary>
+        internal const int RailClosed = -1;
+        /// <summary>
+        /// D-12, user directive: the lobby OPENS CLOSED.
+        ///
+        /// This reverses AC-5, whose stated reason was that 출정 was "the only
+        /// panel the shipped build renders at 100%, so any other default trades
+        /// a fixed defect for a fresh regression". That reason died this cycle:
+        /// all three panels are now 100%, so there is no uniquely-visible panel
+        /// left to default to. AC-5 was a conditional on a defect that no
+        /// longer exists.
+        ///
+        /// It also costs one click on the sortie path, which D-7's arbitration
+        /// explicitly forbade ("any proposal adding a click to the sortie path
+        /// is refused on that ground alone"). The user directive outranks it;
+        /// D-12 records the amended standard rather than pretending D-7 was
+        /// silent. What was bought: the diorama is the first frame, not
+        /// something behind a panel.
+        /// </summary>
+        const int RailDefault = RailClosed;
+        static readonly string[] RailIconIds = { "ui-sanctum", "ui-sortie", "ui-map" };
+        /// <summary>D-5: "정보" was the interview's word and it is the only one
+        /// of the three that is not already in the worldview. The panel it
+        /// opens is titled 성소 정비; naming the icon 정보 would author a fresh
+        /// label mismatch to fix a label problem.</summary>
+        static readonly string[] RailLabels = { "성소", "출정", "지도" };
+        readonly GameObject[] _railButtons = new GameObject[3];
+        readonly Image[] _railPlates = new Image[3];
+        readonly Image[] _railGlyphs = new Image[3];
+        readonly Text[] _railCaptions = new Text[3];
+        /// <summary>D-7: unspent-relic badge on 성소 only. States that a door is
+        /// open; never a count and never a price (negotiation entries 10-11).</summary>
+        GameObject _railSanctumBadge;
+        /// <summary>D-12: no dismiss CONTROL exists. Re-clicking the live rail
+        /// icon closes its panel — see ToggleRail for the two shapes that were
+        /// built and rejected, and why the icon itself is the better target.
+        /// </summary>
+        int _railSelected = RailDefault;
 
         // Top bar.
         Text _relicText, _pointText;
@@ -290,7 +360,15 @@ namespace CinderCourt.View
             BuildSortiePanel(root);
             BuildSanctumPanel(root);
             BuildMapPanel(root);
+            // Rail last of the four so it draws OVER the panels. They start at
+            // PanelLeft and cannot reach it, but sibling order is the thing
+            // that would silently absorb a future panel that does.
+            BuildRail(root);
             SelectTab(0);
+            // ApplyRailState directly: RailDefault is RailClosed, and both
+            // public entries clamp to 0..2 by design (D-12), so routing the
+            // default through either would silently open 성소 instead.
+            ApplyRailState(RailDefault);
 
             // The meta screen is a sibling canvas on this same object: it is a
             // LOBBY surface (seed D6), so its lifetime is the lobby's and the
@@ -327,8 +405,16 @@ namespace CinderCourt.View
             // audited phone scale (0.488 px/u), so both clear the 44 px touch
             // floor on BOTH axes with margin and neither joins the lobby's
             // debt table (LobbyLayoutTests holds that table exactly).
+            //
+            // D-R4: the first one used to be called 지도, inside the panel the
+            // rail's 지도 icon opens. A map button inside the map is a route
+            // that describes itself; "전체 지도" says what it actually is — the
+            // full-screen one, as opposed to the constellation directly above
+            // it. 정비 keeps its word: it opens MetaScreenView's equip tab,
+            // which is a different surface from the sanctum's equip tab (D-6
+            // holds that duplication open with a cycle-9 expiry).
             var mapButton = TextButton(panel.transform, new Vector2(0, 1),
-                new Vector2(16, -208), new Vector2(196, 96), "지도", 17,
+                new Vector2(16, -208), new Vector2(196, 96), "전체 지도", 17,
                 () => _meta?.Show(in _lastData, MetaScreenView.TabMap));
             mapButton.name = "OpenMapButton";
             var gearButton = TextButton(panel.transform, new Vector2(0, 1),
@@ -336,6 +422,180 @@ namespace CinderCourt.View
                 () => _meta?.Show(in _lastData, MetaScreenView.TabEquip));
             gearButton.name = "MetaScreenButton";
         }
+
+        // ------------------------------------------------------------- rail --
+        /// <summary>
+        /// The three lobby destinations as a left vertical rail, exactly one
+        /// selected (D-2).
+        ///
+        /// This is a defect repair, not a tidy-up. Before it, the shipped build
+        /// laid the three panels as a 1604 u column against a 783.7 u canvas
+        /// with no root ScrollRect: SORTIE 100%, SANCTUM 13.5%, MAP 0%. And the
+        /// 13.5% was worse than it sounds — TabContent starts 116 u down
+        /// (:1700), past the 75.7 u that was visible, so every buy button in
+        /// the sanctum was at 0% while the top bar kept showing the relic
+        /// balance that pays for them (D-1).
+        ///
+        /// A radio makes the horizontal collision the old sweep hunted for
+        /// impossible rather than merely absent, which is why the tier branch
+        /// could be deleted with it (D-3) and why the replacement invariant is
+        /// containment, not overlap (D-10).
+        /// </summary>
+        void BuildRail(Transform root)
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var index = i;
+                var y = PanelTop - i * (RailIcon + RailGap);
+                var button = TextButton(root, new Vector2(0, 1),
+                    new Vector2(RailLeft, y), new Vector2(RailIcon, RailIcon),
+                    RailLabels[i], 13, () => ToggleRail(index), plated: false);
+                button.name = "Rail" + RailIconIds[i];
+                _railButtons[i] = button;
+                _railPlates[i] = button.GetComponent<Image>();
+
+                // The caption is TextButton's own label, re-anchored to the
+                // bottom band rather than a second Text beside it. One Text per
+                // button is not tidiness: LabelOf(button) in the audits reads
+                // the FIRST Text child, so a button carrying an empty label
+                // plus a separate caption reports itself as nameless and drops
+                // out of every label-keyed sweep in LobbyLayoutTests.
+                var caption = button.GetComponentInChildren<Text>();
+                var captionRect = caption.rectTransform;
+                captionRect.anchorMin = new Vector2(0f, 0f);
+                captionRect.anchorMax = new Vector2(1f, 0f);
+                captionRect.pivot = new Vector2(0.5f, 0f);
+                captionRect.offsetMin = new Vector2(0f, 6f);
+                captionRect.offsetMax = new Vector2(0f, 26f);
+                _railCaptions[i] = caption;
+
+                // Glyph above it. The caption is not decoration: three fantasy
+                // silhouettes at 45 px are recognition, and recognition is not
+                // the same as knowing which one you have not opened yet.
+                var sprite = Resources.Load<Sprite>("Icons/" + RailIconIds[i]);
+                if (sprite != null)   // Image without sprite = white quad
+                {
+                    var glyphObject = new GameObject("Glyph");
+                    glyphObject.transform.SetParent(button.transform, false);
+                    var glyph = glyphObject.AddComponent<Image>();
+                    glyph.sprite = sprite;
+                    glyph.preserveAspect = true;
+                    glyph.raycastTarget = false;
+                    var glyphRect = glyphObject.GetComponent<RectTransform>();
+                    glyphRect.anchorMin = glyphRect.anchorMax = new Vector2(0.5f, 1f);
+                    glyphRect.pivot = new Vector2(0.5f, 1f);
+                    glyphRect.anchoredPosition = new Vector2(0f, -6f);
+                    glyphRect.sizeDelta = new Vector2(62f, 62f);
+                    _railGlyphs[i] = glyph;
+                }
+            }
+
+            // D-7 badge. Sanctum only, and only ever a dot: the arbitration
+            // that put it here priced meta surfaces in CLICKS, not in exposed
+            // pixels, so this says "the door is open" and refuses to say how
+            // much is behind it. Same 7 u ember dot the tab strip uses (:1704)
+            // — a second badge grammar would be a second thing to read.
+            _railSanctumBadge = Panel(_railButtons[RailSanctum].transform,
+                new Vector2(1, 1), new Vector2(1, 1),
+                new Vector2(-6, -6), new Vector2(7, 7), Ember);
+            _railSanctumBadge.name = "Badge";
+            _railSanctumBadge.GetComponent<RectTransform>().pivot = new Vector2(1f, 1f);
+            _railSanctumBadge.SetActive(false);
+        }
+
+        /// <summary>
+        /// What the ICON DOES: select a destination — or close it, if it is
+        /// already the live one.
+        ///
+        /// Re-click IS the dismiss (D-12). Two other shapes were built and
+        /// rejected by the user: a 닫기 tile under the three icons, which reads
+        /// as a fourth destination until you click it, and a per-panel corner
+        /// X, which reads correctly but measures 56 u — 24.5 CSS px at the 375
+        /// support floor, well under the 44 px contract. Clearing the floor
+        /// with a corner X takes 103.3 u, a quarter of the sanctum's width
+        /// parked in its header.
+        ///
+        /// The rail icon already IS 103.3 u. Putting dismissal on it costs no
+        /// new control, no new debt row, and no new thing to look at — the
+        /// lobby ends this change with exactly the three tiles it started with.
+        ///
+        /// Still clamps 0..2, so an out-of-range index cannot blank the lobby:
+        /// a bug that passes 99 opens the map. Only re-clicking the LIVE entry
+        /// closes, which is a thing the player did on purpose.
+        ///
+        /// SEPARATE FROM <see cref="SelectRail"/> ON PURPOSE, and the split is
+        /// not a convenience for tests. Before D-12 one method meant both "put
+        /// the rail on X" and "the player clicked X", because those were the
+        /// same operation while selection was unconditional. A toggle makes
+        /// them different operations whose results diverge on exactly one
+        /// input — the live entry — so any caller that meant "put it on X" and
+        /// kept calling the toggle now closes the panel it was about to
+        /// measure, silently and only sometimes. Callers state which one they
+        /// mean; the button wires to this one.
+        /// </summary>
+        internal void ToggleRail(int index)
+        {
+            var want = Mathf.Clamp(index, 0, 2);
+            ApplyRailState(want == _railSelected ? RailClosed : want);
+        }
+
+        /// <summary>
+        /// Open a destination, whatever is open now. Idempotent: calling it on
+        /// the live entry leaves it live.
+        ///
+        /// This is the deep-link / restore-state entry — "the lobby should be
+        /// showing 지도" — as opposed to <see cref="ToggleRail"/>, which is
+        /// what a click means. Same clamp, so it cannot blank the lobby either.
+        /// </summary>
+        internal void SelectRail(int index) => ApplyRailState(Mathf.Clamp(index, 0, 2));
+
+        /// <summary>D-12: dismiss whatever is open and show the diorama.</summary>
+        internal void CloseRailPanel() => ApplyRailState(RailClosed);
+
+        /// <summary>
+        /// AT MOST one panel active — the invariant D-12 relaxed from "exactly
+        /// one" (D-R2).
+        ///
+        /// The old rule existed because zero panels makes containment
+        /// unfalsifiable: an empty lobby is contained at every viewport,
+        /// trivially. That is still true, so the containment sweep OPENS each
+        /// panel explicitly before measuring it and asserts its own case count
+        /// — it never infers "contained" from "nothing on screen".
+        /// </summary>
+        void ApplyRailState(int selected)
+        {
+            _railSelected = selected;
+            if (_sanctumRect != null)
+                _sanctumRect.gameObject.SetActive(_railSelected == RailSanctum);
+            if (_sortieRect != null)
+                _sortieRect.gameObject.SetActive(_railSelected == RailSortie);
+            if (_mapPanelRect != null)
+                _mapPanelRect.gameObject.SetActive(_railSelected == RailMap);
+
+            for (var i = 0; i < 3; i++)
+            {
+                var live = i == _railSelected;
+                if (_railPlates[i] != null)
+                {
+                    _railPlates[i].color = live ? ButtonActive : ButtonBack;
+                    PlateStateful(_railPlates[i], live);
+                }
+                if (_railCaptions[i] != null)
+                    _railCaptions[i].color = live ? Gold : InkDim;
+                // Dim the unselected glyphs rather than hiding them: the rail
+                // has to read as three destinations at rest, or it becomes a
+                // one-item rail with two mysteries.
+                if (_railGlyphs[i] != null)
+                    _railGlyphs[i].color = live ? Color.white : new Color(1f, 1f, 1f, 0.55f);
+            }
+        }
+
+        /// <summary>Test seam: which rail entry owns the lobby right now.</summary>
+        internal int SelectedRailForTest => _railSelected;
+        /// <summary>Test seam: the rail's hit rects, for the touch-floor table.</summary>
+        internal RectTransform RailRectForTest(int index)
+            => _railButtons[Mathf.Clamp(index, 0, 2)] == null
+                ? null : (RectTransform)_railButtons[Mathf.Clamp(index, 0, 2)].transform;
 
         /// <summary>Opens the tab meta screen on its default tab. Public so a
         /// future deep link (or a QA route) can reach it without a click.</summary>
@@ -567,6 +827,16 @@ namespace CinderCourt.View
             _tabBadges[1].gameObject.SetActive(badges.Equip);
             _tabBadges[2].gameObject.SetActive(badges.Legion);
             _tabBadges[3].gameObject.SetActive(badges.Sigil);
+
+            // D-7 rail badge: the OR of the four tab badges. The sanctum is one
+            // click away now instead of permanently on screen, so the thing
+            // that used to be visible — that something in there is affordable —
+            // has to survive the fold. It mirrors the tab dots rather than
+            // computing its own rule, so the rail can never claim a door the
+            // strip inside says is shut.
+            if (_railSanctumBadge != null)
+                _railSanctumBadge.SetActive(
+                    badges.Growth || badges.Equip || badges.Legion || badges.Sigil);
         }
 
         void RefreshMotionLabel()
@@ -744,12 +1014,25 @@ namespace CinderCourt.View
         /// target, which is the whole point of the automatic follow — a player
         /// returning from a clear should find the group that just changed
         /// already open.
+        ///
+        /// The rail resets for the same reason one level up: a selection is a
+        /// decision about this visit, not a preference to carry into the next.
+        ///
+        /// D-12 changed WHAT it resets to, not whether. It used to reset to
+        /// 출정 because D-7's arbitration refused to let anything add a click
+        /// to the sortie path, and a rail remembering 성소 would have charged
+        /// that click to every player returning from a run. The user directive
+        /// spends that click deliberately: the lobby now opens closed, so the
+        /// diorama is the first frame. Resetting still matters — without it a
+        /// player who left from 성소 would return to 성소 and pay the click
+        /// anyway, on top of the one D-12 already spent.
         /// </summary>
         public void Hide()
         {
             _meta?.Hide();
             if (_root != null) _root.SetActive(false);
             _groupPinned = false;
+            ApplyRailState(RailDefault);
         }
 
         // =============================================== mobile layout core --
@@ -777,10 +1060,9 @@ namespace CinderCourt.View
             }
         }
 
-        /// <summary>Spec #8: SORTIE(392, right) + SANCTUM(400, left) need
-        /// 840 u; below that effective width the panels stack into a single
-        /// full-width column (SORTIE on top). Also flips the orientation
-        /// match (spec #1: portrait 0.35 / landscape 0.5).</summary>
+        /// <summary>Orientation match (spec #1: portrait 0.35 / landscape 0.5)
+        /// and panel placement. The tier branch this used to carry died with
+        /// the rail (D-2/D-3) — see ApplyLobbyTier(int,int,bool).</summary>
         void ApplyLobbyTier(bool force)
             => ApplyLobbyTier(Screen.width, Screen.height, force);
 
@@ -791,16 +1073,14 @@ namespace CinderCourt.View
             => ApplyLobbyTier(width, height, true);
 
         /// <summary>
-        /// The three top-level panels, resolved. Exposed because the row they
-        /// form is the thing that broke: sanctum is left-anchored, sortie is
-        /// RIGHT-anchored and the map sits between them, so whether they collide
-        /// is a function of the effective width and cannot be read off any one
-        /// panel's constants.
+        /// The three top-level panels, resolved. Still exposed after the rail
+        /// removed their ability to collide: the invariant moved from "they do
+        /// not overlap each other" to "the selected one is inside the canvas"
+        /// (D-10), and that one still needs the rects.
         /// </summary>
         internal RectTransform SanctumRectForTest => _sanctumRect;
         internal RectTransform MapPanelRectForTest => _mapPanelRect;
         internal RectTransform SortieRectForTest => _sortieRect;
-        internal bool StackedForTest => _stacked;
         /// <summary>
         /// Effective canvas width (screen width over the scaler factor) from the
         /// last tier pass. Same seam and same reason as
@@ -834,117 +1114,54 @@ namespace CinderCourt.View
             var effectiveWidth = width / Mathf.Max(0.0001f, scale);
             LastEffectiveWidth = effectiveWidth;
 
-            // The three-panel row needs sanctum + map + sortie side by side, and
-            // the map is the only one with no anchor of its own: sanctum hugs the
-            // left, sortie hugs the RIGHT, and the map sits in what is left. So
-            // the threshold is the width at which that gutter can still hold it,
-            // not a round number.
+            // D-2/D-3: there is no tier branch any more.
             //
-            //   sanctum right = 16 + 400            = 416
-            //   sortie  left  = W - 16 - 392        = W - 408
-            //   gutter        = (W - 408) - 416     = W - 824
-            //   need gutter  >= 424 (map width)     -> W >= 1248
+            // The rail draws exactly one panel, so the horizontal collision the
+            // old SideBySideFloor=1248 existed to dodge cannot be constructed.
+            // And the stacked column it fell back to WAS the shipped defect:
+            // E_w is pinned at ~1176 by build-webgl/index.html:18-20 for every
+            // player at every window size, 1176 < 1248, so every player got a
+            // 1604 u column against a 783.7 u canvas with no root ScrollRect —
+            // SORTIE 100%, SANCTUM 13.5%, MAP 0%.
             //
-            // The old threshold was 850, and between 850 and 1264 the map was
-            // drawn on top of the sortie panel. The layout tests missed it by
-            // sampling only 390x844 (stacked) and 1280x720 (the reference, the
-            // one non-stacked width where the constant happens to be right):
-            // right and wrong coincided at both sampled points, and the whole
-            // defect lived between them (§4m).
-            //
-            // MEASURED, and it makes the band academic: the shipped WebGL
-            // template locks the canvas to aspect 1280:853 (build-webgl
-            // index.html:18-20, `width: min(1280px, 100vw, calc(100vh*1280/853))`
-            // with `matchWebGLToCanvasSize = false`). Every buffer is therefore
-            // k*1280 x k*853, and that aspect yields the SAME effective width at
-            // every k:
-            //
-            //   640x426  -> 1176.7      1920x1280 -> 1175.8
-            //   1280x853 -> 1176.0      2560x1706 -> 1176.0
-            //   1600x1066-> 1176.1      3840x2559 -> 1176.0
-            //
-            // So E is pinned at ~1176 for every player at every window size, the
-            // side-by-side row needs 1248, and it CANNOT be satisfied by the
-            // shipped template at all. Before this change the old threshold
-            // picked it anyway and the overlap was not an edge case — it was the
-            // deployed state, 88 u, for everyone.
-            //
-            // Stacking is therefore the only arrangement this build can render
-            // correctly, and it is main's own fallback rather than a third
-            // layout invented here. Reviving the three-panel row means either
-            // relaxing the template's aspect lock or shrinking the row below
-            // 1176 u — a design decision, not a merge fix.
-            const float SideBySideFloor = 1248f;
-            var stack = effectiveWidth < SideBySideFloor;
-            if (!force && stack == _stacked) return;
-            _stacked = stack;
+            // What remains is placement, and it no longer varies: panels start
+            // where the rail ends and keep their native size. Native, because
+            // their contents are hard-coded to those widths (360 u labels
+            // inside the 400 u sanctum, :1727 onward) — a panel that stretched
+            // would gain an empty right band, not a wider layout.
+            PinPanel(_sortieRect, 392f, 620f);
+            PinPanel(_sanctumRect, 400f, 560f);
+            PinPanel(_mapPanelRect, 424f, 320f);
 
-            if (stack)
-            {
-                // Single column: both panels stretch to full width. Cards and
-                // rows inside anchor to their panel's top/edges, so only the
-                // parents move (spec #8 risk note).
-                _sortieRect.anchorMin = new Vector2(0f, 1f);
-                _sortieRect.anchorMax = new Vector2(1f, 1f);
-                _sortieRect.pivot = new Vector2(0.5f, 1f);
-                _sortieRect.anchoredPosition = new Vector2(0, -72);
-                _sortieRect.sizeDelta = new Vector2(-32, 620);
+            // D-3: 92x92 u sortie actions, unconditionally.
+            //
+            // This read `ApplySortieTouchLayout(stack)`, so deleting the branch
+            // left the input without a source. E_w cannot be that source: the
+            // template pins it at 1176 while the CSS scale behind it moves
+            // 0.426..1.088 px/u, which is a touch decision made by a number
+            // that is constant across a 2.56x change in real finger size.
+            //
+            // The alternative arm is not merely unused, it is unusable — the
+            // desktop 84x28 action renders 30.5 CSS px at the deploy width and
+            // 11.9 px at the letterbox floor, clearing the 44 px floor in NO
+            // shipping configuration. The branch had one correct arm; this is
+            // it, and pinning it preserves current deployed behaviour exactly.
+            ApplySortieTouchLayout(true);
+        }
 
-                _sanctumRect.anchorMin = new Vector2(0f, 1f);
-                _sanctumRect.anchorMax = new Vector2(1f, 1f);
-                _sanctumRect.pivot = new Vector2(0.5f, 1f);
-                _sanctumRect.anchoredPosition = new Vector2(0, -708);
-                _sanctumRect.sizeDelta = new Vector2(-32, 560);
-            }
-            else
-            {
-                _sortieRect.anchorMin = new Vector2(1f, 1f);
-                _sortieRect.anchorMax = new Vector2(1f, 1f);
-                _sortieRect.pivot = new Vector2(1f, 1f);
-                _sortieRect.anchoredPosition = new Vector2(-16, -72);
-                _sortieRect.sizeDelta = new Vector2(392, 620);
-
-                _sanctumRect.anchorMin = new Vector2(0f, 1f);
-                _sanctumRect.anchorMax = new Vector2(0f, 1f);
-                _sanctumRect.pivot = new Vector2(0f, 1f);
-                _sanctumRect.anchoredPosition = new Vector2(16, -72);
-                _sanctumRect.sizeDelta = new Vector2(400, 560);
-            }
-
-            // W8: the map lives in the centre gutter side-by-side, and drops to
-            // the bottom of the single column when stacked. It keeps its 424 u
-            // width in both, centring itself on the phone rather than
-            // stretching — the constellation is placed, not laid out.
-            if (_mapPanelRect != null)
-            {
-                if (stack)
-                {
-                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0.5f, 1f);
-                    _mapPanelRect.pivot = new Vector2(0.5f, 1f);
-                    // Under SANCTUM (-708, 560 tall) with the same 16 u gap the
-                    // rest of the stacked column uses.
-                    _mapPanelRect.anchoredPosition = new Vector2(0f, -1284f);
-                }
-                else
-                {
-                    // Centred in the gutter the other two panels leave, not at a
-                    // constant. The constant was 432, which is what this formula
-                    // returns at exactly 1280 u — correct at the reference width
-                    // and drifting into the sortie panel at every width below it.
-                    var gutterLeft = 16f + 400f;                       // sanctum right
-                    var gutterRight = effectiveWidth - 16f - 392f;     // sortie left
-                    var x = gutterLeft + Mathf.Max(0f, (gutterRight - gutterLeft - 424f) * 0.5f);
-                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0f, 1f);
-                    _mapPanelRect.pivot = new Vector2(0f, 1f);
-                    _mapPanelRect.anchoredPosition = new Vector2(x, -72f);
-                }
-                _mapPanelRect.sizeDelta = new Vector2(424f, 320f);
-            }
-
-            // A phone layout must enlarge the complete route grammar (card +
-            // action + scroll pitch) together. Enlarging only a transparent hit
-            // box would make adjacent descents compete for the same tap.
-            ApplySortieTouchLayout(stack);
+        /// <summary>
+        /// Top-left anchored at the rail's right edge, native size. One helper
+        /// for all three so a rail resize moves them together — PanelLeft is
+        /// derived from RailIcon, so the panels cannot be left sitting on top
+        /// of a rail that grew.
+        /// </summary>
+        static void PinPanel(RectTransform rect, float width, float height)
+        {
+            if (rect == null) return;
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(PanelLeft, PanelTop);
+            rect.sizeDelta = new Vector2(width, height);
         }
 
         static void SetCardGeometry(RectTransform rect, float top, float height)
