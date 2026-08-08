@@ -228,6 +228,20 @@ namespace CinderCourt.View
             if (_swingTrail != null)
                 _swingTrail.emitting = state.Action == ActorAction.Attack
                     && state.ActionTime >= 0.10f && state.ActionTime < 0.34f;
+            // §V1: arm the convergence on the LEADING EDGE of a swing frame, so
+            // one swing gets one glow however many frames it spans. Critical
+            // counts — it is the same swing, graded.
+            var swinging = state.Action == ActorAction.Attack
+                        || state.Action == ActorAction.Critical;
+            if (swinging)
+            {
+                if (!_swingGlowArmed)
+                {
+                    _swingGlowArmed = true;
+                    ArmCastGlow(SwingGlowColor, SwingGlowSeconds);
+                }
+            }
+            else _swingGlowArmed = false;
             UpdateCastGlow(Time.deltaTime);   // §V1 convergence step
             UpdateAfterimages(Time.deltaTime);   // dash ghosts (vfx survey)
         }
@@ -724,6 +738,44 @@ namespace CinderCourt.View
         /// beat (0.12 s per spec §V1).</summary>
         public void FlashCastGlow(Color color, float duration = 0.12f)
         {
+            ArmCastGlow(color, duration);
+            // §M/#4 cast pose: the sim has no cast action (ActorAction frozen),
+            // so the View holds a short pose window off the same cast event that
+            // drives the glow. Deliberately a touch longer than the glow so the
+            // body reads as "casting" rather than twitching.
+            //
+            // Hoisted OUT of ArmCastGlow's early returns (2026-08-08, §V1): the
+            // pose is the §M contract and the glow is decoration, so a
+            // non-humanoid rig or a reduced-motion player must still get the
+            // pose. Under the old nesting a missing RightHand bone silently
+            // cancelled the pose too.
+            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
+            _castPoseArmed = true;
+        }
+
+        /// <summary>
+        /// §V1 swing beat: the ATTACK-frame half of the amendment. The sim's
+        /// Attack/Critical frame opens at ActionTime 0 and its hit window opens
+        /// at 0.10 (the swing trail reads the same numbers), so a convergence
+        /// that runs out at 0.10 pops exactly as the swing goes live —
+        /// "수렴 0.12s → 방출" with the release edge on the sim's own frame.
+        ///
+        /// Deliberately NOT FlashCastGlow: that one also arms the 0.30 s cast
+        /// pose, and a cast pose armed by every swing would outlive the swing
+        /// and hold the caster stance through the recovery. §V1 is decoration
+        /// in front of the sim's frames, never a second pose authority.
+        /// </summary>
+        internal const float SwingGlowSeconds = 0.10f;
+        static readonly Color SwingGlowColor = new Color(0.953f, 0.349f, 0.173f, 0.85f);
+        bool _swingGlowArmed;
+
+        void ArmCastGlow(Color color, float duration)
+        {
+            // Accessibility (§A5 grammar, ViewPrefs.ReducedMotion): a converging,
+            // brightening sphere is exactly the class of motion the pref exists
+            // to suppress. The dash-ghost precedent in GameView gates the same
+            // way. Judgement is unaffected — this is decoration end to end.
+            if (ViewPrefs.ReducedMotion) return;
             if (_castGlow == null)
             {
                 Transform anchor = null;
@@ -746,13 +798,6 @@ namespace CinderCourt.View
             var c = color; c.a = 0.85f;
             _castGlowMaterial.color = c;
             _castGlow.gameObject.SetActive(true);
-            // §M/#4 cast pose: the sim has no cast action (ActorAction frozen),
-            // so the View holds a short pose window off the same cast event that
-            // drives the glow. Deliberately a touch longer than the glow so the
-            // body reads as "casting" rather than twitching.
-            _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
-            _castPoseArmed = true;
-
         }
 
         void UpdateCastGlow(float deltaTime)
@@ -992,6 +1037,10 @@ namespace CinderCourt.View
             _castPoseArmed = false;
             _knockbackArmed = false;
             _roarArmed = false;
+            // §V1: a tenant pooled MID-SWING would otherwise leave the edge
+            // latch set, and the next tenant's first swing would show no glow.
+            _swingGlowArmed = false;
+            if (_castGlow != null) _castGlow.gameObject.SetActive(false);
 
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color

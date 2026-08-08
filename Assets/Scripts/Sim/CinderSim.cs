@@ -330,6 +330,11 @@ namespace CinderCourt.Sim
         private int _bossPhase;
         private bool _bossPhase2Done;
         private bool _bossPhase3Done;
+        // AMENDMENT #16 §20: resolved once from the run's stage id. None on every
+        // pre-amendment path (arena, prologue, training, campaign, and any dungeon
+        // run whose caller did not set DungeonProgressionConfig.BossVariety), and
+        // None resolves to the frozen §7 vectors, so the goldens do not move.
+        private readonly BossArchetype _bossArchetype;
 
         /// <summary>Arena run — the frozen SIM_SPEC path. Behaviour must never change.</summary>
         public CinderSim()
@@ -488,6 +493,13 @@ namespace CinderCourt.Sim
                 ? HackSpec.PrologueStageId
                 : (_dungeon ? (_config.StageId ?? string.Empty)
                     : (_training ? (configured.StageId ?? string.Empty) : string.Empty));
+            // AMENDMENT #16 §20.3: the archetype is a pure function of the stage id
+            // and cannot change mid-run — the same rule AMENDMENT #11 applies to the
+            // difficulty tier, and what keeps a run reproducible from (config, input)
+            // alone. _progression is already zeroed for non-dungeon modes above.
+            _bossArchetype = _progression.BossVariety
+                ? BossVarietySpec.ArchetypeFor(_stageId)
+                : BossArchetype.None;
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 _hazardView.Add(default);
@@ -674,7 +686,7 @@ namespace CinderCourt.Sim
         public IReadOnlyList<EnemyState> Enemies => _enemyView;
         public IReadOnlyList<PickupState> Pickups => _pickupView;
 
-        // --- IDungeonProgressionSnapshot (AMENDMENT #13 / #14) ----------------
+        // --- IDungeonProgressionSnapshot (AMENDMENT #13 / #14 / #16) ----------
 
         public bool AdaptiveWavesActive => _progression.AdaptiveWaves;
         public bool GradedLootActive => _progression.GradedLoot;
@@ -691,6 +703,16 @@ namespace CinderCourt.Sim
         public float BoundsHalfHeight => _boundsHalfHeight;
         public bool ExpandedBoundsActive =>
             _boundsHalfWidth > SimConfig.ArenaHalfWidth || _boundsHalfHeight > SimConfig.ArenaHalfHeight;
+
+        // AMENDMENT #16 §20.5. BossVarietyActive is derived from the RESOLVED
+        // archetype, not from the config flag: a gated run on an unmapped stage
+        // fights the frozen boss, and the View must be told that rather than
+        // being told the gate is on and then handed frozen numbers.
+        public bool BossVarietyActive => _bossArchetype != BossArchetype.None;
+        public BossArchetype BossArchetype => _bossArchetype;
+        public int BossPhaseCount => BossVarietySpec.For(_bossArchetype).PhaseCount;
+        public float BossTelegraphSeconds =>
+            BossVarietySpec.For(_bossArchetype).TelegraphSeconds(BossPhaseVectorIndex());
         public SimEvents Events => _events;
         public float NovaX => _novaX;
         public float NovaY => _novaY;
@@ -2115,6 +2137,41 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
+        /// AMENDMENT #16 §20: the archetype profile in force, or null when this run
+        /// is on the frozen §7 path. Returning null (rather than the None profile)
+        /// keeps every call site's frozen branch textually intact, so a reader can
+        /// still see what the pre-amendment code did.
+        /// </summary>
+        private BossArchetypeProfile BossProfileOrNull() =>
+            _bossArchetype == BossArchetype.None ? null : BossVarietySpec.For(_bossArchetype);
+
+        /// <summary>
+        /// Attack-clip frame this enemy's contact lands on — its telegraph. Only a
+        /// boss on an archetype moves off the frozen frame; every ordinary enemy,
+        /// elite and ungated boss keeps <see cref="EnemyContactFrame"/>. Clamped
+        /// into 1..AttackClipFrames-1 so a table edit can never produce a swing
+        /// that lands on tick zero or never lands at all.
+        /// </summary>
+        private int ContactFrameFor(in Enemy enemy)
+        {
+            if (!enemy.State.IsBoss)
+            {
+                return EnemyContactFrame;
+            }
+            BossArchetypeProfile profile = BossProfileOrNull();
+            if (profile == null)
+            {
+                return EnemyContactFrame;
+            }
+            int frame = profile.ContactFrame[BossPhaseVectorIndex()];
+            if (frame < BossVarietySpec.MinContactFrame)
+            {
+                return BossVarietySpec.MinContactFrame;
+            }
+            return frame > AttackClipFrames - 1 ? AttackClipFrames - 1 : frame;
+        }
+
+        /// <summary>
         /// §7 (AMENDMENT #4): the stage boss steps through three phases on HP
         /// thresholds (50% / 20%) — faster, longer reach, harder contact, and
         /// the monarch calls in three escorts on the way through.
@@ -2150,15 +2207,28 @@ namespace CinderCourt.Sim
             // "a transition happened" (adding an event = snapshot contract
             // change, deliberately deferred).
             float fraction = _bossMaxHp > 0f ? _bossHp / _bossMaxHp : 1f;
-            int phaseIndex = HackSpec.BossPhaseIndexFor(fraction);
+            // AMENDMENT #16 §20.4: an archetype brings its own thresholds AND its
+            // own phase count, so a Warden latches once and stays in P2 for the
+            // rest of the fight. None keeps the frozen 50/20 split.
+            bool variety = _bossArchetype != BossArchetype.None;
+            int phaseIndex = variety
+                ? BossVarietySpec.PhaseIndexFor(_bossArchetype, fraction)
+                : HackSpec.BossPhaseIndexFor(fraction);
 
             if (phaseIndex >= 1 && !_bossPhase2Done)
             {
                 _bossPhase2Done = true;
                 _events |= SimEvents.BossPhase2;
-                if (_enemies[boss].State.Visual == EnemyVisual.BossMonarch)
+                // The escorts join the live spawn queue as ordinary enemies.
+                // AMENDMENT #16 §20.2: with an archetype the summon is a column in
+                // the table (a Tactician calls at BOTH boundaries, a Warden never
+                // does), so the monarch-visual clause only governs the frozen path.
+                if (variety)
                 {
-                    // The escorts join the live spawn queue as ordinary enemies.
+                    _pendingSpawns += BossVarietySpec.For(_bossArchetype).PhaseEscorts[1];
+                }
+                else if (_enemies[boss].State.Visual == EnemyVisual.BossMonarch)
+                {
                     _pendingSpawns += HackSpec.MonarchPhase2Escorts;
                 }
             }
@@ -2166,6 +2236,10 @@ namespace CinderCourt.Sim
             {
                 _bossPhase3Done = true;
                 _events |= SimEvents.BossPhase2;
+                if (variety)
+                {
+                    _pendingSpawns += BossVarietySpec.For(_bossArchetype).PhaseEscorts[2];
+                }
             }
 
             // Snapshot phase stays 1-based (1/2/3) — the View's existing
@@ -2890,6 +2964,17 @@ namespace CinderCourt.Sim
                     enemy.AttackCooldown = (SimConfig.EnemyAttackCooldown
                         + MathF.Min(EnemyCooldownWaveCap, _wave * EnemyCooldownPerWave))
                         * _difficulty.AttackCooldownMul;   // §16 B, 1.0 on Normal
+                    if (enemy.State.IsBoss)
+                    {
+                        // AMENDMENT #16 §20.2: the cadence axis. Below 1 = swings
+                        // more often. The None profile is 1.00 across all phases,
+                        // so an ungated boss keeps the pack cooldown exactly.
+                        BossArchetypeProfile profile = BossProfileOrNull();
+                        if (profile != null)
+                        {
+                            enemy.AttackCooldown *= profile.CadenceMul[BossPhaseVectorIndex()];
+                        }
+                    }
                     SetEnemyAction(ref enemy, ActorAction.Attack, true);
                 }
                 else
@@ -2998,18 +3083,25 @@ namespace CinderCourt.Sim
                 }
             }
 
-            if (frame < EnemyContactFrame || enemy.DidDamage)
+            // AMENDMENT #16 §20.2: the telegraph axis. An archetype boss lands its
+            // contact on its OWN clip frame — a Warden waits 3 frames (0.25 s), a
+            // Tactician 1 (0.083 s). Everyone else keeps the frozen frame 2.
+            if (frame < ContactFrameFor(in enemy) || enemy.DidDamage)
             {
                 return;
             }
 
+            BossArchetypeProfile bossProfile = enemy.State.IsBoss ? BossProfileOrNull() : null;
             float contactX = _player.X - enemy.State.X;
             float contactY = (_player.Y - enemy.State.Y) * SimConfig.IsoY;
             float contactRange = SimConfig.EnemyAttackRange + SimConfig.EnemyContactBonus;
             if (enemy.State.IsBoss)
             {
                 // S8-a: reach grows with the phase vector (1.00/1.10/1.20).
-                contactRange *= HackSpec.BossRangeMul[BossPhaseVectorIndex()];
+                // AMENDMENT #16 §20.2: an archetype substitutes its own vector.
+                contactRange *= bossProfile != null
+                    ? bossProfile.RangeMul[BossPhaseVectorIndex()]
+                    : HackSpec.BossRangeMul[BossPhaseVectorIndex()];
             }
             if (contactX * contactX + contactY * contactY <= contactRange * contactRange)
             {
@@ -3024,7 +3116,14 @@ namespace CinderCourt.Sim
                     // §3: elites hit 1.5x harder than the wave baseline.
                     damage *= HackSpec.EliteDamageMul;
                 }
-                if (enemy.State.IsBoss && _bossPhase >= 2)
+                if (bossProfile != null)
+                {
+                    // AMENDMENT #16 §20.2: the archetype's own damage vector, and
+                    // it applies from P1 — the None profile's P1 entry is 1.00,
+                    // which is exactly the frozen "no multiplier before phase 2".
+                    damage *= bossProfile.DamageMul[BossPhaseVectorIndex()];
+                }
+                else if (enemy.State.IsBoss && _bossPhase >= 2)
                 {
                     // S8-a: P2 x1.25, P3 x1.45 — the amended curve, not a
                     // single phase-2 step (a P3 boss hitting at the P2 number
@@ -3071,8 +3170,12 @@ namespace CinderCourt.Sim
                 // top of the frozen boss modifier. _bossPhase is 1-based, so
                 // clamp into the 0-based vector; a boss that has not spawned
                 // yet reports phase 0 and must resolve to P1.
+                // AMENDMENT #16 §20.2: an archetype substitutes its own vector.
+                BossArchetypeProfile profile = BossProfileOrNull();
                 return speed * SimConfig.BossSpeedMul
-                    * HackSpec.BossSpeedMul[BossPhaseVectorIndex()];
+                    * (profile != null
+                        ? profile.SpeedMul[BossPhaseVectorIndex()]
+                        : HackSpec.BossSpeedMul[BossPhaseVectorIndex()]);
             }
             return speed;
         }
@@ -3435,6 +3538,14 @@ namespace CinderCourt.Sim
                     // and plain-campaign bosses are untouched: neither has
                     // phases, so neither needs the extra length.
                     health *= HackSpec.DungeonBossHealthMul;
+                    // AMENDMENT #16 §20.2: the archetype's bulk. A Warden is 1.28x
+                    // and a Tactician 0.78x, which is what stops "slow and heavy"
+                    // and "fast and fragile" from being the same fight length.
+                    BossArchetypeProfile profile = BossProfileOrNull();
+                    if (profile != null)
+                    {
+                        health *= profile.HealthMul;
+                    }
                 }
             }
             else if (elite)

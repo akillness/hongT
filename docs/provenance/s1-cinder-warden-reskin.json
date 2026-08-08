@@ -1,0 +1,43 @@
+{
+  "lane": "asset-lane2 (W6 boss diversification, carryover task #10, deep-interview-seed-ui-vfx-flow.md D-record scope)",
+  "manifestCheck": {
+    "source": "/Users/jangyoung/orca/Abyssal-Surge/assets/defense-asset-manifest.json (read-only, not modified)",
+    "checkedAt": "2026-08-08",
+    "result": "assets/mesh/boss/s1-cinder-warden/** has 23 rows; only assets/mesh/boss/s1-cinder-warden/glb/base_basic_pbr.glb is disposition:retain, runtimeReference:true. All fbx/obj/textureBasicPack/*.raw.png siblings are disposition:delete, runtimeReference:false and were not used (contract: only retain rows are usable)."
+  },
+  "donorRigDeviation": {
+    "problem": "Unlike human-command-boss/shadow-commander-boss/broken-court-monarch-boss, there is no assets/motion/ingame/characters/s1-cinder-warden/ entry in Abyssal-Surge -- confirmed via `find assets/motion -iname '*s1-cinder-warden*'` (empty). No rigged donor armature exists for this character id anywhere in the source repo.",
+    "resolution": "Used assets/motion/ingame/characters/shadow-commander-boss/model.glb as the --glb donor armature (shared def-humanoid-v1 skeleton, same DEF-* bone names as tools/blender/reskin_character.py's BONE_MAP), with the retained s1-cinder-warden mesh swapped in via --mesh-glb. This is a deliberate substitution beyond the human-command-boss precedent (which only swapped meshes within the same character id) and should be reviewed.",
+    "rejectedAlternative": "guard/model.glb was tried first as a generic donor (per tools/blender/reskin_all.sh's 'guard, ember-cohort: clean donor' note) but failed: armFit 0.40 (<0.7 fatal gate) -- guard's skeleton has an anomalous span:height ratio (skeletonSpan 2.23 vs skeletonHeight 1.13) that does not fit this mesh's proportions. shadow-commander-boss's donor (skeletonHeight 1.73, skeletonSpan 1.57, ratio close to human-command-boss's own successful reskin) produced armFit 0.86, well within the safe range."
+  },
+  "tool": "tools/blender/reskin_character.py",
+  "command": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python-exit-code 1 -P tools/blender/reskin_character.py -- --glb /Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/shadow-commander-boss/model.glb --mesh-glb /Users/jangyoung/orca/Abyssal-Surge/assets/mesh/boss/s1-cinder-warden/glb/base_basic_pbr.glb --out Assets/Art/Characters/s1-cinder-warden.fbx --report _workspace/current/engineering/reskin/s1-cinder-warden.json --max-tris 25000",
+  "report": "_workspace/current/engineering/reskin/s1-cinder-warden.json",
+  "output": "Assets/Art/Characters/s1-cinder-warden.fbx",
+  "verification": {
+    "finalTriCount": 17264,
+    "sourceTriCount": 17264,
+    "triBudget": 25000,
+    "decimated": false,
+    "armFit": 0.863824171255558,
+    "heatOrphans": 0,
+    "orphansRigidResidual": 0,
+    "nonNormalizedVertices": 0,
+    "removedBones": ["DEF-pelvis.L", "DEF-pelvis.R"],
+    "bones": 22,
+    "embeddedFbxTextures": "3 textures, all downscaled to 1024x1024 by the reskin script's MAX_TEX cap before FBX embed (diffuse, metallic-roughness, normal)"
+  },
+  "extractedTextures": {
+    "method": "Extracted texture_diffuse (image index 1) and texture_normal (image index 0) directly from the retained GLB's binary bufferViews (not from the delete-disposition textureBasicPack/*.png siblings, and not from the FBX-embedded 1024px copies) -- matches the resolution convention already used by shadow-commander-boss-textures/ and broken-court-monarch-boss-textures/.",
+    "files": [
+      "Assets/Art/Characters/s1-cinder-warden-textures/texture_diffuse_001.png (2048x2048)",
+      "Assets/Art/Characters/s1-cinder-warden-textures/texture_normal_001.png (2048x2048)"
+    ],
+    "importerCap": "Both .png.meta files set platformSettings maxTextureSize:1024 for DefaultTexturePlatform and WebGL (template: broken-court-monarch-boss-textures/*.meta, which caps WebGL explicitly -- human-command-boss-textures' WebGL platform entry was left at 2048 and was not used as the template for that reason)."
+  },
+  "followUp": [
+    "Unity Editor import not performed (project lock -- batchmode-only automation per CLAUDE.md SS1). s1-cinder-warden.fbx has no .meta yet, matching the human-command-boss precedent.",
+    "After import: create Assets/Resources/Characters/s1-cinder-warden.prefab (Humanoid avatar) and add \"s1-cinder-warden\" to CharacterRoster.Ids -- both out of scope for this asset pass, owned by CharacterImportPipeline per task instructions.",
+    "Donor-rig substitution (shadow-commander-boss skeleton) should be confirmed by design/orchestrator -- it changes which base proportions this boss silhouette is built on, unlike prior same-id mesh swaps."
+  ]
+}

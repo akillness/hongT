@@ -1,0 +1,106 @@
+{
+  "input": "/Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/shadow-commander-boss/model.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Characters/s1-cinder-warden.fbx",
+  "warnings": [],
+  "materials": [
+    {
+      "name": "model.001",
+      "albedoTexture": "texture_diffuse.001"
+    }
+  ],
+  "meshSource": "/Users/jangyoung/orca/Abyssal-Surge/assets/mesh/boss/s1-cinder-warden/glb/base_basic_pbr.glb",
+  "meshSwap": {
+    "scale": 0.9247335827109641,
+    "scaleMode": "height",
+    "armFit": 0.863824171255558,
+    "heightOvershoot": 1.0,
+    "skeletonHeight": 1.7309661954641342,
+    "meshHeight": 1.8718539348269427,
+    "skeletonSpan": 1.573081612586975,
+    "meshSpan": 1.551558017730713
+  },
+  "sourceVertexCount": 10704,
+  "sourceTriCount": 17264,
+  "removedBones": [
+    "DEF-pelvis.L",
+    "DEF-pelvis.R"
+  ],
+  "hygiene": {
+    "mergedVerts": 2068,
+    "looseRemoved": 0
+  },
+  "heatOrphans": 0,
+  "orphansTransferFilled": 0,
+  "orphansRigidResidual": 0,
+  "textures": [
+    {
+      "name": "texture_diffuse",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_diffuse.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_metallic-texture_roughness.001",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "name": "texture_normal.001",
+      "size": [
+        1024,
+        1024
+      ]
+    }
+  ],
+  "nonNormalizedVertices": 0,
+  "finalTriCount": 17264,
+  "finalVertexCount": 8636,
+  "bones": [
+    "Hips",
+    "Spine",
+    "Chest",
+    "UpperChest",
+    "Neck",
+    "Head",
+    "LeftShoulder",
+    "LeftUpperArm",
+    "LeftLowerArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightUpperArm",
+    "RightLowerArm",
+    "RightHand",
+    "LeftUpperLeg",
+    "LeftLowerLeg",
+    "LeftFoot",
+    "LeftToes",
+    "RightUpperLeg",
+    "RightLowerLeg",
+    "RightFoot",
+    "RightToes"
+  ]
+}

@@ -113,10 +113,50 @@ namespace CinderCourt.View
         // change instead of silently going stale.
         const float ClampDerivationDistance = 20f;
         const float ClampDistanceRatio = DungeonCalmDistance / ClampDerivationDistance;
-        internal const float FollowClampX =
-            SimConfig.ArenaHalfWidth * ViewWorld.Scale * 0.55f * ClampDistanceRatio;
-        internal const float FollowClampZ =
-            SimConfig.ArenaHalfHeight * ViewWorld.Scale * 0.75f * ClampDistanceRatio;
+        const float FollowClampXFraction = 0.55f;
+        const float FollowClampZFraction = 0.75f;
+
+        // ---- MV-4: the clamp tracks the sim's ACTIVE playfield ---------------
+        // AMENDMENT #15 lets the dungeon clamp ellipse grow to 554 × 418, and
+        // these two were `const` off the frozen 520 × 270. Left constant, the
+        // fractions above stop meaning what they say: the follow window would
+        // cover 0.44 of the player's z reach instead of 0.70, so the player
+        // would sit up to 2.80 u off the focus instead of 0.95 u — visibly
+        // riding the top or bottom of the frame at the clamp extremes.
+        //
+        // [OBSERVED, analytic — pitch 55°, FOV 42, D = 17.5] the ORBIT DISTANCE
+        // itself does NOT need to change. Visible ground runs 6.47 u toward the
+        // camera and 11.22 u away from the focus; with the clamp scaled the
+        // player is never more than 1.58 u off focus, so it keeps a >4 u margin
+        // on the tighter side. Raising the distance would undo the measured
+        // pull-in that fixed the 61%-dominant-colour frame for no framing gain,
+        // so the distances stay 17.5 / 21.5 and only the clamp moves.
+        // What DOES change is that the far boundary wall can leave the frame
+        // when the player stands at the opposite extreme. That is what a follow
+        // camera on a 1.7× larger floor does; it is not a defect.
+        static float _playfieldHalfWidth = SimConfig.ArenaHalfWidth;
+        static float _playfieldHalfHeight = SimConfig.ArenaHalfHeight;
+
+        internal static float FollowClampX =>
+            _playfieldHalfWidth * ViewWorld.Scale * FollowClampXFraction * ClampDistanceRatio;
+        internal static float FollowClampZ =>
+            _playfieldHalfHeight * ViewWorld.Scale * FollowClampZFraction * ClampDistanceRatio;
+
+        /// <summary>
+        /// AMENDMENT #15 (W-MV, MV-4): adopt the half-axes the dungeon sim
+        /// clamps to. Called from GameDirector.SetStageEnvironment beside the
+        /// wall-ring build so the ring, the clamp and the sim share one number;
+        /// clearing the environment restores the frozen pair.
+        /// </summary>
+        public void SetPlayfield(float halfWidth, float halfHeight)
+        {
+            _playfieldHalfWidth = halfWidth < SimConfig.ArenaHalfWidth
+                ? SimConfig.ArenaHalfWidth : halfWidth;
+            _playfieldHalfHeight = halfHeight < SimConfig.ArenaHalfHeight
+                ? SimConfig.ArenaHalfHeight : halfHeight;
+            // A live follow focus was clamped against the OLD window.
+            if (_hasFollowAnchor) _followFocus = ClampFollow(_followAnchor);
+        }
         /// <summary>Exponential-smoothing rate for the follow focus (per second).</summary>
         internal const float FollowLambda = 4.5f;
         Vector3 _followAnchor;
@@ -227,6 +267,11 @@ namespace CinderCourt.View
             {
                 RenderSettings.fogStartDistance = _bakedFogStart;
                 RenderSettings.fogEndDistance = _bakedFogEnd;
+                // Same reasoning one field over: the AMENDMENT #15 playfield is
+                // static (ClampFollow is static), dungeon-only, and would
+                // otherwise survive a run exit into the arena and the lobby.
+                _playfieldHalfWidth = SimConfig.ArenaHalfWidth;
+                _playfieldHalfHeight = SimConfig.ArenaHalfHeight;
             }
             if (_camera == null) return;
             switch (profile)

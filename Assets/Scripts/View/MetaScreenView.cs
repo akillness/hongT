@@ -107,6 +107,26 @@ namespace CinderCourt.View
         internal int SelectedEquipRow => _equipRow;
         internal CampaignMapView Map => _map;
 
+        CanvasScaler _scaler;
+        GameObject _tabBar;
+        int _lastScreenWidth, _lastScreenHeight;
+        readonly System.Collections.Generic.List<RectTransform> _contentFrames = new();
+
+        /// <summary>Single-row tab bar height. Landscape uses this; portrait
+        /// stacks a second row of the same height beneath it.</summary>
+        internal const float TabBarHeight = 74f;
+        /// <summary>Portrait bar: tabs on row 1, currency on row 2.</summary>
+        internal const float TabBarHeightPortrait = TabBarHeight * 2f;
+
+        /// <summary>Test seam: effective canvas width (screen width divided by
+        /// the scaler factor) computed by the last ApplyLayout pass. EditMode
+        /// cannot resize the editor window, so orientation is pushed in rather
+        /// than read from Screen (HudView L386 grammar).</summary>
+        internal float LastEffectiveWidth { get; private set; }
+        /// <summary>Test seam: true when the last pass chose the portrait
+        /// two-row bar.</summary>
+        internal bool LastPortrait { get; private set; }
+
         /// <summary>Builds the whole screen once, hidden. Called from the lobby
         /// so the meta screen shares its font and its data snapshot.</summary>
         public void Build(Font font, in CampaignData data, System.Action onClosed = null)
@@ -114,6 +134,9 @@ namespace CinderCourt.View
             _font = font;
             _data = data;
             _onClosed = onClosed;
+            // A second Build abandons the previous canvas; without this the
+            // list keeps its destroyed rects and ApplyLayout walks corpses.
+            _contentFrames.Clear();
 
             var canvasObject = new GameObject("MetaScreen");
             canvasObject.transform.SetParent(transform, false);
@@ -125,6 +148,7 @@ namespace CinderCourt.View
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280, 720);
             scaler.matchWidthOrHeight = 0.5f;
+            _scaler = scaler;
             canvasObject.AddComponent<GraphicRaycaster>();
             _root = canvasObject;
 
@@ -214,6 +238,10 @@ namespace CinderCourt.View
         void Update()
         {
             if (!IsOpen) return;
+            // Orientation first: a rotation must reflow the bar before anything
+            // else reads its rects this frame.
+            if (Screen.width != _lastScreenWidth || Screen.height != _lastScreenHeight)
+                ApplyLayout(Screen.width, Screen.height);
             _map?.Tick(Time.unscaledTime);
 
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
@@ -272,9 +300,10 @@ namespace CinderCourt.View
                 Vector2.zero, Vector2.zero, new Color(1f, 1f, 1f, 0.05f));
             var rect = bar.GetComponent<RectTransform>();
             rect.pivot = new Vector2(0.5f, 1f);
-            rect.offsetMin = new Vector2(0, -74);
+            rect.offsetMin = new Vector2(0, -TabBarHeight);
             rect.offsetMax = Vector2.zero;
             BottomLine(bar.transform);
+            _tabBar = bar;
 
             _tabPlates = new Image[TabCount];
             _tabLabels = new Text[TabCount];
@@ -314,6 +343,69 @@ namespace CinderCourt.View
             close.GetComponent<RectTransform>().pivot = new Vector2(1f, 1f);
         }
 
+        // ------------------------------------------------- orientation sync --
+        /// <summary>Lays the tab bar out for a viewport. Pure function of the
+        /// two arguments — no Screen reads — so EditMode can drive it.
+        ///
+        /// MEASURED, and this is why the fix is a reflow and not a scaler
+        /// tweak. The bar is one row of: tabs 20..572 u, then a right-anchored
+        /// cluster of 유물 + 포인트 + 닫기 occupying the last 454 u. That needs
+        /// ~1026 u. At 390x844 the effective width is 653 u at match 0.5 and
+        /// 799 u at match 0.35 — short either way, so relaxing the match only
+        /// MOVES the collision:
+        ///
+        ///   match 0.5  -> 653 u: 닫기 sits 541..637, over 조작 by 31 u
+        ///   match 0.35 -> 799 u: 닫기 clears, but 유물 lands over 조작 by 39 u
+        ///
+        /// So portrait does both: relax the match for the extra 146 u AND drop
+        /// the currency cluster to a second row, which buys back the 300 u it
+        /// was taking from the first. Landscape keeps the single row — at
+        /// 1214 u it has ~188 u of slack and Landscape_NothingStacksOnTheTabRow
+        /// fails if this starts reflowing there.</summary>
+        internal void ApplyLayout(int width, int height)
+        {
+            if (_scaler == null || _tabBar == null) return;
+            _lastScreenWidth = width;
+            _lastScreenHeight = height;
+            var portrait = width < height;
+            LastPortrait = portrait;
+
+            // Portrait relaxes toward width-match, same constant and same
+            // reason as HudView L395: full width-match (0) is banned because
+            // touch targets would collapse to ~17 CSS px.
+            _scaler.matchWidthOrHeight = portrait ? 0.35f : 0.5f;
+
+            var reference = _scaler.referenceResolution;
+            var scale = Mathf.Pow(width / reference.x, 1f - _scaler.matchWidthOrHeight)
+                      * Mathf.Pow(height / reference.y, _scaler.matchWidthOrHeight);
+            LastEffectiveWidth = width / Mathf.Max(0.0001f, scale);
+
+            // Row 2 exists only in portrait; the bar grows to hold it.
+            var barRect = _tabBar.GetComponent<RectTransform>();
+            barRect.offsetMin = new Vector2(0f, portrait ? -TabBarHeightPortrait
+                                                         : -TabBarHeight);
+            barRect.offsetMax = Vector2.zero;
+
+            // The readouts are top-right anchored, so y is the only thing that
+            // has to move: -14 keeps them on the tab row, -14 - TabBarHeight
+            // parks them on the row below it.
+            var readoutY = portrait ? -14f - TabBarHeight : -14f;
+            if (_relicText != null)
+                _relicText.rectTransform.anchoredPosition = new Vector2(-320f, readoutY);
+            if (_pointText != null)
+                _pointText.rectTransform.anchoredPosition = new Vector2(-170f, readoutY);
+
+            // Content must follow the bar or the taller portrait bar covers the
+            // top of every tab's first row.
+            var contentTop = portrait ? -TabBarHeightPortrait : -TabBarHeight;
+            for (var i = 0; i < _contentFrames.Count; i++)
+            {
+                var frame = _contentFrames[i];
+                if (frame == null) continue;   // destroyed by a rebuild
+                frame.offsetMax = new Vector2(0f, contentTop);
+            }
+        }
+
         void BuildHintBar(Transform root)
         {
             var bar = Panelled(root, new Vector2(0, 0), new Vector2(1, 0),
@@ -336,7 +428,11 @@ namespace CinderCourt.View
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
             rect.offsetMin = new Vector2(0f, 40f);
-            rect.offsetMax = new Vector2(0f, -74f);
+            rect.offsetMax = new Vector2(0f, -TabBarHeight);
+            // ApplyLayout pushes these down when the portrait bar grows a second
+            // row. Collected here rather than re-found by name so a renamed or
+            // reparented frame fails at compile time, not silently at runtime.
+            _contentFrames.Add(rect);
             return content;
         }
 

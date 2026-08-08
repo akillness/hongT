@@ -1896,6 +1896,18 @@ namespace CinderCourt.View
         UnityEngine.InputSystem.Keyboard _consoleTextKeyboard;   // exact device we subscribed to
         readonly CommandConsoleBuffer _consoleBuffer = new CommandConsoleBuffer(ConsoleCharacterLimit);
         const int ConsoleCharacterLimit = 60;
+        // W11 — WebGL browser IME. emscripten never delivers composition events
+        // to the canvas, so on WebGL a hidden <input> takes the keyboard while
+        // the console is open and this state machine turns its DOM events into
+        // console text. The bridge and the Keyboard.onTextInput mirror are
+        // mutually exclusive: exactly one writer per session, same invariant
+        // the duplication fix above established.
+        CommandConsoleImeComposition _consoleIme;
+        CommandConsoleImeComposition ConsoleIme => _consoleIme ??=
+            new CommandConsoleImeComposition(_consoleBuffer, ConsoleCharacterLimit);
+        bool _consoleImeBridge;      // hidden-input bridge owns this session
+        bool _consoleImeDirty;       // pre-edit changed; repaint the field on the next tick
+        int _consoleImeClose;        // 0 none, 1 submit, 2 cancel — drained in Update
 
         /// <summary>GameView caps timeScale at 0.2 while this is true — typing
         /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
@@ -2002,13 +2014,21 @@ namespace CinderCourt.View
             CommandConsoleOpen = true;
             if (Input != null) Input.TextInputActive = true;
             _consoleBuffer.Clear();
+            ConsoleIme.Clear();
+            _consoleImeDirty = false;
+            _consoleImeClose = 0;
             _consoleField.text = string.Empty;
             _consoleField.ActivateInputField();
+            // W11 — WebGL first: hand the keyboard to the hidden browser input
+            // so an IME has an editable element to compose into. Enter/ESC come
+            // back through the bridge in that mode (Unity stops capturing).
+            _consoleImeBridge = WebGLHangulIme.Open(OnConsoleImeEvent);
             // New-input-only project: the uGUI InputField can't pull text from
             // the dead legacy Input stream, so we mirror Keyboard.onTextInput
-            // into the field ourselves (printable chars + backspace).
+            // into the field ourselves (printable chars + backspace). Skipped
+            // when the bridge is live — two writers is the bug we already fixed.
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && _consoleTextHandler == null)
+            if (!_consoleImeBridge && keyboard != null && _consoleTextHandler == null)
             {
                 _consoleTextHandler = OnConsoleTextInput;
                 _consoleTextKeyboard = keyboard;
@@ -2033,10 +2053,72 @@ namespace CinderCourt.View
 
 
 
+        /// <summary>W11 — one DOM composition event from hangul_ime.jslib.
+        /// Fires between Unity frames (the browser's event loop, same thread),
+        /// so it only touches the pure-C# composition state; the uGUI field and
+        /// the console lifecycle are driven from UpdateCommandConsole.</summary>
+        void OnConsoleImeEvent(ConsoleImeEvent kind, string payload)
+        {
+            if (!CommandConsoleOpen) return;
+            var frame = Time.frameCount;
+            switch (kind)
+            {
+                case ConsoleImeEvent.CompositionStart:
+                    _consoleImeDirty |= ConsoleIme.BeginComposition();
+                    break;
+                case ConsoleImeEvent.CompositionUpdate:
+                    _consoleImeDirty |= ConsoleIme.UpdateComposition(payload);
+                    break;
+                case ConsoleImeEvent.CompositionEnd:
+                    _consoleImeDirty |= ConsoleIme.EndComposition(payload, frame);
+                    break;
+                case ConsoleImeEvent.Insert:
+                    _consoleImeDirty |= ConsoleIme.Insert(payload, frame);
+                    break;
+                case ConsoleImeEvent.DeleteBackward:
+                    _consoleImeDirty |= ConsoleIme.DeleteBackward(frame);
+                    break;
+                case ConsoleImeEvent.Submit:
+                    _consoleImeClose = 1;
+                    break;
+                case ConsoleImeEvent.Cancel:
+                    // ESC mid-syllable abandons the syllable, not the console —
+                    // the player is correcting a typo, not leaving.
+                    if (ConsoleIme.IsComposing) _consoleImeDirty |= ConsoleIme.CancelComposition();
+                    else _consoleImeClose = 2;
+                    break;
+            }
+        }
+
+        /// <summary>Applies whatever the browser IME did since the last frame.</summary>
+        void DrainConsoleIme()
+        {
+            if (_consoleImeDirty && _consoleField != null)
+            {
+                _consoleImeDirty = false;
+                _consoleField.text = ConsoleIme.Text;
+                _consoleField.caretPosition = _consoleField.selectionAnchorPosition =
+                    _consoleField.selectionFocusPosition = ConsoleIme.Length;
+            }
+            if (_consoleImeClose == 0) return;
+            var submit = _consoleImeClose == 1;
+            _consoleImeClose = 0;
+            CloseCommandConsole(submit);
+        }
+
         void CloseCommandConsole(bool submit)
         {
             if (_consoleRoot == null) return;
-            var raw = _consoleBuffer.Text;      // buffer is the single source of truth
+            // Flush first: a syllable still in the IME belongs to the player who
+            // typed it, not to the frame they pressed Enter on.
+            var raw = ConsoleIme.Flush(Time.frameCount);   // buffer is the single source of truth
+            if (_consoleImeBridge)
+            {
+                WebGLHangulIme.Close();
+                _consoleImeBridge = false;
+            }
+            _consoleImeDirty = false;
+            _consoleImeClose = 0;
             _consoleField.DeactivateInputField();
             // Detach the manual text feed so it never leaks onto other surfaces.
             // Unsubscribe from the EXACT device we subscribed to: if
@@ -2051,6 +2133,7 @@ namespace CinderCourt.View
                 _consoleTextKeyboard = null;
             }
             _consoleBuffer.Clear();
+            ConsoleIme.Clear();
             _consoleRoot.SetActive(false);
             CommandConsoleOpen = false;
             if (Input != null) Input.TextInputActive = false;
@@ -2179,8 +2262,14 @@ namespace CinderCourt.View
 
         void UpdateCommandConsole()
         {
+            // W11 — browser IME events landed between frames; apply them before
+            // anything reads the console text this tick.
+            if (_consoleImeBridge) DrainConsoleIme();
             // Console keys are read OUTSIDE InputAdapter's TextInputActive gate —
             // otherwise Enter/ESC would be swallowed and the player trapped.
+            // With the bridge live Unity is not capturing the keyboard at all,
+            // so these polls simply never fire and Enter/ESC arrive as bridge
+            // events instead.
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard != null)
             {

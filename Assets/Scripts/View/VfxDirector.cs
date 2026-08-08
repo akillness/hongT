@@ -106,7 +106,30 @@ namespace CinderCourt.View
         // The scroll offset wraps at this pitch so the row reads endless.
         const float ChevronSpacingWorld = 1.3f;
         // Ash-wall visuals span the arena height (sim 540 px -> world units).
-        const float WallSpanWorld = SimConfig.ArenaHalfHeight * 2f * ViewWorld.Scale;
+        //
+        // AMENDMENT #15 (W-MV, MV-6): this was `const ... ArenaHalfHeight`. The
+        // ash wall is a full-height crush edge in the SIM — its damage does not
+        // care where on y you stand — so a curtain frozen at 540 px would stop
+        // 296 px short of an expanded playfield and read as a dodgeable gap that
+        // is not actually dodgeable. Frozen half-height is the default, so the
+        // arena and prologue curtains are unchanged.
+        static float _wallSpanWorld = SimConfig.ArenaHalfHeight * 2f * ViewWorld.Scale;
+        static float WallSpanWorld => _wallSpanWorld;
+
+        /// <summary>
+        /// AMENDMENT #15 (W-MV): adopt the dungeon sim's active clamp half-axes.
+        /// Called from GameDirector.SetStageEnvironment next to the wall-ring
+        /// build; clearing the environment restores the frozen span.
+        /// </summary>
+        public static void SetPlayfield(float halfWidth, float halfHeight)
+        {
+            if (halfHeight < SimConfig.ArenaHalfHeight) halfHeight = SimConfig.ArenaHalfHeight;
+            _wallSpanWorld = halfHeight * 2f * ViewWorld.Scale;
+        }
+
+        /// <summary>Test seam: the ash-wall span currently in force. Reading it
+        /// off a live hazard view would need a scene, a sim and an armed wall.</summary>
+        internal static float WallSpanWorldForTests => _wallSpanWorld;
 
         /// <summary>
         /// Flow direction (+1/-1) for a tide current at a sim position.
