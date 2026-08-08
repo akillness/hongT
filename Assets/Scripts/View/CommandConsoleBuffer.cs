@@ -78,6 +78,31 @@ namespace CinderCourt.View
             return true;
         }
 
+        /// <summary>Appends a whole string that arrived as ONE commit — a
+        /// browser IME's compositionend, or a paste. Deliberately skips the
+        /// same-frame echo guard: that guard exists to catch two event sources
+        /// racing on one keystroke, and a commit is a single event carrying
+        /// text the player already sees. Routing "ㅋㅋ" through Feed twice in
+        /// one frame would silently drop half of it.
+        /// Returns true when the buffer changed.</summary>
+        public bool AppendComposed(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            var changed = false;
+            for (var i = 0; i < text.Length; i++)
+            {
+                var c = text[i];
+                if (char.IsControl(c)) continue;
+                if (_text.Length >= _characterLimit) break;
+                _text.Append(c);
+                changed = true;
+            }
+            // A commit closes the duplicate window: the next identical
+            // character off the keystroke path is a genuine retype.
+            if (changed) _hasAccepted = false;
+            return changed;
+        }
+
         bool IsSameFrameEcho(char c, int frame)
             => _hasAccepted && _lastAcceptedChar == c && _lastAcceptedFrame == frame;
     }
