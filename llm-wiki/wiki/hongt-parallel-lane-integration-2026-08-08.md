@@ -79,12 +79,25 @@ W4~W16 + W-MV를 4개 병렬 레인(sim/ui/vfx/asset)으로 구현하고 통합�
   실크기(gzip unityweb, 62MB)는 다른 수치다. 120MB 게이트 판정은 배포
   디렉터리 기준.
 
-## 6. [OBSERVED] 잔여 미결 (다음 사이클 인계)
+## 6. [OBSERVED] 이월분 완료 기록 (같은 날 2차 사이클)
 
-- **W-MV(AMENDMENT #15) bounds 게이트는 아직 OFF.** 켜려면
-  `EnvironmentBuilder`의 벽 링 반축을 심 게시값으로 전환(MV-2)해야 하며,
-  이 파일은 다른 세션이 수정 중이었다. sim 쪽 준비는 완료
-  (`DungeonBoundsSpec.Expanded` 554×418, 테스트 8종 그린).
-- W6(보스 다양화), W11(WebGL 한글 IME), V1(시전 동기화), V4(URP 포스트,
-  p95 실측 게이트) 이월.
-- WebGL 빌드 + 배포 URL 실관측(수용 기준 4번)은 이 사이클에서 미수행.
+당초 이월했던 항목 전부 같은 날 2차 병렬 사이클로 완료했다
+(커밋 d5c2fe9/6f62d2d/41aabd7/dea1357/a70d88d, EditMode 714/716,
+빌드 67MB, gh-pages 바이트 일치 배포):
+
+- **W-MV 게이트 ON** — 핵심 발견: 환경 빌드가 심 생성보다 **먼저**라 심
+  스냅샷 주입은 구조적으로 불가. `GameView.DungeonProgression`(정적 단일
+  출처)을 뷰·심 양쪽이 `DungeonBoundsSpec.Resolve`로 함께 통과시키는 것이
+  정답. 부수 실결함 2건 발견·수정: Zone C 북측 림 테라스가 확장 링과 겹침,
+  `VfxDirector.WallSpanWorld` 하드코딩으로 재의 벽 커튼이 296px 모자람.
+- **W6(AMENDMENT #16)** — 아키타입 4종 5축 차별화. 보스 프리팹은
+  **비풀링**(`RentBoss`)으로 생성해야 풀 오염(Warden 메시가 Tactician으로
+  재등장)이 없다. 보스 3종 리스킨은 리깅 도너가 없어 shadow-commander-boss
+  골격을 도너로 사용(armFit 0.76~0.91; generic 도너는 0.35~0.42로 게이트 실패).
+- **W11** — emscripten 키보드 경로에 composition 핸들러가 아예 없다는 것이
+  근본 원인. 숨은 input + `.jslib` 브리지 + 순수 C# 조합 상태머신.
+- **V4** — "p95 실측 없이 PASS 불가" 게이트는 런타임 프레임 워치독(초과 시
+  포스트 자동 강등)으로 상시화했다. 강등 로그 자체가 게이트 작동 증거.
+- 테스트 정밀도 교훈 재확인: double로 저작한 기하 핀 2건이 Unity float에서
+  1e-5~1e-7 차이로 깨짐 — 핀에는 의미 최소 변화량보다 넉넉히 작은 허용오차를
+  처음부터 줄 것.
