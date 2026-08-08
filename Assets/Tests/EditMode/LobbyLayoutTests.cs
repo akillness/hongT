@@ -244,6 +244,247 @@ namespace CinderCourt.Tests
                 + "shows them all");
         }
 
+        /// <summary>
+        /// The three lobby panels must not overlap at ANY effective width.
+        ///
+        /// Found in the browser after the origin/main merge: the campaign map was
+        /// drawn over the sortie panel, burying the prologue card and the first
+        /// two act rows. The arithmetic is why —
+        ///
+        ///   sanctum  16 .. 416              (left-anchored, 400 wide)
+        ///   map      432 .. 856             (left-anchored at a CONSTANT)
+        ///   sortie   (W-408) .. (W-16)      (RIGHT-anchored, 392 wide)
+        ///
+        /// sortie's left edge tracks the viewport and the map's does not, so they
+        /// collide for every W below 1264. The stack threshold was 850, so the
+        /// whole 850..1264 band shipped broken: 248 u of overlap at W=1000, and
+        /// 88 u at the 1176 u a 1280 CSS px browser window actually produces
+        /// (buffer 1351x900, dpr 1.25).
+        ///
+        /// Nothing caught it because this file audited 390x844 (stacked) and
+        /// 1280x720 — the reference width, and the one non-stacked width where the
+        /// constant happens to be right. Right and wrong coincided at both sampled
+        /// points (§4m); the defect lived entirely between them.
+        ///
+        /// THREE THINGS THIS TEST HAS TO GET RIGHT, each of which an earlier draft
+        /// of it got wrong. Recorded because every one of them makes the test LIE
+        /// rather than fail:
+        ///
+        /// 1. The canvas is resized PER WIDTH, from LastEffectiveWidth. sanctum
+        ///    and map are left-anchored while sortie is RIGHT-anchored, so sortie's
+        ///    world x comes from the canvas edge. Leaving the canvas at the phone's
+        ///    799 u while laying out for 1280 measures a frame the product never
+        ///    draws — and it reports ~350 u of map-over-sortie on CORRECT code. The
+        ///    shared-y-band premise below does not catch that: all three panels sit
+        ///    at top -72 in both the real frame and the bogus one.
+        ///
+        /// 2. The sweep drives SCREEN widths; the threshold is an EFFECTIVE width.
+        ///    Different numbers: 1176x720 has an effective width of 1226.9, so a
+        ///    case labelled "the browser's 1176" would not be testing 1176 at all.
+        ///    Every landscape case here uses h = round(921600/w), which puts the
+        ///    scaler's log-lerp at scale 1 and therefore E == w within 0.4 u. The
+        ///    width list IS the effective-width list, so the conflation cannot come
+        ///    back by editing. The two exceptions are the ones that come from real
+        ///    devices and they carry their measured E instead of a pretence: the
+        ///    phone (798.7) and the browser buffer 1351x900 (1176.2).
+        ///
+        /// 3. The two mutations fire in DISJOINT bands, and the second is 16 u
+        ///    wide. A sweep has to land inside it on purpose:
+        ///
+        ///      M1 (threshold 850)  RED for E in [850, 1248)   — 398 u wide
+        ///      M2 (map x = 432)    RED for E in [1248, 1264)  —  16 u wide
+        ///
+        ///    M2 needs side-by-side (E >= 1248) AND the constant still past the
+        ///    sortie edge (856 > E - 408, i.e. E < 1264). Sixteen units out of the
+        ///    entire width axis. That narrowness is the answer to "how did an audit
+        ///    at 390 and 1280 miss this", and it is why the 1248..1263 rows below
+        ///    are load-bearing: delete them and M2 ships green while every other
+        ///    assertion here still passes.
+        ///
+        /// Mutations that turn this RED. Quoted as map-over-sortie AREA, because
+        /// that is what Check measures and prints — and area is the more sensitive
+        /// test: the panels are 320-620 u tall, so a linear overlap of a fraction of
+        /// a unit is still hundreds of u2 and does not slip under the epsilon.
+        ///   - Stack threshold 1248 -> 850: RED at 7 of the 16 cases —
+        ///     E = 1000 (79,429 u2), 1100 (47,398), 1176 (23,118), 1200 (15,360),
+        ///     1240 (2,500), 1247 (305), and 1351x900 (22,979).
+        ///   - Map x back to the constant 432: RED at 5 cases, all inside the 16 u
+        ///     window — E = 1248 (4,995 u2), 1251 (4,244), 1255 (2,786),
+        ///     1259 (1,597), 1263 (405). Caught by NOTHING outside that window:
+        ///     not by 1264, not by 1280, not by 390.
+        ///
+        /// Deliberately NOT asserted: whether the stacked column FITS. A landscape
+        /// window that stacks (E ~ 1000) puts a 1604 u column against a ~920 u
+        /// canvas, so the map lands off the bottom. That is a containment and
+        /// scrolling question, not an overlap one, and folding it in would give one
+        /// test two failure meanings. Measured and reported, not silently ignored.
+        /// </summary>
+        [Test]
+        public void LobbyPanels_NeverOverlap_AtAnyEffectiveWidth()
+        {
+            // (screen w, screen h, expected effective width, why this row exists).
+            var cases = new (int W, int H, float E, string Why)[]
+            {
+                (390,  844,  798.7f,  "phone portrait — the width this file already audited"),
+                (1000, 922,  1000f,   "M1 band, worst overlap of the sampled set"),
+                (1100, 838,  1100f,   "M1 band"),
+                (1176, 784,  1176f,   "M1 band at the browser's effective width"),
+                (1200, 768,  1200f,   "M1 band"),
+                (1240, 743,  1240f,   "M1 band, last width before the switch"),
+                (1247, 739,  1247f,   "threshold bracket: last stacked width"),
+                (1248, 738,  1248f,   "threshold bracket: first side-by-side width, M2 worst"),
+                (1251, 737,  1251f,   "inside the 16 u M2 window"),
+                (1255, 734,  1255f,   "inside the 16 u M2 window"),
+                (1259, 732,  1259f,   "inside the 16 u M2 window"),
+                (1263, 730,  1263f,   "last width inside the M2 window"),
+                (1264, 729,  1264f,   "first width past the M2 window"),
+                (1280, 720,  1280f,   "the reference width — where the old constant was right"),
+                (1600, 576,  1600f,   "wide desktop, gutter far past the map"),
+                (1351, 900,  1176.2f, "the browser buffer that produced the report (dpr 1.25)"),
+            };
+
+            var canvas = BuildClearedLobby();
+            var canvasRect = (RectTransform)canvas.transform;
+            var collisions = new List<string>();
+            var sideBySide = 0;
+            var stacked = 0;
+            var tightestGutter = float.PositiveInfinity;
+            string tightestAt = null;
+            var sampled = new List<string>();
+
+            // One lobby, re-laid at each width: ApplyLobbyLayoutForTest forces the
+            // pass, which is the path a real resize takes. Rebuilding per width
+            // would test construction instead of reflow, and reflow is where the
+            // panels move.
+            foreach (var c in cases)
+            {
+                _lobby.ApplyLobbyLayoutForTest(c.W, c.H);
+
+                // Round-trip the scaler coupling rather than describing it (§4i):
+                // every expected E here was derived from the 1280x720 reference, so
+                // a reference change must fail loudly instead of quietly re-pointing
+                // the whole sweep at widths other than the ones it names.
+                Assert.That(_lobby.LastEffectiveWidth, Is.EqualTo(c.E).Within(1f),
+                    $"{c.W}x{c.H} resolved to an effective width of "
+                    + $"{_lobby.LastEffectiveWidth:F2}, not the {c.E:F1} this case is built on "
+                    + $"({c.Why}). The scaler's reference resolution moved, so every width in "
+                    + "this sweep now audits a different point than its label claims");
+
+                // The frame the product actually draws at this viewport. Without
+                // this, the right-anchored sortie panel is measured against the
+                // wrong canvas edge and correct code reports ~350 u of overlap.
+                var effective = _lobby.LastEffectiveWidth;
+                canvasRect.sizeDelta = new Vector2(effective, effective * c.H / c.W);
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+                Assert.That(canvasRect.rect.width, Is.EqualTo(effective).Within(0.01f),
+                    $"{c.W}x{c.H}: canvas failed to take the effective width {effective:F2}");
+
+                var sanctum = WorldRect(_lobby.SanctumRectForTest);
+                var map = WorldRect(_lobby.MapPanelRectForTest);
+                var sortie = WorldRect(_lobby.SortieRectForTest);
+                var at = $"{c.W}x{c.H} (E={effective:F1}, "
+                    + $"{(_lobby.StackedForTest ? "stacked" : "side-by-side")})";
+
+                foreach (var rect in new[] { sanctum, map, sortie })
+                    Assert.That(rect.width > 0f && rect.height > 0f, Is.True,
+                        $"{at}: a panel resolved to a degenerate rect "
+                        + $"[{rect.width:F1} x {rect.height:F1}], so overlap cannot be measured");
+
+                if (_lobby.StackedForTest)
+                {
+                    stacked++;
+                    // Premise for the stacked half: the column separates
+                    // VERTICALLY, so the panels must still share x. Without this,
+                    // "no overlap" could be passing because a panel drifted
+                    // sideways out of the column entirely.
+                    var shareX = Mathf.Min(sanctum.xMax, sortie.xMax)
+                               - Mathf.Max(sanctum.xMin, sortie.xMin);
+                    Assert.That(shareX, Is.GreaterThan(1f),
+                        $"{at}: sanctum and sortie share only {shareX:F1} u of x, so the "
+                        + "stacked column is not a column and the vertical separation below "
+                        + "is being proved by a horizontal gap instead");
+                }
+                else
+                {
+                    sideBySide++;
+                    // Premise for the side-by-side half: side by side means SIDE by
+                    // side. If the row stopped sharing a y band, every overlap check
+                    // below would pass for the wrong reason.
+                    Assert.That(sanctum.yMax, Is.EqualTo(map.yMax).Within(1f),
+                        $"{at}: sanctum and map must share the row's top edge");
+                    Assert.That(map.yMax, Is.EqualTo(sortie.yMax).Within(1f),
+                        $"{at}: map and sortie must share the row's top edge");
+
+                    // Left to right, in the order the layout claims to place them.
+                    // Asserted positively so a panel that jumps to the wrong side of
+                    // another fails even when the two happen not to touch.
+                    Assert.That(sanctum.xMax, Is.LessThanOrEqualTo(map.xMin + OverlapEpsilon),
+                        $"{at}: sanctum [{sanctum.xMin:F1}..{sanctum.xMax:F1}] must end "
+                        + $"before the map begins [{map.xMin:F1}..{map.xMax:F1}]");
+                    Assert.That(map.xMax, Is.LessThanOrEqualTo(sortie.xMin + OverlapEpsilon),
+                        $"{at}: map [{map.xMin:F1}..{map.xMax:F1}] must end before sortie "
+                        + $"begins [{sortie.xMin:F1}..{sortie.xMax:F1}]");
+
+                    var gutter = sortie.xMin - map.xMax;
+                    if (gutter < tightestGutter) { tightestGutter = gutter; tightestAt = at; }
+                }
+
+                sampled.Add($"{effective:F0}:{(_lobby.StackedForTest ? "stack" : "row")}");
+
+                Check(at, "sanctum", sanctum, "map", map);
+                Check(at, "map", map, "sortie", sortie);
+                Check(at, "sanctum", sanctum, "sortie", sortie);
+            }
+
+            // --- the sweep must have exercised BOTH arrangements --------------
+            Assert.That(sideBySide, Is.GreaterThan(0),
+                "every sampled width stacked, so the side-by-side row — the only arrangement "
+                + $"that can collide — was never exercised. Sampled: {string.Join(" ", sampled)}");
+            Assert.That(stacked, Is.GreaterThan(0),
+                "no sampled width stacked, so the threshold itself is untested and a sweep "
+                + "entirely above it would pass with the old 850 threshold still in place. "
+                + $"Sampled: {string.Join(" ", sampled)}");
+
+            // --- and it must have reached INSIDE the 16 u M2 window ----------
+            //
+            // A map pinned at the constant 432 overlaps sortie by 16 - 2*gutter, so
+            // it is only visible past the 1 u epsilon while the gutter is under
+            // 7.5 u. If a later edit trims the 1248..1263 rows for looking
+            // redundant, this assert is the only thing that notices the mutation
+            // stopped being detectable.
+            Assert.That(tightestGutter, Is.LessThan(6f),
+                $"the tightest side-by-side gutter sampled was {tightestGutter:F1} u at "
+                + $"{tightestAt}. Nothing in this sweep lands inside the 16 u window "
+                + "(E in [1248, 1264)) where a map pinned at the constant 432 still runs into "
+                + "the sortie panel, so that mutation would ship green. Restore a width just "
+                + "above the stack threshold");
+
+            Assert.That(collisions, Is.Empty,
+                $"{collisions.Count} lobby panel overlap(s). The map is the only panel with no "
+                + "anchor of its own, so it is the one that drifts into a neighbour when the "
+                + $"gutter arithmetic is wrong:\n{string.Join("\n", collisions)}");
+
+            void Check(string at, string an, Rect a, string bn, Rect b)
+            {
+                var area = OverlapArea(a, b);
+                if (area <= OverlapEpsilon) return;
+                var dx = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+                var dy = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+                collisions.Add($"  {at}: {an} [{a.xMin:F1}..{a.xMax:F1} x "
+                    + $"{a.yMin:F1}..{a.yMax:F1}] over {bn} [{b.xMin:F1}..{b.xMax:F1} x "
+                    + $"{b.yMin:F1}..{b.yMax:F1}] by {dx:F1} x {dy:F1} = {area:F0} u2");
+            }
+        }
+
+        /// <summary>Overlapping area of two world rects, 0 when disjoint.</summary>
+        private static float OverlapArea(Rect a, Rect b)
+        {
+            var w = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+            var h = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+            return w <= 0f || h <= 0f ? 0f : w * h;
+        }
+
 
         /// <summary>
         /// W8 added the campaign map panel, and it is the ONLY route to the tab

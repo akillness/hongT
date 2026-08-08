@@ -766,6 +766,32 @@ namespace CinderCourt.View
         internal void ApplyLobbyLayoutForTest(int width, int height)
             => ApplyLobbyTier(width, height, true);
 
+        /// <summary>
+        /// The three top-level panels, resolved. Exposed because the row they
+        /// form is the thing that broke: sanctum is left-anchored, sortie is
+        /// RIGHT-anchored and the map sits between them, so whether they collide
+        /// is a function of the effective width and cannot be read off any one
+        /// panel's constants.
+        /// </summary>
+        internal RectTransform SanctumRectForTest => _sanctumRect;
+        internal RectTransform MapPanelRectForTest => _mapPanelRect;
+        internal RectTransform SortieRectForTest => _sortieRect;
+        internal bool StackedForTest => _stacked;
+        /// <summary>
+        /// Effective canvas width (screen width over the scaler factor) from the
+        /// last tier pass. Same seam and same reason as
+        /// <c>HudView.LastEffectiveWidth</c> (HudView.cs:107): a test that sizes
+        /// its canvas from a screen width is measuring a frame the product never
+        /// draws, and the sortie panel is RIGHT-anchored, so its world x comes
+        /// from the canvas edge — get the width wrong and the overlap answer is
+        /// wrong in whichever direction the error points.
+        ///
+        /// Exposed rather than re-derived: the log-lerp already exists in the
+        /// Unity scaler and again here, and a third copy in a test would be the
+        /// one that silently drifts (§4i).
+        /// </summary>
+        internal float LastEffectiveWidth { get; private set; }
+
         void ApplyLobbyTier(int width, int height, bool force)
         {
             if (!force && width == _lastScreenWidth && height == _lastScreenHeight)
@@ -782,8 +808,50 @@ namespace CinderCourt.View
             var logHeight = Mathf.Log(height / 720f, 2f);
             var scale = Mathf.Pow(2f, Mathf.Lerp(logWidth, logHeight, match));
             var effectiveWidth = width / Mathf.Max(0.0001f, scale);
+            LastEffectiveWidth = effectiveWidth;
 
-            var stack = effectiveWidth < 850f;   // 840 u content + margin
+            // The three-panel row needs sanctum + map + sortie side by side, and
+            // the map is the only one with no anchor of its own: sanctum hugs the
+            // left, sortie hugs the RIGHT, and the map sits in what is left. So
+            // the threshold is the width at which that gutter can still hold it,
+            // not a round number.
+            //
+            //   sanctum right = 16 + 400            = 416
+            //   sortie  left  = W - 16 - 392        = W - 408
+            //   gutter        = (W - 408) - 416     = W - 824
+            //   need gutter  >= 424 (map width)     -> W >= 1248
+            //
+            // The old threshold was 850, and between 850 and 1264 the map was
+            // drawn on top of the sortie panel. The layout tests missed it by
+            // sampling only 390x844 (stacked) and 1280x720 (the reference, the
+            // one non-stacked width where the constant happens to be right):
+            // right and wrong coincided at both sampled points, and the whole
+            // defect lived between them (§4m).
+            //
+            // MEASURED, and it makes the band academic: the shipped WebGL
+            // template locks the canvas to aspect 1280:853 (build-webgl
+            // index.html:18-20, `width: min(1280px, 100vw, calc(100vh*1280/853))`
+            // with `matchWebGLToCanvasSize = false`). Every buffer is therefore
+            // k*1280 x k*853, and that aspect yields the SAME effective width at
+            // every k:
+            //
+            //   640x426  -> 1176.7      1920x1280 -> 1175.8
+            //   1280x853 -> 1176.0      2560x1706 -> 1176.0
+            //   1600x1066-> 1176.1      3840x2559 -> 1176.0
+            //
+            // So E is pinned at ~1176 for every player at every window size, the
+            // side-by-side row needs 1248, and it CANNOT be satisfied by the
+            // shipped template at all. Before this change the old threshold
+            // picked it anyway and the overlap was not an edge case — it was the
+            // deployed state, 88 u, for everyone.
+            //
+            // Stacking is therefore the only arrangement this build can render
+            // correctly, and it is main's own fallback rather than a third
+            // layout invented here. Reviving the three-panel row means either
+            // relaxing the template's aspect lock or shrinking the row below
+            // 1176 u — a design decision, not a merge fix.
+            const float SideBySideFloor = 1248f;
+            var stack = effectiveWidth < SideBySideFloor;
             if (!force && stack == _stacked) return;
             _stacked = stack;
 
@@ -835,9 +903,16 @@ namespace CinderCourt.View
                 }
                 else
                 {
+                    // Centred in the gutter the other two panels leave, not at a
+                    // constant. The constant was 432, which is what this formula
+                    // returns at exactly 1280 u — correct at the reference width
+                    // and drifting into the sortie panel at every width below it.
+                    var gutterLeft = 16f + 400f;                       // sanctum right
+                    var gutterRight = effectiveWidth - 16f - 392f;     // sortie left
+                    var x = gutterLeft + Mathf.Max(0f, (gutterRight - gutterLeft - 424f) * 0.5f);
                     _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0f, 1f);
                     _mapPanelRect.pivot = new Vector2(0f, 1f);
-                    _mapPanelRect.anchoredPosition = new Vector2(432f, -72f);
+                    _mapPanelRect.anchoredPosition = new Vector2(x, -72f);
                 }
                 _mapPanelRect.sizeDelta = new Vector2(424f, 320f);
             }
