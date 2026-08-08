@@ -105,6 +105,31 @@ namespace CinderCourt.View
             return (prefab, tint);
         }
 
+        // AMENDMENT #16 (W6): per-archetype boss reskins. Lazy-loaded and
+        // null-cached — a build without the imported prefabs falls back to the
+        // shared EnemyVisual prefab in GameView.RentBoss. Monarch keeps its
+        // existing dedicated prefab (loaded via the EnemyVisual table above).
+        readonly Dictionary<BossArchetype, GameObject> _bossArchetypePrefabs =
+            new Dictionary<BossArchetype, GameObject>(3);
+
+        public GameObject BossArchetypePrefab(BossArchetype archetype)
+        {
+            string id = archetype switch
+            {
+                BossArchetype.Warden => "s1-cinder-warden",
+                BossArchetype.Tactician => "s2-veil-tactician",
+                BossArchetype.Sovereign => "s3-gate-sovereign",
+                _ => null,
+            };
+            if (id == null) return null;
+            if (!_bossArchetypePrefabs.TryGetValue(archetype, out var prefab))
+            {
+                prefab = Resources.Load<GameObject>("Characters/" + id);
+                _bossArchetypePrefabs[archetype] = prefab;   // cache misses too
+            }
+            return prefab;
+        }
+
         public (GameObject prefab, Color fallback, float scale) EnemyVisualFor(EnemyVisual visual)
         {
             _enemyPrefabs.TryGetValue(visual, out var prefab);
