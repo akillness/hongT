@@ -1113,6 +1113,7 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | 13 | 웨이브 포인트 예산 + DDA (시드 W4) | 본 문서 "Amendment #13" (로컬 절 번호 **§17**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 232/232, 4레인 pre/post 다이제스트 224행 무이동). 시드 문서가 지칭한 "#10"은 훈련장·돌발이 이미 점유 |
 | 14 | 아이템 등급 드롭 + bad-luck protection (시드 W5) | 본 문서 "Amendment #14" (로컬 절 번호 **§18**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료. 시드 문서가 지칭한 "#11"은 난이도·적 그룹 AI가 이미 점유 |
 | 15 | 던전 이동 한계 (W-MV) | 본 문서 "Amendment #15" (로컬 절 번호 **§19**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 240/240). **뷰 결합 있음**: 게이트를 켜려면 EnvironmentBuilder 의 링 파생을 §19.5 접점으로 바꿔야 한다 |
+| 16 | 보스 아키타입 다양화 (시드 W6) | 본 문서 "Amendment #16" (로컬 절 번호 **§20**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 216/216, pre/post 다이제스트 34행 무이동). FROZEN 파일 무수정. **뷰 결합 있음**: 텔레그래프 리듬·아키타입별 연출이 없으면 플레이어에게 보이지 않으므로 `All` 이 아니라 `Everything` 에만 포함 |
 
 # 부록 B — 정오표 (2026-08-07 감사 반영, additive)
 
@@ -1130,7 +1131,7 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | §3 "피격 시 채널 리셋" | "피격" | **체력이 실제로 깎인 피격** — void-aegis 실드 전량 흡수는 채널을 끊지 않는다 (F 스킬 존재 의의와 정합) |
 | §2.5 "피해 +4%" | 합성 방식 무언 | **단리** `×(1+0.04·(lv−1))` |
 | A9.4 "스윙당 1회 샘플링" | once per swing | 구현은 **스윙-틱당** 샘플링(같은 틱 히트 적립 전) — 교차-틱 신규 진입 적은 승급 배율 수령 가능. 문언 개정 vs 심 래치는 D6 오퍼레이터 결정 대기. 결정 전까지 코드 의미론이 사실 |
-| §7 표 시간 열 | 공격간격/텔레그래프/스킬쿨 | **선언만 존재, 심 소비 0** — S8-b/c 미착수의 알려진 상태 (D1). 표는 목표 계약으로 유지 |
+| §7 표 시간 열 | 공격간격/텔레그래프/스킬쿨 | **선언만 존재, 심 소비 0** — S8-b/c 미착수의 알려진 상태 (D1). 표는 목표 계약으로 유지. **AMENDMENT #16 §20.2 부분 해소**: 게이트 ON 시 Monarch 캐던스가 `BossAttackInterval` 의 P1 정규화 비율(1.000/0.847/0.723)을 따르고, 텔레그래프는 접촉 프레임(1..4)으로 아키타입별 소비된다. 상수 자체는 여전히 무개정 |
 | 통합 설계문서 "2페이즈 + 소환" | integrated-campaign-level-spec §1.2 | **3페이즈**(AMENDMENT #4 개정) + Monarch P2 호위 3기 |
 ---
 
@@ -1451,3 +1452,139 @@ relic 점수는 `(int)(250 · mul)` 절삭. 장비 파편은 `RaiseRank` 를
   (확장이 관측되지 않으면 나머지 어서션이 공허하므로 명시 실패).
 - stop-e 가 링 파생식과 동일.
 - 반축은 런 중 불변, Restart 후에도 동일, 리스타트 런 == 신규 런 락스텝.
+
+---
+
+# Frozen Contract Amendment #16 — 보스 아키타입 다양화 (2026-08-08)
+
+> **번호 배정.** 부록 A canonical 원장의 마지막 배정은 #15(던전 이동 한계)다.
+> W6 시드가 지칭한 번호와 무관하게 다음 가용 번호인 **#16** 을 쓴다 (#13/#14 가
+> 같은 이유로 재배정된 선례). 로컬 절 번호는 **§20**. §13(결정론)·§16(난이도)·
+> §17(예산)·§18(등급)·§19(이동 한계) 전부 무개정.
+
+**Status: implemented and proven** (`Assets/Scripts/Sim/DungeonProgressionSpec.cs`
+— `BossArchetype`/`BossArchetypeProfile`/`BossVarietySpec`,
+`CinderSim.UpdateBossPhase`/`SpeedFor`/`UpdateEnemy`/`SpawnEnemy`), gated by
+`Assets/Tests/EditMode/BossVarietyTests.cs` (13종).
+**Additive only.** FROZEN 파일(`SimTypes.cs`·`HackTypes.cs`·`CampaignTypes.cs`)
+무수정 — 새 수치는 전부 비동결 `DungeonProgressionSpec.cs` 에 있다.
+
+## §20.0 문제 정의 — 실측
+
+[OBSERVED] 보스 visual 은 2종(`EnemyVisual.BossCommander` / `BossMonarch`)이지만
+**페이즈 테이블은 단 하나**다: `HackSpec.BossPhase2/3HealthFraction`(0.50/0.20),
+`BossSpeedMul`(1.00/1.25/1.45), `BossRangeMul`(1.00/1.10/1.20),
+`BossPhase2/3DamageMul`(1.25/1.45). 두 visual 의 유일한 심 차이는
+`MonarchPhase2Escorts = 3` 한 줄뿐이다 (`CinderSim.cs` UpdateBossPhase).
+
+[OBSERVED] `HackSpec.BossAttackInterval`·`BossTelegraph`·`BossSkillCooldown`
+세 벡터는 **선언만 존재하고 심 소비가 0** 이다 (부록 B 정오표 D1). 보스는 일반
+적과 완전히 같은 쿨다운 식(`SimConfig.EnemyAttackCooldown + min(0.38, wave*0.025)`)
+과 같은 접촉 프레임(`EnemyContactFrame = 2`, 5프레임 12fps 클립)을 쓴다.
+
+→ 스테이지 보스 6종이 **HP 총량과 이름만 다른 같은 적**이다.
+
+## §20.1 게이트 — 이 증보에 도달하는 유일한 경로
+
+`DungeonProgressionConfig.BossVariety`(기본 `false`). `Any` 에 포함,
+**`Everything` 에 포함, `All` 에는 비포함**. `All` 제외 이유는 #15 와 같다:
+텔레그래프 리듬은 View 가 차별화해 그려야 읽히므로, 뷰 연동 없이 켜면 보이지 않는
+난이도 변경이 된다. 던전 전용 — 생성자에서 `config.Mode == GameMode.Dungeon` 가
+아니면 `_progression` 자체가 `default` 로 죽는다 (#13/#14 와 동일 seam).
+
+**게이트 OFF 시 `BossArchetype.None` 프로파일이 동결 §7 벡터를 그대로 재진술**하므로
+동결 경로는 코드가 아니라 **데이터로도** 불변이다.
+
+## §20.2 아키타입 표 (수치 게이트) [TARGET]
+
+| 축 | **None**(동결) | **Warden** | **Tactician** | **Sovereign** | **Monarch** |
+|---|---|---|---|---|---|
+| 페이즈 수 | 3 | **2** | 3 | 3 | 3 |
+| P2 진입 HP율 | 0.50 | **0.55** | **0.72** | **0.66** | 0.50 |
+| P3 진입 HP율 | 0.20 | — | **0.38** | **0.33** | 0.20 |
+| 캐던스 배율 P1/P2/P3 | 1.00/1.00/1.00 | **1.55/1.34/—** | **0.72/0.62/0.54** | **1.12/0.90/0.68** | **1.00/0.85/0.72** |
+| 이동 배율 | 1.00/1.25/1.45 | **0.82/0.96/—** | **1.30/1.52/1.74** | **1.00/1.28/1.60** | **1.05/1.32/1.55** |
+| 사거리 배율 | 1.00/1.10/1.20 | **1.34/1.48/—** | **0.90/0.95/1.00** | **1.06/1.16/1.26** | 1.00/1.10/**1.22** |
+| 피해 배율 | 1.00/1.25/1.45 | **1.34/1.72/—** | **0.84/0.94/1.06** | **1.00/1.22/1.48** | **1.05/1.32/1.58** |
+| 텔레그래프(접촉 프레임) | 2/2/2 | **3/3/—** | **1/1/1** | **3/2/1** | **2/2/1** |
+| 경계 소환(P1/P2/P3) | 0/0/0 | **0/0/0** | **0/3/2** | **0/1/2** | 0/**3**/0 |
+| 체력 배율 | 1.00 | **1.28** | **0.78** | 1.00 | **1.15** |
+
+- 캐던스 배율은 **스윙 쿨다운에 곱한다**. 1 미만 = 더 자주 친다.
+- 텔레그래프는 5프레임 12fps 공격 클립의 **접촉 프레임**이다(1..4 만 합법).
+  초 단위로는 Warden 0.250 s / None 0.167 s / Tactician 0.083 s.
+- Monarch 캐던스 1.00/0.85/0.72 는 동결 `HackSpec.BossAttackInterval`
+  1.37/1.16/0.99 의 **P1 정규화 비율**(1.000/0.847/0.723)이다 — 선언만 있고
+  소비되지 않던 벡터가 처음으로 형태를 갖는다. 상수 자체는 개정하지 않는다.
+- 2페이즈 아키타입의 P3 칸은 **P2 값을 반복**한다. 도달 불가(`PhaseCount` 가
+  인덱스를 클램프)지만, 0 을 넣으면 미래의 off-by-one 이 보스를 멈춰 세운다.
+- **단조 불변식**: 모든 아키타입에서 살아있는 페이즈를 가로질러 캐던스·접촉
+  프레임은 감소만, 이동·사거리·피해는 증가만. 보스는 체력을 잃어서 약해질 수 없다.
+- **차별화 하한**: 임의의 두 아키타입은 {페이즈 구조, 캐던스, 이동, 텔레그래프,
+  몸(사거리·체력)} 5축 중 **최소 3축**이 다르다 (테스트로 강제).
+
+## §20.3 스테이지 → 아키타입 매핑 (결정론, RNG 없음)
+
+정적 문자열 표. 심이 실제로 받는 것은 `StageCatalog.SimAnchorId`(=
+`CampaignStages.Ids` 6종)이고, 논리 스테이지 3종은 자기 앵커의 아키타입을 그대로
+들고 표에 함께 실려 있다 — 어떤 호출부가 논리 id 를 넘겨도 같은 보스에 착지한다.
+
+| 스테이지 id | 앵커 | 아키타입 | 근거 (카탈로그 보스 표시명) |
+|---|---|---|---|
+| `cinder-span` | 자신 | **Warden** | "Cinder Warden" |
+| `ember-gallery` | cinder-span | Warden | "Cinder Warden" |
+| `abyss-chancel` | 자신 | **Tactician** | "Veil Tactician" |
+| `witness-well` | abyss-chancel | Tactician | "Veil Tactician" |
+| `echo-throne` | 자신 | **Sovereign** | "Gate Sovereign" |
+| `ash-verdict` | echo-throne | Sovereign | "Gate Sovereign" |
+| `cinder-sluice` | 자신 | **Tactician** | "Sluice Keeper" — 조류 위 dash 스테이지 [INFERENCE] |
+| `ember-bastion` | 자신 | **Warden** | "Bastion Sentinel" — 방벽 위 ward 스테이지 [INFERENCE] |
+| `ash-march` | 자신 | **Monarch** | 캠페인 최종 스테이지 |
+
+- 미매핑 · null · 빈 문자열 → **`None`**(동결 전투). 추측하지 않는다 — 미매핑
+  스테이지야말로 추측이 조용한 밸런스 변경이 되는 경우다.
+- 조회는 **ordinal**. 대소문자가 다르면 매핑되지 않는다.
+- 아키타입은 생성자에서 **1회 해석**되고 런 중·`Restart()` 후에도 불변
+  (§16 난이도 티어와 같은 규칙). 이것이 런을 (config, input) 만으로 재현 가능하게
+  유지하는 조건이다.
+
+## §20.4 결정론
+
+§13 무개정. **RNG 도 해시도 없다** — 매핑은 정적 문자열 표, 페이즈 판정은
+동결 `BossPhaseIndexFor` 와 같은 형태의 임계 비교(포함 부등호) + `PhaseCount`
+클램프, 나머지 5축은 전부 정수 페이즈 인덱스에 대한 표 조회다.
+
+## §20.5 뷰 계약 (`IDungeonProgressionSnapshot` 증보, 비동결)
+
+| 멤버 | 의미 | View 용도 |
+|---|---|---|
+| `BossVarietyActive` | **해석된** 아키타입이 None 이 아님 | 차별화 연출 on/off |
+| `BossArchetype` | 아키타입 enum | 텔레그래프 색·보스 GLB·SFX 세트 선택 |
+| `BossPhaseCount` | 2 또는 3 | 페이즈 pip 개수 (3 고정 가정 금지) |
+| `BossTelegraphSeconds` | **현재 페이즈**의 윈드업 초 | 텔레그래프 링 지속시간 |
+
+`BossVarietyActive` 는 게이트 플래그가 아니라 **해석 결과**다: 게이트를 켠 채
+미매핑 스테이지에 들어가면 false 를 게시한다. 켜졌다고 알린 뒤 동결 수치를
+넘기면 View 가 잘못된 연출을 그린다.
+
+## §20.6 검증 계약
+
+- **게이트 OFF 락스텝**: legacy 1-인자 생성자 == 명시 `default` == `All`
+  (보스 HP·MaxHP·페이즈·이벤트 비트 포함, 던전 7200틱).
+- **`All` 에 #16 비포함 / `Everything` 에 포함** 명시 어서션.
+- 아레나·프롤로그는 게이트를 켜도 `None`.
+- `None` 프로파일 == 동결 `HackSpec` 벡터 전량 + 0..1 HP율 101점에서
+  `PhaseIndexFor(None, f) == HackSpec.BossPhaseIndexFor(f)`.
+- 매핑 표 무결성: 중복 없음, `CampaignStages.Ids` 전량 매핑, Monarch 정확히 1개
+  이며 마지막 스테이지, Warden/Tactician/Sovereign 전부 사용, 미매핑·null·빈
+  문자열·대문자 → None, 범위 밖 enum → 동결 프로파일.
+- 프로파일 구조·단조 불변식·접촉 프레임 1..4 합법성 전량.
+- 아키타입 쌍 5축 중 3축 이상 차이.
+- **라이브 심 차별화 4종** (같은 스테이지·같은 파일럿으로 동결 런과 대조):
+  Warden 2페이즈·늦은 임계·×1.28 체력·3프레임 텔레그래프 / Tactician 빠른
+  캐던스·×0.78 체력·양 경계 소환 5기(동결 0기) / Sovereign 텔레그래프 3→2→1
+  프레임 이동(동결은 2 고정)·이른 임계 2개 / Monarch 동결 임계 유지 + 전축 강화.
+- **캐던스 축 실측**: 보스 스윙 시작 간격 비율 (동결 대비) Warden > 1.25,
+  Tactician < 0.85, Sovereign 1.02..1.25, 3종 상호 분리.
+- 결정론: 4개 아키타입 스테이지 각각 동일 입력 2런 락스텝 + digest 동일.
+- 아키타입 런 중 불변 + Restart 후 불변.

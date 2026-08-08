@@ -1,5 +1,6 @@
-// AMENDMENT #13 (W4 — point-budget waves + DDA) and AMENDMENT #14 (W5 — graded
-// loot + bad-luck protection). Numeric truth: docs/SIM_SPEC_HACKSLASH.md §17/§18.
+// AMENDMENT #13 (W4 — point-budget waves + DDA), AMENDMENT #14 (W5 — graded
+// loot + bad-luck protection) and AMENDMENT #16 (W6 — boss archetype variety).
+// Numeric truth: docs/SIM_SPEC_HACKSLASH.md §17/§18/§20.
 //
 // NOT a frozen contract file. It follows the DifficultySpec.cs precedent
 // (AMENDMENT #11): every number here is reachable only when the caller opts in
@@ -41,24 +42,35 @@ namespace CinderCourt.Sim
         /// </summary>
         public DungeonBounds Bounds;
 
+        /// <summary>
+        /// AMENDMENT #16 §20: give the stage boss an archetype instead of letting
+        /// every boss share one phase table. Off means <see cref="BossArchetype.None"/>
+        /// everywhere, which resolves to the frozen §7 vectors exactly.
+        /// </summary>
+        public bool BossVariety;
+
         /// <summary>True when at least one amendment is live.</summary>
-        public bool Any => AdaptiveWaves || GradedLoot || Bounds.Active;
+        public bool Any => AdaptiveWaves || GradedLoot || Bounds.Active || BossVariety;
 
         /// <summary>#13 + #14 only. Bounds stay frozen — the movement amendment has
         /// a hard View coupling (the boundary wall ring), so it is opted into
-        /// separately rather than riding along.</summary>
+        /// separately rather than riding along. #16 is excluded for the same reason:
+        /// its telegraph rhythm is only readable once the View differentiates the
+        /// telegraph, so turning it on blind would change the fight without changing
+        /// what the player sees. <c>All</c> is deliberately NOT amended by #16.</summary>
         public static DungeonProgressionConfig All => new DungeonProgressionConfig
         {
             AdaptiveWaves = true,
             GradedLoot = true,
         };
 
-        /// <summary>#13 + #14 + #15 at the recommended expanded bounds.</summary>
+        /// <summary>#13 + #14 + #15 at the recommended expanded bounds + #16.</summary>
         public static DungeonProgressionConfig Everything => new DungeonProgressionConfig
         {
             AdaptiveWaves = true,
             GradedLoot = true,
             Bounds = DungeonBoundsSpec.Expanded,
+            BossVariety = true,
         };
     }
 
@@ -477,6 +489,359 @@ namespace CinderCourt.Sim
     }
 
     /// <summary>
+    /// AMENDMENT #16 §20 — which boss this is. <see cref="None"/> is the frozen
+    /// behaviour (one shared phase table) and is what an ungated run, a
+    /// non-dungeon run, or an unmapped stage id resolves to. The three stage
+    /// archetypes and the one final-boss archetype are named after the boss
+    /// display names already in <c>StageCatalog.BossPresentation</c> — "Cinder
+    /// Warden", "Veil Tactician", "Gate Sovereign" — so the sim archetype, the
+    /// HUD name and the asset lane's GLB (s1-cinder-warden / s2-veil-tactician /
+    /// s3-gate-sovereign) can never disagree about which boss is on screen.
+    /// </summary>
+    public enum BossArchetype
+    {
+        /// <summary>Frozen §7 behaviour. Numerically identical to a pre-#16 run.</summary>
+        None = 0,
+        /// <summary>Heavy two-phase bruiser. Slow, long telegraph, huge reach.</summary>
+        Warden = 1,
+        /// <summary>Fast three-phase summoner. Short telegraph, short reach, escorts.</summary>
+        Tactician = 2,
+        /// <summary>Three-phase pattern-shifter. Every axis moves at every boundary.</summary>
+        Sovereign = 3,
+        /// <summary>Final boss. The frozen three-phase curve, uniformly reinforced.</summary>
+        Monarch = 4,
+    }
+
+    /// <summary>
+    /// AMENDMENT #16 §20 — one boss's per-phase numbers. Every vector is indexed
+    /// 0/1/2 for P1/P2/P3 and is exactly <see cref="BossVarietySpec.MaxPhases"/>
+    /// long, so a caller can index it with the same clamped phase index the
+    /// frozen <c>HackSpec</c> vectors use. A two-phase archetype repeats its P2
+    /// values in the P3 slot: the slot is unreachable (<see cref="PhaseCount"/>
+    /// clamps the index), and repeating rather than zeroing means a future
+    /// off-by-one reads a plausible number instead of a boss that stops moving.
+    /// </summary>
+    public sealed class BossArchetypeProfile
+    {
+        public readonly BossArchetype Archetype;
+
+        /// <summary>Live phases, 2 or 3. The phase index never exceeds this minus one.</summary>
+        public readonly int PhaseCount;
+
+        /// <summary>Health fraction at or below which the boss enters P2.</summary>
+        public readonly float Phase2Fraction;
+
+        /// <summary>Health fraction at or below which the boss enters P3.
+        /// Ignored when <see cref="PhaseCount"/> is 2.</summary>
+        public readonly float Phase3Fraction;
+
+        /// <summary>Multiplier on the swing cooldown. Below 1 = faster cadence.</summary>
+        public readonly float[] CadenceMul;
+
+        /// <summary>Multiplier on move speed, replacing <c>HackSpec.BossSpeedMul</c>.</summary>
+        public readonly float[] SpeedMul;
+
+        /// <summary>Multiplier on contact reach, replacing <c>HackSpec.BossRangeMul</c>.</summary>
+        public readonly float[] RangeMul;
+
+        /// <summary>Multiplier on contact damage. P1 is 1.00 on the frozen profile,
+        /// which is what makes <see cref="BossArchetype.None"/> reproduce the
+        /// "no multiplier before phase 2" frozen clause exactly.</summary>
+        public readonly float[] DamageMul;
+
+        /// <summary>Attack-clip frame the contact lands on — the telegraph. Larger =
+        /// longer windup. Frozen is 2 of a 5-frame clip at 12 fps.</summary>
+        public readonly int[] ContactFrame;
+
+        /// <summary>Escorts summoned when the boss ENTERS that phase. Index 0 is
+        /// unused (a boss does not summon on spawn) and is always 0.</summary>
+        public readonly int[] PhaseEscorts;
+
+        /// <summary>Multiplier on the boss's spawn health, on top of the frozen
+        /// <c>SimConfig.BossHealthMul</c> × <c>HackSpec.DungeonBossHealthMul</c>.</summary>
+        public readonly float HealthMul;
+
+        public BossArchetypeProfile(
+            BossArchetype archetype,
+            int phaseCount,
+            float phase2Fraction,
+            float phase3Fraction,
+            float[] cadenceMul,
+            float[] speedMul,
+            float[] rangeMul,
+            float[] damageMul,
+            int[] contactFrame,
+            int[] phaseEscorts,
+            float healthMul)
+        {
+            Archetype = archetype;
+            PhaseCount = phaseCount;
+            Phase2Fraction = phase2Fraction;
+            Phase3Fraction = phase3Fraction;
+            CadenceMul = cadenceMul;
+            SpeedMul = speedMul;
+            RangeMul = rangeMul;
+            DamageMul = damageMul;
+            ContactFrame = contactFrame;
+            PhaseEscorts = phaseEscorts;
+            HealthMul = healthMul;
+        }
+
+        /// <summary>Telegraph duration in seconds for a 0-based phase index.</summary>
+        public float TelegraphSeconds(int phaseIndex) =>
+            ContactFrame[BossVarietySpec.ClampPhaseIndex(this, phaseIndex)] / BossVarietySpec.AttackClipFps;
+    }
+
+    /// <summary>
+    /// AMENDMENT #16 §20 — the archetype table and the stage→archetype mapping.
+    ///
+    /// §13 (determinism) is NOT amended. There is no RNG and no hash here: the
+    /// mapping is a static string table keyed on the stage id the run was
+    /// constructed with, and every per-phase number is a table lookup on an
+    /// integer phase index. The same (config, input sequence) therefore produces
+    /// the same run, which is the same guarantee #13/#14/#15 gave.
+    /// </summary>
+    public static class BossVarietySpec
+    {
+        /// <summary>Vector length of every per-phase array.</summary>
+        public const int MaxPhases = 3;
+
+        // These three mirror the attack-clip constants in CinderSim.cs:46-50
+        // (AttackClipFrames 5, AttackClipFps 12, EnemyContactFrame 2). They are
+        // restated here because the telegraph axis is a CONTRACT number this
+        // amendment owns, and the profile table has to be validatable without
+        // reaching into the sim's privates.
+        public const float AttackClipFps = 12f;
+        /// <summary>Earliest legal contact frame. Frame 0 would land damage on the
+        /// same tick the swing starts — no telegraph at all.</summary>
+        public const int MinContactFrame = 1;
+        /// <summary>Latest legal contact frame. The clip is 5 frames, so frame 5
+        /// ends it before contact and the boss would never damage anything.</summary>
+        public const int MaxContactFrame = 4;
+
+        // --- §20.2 the archetype table (the numeric gate) --------------------
+        //
+        // Read the columns as "what this boss makes the player do":
+        //   Warden    — stand off, wait out a 0.25 s windup, punish the recovery.
+        //               Two phases only: the fight is short and heavy, not a
+        //               three-act structure. Reach 1.34/1.48 is the widest in the
+        //               table, so sidestepping is not enough — you have to leave.
+        //   Tactician — never stops swinging (cadence 0.72 → 0.54) but each swing
+        //               is cheap (damage 0.84 → 1.06) and the windup is one frame.
+        //               Threat comes from the escorts it calls at both boundaries
+        //               and from a 1.74x closing speed, not from the hits.
+        //   Sovereign — every one of the five axes moves at every boundary; the
+        //               telegraph in particular walks 3 → 2 → 1 frames, so the
+        //               read the player learned in P1 is wrong twice.
+        //   Monarch   — the frozen curve, reinforced. Cadence 1.00/0.85/0.72
+        //               tracks the ratio of the frozen HackSpec.BossAttackInterval
+        //               vector (1.37/1.16/0.99 → 1.000/0.847/0.723), which is the
+        //               first time those declared-but-unconsumed constants shape
+        //               anything. Escorts stay 3-at-P2, matching
+        //               HackSpec.MonarchPhase2Escorts.
+        //
+        // Within every archetype all five axes are monotone in the direction of
+        // "harder" across its live phases: cadence and contact frame never rise,
+        // speed, reach and damage never fall. A boss can therefore never get
+        // easier by losing health, which is the invariant the frozen §7 table had
+        // and the one BossVarietyProfileTests pins.
+
+        private static readonly BossArchetypeProfile FrozenProfile = new BossArchetypeProfile(
+            BossArchetype.None,
+            phaseCount: 3,
+            phase2Fraction: 0.50f,   // HackSpec.BossPhase2HealthFraction
+            phase3Fraction: 0.20f,   // HackSpec.BossPhase3HealthFraction
+            cadenceMul: new[] { 1.00f, 1.00f, 1.00f },
+            speedMul: new[] { 1.00f, 1.25f, 1.45f },    // HackSpec.BossSpeedMul
+            rangeMul: new[] { 1.00f, 1.10f, 1.20f },    // HackSpec.BossRangeMul
+            damageMul: new[] { 1.00f, 1.25f, 1.45f },   // 1 / BossPhase2DamageMul / BossPhase3DamageMul
+            contactFrame: new[] { 2, 2, 2 },            // CinderSim.EnemyContactFrame
+            phaseEscorts: new[] { 0, 0, 0 },            // the monarch-visual clause handles the frozen path
+            healthMul: 1.00f);
+
+        private static readonly BossArchetypeProfile WardenProfile = new BossArchetypeProfile(
+            BossArchetype.Warden,
+            phaseCount: 2,
+            phase2Fraction: 0.55f,
+            phase3Fraction: 0.55f,   // unreachable; equals P2 so an off-by-one is inert
+            cadenceMul: new[] { 1.55f, 1.34f, 1.34f },
+            speedMul: new[] { 0.82f, 0.96f, 0.96f },
+            rangeMul: new[] { 1.34f, 1.48f, 1.48f },
+            damageMul: new[] { 1.34f, 1.72f, 1.72f },
+            contactFrame: new[] { 3, 3, 3 },
+            phaseEscorts: new[] { 0, 0, 0 },
+            healthMul: 1.28f);
+
+        private static readonly BossArchetypeProfile TacticianProfile = new BossArchetypeProfile(
+            BossArchetype.Tactician,
+            phaseCount: 3,
+            phase2Fraction: 0.72f,
+            phase3Fraction: 0.38f,
+            cadenceMul: new[] { 0.72f, 0.62f, 0.54f },
+            speedMul: new[] { 1.30f, 1.52f, 1.74f },
+            rangeMul: new[] { 0.90f, 0.95f, 1.00f },
+            damageMul: new[] { 0.84f, 0.94f, 1.06f },
+            contactFrame: new[] { 1, 1, 1 },
+            phaseEscorts: new[] { 0, 3, 2 },
+            healthMul: 0.78f);
+
+        private static readonly BossArchetypeProfile SovereignProfile = new BossArchetypeProfile(
+            BossArchetype.Sovereign,
+            phaseCount: 3,
+            phase2Fraction: 0.66f,
+            phase3Fraction: 0.33f,
+            cadenceMul: new[] { 1.12f, 0.90f, 0.68f },
+            speedMul: new[] { 1.00f, 1.28f, 1.60f },
+            rangeMul: new[] { 1.06f, 1.16f, 1.26f },
+            damageMul: new[] { 1.00f, 1.22f, 1.48f },
+            contactFrame: new[] { 3, 2, 1 },
+            phaseEscorts: new[] { 0, 1, 2 },
+            healthMul: 1.00f);
+
+        private static readonly BossArchetypeProfile MonarchProfile = new BossArchetypeProfile(
+            BossArchetype.Monarch,
+            phaseCount: 3,
+            phase2Fraction: 0.50f,
+            phase3Fraction: 0.20f,
+            cadenceMul: new[] { 1.00f, 0.85f, 0.72f },
+            speedMul: new[] { 1.05f, 1.32f, 1.55f },
+            rangeMul: new[] { 1.00f, 1.10f, 1.22f },
+            damageMul: new[] { 1.05f, 1.32f, 1.58f },
+            contactFrame: new[] { 2, 2, 1 },
+            phaseEscorts: new[] { 0, 3, 0 },   // HackSpec.MonarchPhase2Escorts
+            healthMul: 1.15f);
+
+        /// <summary>Indexed by <c>(int)BossArchetype</c>, so the enum and the table
+        /// can never drift apart.</summary>
+        private static readonly BossArchetypeProfile[] Table =
+        {
+            FrozenProfile, WardenProfile, TacticianProfile, SovereignProfile, MonarchProfile,
+        };
+
+        /// <summary>Every archetype in table order, <see cref="BossArchetype.None"/> first.</summary>
+        public static IReadOnlyList<BossArchetypeProfile> Profiles => Table;
+
+        /// <summary>Profile for an archetype. An out-of-range value resolves to the
+        /// frozen profile rather than throwing — a bad enum must degrade to the
+        /// pre-amendment fight, not kill the run.</summary>
+        public static BossArchetypeProfile For(BossArchetype archetype)
+        {
+            int index = (int)archetype;
+            return index < 0 || index >= Table.Length ? FrozenProfile : Table[index];
+        }
+
+        // --- §20.3 stage → archetype mapping ---------------------------------
+        //
+        // Keyed on the stage id the run was constructed with. The sim is handed
+        // StageCatalog's SimAnchorId (one of the six CampaignStages ids), so the
+        // six anchor rows are the ones that actually fire. The three
+        // logical-only ids are listed too, each carrying its anchor's archetype,
+        // so a call site that ever passes a LOGICAL id lands on the same boss
+        // instead of falling off the table into None:
+        //
+        //   ember-gallery -> cinder-span    (Warden)
+        //   witness-well  -> abyss-chancel  (Tactician)
+        //   ash-verdict   -> echo-throne    (Sovereign)
+        //
+        // Assignment follows the boss display names already in the catalog:
+        // "Cinder Warden" (cinder-span, ember-gallery), "Veil Tactician"
+        // (abyss-chancel, witness-well), "Gate Sovereign" (echo-throne,
+        // ash-verdict). The two cycle-2 anchors take the archetype their own
+        // name and identity gimmick imply — "Sluice Keeper" fights in a current
+        // on the dash stage (Tactician), "Bastion Sentinel" holds a wall on the
+        // ward stage (Warden). ash-march is the last stage in campaign order, so
+        // it takes the one final-boss archetype.
+        private readonly struct StageArchetype
+        {
+            public readonly string StageId;
+            public readonly BossArchetype Archetype;
+
+            public StageArchetype(string stageId, BossArchetype archetype)
+            {
+                StageId = stageId;
+                Archetype = archetype;
+            }
+        }
+
+        private static readonly StageArchetype[] StageTable =
+        {
+            // --- sim anchors (CampaignStages.Ids order) ---
+            new StageArchetype("cinder-span", BossArchetype.Warden),
+            new StageArchetype("abyss-chancel", BossArchetype.Tactician),
+            new StageArchetype("echo-throne", BossArchetype.Sovereign),
+            new StageArchetype("cinder-sluice", BossArchetype.Tactician),
+            new StageArchetype("ember-bastion", BossArchetype.Warden),
+            new StageArchetype("ash-march", BossArchetype.Monarch),
+            // --- logical-only StageCatalog ids, aliased to their anchor ---
+            new StageArchetype("ember-gallery", BossArchetype.Warden),
+            new StageArchetype("witness-well", BossArchetype.Tactician),
+            new StageArchetype("ash-verdict", BossArchetype.Sovereign),
+        };
+
+        /// <summary>Number of mapped stage ids.</summary>
+        public static int MappedStageCount => StageTable.Length;
+
+        /// <summary>Mapped stage id at a table position, for validation.</summary>
+        public static string MappedStageIdAt(int index) => StageTable[index].StageId;
+
+        /// <summary>
+        /// Archetype for a stage id. An unknown or empty id resolves to
+        /// <see cref="BossArchetype.None"/> — the frozen fight — because an
+        /// unmapped stage is exactly the case where guessing would be a silent
+        /// balance change.
+        /// </summary>
+        public static BossArchetype ArchetypeFor(string stageId)
+        {
+            if (string.IsNullOrEmpty(stageId))
+            {
+                return BossArchetype.None;
+            }
+            for (int index = 0; index < StageTable.Length; index += 1)
+            {
+                if (string.Equals(StageTable[index].StageId, stageId, StringComparison.Ordinal))
+                {
+                    return StageTable[index].Archetype;
+                }
+            }
+            return BossArchetype.None;
+        }
+
+        // --- §20.4 phase resolution ------------------------------------------
+
+        /// <summary>Clamps a 0-based phase index into a profile's live range.</summary>
+        public static int ClampPhaseIndex(BossArchetypeProfile profile, int phaseIndex)
+        {
+            if (phaseIndex < 0)
+            {
+                return 0;
+            }
+            int last = profile.PhaseCount - 1;
+            return phaseIndex > last ? last : phaseIndex;
+        }
+
+        /// <summary>
+        /// 0-based phase index for a health fraction. Same shape as
+        /// <c>HackSpec.BossPhaseIndexFor</c> — thresholds are inclusive and the
+        /// result is clamped to the archetype's live phase count, which is what
+        /// makes a two-phase boss a two-phase boss.
+        /// </summary>
+        public static int PhaseIndexFor(BossArchetype archetype, float healthFraction)
+        {
+            BossArchetypeProfile profile = For(archetype);
+            int index = 0;
+            if (profile.PhaseCount >= 3 && healthFraction <= profile.Phase3Fraction)
+            {
+                index = 2;
+            }
+            else if (healthFraction <= profile.Phase2Fraction)
+            {
+                index = 1;
+            }
+            return ClampPhaseIndex(profile, index);
+        }
+    }
+
+    /// <summary>
     /// View-facing read model for both amendments. Follows the
     /// <see cref="IRunPreparationSnapshot"/> / <see cref="IGrowthChoiceSnapshot"/>
     /// precedent: the frozen <see cref="IHackSnapshot"/> is not amended.
@@ -516,5 +881,25 @@ namespace CinderCourt.Sim
 
         /// <summary>True when the clamp is running on expanded bounds.</summary>
         bool ExpandedBoundsActive { get; }
+
+        // --- AMENDMENT #16 §20.5 ---------------------------------------------
+
+        /// <summary>True when this run's boss is running on an archetype profile.
+        /// False means the frozen §7 fight, which is what an ungated run gives.</summary>
+        bool BossVarietyActive { get; }
+
+        /// <summary>Archetype resolved from the run's stage id.
+        /// <see cref="BossArchetype.None"/> when #16 is off or the stage is unmapped.</summary>
+        BossArchetype BossArchetype { get; }
+
+        /// <summary>Live phase count for this run's boss — 2 for a Warden, 3 for
+        /// everyone else. The View sizes its phase pips from this instead of
+        /// assuming three.</summary>
+        int BossPhaseCount { get; }
+
+        /// <summary>Windup of the boss's CURRENT phase, in seconds. This is the
+        /// telegraph the View has to draw for: a Warden's 0.25 s and a Tactician's
+        /// 0.083 s cannot share one ring animation length.</summary>
+        float BossTelegraphSeconds { get; }
     }
 }
