@@ -42,17 +42,44 @@ namespace CinderCourt.View
         public readonly string StoryKey;
         public readonly string CompanionReward;
         /// <summary>
+        /// The room's own win condition, phrased for the player (dungeon-revival
+        /// spec §"each room needs a distinct objective"). Presentation-only text:
+        /// the Sim still decides clears. Must be non-empty and unique per room so
+        /// a contiguous route never repeats the same instruction twice.
+        /// </summary>
+        public readonly string RoomObjective;
+
+        /// <summary>
         /// One-line gimmick identity shown on the lobby card (fun-pass v1.2):
         /// the stage's dominant gimmick in the preview→mastery lineage, phrased
         /// per worldview.md '기믹 계보' (court function made physical).
+        ///
+        /// Not interchangeable with <see cref="RoomObjective"/>: the epithet is
+        /// the card's two-word IDENTITY ("분출구 입문"), the objective is the
+        /// room's INSTRUCTION ("…를 끊고 …를 처단하라"). LobbyView reads this.
         /// </summary>
         public readonly string Epithet;
+
+        /// <summary>
+        /// Campaign-map node position, normalised 0..1 over the map viewport
+        /// (x right, y up). Presentation-only — nothing in the Sim or in the
+        /// frozen numeric contract reads it, so moving a node re-draws the
+        /// lobby minimap and changes nothing else.
+        ///
+        /// The constellation is hand-placed rather than derived from the prereq
+        /// chain: the chain is linear (0→1→…→8) and an evenly spaced line reads
+        /// as a progress bar, not a map. Placements keep ≥0.10 normalised
+        /// separation on at least one axis so two nodes never collide at the
+        /// smallest audited viewport (<see cref="CampaignMapLayout"/> pins this).
+        /// </summary>
+        public readonly float NodeX, NodeY;
 
         public StageEntry(
             int catalogIndex, string id, string displayName, string kicker, string title,
             string hazardIcon, string simAnchorId, HazardConfig[] hazardOverride,
             string prereqId, string terrainId, Color accentColor, BossPresentation boss,
-            string storyKey, string companionReward, string epithet)
+            string storyKey, string companionReward, string roomObjective, string epithet,
+            float nodeX, float nodeY)
         {
             CatalogIndex = catalogIndex;
             Id = id;
@@ -68,8 +95,12 @@ namespace CinderCourt.View
             Boss = boss;
             StoryKey = storyKey;
             CompanionReward = companionReward;
+            RoomObjective = roomObjective;
             Epithet = epithet;
+            NodeX = nodeX;
+            NodeY = nodeY;
         }
+
     }
 
     /// <summary>
@@ -134,37 +165,49 @@ namespace CinderCourt.View
                 new Color(0.95f, 0.35f, 0.17f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.9f, 0.3f, 0.45f), 1f, "Cinder Warden"),
-                "cinder-span", "ember-cohort", "분출구 입문"),
+                "cinder-span", "ember-cohort",
+                "다리를 건너오는 전열을 끊고 재의 워든을 처단하라", "분출구 입문",
+                0.08f, 0.50f),
             new StageEntry(1, "ember-gallery", "Ember Gallery", "EMBER GALLERY", "불씨 회랑",
                 "skill-nova", "cinder-span", EmberGalleryHazards, "cinder-span", "abyss-chancel",
                 new Color(0.95f, 0.43f, 0.20f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.95f, 0.45f, 0.16f), 1.08f, "Cinder Warden"),
-                "ember-gallery", null, "불씨 윤무"),
+                "ember-gallery", null,
+                "분출하는 화구를 피해 회랑의 잔당을 소각하라", "불씨 윤무",
+                0.22f, 0.74f),
             new StageEntry(2, "abyss-chancel", "Abyss Chancel", "ABYSS CHANCEL", "서약의 성당",
                 "skill-aegis", "abyss-chancel", null, "ember-gallery", "abyss-chancel",
                 new Color(0.56f, 0.40f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.56f, 0.40f, 1f), 1.1f, "Veil Tactician"),
-                "abyss-chancel", "shade-echo", "흑요석 미로"),
+                "abyss-chancel", "shade-echo",
+                "서약 제단을 사수하고 장막의 책략가를 끌어내라", "흑요석 미로",
+                0.34f, 0.36f),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
-                "witness-well", null, "쌍 제단"),
+                "witness-well", null,
+                "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라", "쌍 제단",
+                0.46f, 0.68f),
             new StageEntry(4, "echo-throne", "Echo Throne", "ECHO THRONE", "메아리 왕좌",
                 "skill-pulse", "echo-throne", EchoThroneHazards, "witness-well", "echo-throne",
                 new Color(0.45f, 0.78f, 1f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.75f, 0.3f, 0.9f), 1.15f, "Gate Sovereign"),
-                "echo-throne", "possessed-echo", "왕좌의 조류"),
+                "echo-throne", "possessed-echo",
+                "왕좌의 메아리를 끊고 관문의 군주를 봉인하라", "왕좌의 조류",
+                0.57f, 0.28f),
             new StageEntry(5, "ash-verdict", "Ash Verdict", "ASH VERDICT", "재의 판결",
                 "skill-pulse", "echo-throne", AshVerdictHazards, "echo-throne", "echo-throne",
                 new Color(0.87f, 0.78f, 0.41f),
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.87f, 0.78f, 0.41f), 1.18f, "Gate Sovereign"),
-                "ash-verdict", null, "판결의 방벽"),
+                "ash-verdict", null,
+                "판결이 선고되기 전 재의 법정을 완전히 정화하라", "판결의 방벽",
+                0.66f, 0.62f),
             // --- cycle-2 dungeon expansion (docs/SIM_SPEC_DUNGEONS.md) -------
             // New SIM anchors (not overrides): each id matches its frozen
             // CampaignStages anchor, so HazardOverride stays null.
@@ -173,19 +216,26 @@ namespace CinderCourt.View
                 new Color(0.247f, 0.659f, 0.784f),                       // #3FA8C8
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.247f, 0.659f, 0.784f), 1.2f, "Sluice Keeper"),
-                "cinder-sluice", null, "해류 숙달"),
+                "cinder-sluice", null,
+                "역류에 밀리지 않고 수문의 파수꾼을 물살 밖으로 끌어내라", "해류 숙달",
+                0.77f, 0.34f),
             new StageEntry(7, "ember-bastion", "Ember Bastion", "EMBER BASTION", "불씨 요새",
                 "skill-ward", "ember-bastion", null, "cinder-sluice", "cinder-span",
                 new Color(0.910f, 0.541f, 0.180f),                       // #E88A2E
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
                     new Color(0.910f, 0.541f, 0.180f), 1.22f, "Bastion Sentinel"),
-                "ember-bastion", null, "방벽 숙달"),
+                "ember-bastion", null,
+                "적을 감싸는 불씨 기둥을 먼저 무너뜨리고 요새의 파수병을 베어라", "방벽 숙달",
+                0.87f, 0.70f),
             new StageEntry(8, "ash-march", "Ash March", "ASH MARCH", "재의 행진",
                 "skill-strike", "ash-march", null, "ember-bastion", "echo-throne",
                 new Color(0.722f, 0.690f, 0.643f),                       // #B8B0A4
                 new BossPresentation(EnemyVisual.BossMonarch, "broken-court-monarch-boss",
                     new Color(0.722f, 0.690f, 0.643f), 1.25f, "Ash Magistrate"),
-                "ash-march", "scout-echo", "집행 수렴"),
+                "ash-march", "scout-echo",
+                "양쪽에서 닫혀오는 잿벽 사이에서 집행관을 판결하라", "집행 수렴",
+                0.95f, 0.44f),
+
         };
 
         // Derived from the catalog length (9 entries -> 0x1FF) so adding a
@@ -303,10 +353,22 @@ namespace CinderCourt.View
         static readonly DressingPlacement[] EmberBastionDressing =
         {
             // Rampart battlements ringing the fort on every closed edge.
+            //
+            // COUNTED, not eyeballed: split the six dressed tables by quadrant
+            // about the arena centre (768,604) and this one read NW 2 / NE 2 /
+            // SW 1 / SE 3 - the thinnest quadrant in the set, against a comment
+            // that claims EVERY closed edge. feature-023 sits at (205,500) with
+            // no southern partner, while cinder-sluice pairs (200,420) with
+            // (190,700). feature-025 restores the pair: outside the plate
+            // (x 248..1288, y 334..874), 420 px from the nearest hazard (the
+            // verdict-pact pylon at 620,720) against a clearance requirement in
+            // the tens, 220 px from the nearest neighbouring placement, and the
+            // table lands at 9 with quadrants 2/2/2/3.
             new DressingPlacement("terrain-cinder-span-feature-020",  470f, 250f,   0f, 18f),
             new DressingPlacement("terrain-cinder-span-feature-021",  770f, 215f,   0f, 20f),
             new DressingPlacement("terrain-cinder-span-feature-022", 1070f, 250f,   0f, 18f),
             new DressingPlacement("terrain-cinder-span-feature-023",  205f, 500f,  35f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-025",  200f, 720f,  35f, 15f),
             new DressingPlacement("terrain-cinder-span-feature-024", 1335f, 620f, -35f, 15f),
             new DressingPlacement("terrain-cinder-span-prop-020",     380f, 940f,  10f, 12f),
             new DressingPlacement("terrain-cinder-span-prop-021",     900f, 955f, 340f, 12f),
@@ -358,9 +420,9 @@ namespace CinderCourt.View
         // Telegraph budget (≤3 concurrent, ≤2 same-kind — qa band 5) verified
         // by phase arithmetic per table below. Windows (CampaignSpec, absolute
         // stage time t):
-        //   vent    tel: t ≡ [1.6−ph, 2.4−ph) mod 2.4  (VentPeriod−VentTelegraph)
-        //   current tel: t ≡ [−ph, 0.8−ph)    mod 6
-        //   wall    tel: t ≡ [4.5−ph, 6.0−ph) mod 23   (WallRest..+WallTelegraph)
+        //   vent    tel: t ≡ [1.6-ph, 2.4-ph) mod 2.4  (VentPeriod-VentTelegraph)
+        //   current tel: t ≡ [-ph, 0.8-ph)    mod 6
+        //   wall    tel: t ≡ [4.5-ph, 6.0-ph) mod 23   (WallRest..+WallTelegraph)
         //   pillar / altar / pylon never telegraph.
 
         /// <summary>Base-prefix + appended-extras pact table (M3 contract:
@@ -425,9 +487,9 @@ namespace CinderCourt.View
             WitnessWellHazards,
             HazardConfig.Vent(560f, 500f, 0.9f));
 
-        // Stage 4 왕좌의 조류 — +1 counter-current lane (768,740) push −120
+        // Stage 4 왕좌의 조류 — +1 counter-current lane (768,740) push -120
         // ph 3.3. Position deliberately matches the sluice anchor current so
-        // the view's CurrentPushSign build-time lookup resolves the −x flow.
+        // the view's CurrentPushSign build-time lookup resolves the -x flow.
         // LCM(6,2.4)=12 s: vents [1.6,2.4)/[0.4,1.2) disjoint (max 1);
         // currents [5.7,6)∪[0,0.5) vs [2.7,3.5) disjoint (max 1) → max 2.
         static readonly HazardConfig[] EchoThronePact = Pact(
@@ -453,7 +515,7 @@ namespace CinderCourt.View
         // 1.7→[2.3,2.4)∪[0,0.7); only pair zone (2.1∧1.7) = [2.3,2.4)∪[0,0.3)
         // and 0.9 is disjoint from 1.7 → no vent triple (max 2v). Currents
         // [0,0.8)/[3,3.8) mod 6 disjoint (max 1). Upper bound 2v+1c = 3;
-        // attained at t∈[0,0.3) and [9.5,9.8) in the LCM. ≤3 ✓ ≤2 same ✓.
+        // attained at t∈[0,0.3) and [9.5,9.8) in the LCM. ≤3 OK ≤2 same OK.
         static readonly HazardConfig[] CinderSluicePact = Pact(
             AnchorHazards(CampaignStages.CinderSluice),
             HazardConfig.Vent(768f, 604f, 1.7f));
@@ -472,7 +534,7 @@ namespace CinderCourt.View
         // Vents: 0.6→[1.0,1.8), 1.8→[2.2,2.4)∪[0,0.6), 1.2→[0.4,1.2); pair
         // zones [1.0,1.2)/[0.4,0.6), and 0.6∧1.8 disjoint → no vent triple
         // (max 2v). Walls [4.5,6.0)+23k / [16,17.5)+23k disjoint (max 1).
-        // Upper bound 2v+1w = 3 over the 276 s LCM. ≤3 ✓ ≤2 same-kind ✓.
+        // Upper bound 2v+1w = 3 over the 276 s LCM. ≤3 OK ≤2 same-kind OK.
         static readonly HazardConfig[] AshMarchPact = Pact(
             AnchorHazards(CampaignStages.AshMarch),
             HazardConfig.Vent(768f, 796f, 1.2f));
@@ -511,6 +573,15 @@ namespace CinderCourt.View
             entry = default;
             return false;
         }
+
+        /// <summary>
+        /// The room objective line for a logical stage id. Returns "" for arena /
+        /// prologue / unknown ids so the HUD chip simply stays hidden instead of
+        /// showing a stale instruction from the previous room.
+        /// </summary>
+        public static string ObjectiveFor(string stageId)
+            => TryGet(stageId, out var entry) ? entry.RoomObjective : "";
+
 
         public static bool IsCleared(in CampaignData data, in StageEntry entry)
             => (data.ClearedMask & (1 << entry.CatalogIndex)) != 0;

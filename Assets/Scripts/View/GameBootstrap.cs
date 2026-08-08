@@ -19,7 +19,13 @@ namespace CinderCourt.View
         {
             Application.targetFrameRate = -1;   // browser vsync owns pacing
 
-            PlayerPrefab = Resources.Load<GameObject>("Characters/lantern-reaver");
+            // W13 (seed §8, 2026-08-07): the player is human-command-boss,
+            // superseding the 08-04 lantern-reaver decision. Falls back to the
+            // lantern-reaver prefab until the imported FBX has been built into
+            // a Humanoid prefab (CharacterImportPipeline.ImportAll).
+            PlayerPrefab = Resources.Load<GameObject>("Characters/human-command-boss");
+            if (PlayerPrefab == null)
+                PlayerPrefab = Resources.Load<GameObject>("Characters/lantern-reaver");
             LoadEnemy(EnemyVisual.EmberCohort, "Characters/ember-cohort");
             LoadEnemy(EnemyVisual.Scout, "Characters/scout");
             LoadEnemy(EnemyVisual.Shade, "Characters/shade");
@@ -57,9 +63,18 @@ namespace CinderCourt.View
             speechObject.transform.SetParent(transform, false);
             var speech = speechObject.AddComponent<SpeechBubbleView>();
 
+            var cutsceneObject = new GameObject("Cutscene");
+            cutsceneObject.transform.SetParent(transform, false);
+            var cutscene = cutsceneObject.AddComponent<CutsceneView>();
+
+            var introObject = new GameObject("IntroVideo");
+            introObject.transform.SetParent(transform, false);
+            var intro = introObject.AddComponent<IntroVideoView>();
+
             var director = gameObject.AddComponent<GameDirector>();
             director.Attach(this, lobby, staging, rig, input, hud, audio, vfx,
-                game, speech);
+                game, speech, cutscene, intro);
+
         }
 
         void LoadEnemy(EnemyVisual visual, string path)

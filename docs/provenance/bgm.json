@@ -1,0 +1,35 @@
+{
+  "tool": "elevenlabs music (v1/music)",
+  "endpoint": "https://api.elevenlabs.io/v1/music",
+  "generatedAt": "2026-08-07T23:29:24+0900",
+  "tracks": {
+    "intro": {
+      "file": "Assets/Resources/Audio/bgm-intro.mp3",
+      "bytes": 321037,
+      "musicLengthMs": 20000,
+      "prompt": "Dark fantasy boot-reel theme, slow ember-lantern ignition swell, low brooding string drone rising into a distant choir pad, restrained cyan-tinged shimmer on the final bar, cinematic instrumental only, no percussion hits, no vocals",
+      "forceInstrumental": true
+    },
+    "lobby": {
+      "file": "Assets/Resources/Audio/bgm-lobby.mp3",
+      "bytes": 720606,
+      "musicLengthMs": 45000,
+      "prompt": "Dark fantasy command-hall ambient loop, slow charcoal-toned string bed under a warm ember drone, sparse low harp plucks, unhurried and contemplative, seamless loop, instrumental only, no percussion breaks, no vocals",
+      "forceInstrumental": true
+    },
+    "loading": {
+      "file": "Assets/Resources/Audio/bgm-loading.mp3",
+      "bytes": 239953,
+      "musicLengthMs": 15000,
+      "prompt": "Short tense dark fantasy transition sting loop, rising sub bass pulse with a cold spectral-cyan synth swell, restrained and anticipatory, seamless loop, instrumental only, no melody hooks, no vocals",
+      "forceInstrumental": true
+    },
+    "stage": {
+      "file": "Assets/Resources/Audio/bgm-stage.mp3",
+      "bytes": 960515,
+      "musicLengthMs": 60000,
+      "prompt": "Dark fantasy dungeon combat ambient bed, driving low ember drone with a slow ominous two-note pulse, distant deep choir-like synth pads, smoldering coals crackle texture sparsely, seamless loop, instrumental only, no melody spikes, no percussion breaks, no vocals",
+      "forceInstrumental": true
+    }
+  }
+}

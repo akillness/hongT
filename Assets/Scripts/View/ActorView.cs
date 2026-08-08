@@ -1,7 +1,9 @@
 // One actor (player / enemy / boss). Maps sim state to transform, Animator,
 // billboarded health bar, and death fade. No per-frame allocations.
+using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
+
 
 namespace CinderCourt.View
 {
@@ -55,15 +57,61 @@ namespace CinderCourt.View
         // §M: the roar clip's readable length. Long enough that the entrance
         // registers, short enough that the boss is not a free target — it can
         // still turn and attack the instant its AI decides to.
-        const float RoarDuration = 1.1f;
+        //
+        // PUBLIC because the animator's clip retiming reads it: the `show`
+        // state's speed is fitted to this window so the authored clip finishes
+        // inside it instead of being cut mid-roar (CharacterImportPipeline).
+        public const float RoarDuration = 1.1f;
+        /// <summary>§M/#4 cast pose window — the `cast` state's fit target.</summary>
+        public const float CastPoseDuration = 0.30f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
         float _roarTime;                      // §M boss entrance roar window
+        // A pose window gets its FULL duration: the sync that ARMS it must not
+        // immediately spend a frame delta against it — the same invariant the hit
+        // flash below already keeps ("the frame that arms it must not immediately
+        // spend a delta against it"). Without it the 0.18 s combo knockback armed
+        // on a 0.2 s frame is already dead when ResolveActionValue reads it, so the
+        // launch reaction silently depends on frame length instead of on the sim.
+        bool _castPoseArmed, _knockbackArmed, _roarArmed;
+
         float _flashDuration = 0.13f;         // flash fade denominator
         float _gazeYaw = float.NaN;           // G1 combat gaze yaw (companion)
+        // --- §M2 swing pacing ------------------------------------------------
+        // The sim holds an attack pose for a FIXED window (arena 5 frames @
+        // 12 fps = 0.417 s; dungeon HackSpec.ComboSwing = 0.30/0.30/0.42) and
+        // drops it the instant that window closes. The authored mixamo swings
+        // are ~1 s long, so at animator speed 1 the clip is cut at ~35% — the
+        // arm winds up and the pose is yanked back to idle before the weapon
+        // ever travels. Measured in the editor (prologue, 2026-02-04): every
+        // swing ended at normalizedTime 0.10-0.35. Scaling the animator to
+        // clipLength / window plays the WHOLE arc inside the window the sim
+        // actually holds, which is what makes the swing readable at all.
+        //
+        // Mirrors CinderSim's private AttackClipFrames(5)/AttackClipFps(12).
+        // SwingWindowMirrorsSimTests pins it against a real sim run, so a sim
+        // change fails a test instead of silently mistiming every swing.
+        internal const float ArenaSwingSeconds = 5f / 12f;
+        // Sanity rails: a clip wildly out of scale with the window must not
+        // produce a strobing or frozen pose.
+        internal const float MinPoseSpeed = 0.5f, MaxPoseSpeed = 4f;
+        // Authored clip seconds per attack pose value, read once from the
+        // controller. Empty on a rig with no controller — pose speed stays 1.
+        readonly Dictionary<int, float> _poseClipSeconds = new Dictionary<int, float>(4);
+
 
         // Original: depth scale 0.62..1.0 by screen y. NOT applied here — real
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
+
+        /// <summary>
+        /// Uniform shrink applied to EVERY actor (player, companions, enemies,
+        /// bosses) on top of its authored base scale — the 2026-10 request to
+        /// render every actor at 0.8x. Applied once at Create so per-frame
+        /// scale math (death pop, boss 1.6x) keeps its existing relationships.
+        /// Actor prefabs are authored in world units, so this is independent of
+        /// ViewWorld.Scale (which grew the floor by 25% in the same change).
+        /// </summary>
+        public const float GlobalScale = 0.8f;
 
         public static ActorView Create(GameObject prefab, Color fallbackColor, float baseScale)
         {
@@ -88,9 +136,11 @@ namespace CinderCourt.View
             view._animator = instance.GetComponentInChildren<Animator>();
             view._renderers = instance.GetComponentsInChildren<Renderer>();
             view._block = new MaterialPropertyBlock();
-            view._baseScale = baseScale;
+            view._baseScale = baseScale * GlobalScale;
             view._camera = Camera.main;
             view.BuildHealthBar();
+            view.CachePoseClipSeconds();
+
             return view;
         }
         static void RemovePrimitiveCollider(GameObject primitive)
@@ -124,7 +174,10 @@ namespace CinderCourt.View
             _healthFill.sharedMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.32f), false);
         }
 
-        public void SyncPlayer(in PlayerState state)
+        /// <param name="simDelta">Sim seconds actually advanced this frame
+        /// (steps × FixedStep). NOT Time.deltaTime — see the launch gate below.
+        /// 0 means no tick ran, so nothing moved and nothing can be inferred.</param>
+        public void SyncPlayer(in PlayerState state, float simDelta = 0f)
         {
             // §M: the player can now be launched (phase-3 boss slam). The sim
             // keeps that state private — PlayerState is frozen — so the View
@@ -139,15 +192,30 @@ namespace CinderCourt.View
             // "I got hit" pose on an escape move. Anything above 1500 px/s is
             // a teleport (a finisher step or a run reset), never a launch.
             // The dash is excluded outright because Avoid owns its pose.
-            if (!float.IsNaN(_prevSimX) && Time.deltaTime > 0f
+            //
+            // THE DENOMINATOR IS SIM TIME, NOT RENDER TIME. The step above is
+            // produced by whole 1/60 s ticks, and GameView runs 0 or 1 of them
+            // on a frame shorter than the fixed step. Dividing a 1-tick step by
+            // a shorter Time.deltaTime reports a speed inflated by
+            // (1/60)/deltaTime: at 120 fps a plain 218 px/s walk reads 436 px/s
+            // and lands inside this band, so ordinary walking played `bighit`
+            // for as long as the player held a direction. Measured in the
+            // editor at ~120 fps (prologue, 2026-02-04): sim=Move but
+            // param=4/bighit for 1.9 s straight.
+            if (!float.IsNaN(_prevSimX) && simDelta > 0f
                 && state.Action != ActorAction.Avoid)
             {
                 var stepX = state.X - _prevSimX;
                 var stepY = state.Y - _prevSimY;
-                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
                 if (speed > 400f && speed < 1500f)
+                {
                     _knockbackTime = HackSpec.BossSlamKnockbackTime;
+                    _knockbackArmed = true;
+                }
+
             }
+
             // NOTE: _prevSimX/Y are deliberately NOT written here. Apply's
             // 16-direction yaw block owns them, and writing first would hand
             // it a zero delta — facing would freeze on every frame.
@@ -169,7 +237,10 @@ namespace CinderCourt.View
         /// exposes per-enemy DidDamage, so a health drop between frames IS the
         /// hit signal. First sync after pooling never counts as a hit.
         /// </summary>
-        public float SyncEnemy(in EnemyState state)
+        /// <param name="simDelta">Sim seconds actually advanced this frame.
+        /// Same contract as <see cref="SyncPlayer"/>: render time would inflate
+        /// the launch speed on any frame shorter than the fixed step.</param>
+        public float SyncEnemy(in EnemyState state, float simDelta = 0f)
         {
             var damage = 0f;
             if (_lastHealth < float.MaxValue && state.Health < _lastHealth - 0.01f)
@@ -186,14 +257,22 @@ namespace CinderCourt.View
             // chase step is 128 px/s * 50 ms = 6.4 px and a fixed px gate would
             // fire BigHit on every hit exactly when the game is already
             // struggling. 300 px/s sits between chase (<=128) and launch (~667)
-            // at any frame rate.
-            if (hit && !float.IsNaN(_prevSimX) && Time.deltaTime > 0f)
+            // — but ONLY when the divisor is the sim time that produced the
+            // step. See SyncPlayer: dividing by Time.deltaTime inflates it by
+            // (1/60)/deltaTime and a 128 px/s chase clears 300 above 140 fps.
+            if (hit && !float.IsNaN(_prevSimX) && simDelta > 0f)
             {
                 var stepX = state.X - _prevSimX;
                 var stepY = state.Y - _prevSimY;
-                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / Time.deltaTime;
-                if (speed > 300f) _knockbackTime = HackSpec.ComboKnockbackTime;
+                var speed = Mathf.Sqrt(stepX * stepX + stepY * stepY) / simDelta;
+                if (speed > 300f)
+                {
+                    _knockbackTime = HackSpec.ComboKnockbackTime;
+                    _knockbackArmed = true;
+                }
+
             }
+
             Apply(state.X, state.Y, state.Facing, state.Action,
                   state.MaxHealth > 0f ? state.Health / state.MaxHealth : 0f,
                   state.Scale, state.Dead, state.FadeTime, hit);
@@ -209,6 +288,14 @@ namespace CinderCourt.View
         /// must yield during the flash or a boss can never show a hit color
         /// (§K3: the element flash matters most on the boss).</summary>
         internal bool FlashLive => _flashTime > 0f;
+
+        /// <summary>§M: true while the launch window inferred by SyncPlayer /
+        /// SyncEnemy is open, i.e. while ResolveActionValue will pose BigHit
+        /// instead of the sim's own action. The inference is a velocity
+        /// heuristic over the sim step, so this is the seam that pins it:
+        /// ordinary locomotion must never open this window.</summary>
+        internal bool KnockbackLive => _knockbackTime > 0f;
+
 
         float _companionLastX;
 
@@ -278,6 +365,24 @@ namespace CinderCourt.View
             { HumanBodyBones.RightHand, HumanBodyBones.LeftHand, HumanBodyBones.Chest };
         readonly GameObject[] _equipProps = new GameObject[3];
         readonly int[] _equipPropBand = { 0, 0, 0 };   // 0 none / 1 basic / 2 fine
+        string _weaponArchetype;   // W14: "dagger" / "bow" / "hammer" / null = legacy
+
+        /// <summary>W14: select the weapon silhouette family. The archetype
+        /// prefab (Props/equip-weapon-{archetype}-{band}) is preferred and the
+        /// legacy equip-weapon-{band} mesh remains the fallback, so a build
+        /// without the new FBX props keeps its current look. Resets the weapon
+        /// slot so the next AttachEquipProps resolves the new family.</summary>
+        public void SetWeaponArchetype(string archetype)
+        {
+            if (_weaponArchetype == archetype) return;
+            _weaponArchetype = archetype;
+            _equipPropBand[0] = 0;
+            if (_equipProps[0] != null)
+            {
+                Destroy(_equipProps[0]);
+                _equipProps[0] = null;
+            }
+        }
 
         static int PropBand(int tier) => tier >= 4 ? 2 : tier >= 2 ? 1 : 0;
 
@@ -302,8 +407,14 @@ namespace CinderCourt.View
                 if (band == 0) continue;
                 var bone = _animator.GetBoneTransform(PropBones[slot]);
                 if (bone == null) continue;
-                var prefab = Resources.Load<GameObject>(
-                    $"Props/equip-{PropSlots[slot]}-{(band == 2 ? "fine" : "basic")}");
+                var stage = band == 2 ? "fine" : "basic";
+                GameObject prefab = null;
+                if (slot == 0 && !string.IsNullOrEmpty(_weaponArchetype))
+                    prefab = Resources.Load<GameObject>(
+                        $"Props/equip-weapon-{_weaponArchetype}-{stage}");
+                if (prefab == null)
+                    prefab = Resources.Load<GameObject>(
+                        $"Props/equip-{PropSlots[slot]}-{stage}");
                 if (prefab == null) continue;   // asset missing -> tint floor
                 var prop = Instantiate(prefab, bone, false);
                 prop.name = $"EquipProp-{PropSlots[slot]}";
@@ -397,6 +508,65 @@ namespace CinderCourt.View
             return (int)action;
         }
 
+        /// <summary>§M2: reads the authored length of every attack pose clip
+        /// off the controller once, so the per-frame path only does a lookup.
+        /// Clip names are the action names the import pipeline writes
+        /// (CharacterImportPipeline.ReimportClips sets take.name = action).
+        /// </summary>
+        void CachePoseClipSeconds()
+        {
+            _poseClipSeconds.Clear();
+            if (_animator == null || _animator.runtimeAnimatorController == null) return;
+            var clips = _animator.runtimeAnimatorController.animationClips;
+            for (var i = 0; i < clips.Length; i++)
+            {
+                var clip = clips[i];
+                if (clip == null || clip.length <= 0f) continue;
+                var value = PoseValueForClip(clip.name);
+                if (value >= 0) _poseClipSeconds[value] = clip.length;
+            }
+        }
+
+        /// <summary>Animator value a clip name poses, or -1 when the clip is
+        /// not an attack pose (only swings are time-scaled: locomotion loops
+        /// and reaction clips must keep their authored pace).</summary>
+        internal static int PoseValueForClip(string clipName)
+        {
+            if (clipName == "attack") return (int)ActorAction.Attack;
+            if (clipName == "critical") return (int)ActorAction.Critical;
+            if (clipName == "attack2") return Attack2Value;
+            if (clipName == "attack3") return Attack3Value;
+            return -1;
+        }
+
+        /// <summary>§M2: sim seconds the swing pose is held. Arena/prologue run
+        /// the fixed 5-frame attack clip; the dungeon combo runs
+        /// HackSpec.ComboSwing per chain index, and GameView keeps the tier
+        /// current BEFORE the pose resolves (§M/#9), so the tier IS the index
+        /// of the swing on screen. comboTier &lt; 0 means "not a dungeon run".
+        /// </summary>
+        internal static float SwingWindowSeconds(int comboTier)
+        {
+            if (comboTier < 0) return ArenaSwingSeconds;
+            var index = Mathf.Clamp(comboTier, 0, HackSpec.ComboLength - 1);
+            return HackSpec.ComboSwing[index];
+        }
+
+        /// <summary>§M2: animator speed that fits <paramref name="actionValue"/>'s
+        /// authored clip into the sim's swing window. 1 for every non-swing
+        /// pose, and 1 whenever the clip length is unknown.</summary>
+        internal static float PoseSpeed(float clipSeconds, float windowSeconds)
+        {
+            if (clipSeconds <= 0f || windowSeconds <= 0f) return 1f;
+            return Mathf.Clamp(clipSeconds / windowSeconds, MinPoseSpeed, MaxPoseSpeed);
+        }
+
+        float ResolvePoseSpeed(int actionValue)
+            => _poseClipSeconds.TryGetValue(actionValue, out var clipSeconds)
+                ? PoseSpeed(clipSeconds, SwingWindowSeconds(_comboTier))
+                : 1f;
+
+
         /// <summary>§M: starts the entrance roar window. Called from the
         /// BossSpawned event, which is where the intro letterbox already
         /// triggers — the sim never poses this, because a sim-side Show would
@@ -404,6 +574,8 @@ namespace CinderCourt.View
         public void PlayRoar()
         {
             _roarTime = RoarDuration;
+            _roarArmed = true;
+
         }
 
         /// <summary>
@@ -559,8 +731,7 @@ namespace CinderCourt.View
                     anchor = _animator.GetBoneTransform(HumanBodyBones.RightHand);
                 if (anchor == null) return;   // tint floor for non-humanoid rigs
                 var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                var collider = glow.GetComponent<Collider>();
-                if (collider != null) Destroy(collider);
+                RemovePrimitiveCollider(glow);
                 glow.name = "CastGlow";
                 glow.transform.SetParent(anchor, false);
                 glow.transform.localPosition = new Vector3(0.02f, 0.05f, 0f);
@@ -580,6 +751,8 @@ namespace CinderCourt.View
             // drives the glow. Deliberately a touch longer than the glow so the
             // body reads as "casting" rather than twitching.
             _castPoseTime = Mathf.Max(_castPoseTime, 0.30f);
+            _castPoseArmed = true;
+
         }
 
         void UpdateCastGlow(float deltaTime)
@@ -651,7 +824,11 @@ namespace CinderCourt.View
                     // suppressed for the whole death animation.
                     _flashTime = 0f;
                     if (_animator != null && _animator.isActiveAndEnabled)
+                    {
                         _animator.SetInteger(ActionParam, (int)ActorAction.Die);
+                        _animator.speed = 1f;   // §M2: death never inherits swing pacing
+                    }
+
                 }
                 // Shrink fade (0.34 s) — cheaper than URP transparent conversion.
                 // Kill pop: brief 1.18x punch on the death frame, damped by the
@@ -668,17 +845,29 @@ namespace CinderCourt.View
 
             // §M/#9 + #4: pose selection is pure — extracted so it can be pinned
             // exhaustively instead of inferred from screenshots.
-            if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
-            if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
-            if (_roarTime > 0f) _roarTime -= Time.deltaTime;
+            // Arm-then-decay would burn the arming frame's delta out of a window
+            // that has not been shown yet, so each window skips exactly one decay:
+            // the sync that opened it. Same rule as the hit flash below.
+            if (_castPoseArmed) _castPoseArmed = false;
+            else if (_castPoseTime > 0f) _castPoseTime -= Time.deltaTime;
+            if (_knockbackArmed) _knockbackArmed = false;
+            else if (_knockbackTime > 0f) _knockbackTime -= Time.deltaTime;
+            if (_roarArmed) _roarArmed = false;
+            else if (_roarTime > 0f) _roarTime -= Time.deltaTime;
+
             var actionValue = ResolveActionValue(
                 action, _comboTier, _castPoseTime > 0f, _knockbackTime > 0f, _roarTime > 0f);
             if (actionValue != _lastActionValue && _animator != null && _animator.isActiveAndEnabled)
             {
                 _animator.SetInteger(ActionParam, actionValue);
+                // §M2: swings are time-scaled into the sim's window; every
+                // other pose runs at its authored pace. Assigned on the SAME
+                // edge as the value, so leaving a swing restores speed 1.
+                _animator.speed = ResolvePoseSpeed(actionValue);
                 _lastActionValue = actionValue;
                 _lastAction = action;
             }
+
 
             // A flash gets its FULL duration: the frame that arms it must not
             // immediately spend a delta against it. On a long frame (100 ms vs
@@ -799,6 +988,11 @@ namespace CinderCourt.View
             _castPoseTime = 0f;       // §M: pooled actors never keep a cast pose
             _knockbackTime = 0f;      // §M: nor a launch reaction
             _roarTime = 0f;           // §M: nor an entrance roar
+            // ...nor a pending "skip one decay" grant from the previous tenant.
+            _castPoseArmed = false;
+            _knockbackArmed = false;
+            _roarArmed = false;
+
             _lastActionValue = -1;    // force the next Apply to re-issue the pose
             _elementTint = default;   // §K3: pooled actors never keep a skill color
             _gazeYaw = float.NaN;
@@ -815,7 +1009,9 @@ namespace CinderCourt.View
             {
                 _animator.Rebind();
                 _animator.SetInteger(ActionParam, (int)ActorAction.Idle);
+                _animator.speed = 1f;   // §M2: a pooled actor never inherits swing pacing
             }
+
         }
     }
 }

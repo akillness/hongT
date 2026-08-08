@@ -15,13 +15,17 @@ namespace CinderCourt.View
         Defend = 2,        // 방어태세: recall to escort/guard the player
         Recall = 3,        // 복귀: same latch as Defend, distinct feedback copy
         PickupInfo = 4,    // 아이템획득: unsupported by the sim — honest feedback
-        // Skill* = PLAYER casts (the sim has no companion skills — §S3 gate).
-        // Feedback copy must say "노바 시전", never "소환수가 노바를…".
+        // Skill* = PLAYER casts. Feedback copy must say "노바 시전", never
+        // "소환수가 노바를…" — these five latches are the player's own kit.
         SkillBolt = 5,
         SkillPulse = 6,
         SkillNova = 7,
         SkillAegis = 8,
         SkillDash = 9,
+        // AMENDMENT #8 lifted the Amendment #3 "no companion skills" non-goal, so this
+        // is the FIRST intent the companion itself performs. It is deliberately a
+        // separate member from Skill*: those order the PLAYER to cast.
+        CompanionSkill = 10,
     }
 
     /// <summary>
@@ -39,6 +43,12 @@ namespace CinderCourt.View
 
         private static readonly Rule[] Rules =
         {
+            // AMENDMENT #8 first: its keywords are specific compounds, and a generic
+            // "스킬" is deliberately NOT one of them — "결계 스킬" must still reach
+            // SkillAegis below.
+            new Rule { Intent = CompanionCommandIntent.CompanionSkill,
+                Keywords = new[] { "특기", "필살기", "시그니처", "고유기",
+                                   "signature", "companion skill" } },
             new Rule { Intent = CompanionCommandIntent.SkillAegis,
                 Keywords = new[] { "결계", "방패", "실드", "보호막", "aegis", "shield", "ward" } },
             new Rule { Intent = CompanionCommandIntent.SkillNova,
@@ -51,12 +61,16 @@ namespace CinderCourt.View
                 Keywords = new[] { "질주", "대시", "돌진", "dash" } },
             new Rule { Intent = CompanionCommandIntent.FocusAttack,
                 Keywords = new[] { "집중공격", "집중 공격", "공격해", "잡아", "쳐라", "붙어",
-                                   "focus", "attack" } },
+                                   "싸워", "죽여", "없애", "처치", "물어",
+                                   "focus", "attack", "kill" } },
             new Rule { Intent = CompanionCommandIntent.Recall,
-                Keywords = new[] { "복귀", "돌아와", "이리와", "이리 와", "recall", "come" } },
+                Keywords = new[] { "복귀", "돌아와", "이리와", "이리 와", "따라와", "따라",
+                                   "곁으로", "recall", "come", "follow" } },
             new Rule { Intent = CompanionCommandIntent.Defend,
                 Keywords = new[] { "방어태세", "방어 태세", "방어", "지켜", "수비", "호위",
+                                   "물러나", "빠져", "대기",
                                    "defend", "guard" } },
+
             new Rule { Intent = CompanionCommandIntent.PickupInfo,
                 Keywords = new[] { "아이템", "획득", "주워", "줍기", "pickup", "item", "loot" } },
         };
@@ -76,6 +90,50 @@ namespace CinderCourt.View
                 }
             }
             return CompanionCommandIntent.Unknown;
+        }
+
+        /// <summary>
+        /// Sequence seam (command agent): does ANY rule keyword start exactly at
+        /// <paramref name="index"/>? Returns the matched keyword length so the
+        /// caller can advance past it, which is what lets CommandPlanParser read
+        /// "노바 쓰고 결계 쳐" as [Nova, Aegis] in POSITION order — Parse above
+        /// answers in RULE order and would say Aegis alone.
+        ///
+        /// Case-folds per character instead of lowercasing the whole string:
+        /// ToLowerInvariant can change length on some cultures' characters, and a
+        /// one-char drift would misreport every later index. Rule order still
+        /// breaks ties, so "방어태세" is consumed whole before the generic "방어".
+        /// </summary>
+        public static bool TryMatchAt(string text, int index,
+            out CompanionCommandIntent intent, out int length)
+        {
+            intent = CompanionCommandIntent.Unknown;
+            length = 0;
+            if (string.IsNullOrEmpty(text) || index < 0 || index >= text.Length) return false;
+
+            for (var r = 0; r < Rules.Length; r++)
+            {
+                var keywords = Rules[r].Keywords;
+                for (var k = 0; k < keywords.Length; k++)
+                {
+                    var keyword = keywords[k];
+                    if (keyword.Length == 0 || index + keyword.Length > text.Length) continue;
+                    var hit = true;
+                    for (var c = 0; c < keyword.Length; c++)
+                    {
+                        if (char.ToLowerInvariant(text[index + c]) != keyword[c]) { hit = false; break; }
+                    }
+                    // Longest wins WITHIN the winning rule: the tables list
+                    // "집중공격" before "공격해", so the specific spelling is
+                    // consumed whole and cannot re-trigger on its own suffix.
+                    if (!hit) continue;
+                    if (keyword.Length <= length) continue;
+                    intent = Rules[r].Intent;
+                    length = keyword.Length;
+                }
+                if (length > 0) return true;
+            }
+            return false;
         }
 
         /// <summary>Maps a Gemini plain-text reply (one intent word) back to the
@@ -99,6 +157,7 @@ namespace CinderCourt.View
                 "skillnova" => CompanionCommandIntent.SkillNova,
                 "skillaegis" => CompanionCommandIntent.SkillAegis,
                 "skilldash" => CompanionCommandIntent.SkillDash,
+                "companionskill" => CompanionCommandIntent.CompanionSkill,
                 _ => CompanionCommandIntent.Unknown,
             };
         }

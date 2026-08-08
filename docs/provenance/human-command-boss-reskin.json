@@ -1,0 +1,26 @@
+{
+  "lane": "asset (W13, deep-interview-seed-ui-vfx-flow.md D-record §8)",
+  "manifestCheck": {
+    "source": "/Users/jangyoung/orca/Abyssal-Surge/assets/defense-asset-manifest.json (read-only, not modified)",
+    "checkedAt": "2026-08-07",
+    "result": "assets/mesh/character/human-command-boss-character/** rows are all disposition:delete, runtimeReference:false — not usable. The only retained/runtimeReference:true row is assets/motion/ingame/characters/human-command-boss/model.glb (+ its manifest.json). Used that GLB as the reskin input, matching how broken-court-monarch-boss was already sourced in this repo (see Assets/Art/Characters/broken-court-monarch-boss.fbx, already imported as Assets/Resources/Characters/broken-court-monarch-boss.prefab)."
+  },
+  "tool": "tools/blender/reskin_character.py (existing pipeline, no mesh-glb swap needed — the retained model.glb already embeds the real authored mesh with semantic node names, unlike the scout/shade/possessed/shadow-commander-boss blockout cases documented in tools/blender/reskin_all.sh)",
+  "command": "blender -b --factory-startup --python-exit-code 1 -P tools/blender/reskin_character.py -- --glb /Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/human-command-boss/model.glb --out Assets/Art/Characters/human-command-boss.fbx --report _workspace/current/engineering/reskin/human-command-boss.json --max-tris 25000",
+  "report": "_workspace/current/engineering/reskin/human-command-boss.json",
+  "output": "Assets/Art/Characters/human-command-boss.fbx",
+  "verification": {
+    "finalTriCount": 7711,
+    "triBudget": 25000,
+    "textures": "3 textures, all 1024x1024 (diffuse, metallic-roughness, normal) — within the 1024 texture cap",
+    "heatOrphans": 0,
+    "orphansRigidResidual": 0,
+    "nonNormalizedVertices": 0,
+    "removedBones": ["DEF-pelvis.L", "DEF-pelvis.R"],
+    "bones": 22
+  },
+  "followUp": [
+    "Unity Editor import not performed this session (project lock — batchmode-only automation per CLAUDE.md §1). Assets/Art/Characters/human-command-boss.fbx has no .meta yet.",
+    "After import: create Assets/Resources/Characters/human-command-boss.prefab (Humanoid avatar) mirroring the broken-court-monarch-boss.prefab pattern, and add \"human-command-boss\" to Assets/Scripts/Sim/CharacterRoster.cs CharacterRoster.Ids (currently missing — confirmed via CharacterRoster.cs:8-18). Both are code-lane changes, out of scope for this asset pass."
+  ]
+}

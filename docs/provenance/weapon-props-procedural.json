@@ -1,0 +1,29 @@
+{
+  "lane": "asset (W14, deep-interview-seed-ui-vfx-flow.md D8)",
+  "supersedesBlocker": "docs/provenance/weapon-reskin.json recorded (2026-08-06) that archetype meshes could not be produced: no image->3D tool present, and Abyssal-Surge has no retained dagger/bow/hammer source mesh (only the generic blade/relic props convert_equip_props.py rebinds). D8 (frozen 2026-08-07) resolves this by procedural low-poly authoring in Blender headless instead of image->3D, following the same silhouette-tier convention as tools/blender/convert_equip_props.py.",
+  "tool": "tools/blender/gen_weapon_props.py (new script, Blender 5.1.2 headless)",
+  "command": "blender -b --factory-startup --python-exit-code 1 -P tools/blender/gen_weapon_props.py -- --outdir Assets/Art/Props",
+  "triBudget": 800,
+  "outputs": [
+    {"file": "Assets/Art/Props/equip-weapon-dagger-basic.fbx", "tris": 46},
+    {"file": "Assets/Art/Props/equip-weapon-dagger-fine.fbx", "tris": 46},
+    {"file": "Assets/Art/Props/equip-weapon-bow-basic.fbx", "tris": 200},
+    {"file": "Assets/Art/Props/equip-weapon-bow-fine.fbx", "tris": 200},
+    {"file": "Assets/Art/Props/equip-weapon-hammer-basic.fbx", "tris": 64},
+    {"file": "Assets/Art/Props/equip-weapon-hammer-fine.fbx", "tris": 64}
+  ],
+  "conventions": {
+    "socketSpace": "grip/pivot at origin, striking end along +Y after FBX export (matches ActorView.AttachEquipProps RightHand pose, Assets/Scripts/View/ActorView.cs:392-421)",
+    "tierMaterials": "basic = prop-charcoal (0.13,0.11,0.16) unlit-ish rough; fine = prop-ember (0.22,0.12,0.10 base + 0.95,0.35,0.17 emission) at 1.22x scale — same tier convention already shipped for equip-weapon-basic/fine, equip-lantern-basic/fine, equip-cloak-basic/fine",
+    "shapes": {
+      "dagger": "cylinder grip + box crossguard + 4-sided cone blade, 0.42m grip-to-tip",
+      "bow": "central cylinder grip + 2x4 tapering curved limb segments + thin string cylinder, 1.05m tip-to-tip",
+      "hammer": "cylinder handle + rectangular striking head with two end caps, 0.88m handle-to-head"
+    }
+  },
+  "namingRationale": "equip-weapon-{dagger,bow,hammer}-{basic,fine} per D8. Assets/Scripts/View/ActorView.cs:392-393 currently loads only Resources/Props/equip-weapon-{basic,fine} (no archetype dimension) — same integration gap already flagged in docs/provenance/weapon-reskin.json blockers. Wiring which archetype prefab a run uses is a code-lane decision, out of scope here.",
+  "followUp": [
+    "Unity Editor import not performed this session (batchmode-only automation per CLAUDE.md §1). The 6 new FBX files have no .meta/.mat/.prefab yet — Assets/Resources/Props/equip-weapon-{basic,fine}.fbx already have imported .mat + .prefab pairs that can be used as the template (material with the same charcoal/ember color as this script, prefab wrapping the mesh with shadows off per the existing equip-weapon-basic.prefab m_CastShadows:0 modification).",
+    "ActorView.AttachEquipProps needs an archetype selector (currently hardcodes PropSlots[0]=\"weapon\" -> Resources/Props/equip-weapon-{basic,fine}) before these 3 archetypes can be selected at runtime — code-lane item."
+  ]
+}

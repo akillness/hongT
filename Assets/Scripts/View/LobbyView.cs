@@ -57,9 +57,13 @@ namespace CinderCourt.View
         static readonly string[] StatNames = { "공격", "체력", "이속" };
         static readonly string[] EquipIds = { "weapon", "lantern", "cloak" };
         static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
+        // One hop, not two. Main pointed this at GameDirector.EquipCosts, which
+        // this merge has just re-pointed at ProgressionGuide — reading the alias
+        // would make the lobby's price depend on the director's, when neither
+        // owns it.
         static readonly int[] EquipCosts = ProgressionGuide.EquipCosts;
 
-        // --- v1.5 sigils (AMENDMENT #6 · design/sigil-spec.md) ------------------
+        // --- v1.5 sigils (AMENDMENT #6 • design/sigil-spec.md) ------------------
         const int TabCount = 4;
         /// <summary>Relics to unlock one sigil, once. Internal so the economy
         /// test pins it and a negotiation can move it in one line.</summary>
@@ -67,12 +71,17 @@ namespace CinderCourt.View
         /// <summary>Catalog order. Index 0 is deliberately the inert None so the
         /// stored ints are the SigilKind enum values with no remapping.</summary>
         internal static readonly SigilKind[] SigilOrder = ProgressionGuide.SigilOrder;
-        static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
+        /// <summary>Internal so MetaScreenView can name the same sigils
+        /// (MetaScreenView.cs:452,475) — one copy of the vocabulary, two
+        /// surfaces reading it. The ORDER moved to ProgressionGuide in
+        /// AMENDMENT #8; the NAMES stay here because nothing outside the view
+        /// layer needs them.</summary>
+        internal static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
         /// <summary>Which gimmick each sigil binds — the line that tells the
         /// player WHERE it matters, not just what number moves.</summary>
-        static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
+        internal static readonly string[] SigilGimmicks = { "해류", "방벽주", "장벽", "분출구", "제단" };
         // Face copy: [kind][face]. A = survive the gimmick, B = turn it on them.
-        static readonly string[][] SigilFaceNames =
+        internal static readonly string[][] SigilFaceNames =
         {
             new[] { "역류 저항", "와류" },
             new[] { "관통 판결", "파쇄" },
@@ -80,7 +89,7 @@ namespace CinderCourt.View
             new[] { "재점화", "연쇄" },
             new[] { "속기", "증폭" },
         };
-        static readonly string[][] SigilFaceEffects =
+        internal static readonly string[][] SigilFaceEffects =
         {
             new[] { "내가 받는 해류 밀기 절반", "적이 받는 해류 밀기 1.5배" },
             new[] { "방벽주 실드 40% → 70%", "방벽주에 주는 피해 2배" },
@@ -123,7 +132,19 @@ namespace CinderCourt.View
         // Top bar.
         Text _relicText, _pointText;
 
-        // Sortie cards.
+        // Sortie cards. The desktop card grammar predates the 44 CSS px touch
+        // contract. Keep rect seams for the phone pass: it expands the route's
+        // actual action targets and card pitch together, rather than merely
+        // enlarging hit areas until neighboring routes overlap.
+        RectTransform _prologueCardRect, _prologueButtonRect;
+        RectTransform _stageViewportRect, _stageContentRect;
+        readonly RectTransform[] _stageCardRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _stageButtonRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _pactButtonRects = new RectTransform[StageCatalog.Entries.Count];
+        readonly RectTransform[] _trialCardRects = new RectTransform[TrainingTrials.Ids.Length];
+        readonly RectTransform[] _trialButtonRects = new RectTransform[TrainingTrials.Ids.Length];
+        RectTransform _tierCardRect;
+        RectTransform[] _tierButtonRects = System.Array.Empty<RectTransform>();
         Text _prologueStatus;  Text _prologueButtonLabel;
         readonly Text[] _stageStatus = new Text[StageCatalog.Entries.Count];
         readonly Button[] _stageButtons = new Button[StageCatalog.Entries.Count];
@@ -148,11 +169,23 @@ namespace CinderCourt.View
         const float HeaderHeight = 44f;
         const float HeaderPitch = 48f;
         const float GroupGap = 2f;
-        /// <summary>Card pitch, frozen since cycle 2. Compressing it is what
-        /// would sink the 강하 button under the touch floor.</summary>
-        const float CardPitch = 70f;
+        /// <summary>
+        /// Card pitch and height for the CURRENT input mode.
+        ///
+        /// Fields, not constants, and the merge is why. AMENDMENT #8's accordion
+        /// placed cards at a frozen 70 u pitch; main's touch pass grew the cards
+        /// to 106 u and re-placed them at a 112 u pitch from flat-list
+        /// arithmetic. Both were right alone and together they overlap by 36 u —
+        /// the accordion owns placement now, so it has to know the touch numbers
+        /// rather than have a second pass overwrite its work.
+        ///
+        /// Compressing the desktop pitch is what would sink the 강하 button under
+        /// the touch floor; the touch pitch exists to lift it clear.
+        /// </summary>
+        float CardPitch => _touchLayout ? 112f : 70f;
+        float CardHeight => _touchLayout ? 106f : 68f;
+        bool _touchLayout;
         const float ContentTop = 6f;
-        RectTransform _stageContentRect;
         ScrollRect _stageScroll;
         RectTransform[] _groupRects;
         GameObject[] _groupBodies;
@@ -175,6 +208,19 @@ namespace CinderCourt.View
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
 
+        // W8 campaign minimap + W7 tab meta screen. The minimap occupies the
+        // centre gutter between SANCTUM and SORTIE on desktop; the stacked
+        // (phone) layout has no gutter, so there it hides and the full-screen
+        // 지도 tab of the meta screen is the route instead — a third full-width
+        // card would push the already-tall stacked column further off screen.
+        CampaignMapView _map;
+        RectTransform _mapPanelRect;
+        MetaScreenView _meta;
+        /// <summary>Last save handed to <see cref="Refresh"/>. The meta screen is
+        /// opened by a button, not by the director, so it needs the snapshot the
+        /// lobby is currently displaying.</summary>
+        CampaignData _lastData;
+
         // v1.5 각인 rows (AMENDMENT #6). Built once, Refresh flips state only.
         readonly Text[] _sigilTitles = new Text[5];
         readonly Text[] _sigilEffects = new Text[5];
@@ -195,6 +241,9 @@ namespace CinderCourt.View
         Text _growthSummary;
         // cycle2 B4: 모션 약함 toggle label (ViewPrefs-backed).
         Text _motionLabel;
+        // AMENDMENT #11 §16: run difficulty cycle button label (ViewPrefs-backed).
+        Text _difficultyLabel;
+
 
         // Equipment rows.
         readonly Text[] _equipValues = new Text[3];
@@ -240,17 +289,67 @@ namespace CinderCourt.View
             BuildTopBar(root);
             BuildSortiePanel(root);
             BuildSanctumPanel(root);
+            BuildMapPanel(root);
             SelectTab(0);
+
+            // The meta screen is a sibling canvas on this same object: it is a
+            // LOBBY surface (seed D6), so its lifetime is the lobby's and the
+            // combat HUD never learns it exists.
+            _meta = gameObject.AddComponent<MetaScreenView>();
+            _meta.Build(_font, in data);
+
             ApplyLobbyTier(true);
             Refresh(data);
         }
+
+        // ------------------------------------------------------ campaign map --
+        /// <summary>W8: the lit-as-you-go campaign map. Reads the same
+        /// CampaignData the sortie cards read, through CampaignMapLayout, so a
+        /// node can never claim a state the card next to it denies.</summary>
+        void BuildMapPanel(Transform root)
+        {
+            // Width is FIXED at 424 in both layouts. The map field and its two
+            // actions are placed in panel-local units, so a panel that changed
+            // width between tiers would need a second geometry pass for every
+            // node; keeping it constant and re-anchoring the panel itself costs
+            // nothing and keeps the constellation identically readable.
+            var panel = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
+                new Vector2(432, -72), new Vector2(424, 320), PanelColor);
+            _mapPanelRect = panel.GetComponent<RectTransform>();
+            Border(panel.transform, true);
+            Eyebrow(panel.transform, 16, -12, "CAMPAIGN", "심연 지도");
+
+            _map = new CampaignMapView();
+            _map.Build(panel.transform, _font, new Vector2(8, -46), new Vector2(408, 150),
+                showEpithets: false);
+
+            // Two actions, 196 x 96 each: 95.6 x 46.8 CSS px at the worst
+            // audited phone scale (0.488 px/u), so both clear the 44 px touch
+            // floor on BOTH axes with margin and neither joins the lobby's
+            // debt table (LobbyLayoutTests holds that table exactly).
+            var mapButton = TextButton(panel.transform, new Vector2(0, 1),
+                new Vector2(16, -208), new Vector2(196, 96), "지도", 17,
+                () => _meta?.Show(in _lastData, MetaScreenView.TabMap));
+            mapButton.name = "OpenMapButton";
+            var gearButton = TextButton(panel.transform, new Vector2(0, 1),
+                new Vector2(212, -208), new Vector2(196, 96), "정비", 17,
+                () => _meta?.Show(in _lastData, MetaScreenView.TabEquip));
+            gearButton.name = "MetaScreenButton";
+        }
+
+        /// <summary>Opens the tab meta screen on its default tab. Public so a
+        /// future deep link (or a QA route) can reach it without a click.</summary>
+        public void OpenMetaScreen() => _meta?.Show(in _lastData, MetaScreenView.TabEquip);
 
         /// <summary>Re-render balances/card states. Text + interactable only —
         /// never re-instantiates.</summary>
         public void Refresh(CampaignData data)
         {
+            _lastData = data;
             _relicText.text = $"유물 {data.Relics}";
             _pointText.text = $"포인트 {data.Points}";
+            _map?.Refresh(in data);
+            _meta?.Refresh(in data);
 
             // --- sortie: prologue gates everything, stages unlock in order ----
             // v1.6: the repeat visit is no longer a replay of the three waves —
@@ -358,17 +457,21 @@ namespace CinderCourt.View
             }
 
             // --- legion ----------------------------------------------------------
-            var noneActive = string.IsNullOrEmpty(data.Active);
+            // AMENDMENT #6 (D6.6): legion tab now selects up to 3 (multi-slot),
+            // so "active" here means "present in ActiveSlots", not "the one".
+            var activeSlots = data.ActiveSlots ?? System.Array.Empty<string>();
+            var noneActive = activeSlots.Length == 0;
             _rosterLabels[0].color = noneActive ? Gold : InkDim;
             PlateStateful(_rosterBackgrounds[0], noneActive);
             for (var i = 0; i < CompanionIds.Length; i++)
             {
                 var owned = RosterContains(data.Roster, CompanionIds[i]);
-                var active = owned && data.Active == CompanionIds[i];
+                var active = owned && System.Array.IndexOf(activeSlots, CompanionIds[i]) >= 0;
                 _rosterLabels[i + 1].text = owned ? CompanionNames[i] : $"{CompanionNames[i]} (미보유)";
                 _rosterLabels[i + 1].color = active ? Gold : owned ? Cyan : Lock;
                 PlateStateful(_rosterBackgrounds[i + 1], active);
                 _rosterButtons[i + 1].interactable = owned;
+
             }
 
             // --- 각인 (v1.5) -------------------------------------------------
@@ -448,13 +551,75 @@ namespace CinderCourt.View
             _motionLabel.text = ViewPrefs.ReducedMotion ? "모션: 약함" : "모션: 보통";
             _motionLabel.color = ViewPrefs.ReducedMotion ? Gold : Cyan;
         }
+
+        // --- AMENDMENT #11 §16 difficulty ------------------------------------
+
+        /// <summary>Korean tier name. The stable machine id lives in
+        /// <see cref="Sim.DifficultySpec.IdOf"/>; this is display only.</summary>
+        internal static string DifficultyName(Sim.Difficulty difficulty)
+        {
+            switch (difficulty)
+            {
+                case Sim.Difficulty.Story: return "입문";
+                case Sim.Difficulty.Hard: return "어려움";
+                case Sim.Difficulty.Nightmare: return "악몽";
+                default: return "보통";
+            }
+        }
+
+        /// <summary>
+        /// Advances one step through the easiest-to-hardest tier order and wraps.
+        /// The order comes from <see cref="Sim.DifficultySpec.AtOrder"/>, NOT from the
+        /// enum's integer values — Normal is 0 so the raw values are not sorted.
+        /// </summary>
+        internal static Sim.Difficulty NextDifficulty(Sim.Difficulty current)
+            => Sim.DifficultySpec.AtOrder(
+                (Sim.DifficultySpec.OrderOf(current) + 1) % Sim.DifficultySpec.Count);
+
+        /// <summary>
+        /// The three lines the button shows for a tier. Every number is read from
+        /// <see cref="Sim.DifficultySpec.For"/> so the label can never drift from the
+        /// simulation it describes.
+        ///
+        /// The leading step marker (AMENDMENT #11 UI) is what makes a CYCLE button
+        /// honest: without it the player sees one tier at a time and cannot tell how
+        /// many exist or whether clicking moves toward harder or easier. The marker
+        /// counts in <see cref="Sim.DifficultySpec.OrderOf"/> order — easiest first —
+        /// so the number itself states the direction of travel.
+        /// </summary>
+        internal static string DifficultyLabelText(Sim.Difficulty difficulty)
+        {
+            var profile = Sim.DifficultySpec.For(difficulty);
+            var pack = profile.GroupAi
+                ? $"협동 AI ON • 동시 {profile.AttackTokens}"
+                : "협동 AI OFF";
+            var step = Sim.DifficultySpec.OrderOf(difficulty) + 1;
+            return $"난이도: {DifficultyName(difficulty)} [{step}/{Sim.DifficultySpec.Count}]\n"
+                + $"받는 피해 ×{profile.IncomingDamageMul:0.00} • 공격 간격 ×{profile.AttackCooldownMul:0.00}\n"
+                + pack;
+        }
+
+        void CycleDifficulty()
+        {
+            ViewPrefs.Difficulty = NextDifficulty(ViewPrefs.Difficulty);
+            RefreshDifficultyLabel();
+        }
+
+        void RefreshDifficultyLabel()
+        {
+            if (_difficultyLabel == null) return;
+            var difficulty = ViewPrefs.Difficulty;
+            _difficultyLabel.text = DifficultyLabelText(difficulty);
+            _difficultyLabel.color = difficulty == Sim.Difficulty.Normal ? Cyan : Gold;
+        }
+
         // ------------------------------------------------- v1.3 meta helpers --
 
         /// <summary>
         /// Inert probe config carrying the lobby's meta at an offset: the four
         /// derived-stat properties (§5/§6) are pure functions of MetaStats/
         /// EquipTiers, so a stack-allocated HackConfig IS the mirror — the view
-        /// never re-composes 58×(1+…) itself. Deltas = probe(x+1) − probe(x);
+        /// never re-composes 58×(1+…) itself. Deltas = probe(x+1) - probe(x);
         /// the properties clamp internally, so a cap probe simply flattens
         /// (the UI shows 숙련 instead of a delta at the cap).
         /// </summary>
@@ -545,13 +710,20 @@ namespace CinderCourt.View
 
         public void Show() { if (_root != null) _root.SetActive(true); }
 
-        /// <summary>Leaving the lobby drops the fold pin. A header tap is a
-        /// decision about this visit; on the next one the accordion goes back to
-        /// following the target, which is the whole point of the automatic
-        /// follow — a player returning from a clear should find the group that
-        /// just changed already open.</summary>
+        /// <summary>
+        /// Leaving the lobby closes the meta screen with it: its canvas sorts
+        /// above everything the lobby draws, so an open meta screen would
+        /// otherwise hang over the dungeon that just started.
+        ///
+        /// It also drops the fold pin. A header tap is a decision about this
+        /// visit; on the next one the accordion goes back to following the
+        /// target, which is the whole point of the automatic follow — a player
+        /// returning from a clear should find the group that just changed
+        /// already open.
+        /// </summary>
         public void Hide()
         {
+            _meta?.Hide();
             if (_root != null) _root.SetActive(false);
             _groupPinned = false;
         }
@@ -562,6 +734,10 @@ namespace CinderCourt.View
             // Resolution dirty-check only (two int compares, no alloc).
             if (_root == null || !_root.activeSelf) return;
             ApplyLobbyTier(false);
+
+            // Frontier heartbeat on the map (skipped internally under reduced
+            // motion). Colour/size writes only — no layout, no allocation.
+            _map?.Tick(Time.unscaledTime);
 
             // cycle2 B3: first-run guide — prologue border pulses ember.
             // PingPong 0→1 over 1.2s round trip, SmoothStep ease, alpha
@@ -582,9 +758,16 @@ namespace CinderCourt.View
         /// full-width column (SORTIE on top). Also flips the orientation
         /// match (spec #1: portrait 0.35 / landscape 0.5).</summary>
         void ApplyLobbyTier(bool force)
+            => ApplyLobbyTier(Screen.width, Screen.height, force);
+
+        /// <summary>EditMode geometry seam. Screen dimensions are degenerate in
+        /// batch tests, so the phone layout must be driven with the same measured
+        /// 390×844 viewport used by the HUD audit.</summary>
+        internal void ApplyLobbyLayoutForTest(int width, int height)
+            => ApplyLobbyTier(width, height, true);
+
+        void ApplyLobbyTier(int width, int height, bool force)
         {
-            var width = Screen.width;
-            var height = Screen.height;
             if (!force && width == _lastScreenWidth && height == _lastScreenHeight)
                 return;
             _lastScreenWidth = width;
@@ -634,6 +817,146 @@ namespace CinderCourt.View
                 _sanctumRect.pivot = new Vector2(0f, 1f);
                 _sanctumRect.anchoredPosition = new Vector2(16, -72);
                 _sanctumRect.sizeDelta = new Vector2(400, 560);
+            }
+
+            // W8: the map lives in the centre gutter side-by-side, and drops to
+            // the bottom of the single column when stacked. It keeps its 424 u
+            // width in both, centring itself on the phone rather than
+            // stretching — the constellation is placed, not laid out.
+            if (_mapPanelRect != null)
+            {
+                if (stack)
+                {
+                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0.5f, 1f);
+                    _mapPanelRect.pivot = new Vector2(0.5f, 1f);
+                    // Under SANCTUM (-708, 560 tall) with the same 16 u gap the
+                    // rest of the stacked column uses.
+                    _mapPanelRect.anchoredPosition = new Vector2(0f, -1284f);
+                }
+                else
+                {
+                    _mapPanelRect.anchorMin = _mapPanelRect.anchorMax = new Vector2(0f, 1f);
+                    _mapPanelRect.pivot = new Vector2(0f, 1f);
+                    _mapPanelRect.anchoredPosition = new Vector2(432f, -72f);
+                }
+                _mapPanelRect.sizeDelta = new Vector2(424f, 320f);
+            }
+
+            // A phone layout must enlarge the complete route grammar (card +
+            // action + scroll pitch) together. Enlarging only a transparent hit
+            // box would make adjacent descents compete for the same tap.
+            ApplySortieTouchLayout(stack);
+        }
+
+        static void SetCardGeometry(RectTransform rect, float top, float height)
+        {
+            rect.offsetMin = new Vector2(12f, top - height);
+            rect.offsetMax = new Vector2(-12f, top);
+        }
+
+        /// <summary>
+        /// Applies the input mode to the sortie list: card SIZES, action sizes
+        /// and text layout. Placement belongs to SelectGroup.
+        ///
+        /// It used to do both, and it had to — before the accordion the list was
+        /// flat, so `-6 - row * pitch` was the whole layout. Under folding that
+        /// arithmetic describes a list that no longer exists: it would put all
+        /// nine stages at nine consecutive offsets when only one act's worth is
+        /// on screen. So this pass records the mode and re-runs the accordion,
+        /// which already knows where every open row goes.
+        ///
+        /// The 92x92 action size is main's, and it is the reason the touch-floor
+        /// debt table shrank — 강하 • 서약 • the tier buttons and the five 수련
+        /// all clear 44 CSS px at that size. It is preserved exactly.
+        /// </summary>
+        void ApplySortieTouchLayout(bool touchFriendly)
+        {
+            if (_prologueCardRect == null || _stageViewportRect == null ||
+                _stageContentRect == null || _tierCardRect == null)
+                return;
+
+            _touchLayout = touchFriendly;
+            var actionSize = touchFriendly ? new Vector2(92f, 92f) : new Vector2(84f, 28f);
+
+            SetCardGeometry(_prologueCardRect, -60f, touchFriendly ? 112f : 100f);
+            _prologueButtonRect.sizeDelta = new Vector2(112f, touchFriendly ? 92f : 44f);
+            _stageViewportRect.offsetMax = new Vector2(0f, touchFriendly ? -186f : -174f);
+
+            for (var i = 0; i < StageCatalog.Entries.Count; i++)
+            {
+                _stageButtonRects[i].sizeDelta = actionSize;
+                _pactButtonRects[i].sizeDelta = actionSize;
+                SetRouteTextLayout(_stageStatus[i], _stageSubLabels[i], touchFriendly);
+            }
+            for (var i = 0; i < _tierButtonRects.Length; i++)
+                _tierButtonRects[i].sizeDelta = actionSize;
+            for (var i = 0; i < _trialCardRects.Length; i++)
+            {
+                _trialButtonRects[i].sizeDelta = actionSize;
+                SetRouteTextLayout(_trialStatus[i], null, touchFriendly);
+            }
+
+            // Heights follow the mode, then the accordion re-places everything
+            // from the pitch that mode implies.
+            ResizeSortieCards();
+            SelectGroup(_expandedGroup, _groupPinned);
+        }
+
+        /// <summary>
+        /// Card tops and heights for the current mode, inside their own group
+        /// bodies. Group POSITION is SelectGroup's; this is the row grid within
+        /// one open group.
+        ///
+        /// The slot is derived, not stored: a stage card's row inside its act is
+        /// `index % StagesPerAct` by construction (BuildActStages walks slots
+        /// 0..StagesPerAct-1 of act `a` and writes catalog index `a*StagesPerAct
+        /// + slot`). Reading the card's current offset back instead would make
+        /// the new pitch a function of the old one, and two mode switches would
+        /// drift.
+        /// </summary>
+        void ResizeSortieCards()
+        {
+            var h = CardHeight;
+            var pitch = CardPitch;
+            for (var i = 0; i < _stageCardRects.Length; i++)
+            {
+                if (_stageCardRects[i] == null) continue;
+                var slot = i % ProgressionGuide.StagesPerAct;
+                SetCardGeometry(_stageCardRects[i], -slot * pitch, h);
+            }
+            if (_tierCardRect != null) SetCardGeometry(_tierCardRect, 0f, h);
+            for (var i = 0; i < _trialCardRects.Length; i++)
+                if (_trialCardRects[i] != null)
+                    SetCardGeometry(_trialCardRects[i], -(1 + i) * pitch, h);
+        }
+
+        static void SetRouteTextLayout(Text status, Text sub, bool touchFriendly)
+        {
+            var statusRect = status.rectTransform;
+            if (touchFriendly)
+            {
+                statusRect.anchorMin = statusRect.anchorMax = new Vector2(0f, 1f);
+                statusRect.pivot = new Vector2(0f, 1f);
+                statusRect.anchoredPosition = new Vector2(34f, -68f);
+                statusRect.sizeDelta = new Vector2(124f, 20f);
+                status.alignment = TextAnchor.MiddleLeft;
+                if (sub != null)
+                {
+                    var subRect = sub.rectTransform;
+                    subRect.sizeDelta = new Vector2(124f, 30f);
+                    sub.horizontalOverflow = HorizontalWrapMode.Wrap;
+                }
+                return;
+            }
+
+            AnchorTopRight(statusRect);
+            statusRect.anchoredPosition = new Vector2(-12f, -8f);
+            statusRect.sizeDelta = new Vector2(sub == null ? 110f : 100f, 18f);
+            status.alignment = TextAnchor.MiddleRight;
+            if (sub != null)
+            {
+                sub.rectTransform.sizeDelta = new Vector2(220f, 16f);
+                sub.horizontalOverflow = HorizontalWrapMode.Overflow;
             }
         }
 
@@ -706,6 +1029,7 @@ namespace CinderCourt.View
 
             // Prologue card (sole entry until cleared; retrainable after).
             var prologue = Card(panel.transform, -60, 100);
+            _prologueCardRect = prologue.GetComponent<RectTransform>();
             // cycle2 B3: capture the card's 4 border lines NOW (before other
             // children exist) so the first-run guide can pulse them ember.
             var prologueLines = prologue.GetComponentsInChildren<Image>();
@@ -731,7 +1055,8 @@ namespace CinderCourt.View
             var prologueButton = TextButton(prologue.transform, new Vector2(1, 0), new Vector2(-12, 10),
                 new Vector2(112, 44), "점화 훈련", 15,
                 () => _callbacks.OnSortie?.Invoke("prologue"));
-            prologueButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+            _prologueButtonRect = prologueButton.GetComponent<RectTransform>();
+            _prologueButtonRect.pivot = new Vector2(1f, 0f);
             _prologueButtonLabel = prologueButton.GetComponentInChildren<Text>();
 
             // AMENDMENT #8 — the flat scroll becomes four folded groups.
@@ -751,19 +1076,21 @@ namespace CinderCourt.View
             //
             // The ScrollRect stays as the training group's overflow. It is no
             // longer the navigation model, only the fallback for the one group
-            // that cannot fit.
+            // that cannot fit. Main's phone-tier rule still applies inside a
+            // group: the card pitch expands with its actions so every route
+            // choice clears the 44 CSS px floor.
             var stageViewport = new GameObject("StageScroll");
             stageViewport.transform.SetParent(panel.transform, false);
             var viewportImage = stageViewport.AddComponent<Image>();
             viewportImage.color = Color.clear;      // drag surface, invisible
             viewportImage.raycastTarget = true;      // ScrollRect needs the hits
             stageViewport.AddComponent<RectMask2D>();
-            var viewportRect = stageViewport.GetComponent<RectTransform>();
-            viewportRect.anchorMin = new Vector2(0f, 0f);
-            viewportRect.anchorMax = new Vector2(1f, 1f);
-            viewportRect.pivot = new Vector2(0.5f, 1f);
-            viewportRect.offsetMin = new Vector2(0f, 12f);
-            viewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
+            _stageViewportRect = stageViewport.GetComponent<RectTransform>();
+            _stageViewportRect.anchorMin = new Vector2(0f, 0f);
+            _stageViewportRect.anchorMax = new Vector2(1f, 1f);
+            _stageViewportRect.pivot = new Vector2(0.5f, 1f);
+            _stageViewportRect.offsetMin = new Vector2(0f, 12f);
+            _stageViewportRect.offsetMax = new Vector2(0f, -174f);   // below prologue card
 
             var stageContent = new GameObject("StageContent");
             stageContent.transform.SetParent(stageViewport.transform, false);
@@ -772,11 +1099,20 @@ namespace CinderCourt.View
             _stageContentRect.anchorMax = new Vector2(1f, 1f);
             _stageContentRect.pivot = new Vector2(0.5f, 1f);
             _stageContentRect.anchoredPosition = Vector2.zero;
+            // Height is LayoutGroups' to own, not a formula's. Main sized this
+            // explicitly from (stages + 1 + trials) x 70, which is exact for a
+            // FLAT list and wrong for a folded one — the accordion's content
+            // height changes every time a group opens or closes, and a constant
+            // computed at build time would clamp the scroll to the wrong extent
+            // for four of the five fold states.
             _stageContentRect.sizeDelta = new Vector2(0f, ContentTop);   // LayoutGroups owns the rest
 
+            // Field, not local: the accordion re-targets this when the training
+            // group opens, which is the one group that still overflows.
+            // Viewport rect is main's renamed field (_stageViewportRect, :1044).
             _stageScroll = stageViewport.AddComponent<ScrollRect>();
             _stageScroll.content = _stageContentRect;
-            _stageScroll.viewport = viewportRect;
+            _stageScroll.viewport = _stageViewportRect;
             _stageScroll.horizontal = false;
             _stageScroll.vertical = true;
             _stageScroll.movementType = ScrollRect.MovementType.Clamped;
@@ -889,7 +1225,13 @@ namespace CinderCourt.View
                 var i = first + slot;
                 if (i >= StageCatalog.Entries.Count) break;
                 var entry = StageCatalog.Entries[i];
+                // Parent is the fold BODY, not the flat content: the accordion
+                // owns vertical placement now, and `slot` is the row index
+                // within the open group rather than the catalog index.
+                // SetCardGeometry (:867) still re-places these by _stageCardRects
+                // at phone tier, so the rect must go on record either way.
                 var card = Card(body, -slot * CardPitch, 68);
+                _stageCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
                 var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
                 if (glyphSprite != null)
@@ -923,6 +1265,14 @@ namespace CinderCourt.View
                 // the fix cannot be a colour. The card stays dimmed because it
                 // is not actionable; the sentence explaining WHY it is not
                 // actionable is exempted from the dimming and reads at 8.69:1.
+                //
+                // Built empty and filled by ProgressionGuide.StageSubLine on
+                // every refresh (:386). That function's unlocked-and-uncleared
+                // branch returns exactly main's `{Epithet} • 보상: {reward}`, so
+                // the inline composition main had here is not lost — it became
+                // the default case of a switch that also answers the two locked
+                // states. Main's phone rule is unaffected: ApplySortieTouchLayout
+                // still narrows this label where the actions take the right half.
                 var sub = Label(card.transform, 34, -44, 220, 16, "", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
                 var subGroup = sub.gameObject.AddComponent<CanvasGroup>();
@@ -938,26 +1288,23 @@ namespace CinderCourt.View
                 var button = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
                     new Vector2(84, 28), "강하", 13,
                     () => _callbacks.OnSortie?.Invoke(entry.Id));
-                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _stageButtonRects[i] = button.GetComponent<RectTransform>();
+                _stageButtonRects[i].pivot = new Vector2(1f, 0f);
                 _stageButtons[i] = button.GetComponent<Button>();
 
-                // v1.3 M3b: 서약 toggle — left of 강하, same audited 28 u height
-                // (card grammar; 28 u ≥ the 강하 button's own touch-floor
-                // audit at phone scale). Flat fill (plated:false): armed state
-                // drives Image.color, the stateful-button grammar tabs/roster
-                // use. Hidden until the stage is cleared (Refresh), so the
-                // reward text it would cover is gone by the time it appears
-                // (cleared cards drop the redeemed '보상:' tail).
                 var pactIndex = i;
                 var pact = TextButton(card.transform, new Vector2(1, 0), new Vector2(-104, 6),
                     new Vector2(84, 28), "서약", 12,
                     () => TogglePact(pactIndex), plated: false);
-                pact.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _pactButtonRects[i] = pact.GetComponent<RectTransform>();
+                _pactButtonRects[i].pivot = new Vector2(1f, 0f);
                 _pactButtons[i] = pact;
                 _pactBackgrounds[i] = pact.GetComponent<Image>();
                 _pactLabels[i] = pact.GetComponentInChildren<Text>();
                 pact.SetActive(false);   // revealed by Refresh on clear
-
+                // Action plates are built after the status; restore the status
+                // above their background so it stays legible in the tall phone card.
+                _stageStatus[i].transform.SetAsLastSibling();
                 _stageGroups[i] = card.AddComponent<CanvasGroup>();
             }
         }
@@ -1039,7 +1386,7 @@ namespace CinderCourt.View
         }
 
         // ----------------------------------------------------- training ground --
-        /// <summary>Trial display names, catalog order (AMENDMENT #7).</summary>
+        /// <summary>Trial display names, catalog order (AMENDMENT #10).</summary>
         public static readonly string[] TrialNames =
             { "불씨 시련", "해류 시련", "방벽 시련", "행진 시련", "증언 시련" };
         /// <summary>Tier names — the ladder the survey's T3 archetype asks for.</summary>
@@ -1071,10 +1418,20 @@ namespace CinderCourt.View
         /// them at once. A new smallest touch target is a defect, not a frozen-
         /// table update, so the tier choice moved to one shared row and every
         /// button here now matches the audited stage-card button exactly.
+        ///
+        /// No rowOffset parameter. Main passed one because the trials sat at the
+        /// bottom of a flat list; under the accordion they are their own group
+        /// body starting at zero, and the offset would be a second opinion about
+        /// where the group begins. Phone geometry still reaches these cards —
+        /// ApplySortieTouchLayout resizes them and SelectGroup re-places them.
         /// </summary>
         void BuildTrialCards(Transform content)
         {
-            var tierCard = Card(content, 0f, 68);
+            var tierCard = Card(content, 0f, CardHeight);
+            _tierCardRect = tierCard.GetComponent<RectTransform>();
+            // Eyebrow says TIER, not TRAINING: the fold header directly above
+            // already reads 훈련장, and repeating it inside the group is a word
+            // the player has to read twice to learn nothing.
             Eyebrow(tierCard.transform, 12, -6, "TIER", "등급 선택");
             // Only 76 u is clear beside three buttons, so this row carries the
             // tier COUNT and nothing else. The mastery line is on the prologue
@@ -1083,6 +1440,7 @@ namespace CinderCourt.View
                 $"{HackSpec.TrainingTiers}단", 10, TextAnchor.MiddleLeft);
             tierHint.color = InkDim;
             _tierButtons = new Button[HackSpec.TrainingTiers];
+            _tierButtonRects = new RectTransform[HackSpec.TrainingTiers];
             _tierBackgrounds = new Image[HackSpec.TrainingTiers];
             for (var tier = 0; tier < HackSpec.TrainingTiers; tier++)
             {
@@ -1091,14 +1449,16 @@ namespace CinderCourt.View
                     new Vector2(-12 - (HackSpec.TrainingTiers - 1 - tier) * 92, 6),
                     new Vector2(84, 28), TierNames[tier], 13,
                     () => SelectTier(tierIndex), plated: false);
-                button.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _tierButtonRects[tier] = button.GetComponent<RectTransform>();
+                _tierButtonRects[tier].pivot = new Vector2(1f, 0f);
                 _tierButtons[tier] = button.GetComponent<Button>();
                 _tierBackgrounds[tier] = button.GetComponent<Image>();
             }
 
             for (var i = 0; i < TrainingTrials.Ids.Length; i++)
             {
-                var card = Card(content, -(1 + i) * CardPitch, 68);
+                var card = Card(content, -(1 + i) * CardPitch, CardHeight);
+                _trialCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, "TRIAL", TrialNames[i]);
                 var lesson = Label(card.transform, 12, -44, 230, 16, TrialLessons[i], 10,
                     TextAnchor.MiddleLeft);
@@ -1111,9 +1471,10 @@ namespace CinderCourt.View
                 var enter = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),
                     new Vector2(84, 28), "수련", 13,
                     () => _callbacks.OnStartTrial?.Invoke(trialIndex, _selectedTier));
-                enter.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
+                _trialButtonRects[i] = enter.GetComponent<RectTransform>();
+                _trialButtonRects[i].pivot = new Vector2(1f, 0f);
                 _trialButtons[i] = enter.GetComponent<Button>();
-
+                _trialStatus[i].transform.SetAsLastSibling();
                 _trialGroups[i] = card.AddComponent<CanvasGroup>();
             }
         }
@@ -1257,8 +1618,13 @@ namespace CinderCourt.View
             _growthSummary = Label(content.transform, 16, -300, 360, 22, "", 12, TextAnchor.MiddleLeft);
             _growthSummary.color = Gold;
 
+            // cycle2 B4 + AMENDMENT #11: the two run-wide settings share one row.
+            // The sanctum panel is 560 u tall and its tab content stops at 444 u, so
+            // a second full-width button would fall off the panel — halving the row
+            // keeps both inside the audited footprint. 180 x 92 still clears the
+            // 44 u touch floor on both axes.
             var motionButton = TextButton(content.transform, new Vector2(0, 1),
-                new Vector2(16, -344), new Vector2(368, 92), "모션: 보통", 15,
+                new Vector2(16, -344), new Vector2(180, 92), "모션: 보통", 15,
                 () =>
                 {
                     ViewPrefs.ReducedMotion = !ViewPrefs.ReducedMotion;
@@ -1266,6 +1632,16 @@ namespace CinderCourt.View
                 });
             _motionLabel = motionButton.GetComponentInChildren<Text>();
             RefreshMotionLabel();
+
+            // AMENDMENT #11 §16: difficulty cycles through the tier order
+            // (입문 → 보통 → 어려움 → 악몽) and persists immediately. It is a cycle
+            // button rather than four buttons because the row has 180 u to spend.
+            var difficultyButton = TextButton(content.transform, new Vector2(0, 1),
+                new Vector2(204, -344), new Vector2(180, 92), "난이도: 보통", 13,
+                CycleDifficulty);
+            _difficultyLabel = difficultyButton.GetComponentInChildren<Text>();
+            RefreshDifficultyLabel();
+
             return content;
         }
 
@@ -1308,7 +1684,8 @@ namespace CinderCourt.View
         GameObject BuildLegionTab(Transform parent)
         {
             var content = TabContent(parent);
-            var hint = Label(content.transform, 16, -6, 360, 22, "던전에 동행할 동료 1체 선택", 13, TextAnchor.MiddleLeft);
+            var hint = Label(content.transform, 16, -6, 360, 22, "던전에 동행할 동료 최대 3체 선택", 13, TextAnchor.MiddleLeft);
+
             hint.color = InkDim;
 
             // Slot 0: none. Slots 1..: every obtainable companion (pre-built,

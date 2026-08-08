@@ -1,0 +1,33 @@
+{
+  "asset_class": "environment albedo textures (AMENDMENT #12 §E9 candidate 3)",
+  "status": "BLOCKED — not generated",
+  "date": "2026-08-07",
+  "tool": "god-tibo-imagen (CLAUDE.md §3 fixed tool for concept/texture/atlas)",
+  "blocker": "Private Codex backend HTTP 429 on 6 attempts (0s/60s/120s/240s/300s/420s backoff). ~/.codex/auth.json valid — quota exhaustion, not auth.",
+  "wiring_ready": true,
+  "wiring_notes": [
+    "env-cube split to 24 verts with per-face UVs (was 8 shared corners = mapping impossible)",
+    "quad carries 0-1 UV",
+    "MPB _BaseMap_ST size-proportional tiling, 1 tile = 1.28 world u = §E2 module grid",
+    "materials stay at 4 of the §E7 budget of 8; textures ride mainTexture on the existing seed clones"
+  ],
+  "planned_outputs": [
+    {
+      "path": "Assets/Resources/Textures/env-stone-albedo.png",
+      "target_material": "env-stone (walls, pillars, gallery decks, torch posts)",
+      "prompt": "Seamless tileable game texture, 1024x1024. Dark volcanic basalt masonry wall: tightly fitted chiseled stone blocks, deep charcoal grey-black (#2a2530) with subtle violet-ash undertone, thin molten ember cracks glowing dim orange (#c9542a) tracing the mortar lines, fine ash dust settled in crevices, worn chipped edges. Flat even lighting with NO baked shadows or highlights, low overall brightness so runtime tinting reads, matte non-reflective, orthographic straight-on view, edges tile seamlessly on all four sides. Dark fantasy dungeon architecture, painterly game asset, no text no watermark."
+    },
+    {
+      "path": "Assets/Resources/Textures/env-floor-albedo.png",
+      "target_material": "env-floor (Zone A gloss accent panels)",
+      "prompt": "Seamless tileable game texture, 1024x1024. Polished dark court floor plate: large fitted flagstones in near-black basalt with faint warm gold inlay lines tracing the seams, subtle sheen suggesting worn polish, scattered fine ash. Flat even lighting, NO baked shadows, dark value range for runtime tinting, orthographic top-down, tiles seamlessly on all four edges. Dark fantasy throne-court flooring, painterly game asset, no text no watermark."
+    },
+    {
+      "path": "Assets/Resources/Textures/env-water-albedo.png",
+      "target_material": "env-water (Zone C sunken channels)",
+      "prompt": "Seamless tileable game texture, 1024x1024. Dark molten ash sluice surface: slow viscous grey-black liquid with thin glowing ember veins drifting across it, faint swirling ash film, no foam. Flat even lighting, NO baked shadows or specular hotspots, dark value range, orthographic top-down, tiles seamlessly on all four edges. Dark fantasy lava-ash channel, painterly game asset, no text no watermark."
+    }
+  ],
+  "resume_procedure": "gti --prompt \"<planned prompt>\" --output <planned path> --size 1024x1024, then set mainTexture on the matching material in EnvironmentBuilder.EnsureMaterials and re-run the EditMode gate (texture load must not change module counts or the §E8 coverage ratio).",
+  "constraints": "WebGL: texture <=1024 (CLAUDE.md §1); PNG must live under Assets/Resources/ to be runtime-loadable; no Shader.Find — textures attach to the existing seed-clone materials."
+}

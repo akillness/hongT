@@ -106,6 +106,10 @@ InitTestScene*.unity*
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
+# Unity crash-recovery scratch (unreferenced by any script/scene)
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta
+
 # HongT additions
 .env*
 Build/
@@ -117,9 +121,17 @@ _workspace/**/pipeline/
 .gh-pages-worktree/
 node_modules/
 
+# graphify 파생 캐시 — 소스에서 언제든 재생성되는 AST 캐시(963파일 / 42MB).
+# 리포트 산출물(graph.json, manifest.json, GRAPH_REPORT.md)은 계속 추적한다.
+graphify-out/cache/
+llm-wiki/.graphify/cache/
+graphify-out/.rebuild.lock
+
 # agent session runtime state (not repo artifacts)
 .gjc/
 .jeo/
 .omc/
 .pi/
 tmp/
+.claude/
+llm-wiki/.state/

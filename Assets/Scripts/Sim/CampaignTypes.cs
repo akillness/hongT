@@ -92,7 +92,7 @@ namespace CinderCourt.Sim
         /// <summary>
         /// Ash-wall timetable crush band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 3 v1.1).
         /// Edge encoding rides the existing PushX field: +1 advances from the left
-        /// edge (x 248) rightward, −1 advances from the right edge (x 1288) leftward.
+        /// edge (x 248) rightward, -1 advances from the right edge (x 1288) leftward.
         /// </summary>
         public static HazardConfig Wall(float phase, bool fromRight = false) => new HazardConfig
         {
@@ -405,7 +405,7 @@ namespace CinderCourt.Sim
     }
 
     /// <summary>
-    /// Training-ground trials (AMENDMENT #7 — design/training-and-surge-spec.md).
+    /// Training-ground trials (AMENDMENT #10 — design/training-and-surge-spec.md).
     /// One dominant gimmick per trial and NOTHING else: no spawns, no boss, no
     /// wave table. The survey's training cross-table is empty in exactly this
     /// column (T8 gimmick-only trial, 0/11) because an RNG title cannot make a

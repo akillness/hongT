@@ -20,23 +20,28 @@ namespace CinderCourt.View
         public int Points;                          // unspent stat points
         public int Relics;                          // meta currency
         public string[] Roster;                     // companion ids, never null after Load
-        public string Active;                       // active companion id, "" = none
+        public string Active;                       // active companion id, "" = none (legacy alias of ActiveSlots[0])
+        /// <summary>AMENDMENT #6 (D6.6): 0..3 active companion ids, slot order preserved.
+        /// Never null after Load. Legacy saves with only "active" migrate to a 1-element
+        /// (or empty) array here; "active" itself keeps saving as ActiveSlots[0] so an
+        /// older client reading this key still sees the right single companion.</summary>
+        public string[] ActiveSlots;
         public bool PrologueDone;
 
-        // v4 sigils (AMENDMENT #6 · design/sigil-spec.md). Three ints, all
+        // v4 sigils (AMENDMENT #6 • design/sigil-spec.md). Three ints, all
         // additive: a save written before this cycle parses them as 0, which is
         // "nothing owned, nothing equipped" — exactly the pre-sigil game.
         public int SigilsOwned;                     // bitmask over SigilKind (bit k = kind k)
         public int SigilFaces;                      // bitmask, bit k set = kind k shows face B
         public int SigilSlot0, SigilSlot1;          // equipped SigilKind ints, 0 = empty
 
-        // v5 training ground (AMENDMENT #7 · design/training-and-surge-spec.md).
+        // v5 training ground (AMENDMENT #10 • design/training-and-surge-spec.md).
         // Two ints, both additive, same forward-compat grammar as v4: a pre-v5
         // save parses them as 0 = "no trial cleared, no mastery claimed".
         public int TrialTiers;                      // 5 trials x 2 bits, best tier per trial + 1 (0 = never cleared)
         public bool TrainingMasteryClaimed;         // one-time +2 relics, negotiation entry 7
 
-        // v6 guidance (AMENDMENT #9 · design/ingame-guidance-spec.md). One int,
+        // v6 guidance (AMENDMENT #9 • design/ingame-guidance-spec.md). One int,
         // additive: a pre-v6 save parses it as 0 = "nothing seen yet", which is
         // exactly right for a player who never had guidance. 23 bits used; the
         // usable ceiling is 31, not 32 — ExtractInt below reads digits only, so
@@ -57,6 +62,7 @@ namespace CinderCourt.View
             var data = default(CampaignData);
             data.Roster = EmptyRoster;
             data.Active = "";
+            data.ActiveSlots = EmptyRoster;
             var raw = WebGLStorage.GetString(Key);
             if (string.IsNullOrEmpty(raw)) return data;
 
@@ -107,6 +113,15 @@ namespace CinderCourt.View
             // v6 guidance — same rule: a save from before AMENDMENT #9 loads 0,
             // which reads as "has seen nothing", the truth for that player.
             data.GuidanceSeen = ExtractInt(raw, "\"guidanceSeen\":");
+
+            // AMENDMENT #6 (D6.6): "activeSlots" wins when present; a save
+            // written before this amendment only has "active", which migrates
+            // to a 1-element (or empty) slot list here so every legacy save
+            // still resumes with its single companion in slot 0.
+            var hasActiveSlots = raw.IndexOf("\"activeSlots\":[", System.StringComparison.Ordinal) >= 0;
+            data.ActiveSlots = hasActiveSlots
+                ? ExtractStrings(Section(raw, "\"activeSlots\":[", ']'))
+                : (string.IsNullOrEmpty(data.Active) ? EmptyRoster : new[] { data.Active });
             return data;
         }
 
@@ -132,8 +147,25 @@ namespace CinderCourt.View
                     Builder.Append('"').Append(roster[i]).Append('"');
                 }
             }
-            Builder.Append("],\"active\":\"").Append(data.Active ?? "")
-                .Append("\",\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
+            var activeSlots = data.ActiveSlots;
+            // Legacy "active" always mirrors slot 0 so a pre-amendment client
+            // (or any code still reading only .Active) sees the right value.
+            var legacyActive = activeSlots != null && activeSlots.Length > 0
+                ? activeSlots[0]
+                : (data.Active ?? "");
+            Builder.Append("],\"active\":\"").Append(legacyActive)
+                .Append("\",\"activeSlots\":[");
+            if (activeSlots != null)
+            {
+                for (var i = 0; i < activeSlots.Length; i++)
+                {
+                    if (i > 0) Builder.Append(',');
+                    Builder.Append('"').Append(activeSlots[i]).Append('"');
+                }
+            }
+            Builder.Append("],\"prologueDone\":").Append(data.PrologueDone ? "true" : "false")
+                // v4 sigils + v5 training ride at the tail: additive keys only,
+                // so a save written by main alone still parses (missing = 0).
                 .Append(",\"sigilsOwned\":").Append(data.SigilsOwned)
                 .Append(",\"sigilFaces\":").Append(data.SigilFaces)
                 .Append(",\"sigilSlot0\":").Append(data.SigilSlot0)

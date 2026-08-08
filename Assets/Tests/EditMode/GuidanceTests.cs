@@ -1222,7 +1222,11 @@ namespace CinderCourt.Tests
                     CampaignStages.CinderSpan,
                     MetaStats.Of(attack: 4, vitality: 3, swiftness: 2),
                     EquipTiers.Of(weapon: 2, lantern: 1, cloak: 1),
-                    null, 0, out var config),
+                    // (string[])null, not bare null: main's multi-slot companion
+                    // work added a string[] overload and `null` no longer picks
+                    // one. The roster model is the array now, so an empty roster
+                    // is the array-shaped absence.
+                    (string[])null, 0, out var config),
                 Is.True, "cinder-span must resolve");
 
             BuildHud();
@@ -2921,7 +2925,7 @@ namespace CinderCourt.Tests
                     CampaignStages.CinderSpan,
                     MetaStats.Of(attack: 10, vitality: 10, swiftness: 0),
                     EquipTiers.Of(weapon: 0, lantern: 0, cloak: 5),
-                    null, 0, out var config),
+                    (string[])null, 0, out var config),
                 Is.True, "cinder-span must resolve");
 
             var sim = new CinderSim(in config);

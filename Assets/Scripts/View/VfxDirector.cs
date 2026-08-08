@@ -130,7 +130,7 @@ namespace CinderCourt.View
                     return hazards[h].PushX < 0f ? -1f : 1f;
                 }
             }
-            // AMENDMENT #7: trial placements live outside CampaignStages. Without
+            // AMENDMENT #10: trial placements live outside CampaignStages. Without
             // this pass both bands of the current trial drew the same chevrons,
             // so the one thing that trial teaches — 순류 vs 역류 — was invisible.
             var trials = TrainingTrials.Ids;
@@ -145,6 +145,22 @@ namespace CinderCourt.View
                 }
             }
             return 1f;   // unknown placement (e.g. future override) — default +x
+        }
+
+        /// <summary>
+        /// Strip a primitive's auto-collider. Mirrors ActorView's helper of the
+        /// same name, and for the same reason: <c>Destroy</c> is a no-op OUTSIDE
+        /// play mode and Unity logs "Destroy may not be called from edit mode"
+        /// instead of removing anything. Every VFX primitive here is decoration
+        /// that must never own physics, so an unguarded strip left ~20 live
+        /// colliders in any edit-mode context and made the director untestable.
+        /// </summary>
+        static void RemovePrimitiveCollider(GameObject primitive)
+        {
+            var collider = primitive.GetComponent<Collider>();
+            if (collider == null) return;
+            if (Application.isPlaying) Destroy(collider);
+            else DestroyImmediate(collider);
         }
 
         void Awake()
@@ -195,7 +211,7 @@ namespace CinderCourt.View
             _channelBeam.enabled = false;
 
             _wardShell = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            Destroy(_wardShell.GetComponent<Collider>());
+            RemovePrimitiveCollider(_wardShell);
             _wardShell.name = "WardShell";
             _wardShell.transform.localScale = Vector3.one * 1.7f;
             _wardMaterial = ViewWorld.MakeUnlit(new Color(0.45f, 0.85f, 1f, 0.28f), true);
@@ -211,20 +227,37 @@ namespace CinderCourt.View
             };
 
             // V3 element particle pool: 4 systems pre-created, emission off,
-            // Emit(count) on events only. Unlit transparent seed material —
-            // spec §V3 shader-stripping contract.
+            // Emit(count) on events only. Materials are SEED CLONES —
+            // spec §V3 shader-stripping contract, see MakeParticleAdditive.
+            // Bolt: violet pierce afterglow. Light drag downward — it trails the
+            // shot rather than falling out of it.
             _boltSparks = BuildElementParticles("BoltSparks",
-                new Color(0.75f, 0.55f, 1f, 0.9f), 0.05f, 0.35f, 2.6f);
+                new Color(0.75f, 0.55f, 1f, 0.9f), 0.05f, 0.35f, 2.6f,
+                gravity: 0.35f, shapeRadius: 0.12f);
+            // Pulse: green tick ripple on the FIELD FLOOR. Gravity 0 — a ground
+            // resonance that sags is a spray, and the field does not move.
             _pulseRipple = BuildElementParticles("PulseRipple",
-                new Color(0.35f, 0.85f, 0.5f, 0.8f), 0.045f, 0.5f, 1.4f);
+                new Color(0.35f, 0.85f, 0.5f, 0.8f), 0.045f, 0.5f, 1.4f,
+                gravity: 0f, shapeRadius: 0.12f);
+            // Nova: ember debris. The heaviest gravity in the set because the
+            // spec word is 낙하 파편 — the arc down IS the read.
             _novaDebris = BuildElementParticles("NovaDebris",
-                new Color(0.953f, 0.42f, 0.2f, 0.9f), 0.06f, 0.7f, 3.2f);
+                new Color(0.953f, 0.42f, 0.2f, 0.9f), 0.06f, 0.7f, 3.2f,
+                gravity: 0.9f, shapeRadius: 0.12f);
+            // Aegis: cyan ABSORPTION. Negative speed on a wide emission shell
+            // converges the particles onto the caster instead of throwing them
+            // away from it — the same inversion the ward's eruption crown uses
+            // (everything else in the kit grows outward; the defensive skill is
+            // the one that contracts). An outward puff here was the one element
+            // whose motion contradicted its own name.
             _aegisFlash = BuildElementParticles("AegisFlash",
-                new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, 2.0f);
+                new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, -2.0f,
+                gravity: 0f, shapeRadius: 0.55f);
         }
 
         ParticleSystem BuildElementParticles(
-            string name, Color color, float size, float life, float speed)
+            string name, Color color, float size, float life, float speed,
+            float gravity, float shapeRadius)
         {
             var host = new GameObject(name);
             host.transform.SetParent(transform, false);
@@ -235,24 +268,26 @@ namespace CinderCourt.View
             main.startLifetime = life;
             main.startSpeed = speed;
             main.startSize = size;
-            // NOTE: URP/Unlit ignores per-particle vertex color — element color
-            // lives in the per-system material; fades are system-level (spec
-            // V3 amended: no per-particle gradients on the unlit seed path).
             main.maxParticles = 96;                       // hard budget per system
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 0.6f;                  // debris arcs read grounded
+            main.gravityModifier = gravity;               // per element, see call sites
             var emission = system.emission;
             emission.enabled = false;                     // Emit(count) only
             var shape = system.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.12f;
+            shape.radius = shapeRadius;
+            // A negative speed is this file's "converge inward" signal (Aegis).
+            // It only reads as absorption if the particles START on the rim, so
+            // an inward system emits from the SHELL (thickness 0) while outward
+            // systems keep the default filled volume.
+            shape.radiusThickness = speed < 0f ? 0f : 1f;
             // --- Unity advanced-VFX guide techniques, ported to the built-in
             // ParticleSystem. VFX Graph itself CANNOT ship here: it requires
             // compute shaders, which WebGL lacks and CLAUDE.md L27 forbids.
-            // These four modules are the guide's portable ideas — organic
-            // noise motion, lifetime shaping, and strip trails — at zero
-            // texture cost and zero new shader variants.
+            // These modules are the guide's portable ideas — organic noise
+            // motion, lifetime shaping, rotation and lifetime colour — at zero
+            // texture cost and ONE seeded shader (the particle-additive seed).
 
             // 1) Noise: the guide's headline technique. Straight-line debris
             // reads as a particle system; curled debris reads as fire, ash and
@@ -285,13 +320,40 @@ namespace CinderCourt.View
             rotation.enabled = true;
             rotation.z = new ParticleSystem.MinMaxCurve(-Mathf.PI, Mathf.PI);
 
+            // 4) Colour over lifetime. This is the module the earlier pass had
+            // to leave out: URP/Unlit ignores per-particle vertex colour, so a
+            // gradient here did nothing and the burst ended by POPPING out at
+            // full alpha (only size-over-lifetime hid it). The particle seed
+            // (RuntimeMaterialSeeds.SeedParticleAdditive, _ColorMode multiply)
+            // restores the vertex-colour channel, so the tail can finally fade.
+            // Harmless on the fallback path — an ignored module, not a wrong one.
+            var colorOverLife = system.colorOverLifetime;
+            colorOverLife.enabled = true;
+            var fade = new Gradient();
+            fade.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(Color.white, 0f),
+                    new GradientColorKey(Color.white, 1f),
+                },
+                new[]
+                {
+                    new GradientAlphaKey(1f, 0f),
+                    new GradientAlphaKey(1f, 0.45f),
+                    new GradientAlphaKey(0f, 1f),
+                });
+            colorOverLife.color = new ParticleSystem.MinMaxGradient(fade);
+
             var renderer = system.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            // PROVEN seed path (MakeUnlit) — URP Particles shader would be
-            // variant-stripped on WebGL (zero material references in build).
-            renderer.sharedMaterial = ViewWorld.MakeAdditive(color);
+            // SEED CLONE ONLY (spec §V3 WebGL stripping contract): the URP
+            // Particles shader has zero material references in this build, so
+            // Shader.Find would hand back a stripped variant and render pink.
+            // MakeParticleAdditive clones the serialized seed and degrades to
+            // the proven URP/Unlit additive path when the seed is absent.
+            renderer.sharedMaterial = ViewWorld.MakeParticleAdditive(color);
             // Emission is off — Play() once so Emit(count) bursts actually
             // simulate (a stopped system spawns particles that never age).
             system.Play();
@@ -323,10 +385,27 @@ namespace CinderCourt.View
                     _novaDebris.transform.position = ViewWorld.ToWorld(sim.NovaX, sim.NovaY, 0.4f);
                     _novaDebris.Emit(ViewPrefs.ReducedMotion ? 13 : 26);
                 }
+                // §S1 잿불 노바 = detonation. The ring says "a radius", the
+                // crack fan says "the ground broke here" — 8 arms thrown to
+                // the real damage edge so the silhouette IS the hit box.
+                SpawnCrackFan(sim.NovaX, sim.NovaY, new Color(1f, 0.62f, 0.22f, 0.95f),
+                    SimConfig.NovaRadius, 0.5f,
+                    ViewPrefs.ReducedMotion ? 5 : 8);
             }
             // --- dungeon kit one-shots (v0.2) --------------------------------
+            // §S1 질주 = a TRAIL, not a bloom. Dash and Ward were 0.06 apart
+            // on one colour channel and used the same ring: indistinguishable.
+            // Two shards raked backward along the dash axis separate them by
+            // shape, which survives colourblindness and a busy floor alike.
             if ((events & SimEvents.DashUsed) != 0)
+            {
                 SpawnBurst(sim.Player.X, sim.Player.Y, new Color(0.56f, 0.91f, 1f, 0.8f), 0.32f, 0.24f);
+                var back = -sim.Player.Facing;
+                SpawnShard(sim.Player.X, sim.Player.Y, new Color(0.62f, 0.95f, 1f, 0.85f),
+                    0.9f, 0.22f, new Vector3(back, 0f, 0.18f), rise: 0f);
+                SpawnShard(sim.Player.X, sim.Player.Y, new Color(0.62f, 0.95f, 1f, 0.7f),
+                    0.7f, 0.22f, new Vector3(back, 0f, -0.18f), rise: 0f);
+            }
             if ((events & SimEvents.ComboFinisher) != 0)
                 SpawnBurst(sim.Player.X, sim.Player.Y, new Color(1f, 0.83f, 0.45f, 0.9f), 0.45f, 0.3f);
             if ((events & SimEvents.LevelUp) != 0)
@@ -350,6 +429,12 @@ namespace CinderCourt.View
                 // Streak toward the nearest living enemy (the sim's bolt rule);
                 // fallback: facing direction at full range.
                 FireBoltStreak(sim);
+                // §S1 균열 화살 = a RIFT opening, not a puff. Four short
+                // cracks at the muzzle give the launch a fracture read that
+                // matches the name, and they point along the shot so the eye
+                // is thrown down the streak instead of stalling at the caster.
+                SpawnCrackFan(sim.Player.X, sim.Player.Y, new Color(0.82f, 0.62f, 1f, 0.9f),
+                    75f, 0.26f, ViewPrefs.ReducedMotion ? 3 : 4, startAngle: 0.4f);
             }
             // Grave Pulse (#7): the E field persists 3 s in the sim but only
             // had a 0.2 s burst — show the actual damage radius for the full
@@ -365,6 +450,13 @@ namespace CinderCourt.View
                 SpawnScorch(sim.Player.X, sim.Player.Y, 190f * 2f * ViewWorld.Scale,
                     new Color(0.09f, 0.22f, 0.16f, 0.42f), 3f);
                 _pulseNextEmit = 0f;   // V3: first ripple on the next tick sync
+                // §S1 묘지 파동 = the ground OPENS. A flat ring cannot say
+                // that; vertical shards standing on the rim can, and they are
+                // the one silhouette nothing else in the kit uses — the field
+                // is now identifiable from its outline alone, at any colour.
+                SpawnEruptionCrown(sim.Player.X, sim.Player.Y,
+                    new Color(0.42f, 0.95f, 0.62f, 0.9f),
+                    190f, 1.15f, 0.75f, ViewPrefs.ReducedMotion ? 6 : 10);
             }
             if ((events & SimEvents.WardCast) != 0)
             {
@@ -375,11 +467,51 @@ namespace CinderCourt.View
                     _aegisFlash.transform.position = ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 0.9f);
                     _aegisFlash.Emit(ViewPrefs.ReducedMotion ? 6 : 12);
                 }
+                // §S1 공허 방패 / 랜턴 결계 = a SHELL closing inward. Every
+                // other effect in the kit grows outward, so shards planted on
+                // the rim and leaning IN invert the grammar — the defensive
+                // skill is the one that contracts, which is exactly what the
+                // player needs to read in a crowd.
+                SpawnEruptionCrown(sim.Player.X, sim.Player.Y,
+                    new Color(0.5f, 0.88f, 1f, 0.85f),
+                    62f, 0.7f, 0.42f, ViewPrefs.ReducedMotion ? 5 : 8);
             }
             // Pickup absorption (#13): tells the next SyncPickups sweep that a
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
                 _pickupCollectedFlag = true;
+            // AMENDMENT #8: a companion signature skill fired. The event is a run-wide
+            // mask, so the per-slot flash flag on the snapshot says WHICH slot cast —
+            // reading it here is what keeps two simultaneous casts from collapsing into
+            // one burst. Colour is per skill so the four archetypes stay tellable apart
+            // at a glance, which is the whole point of giving each one its own skill.
+            if ((events & SimEvents.CompanionSkillCast) != 0 && sim is IHackSnapshot hackSkills)
+            {
+                for (var slot = 0; slot < hackSkills.CompanionCount; slot++)
+                {
+                    if (!hackSkills.CompanionSkillCastingAt(slot)) continue;
+                    SpawnBurst(
+                        hackSkills.CompanionXAt(slot),
+                        hackSkills.CompanionYAt(slot),
+                        CompanionSkillColor(hackSkills.CompanionSkillIdAt(slot)),
+                        CompanionSkillBurstRadius(hackSkills.CompanionSkillIdAt(slot)),
+                        0.4f);
+                }
+            }
+            // AMENDMENT #9: a momentum promotion. Edge-triggered in the sim, so this is
+            // exactly one burst per tier gained — the burst grows and brightens with the
+            // tier so the player reads "stronger", not merely "something happened".
+            if ((events & SimEvents.MomentumTierUp) != 0 && sim is IHackSnapshot hackMomentum)
+            {
+                var tier = hackMomentum.MomentumTier;
+                SpawnBurst(
+                    sim.Player.X,
+                    sim.Player.Y,
+                    MomentumTierColor(tier),
+                    0.5f + 0.25f * tier,
+                    0.28f + 0.06f * tier);
+            }
+
             // Extraction corpse marker (#16): cache the freshest dead elite
             // position. Corpse TTL is sim-owned (10 s) — marker is decoration.
             if ((events & SimEvents.EliteDown) != 0)
@@ -537,6 +669,42 @@ namespace CinderCourt.View
         // skill or hit ring, and vice versa.
         readonly Burst[] _waveWarnings = new Burst[4];
 
+        /// <summary>AMENDMENT #8 cast colours — one per signature skill, matched to the
+        /// existing per-skill colour language (warm = fast, cold = wide, ember = heavy).</summary>
+        static Color CompanionSkillColor(CompanionSkillId id) => id switch
+        {
+            CompanionSkillId.Volley => new Color(0.98f, 0.85f, 0.35f, 0.55f),
+            CompanionSkillId.Hex => new Color(0.55f, 0.45f, 0.95f, 0.55f),
+            CompanionSkillId.Quake => new Color(0.90f, 0.40f, 0.25f, 0.55f),
+            _ => new Color(0.95f, 0.60f, 0.25f, 0.55f),
+        };
+
+        /// <summary>AMENDMENT #9: one colour per momentum tier, ascending in heat. Kept in
+        /// step with HudView.MomentumTierColor on purpose — the bar and the burst have to
+        /// read as the same signal.</summary>
+        static Color MomentumTierColor(int tier) => tier switch
+        {
+            1 => new Color(0.95f, 0.55f, 0.24f, 0.75f),
+            2 => new Color(0.99f, 0.78f, 0.30f, 0.85f),
+            3 => new Color(1f, 0.95f, 0.72f, 0.95f),
+            _ => new Color(0.42f, 0.48f, 0.62f, 0.6f),
+        };
+
+
+        /// <summary>Burst radius in WORLD units, i.e. the sim radius scaled by
+        /// <see cref="ViewWorld.Scale"/>, so the ring is drawn at the size the skill
+        /// actually reaches instead of an invented one.</summary>
+        static float CompanionSkillBurstRadius(CompanionSkillId id) =>
+            HackSpec.CompanionSkill(ArchetypeOfSkill(id)).Radius * ViewWorld.Scale;
+
+        static EnemyVisual ArchetypeOfSkill(CompanionSkillId id) => id switch
+        {
+            CompanionSkillId.Volley => EnemyVisual.Scout,
+            CompanionSkillId.Hex => EnemyVisual.Shade,
+            CompanionSkillId.Quake => EnemyVisual.Possessed,
+            _ => EnemyVisual.EmberCohort,
+        };
+
         void SpawnBurst(float simX, float simY, Color color, float maxRadiusWorld, float life)
         {
             ref var slot = ref _bursts[_burstCursor];
@@ -599,7 +767,7 @@ namespace CinderCourt.View
             if (slot.Quad == null)
             {
                 var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                Destroy(quad.GetComponent<Collider>());
+                RemovePrimitiveCollider(quad);
                 quad.name = "AoeScorch";
                 quad.transform.SetParent(transform, false);
                 // Flat on the ground, iso-squashed like every ground ring.
@@ -696,6 +864,7 @@ namespace CinderCourt.View
             StepRingPool(_bursts, deltaTime);
             StepRingPool(_sparks, deltaTime);
             StepWarningPool(_waveWarnings, deltaTime);   // §W contracting rings
+            StepShardPool(_shards, deltaTime);           // §S1 cracks + eruptions
             UpdateScorches(deltaTime);
             UpdateBoltStreak(deltaTime);
         }
@@ -723,6 +892,176 @@ namespace CinderCourt.View
             }
         }
 
+        // --- §S1 shape vocabulary: crack fan + eruption spikes -----------------
+        // WHY THESE EXIST. Before this pass, NINE distinct events all called
+        // SpawnBurst() — one expanding ring — and were told apart only by
+        // colour and radius. Dash (0.56,0.91,1.00) and Ward (0.56,0.85,1.00)
+        // differed by 0.06 on one channel: the same effect twice. Meanwhile
+        // the skill NAMES each promise a different silhouette. 균열 = a crack
+        // (radial fracture), 묘지 파동 = something rising OUT of the ground,
+        // 공허 = collapse INWARD. An outward ring states none of those.
+        //
+        // Survey (.survey/skill-vfx-intensity/) found every source converging
+        // on the same order: silhouette first, value contrast second, particle
+        // count last — and nobody recommends particle volume as the lever for
+        // intensity. So the fix is shape, not more particles: two pooled
+        // LineRenderer families that cost the same as the ring they join.
+        struct Shard
+        {
+            public LineRenderer Line;
+            public Material Material;
+            public float Life, MaxLife;
+            public Vector3 Center;
+            public Vector3 Direction;   // unit, iso-space
+            public float Length, Rise;  // Rise > 0 = vertical eruption
+            public Color Color;
+            public float Seed;
+        }
+        // 8 crack arms + 10 spikes: one nova fan (8) and one pulse crown (10)
+        // can be live together without either evicting the other.
+        readonly Shard[] _shards = new Shard[18];
+        int _shardCursor;
+        const int ShardSegments = 5;   // 5 points = 4 jagged spans, cheap
+
+        /// <summary>
+        /// Radial fracture fan: `arms` jagged lines thrown out from a centre,
+        /// each displaced perpendicular to its own axis so the pair reads as
+        /// cracked ground rather than a starburst. This is the 균열 (rift)
+        /// silhouette — the name's own promise, finally drawn.
+        ///
+        /// `radiusSim` is SIM units, matching <see cref="SpawnEruptionCrown"/>
+        /// and the sim's own radii. Each arm's world length is solved PER
+        /// BEARING so its tip lands on the damage edge, because the sim judges
+        /// with hypot(dx, dy*IsoY) — an ellipse, not a circle.
+        ///
+        /// Why the length is computed here instead of encoding the stretch in
+        /// the direction vector: SpawnShard NORMALISES direction. Passing a
+        /// pre-stretched direction therefore throws the stretch away. Measured
+        /// at radius 250: the on-axis pair lands exactly, so the fan looks
+        /// correct at a glance, while the off-axis arms OVERSHOOT to 355 —
+        /// 1.42x, i.e. exactly IsoY — and promise reach the sim will not
+        /// honour. Length is the only channel that survives normalisation.
+        /// </summary>
+        void SpawnCrackFan(float simX, float simY, Color color, float radiusSim,
+                           float life, int arms, float startAngle = 0f)
+        {
+            for (var a = 0; a < arms; a++)
+            {
+                var angle = startAngle + (Mathf.PI * 2f * a) / arms;
+                var cos = Mathf.Cos(angle);
+                var sin = Mathf.Sin(angle) / SimConfig.IsoY;
+                var lengthWorld = radiusSim * ViewWorld.Scale * Mathf.Sqrt(cos * cos + sin * sin);
+                SpawnShard(simX, simY, color, lengthWorld, life,
+                    new Vector3(cos, 0f, sin), rise: 0f);
+            }
+        }
+
+        /// <summary>
+        /// Eruption crown: `count` vertical shards standing up on the rim of a
+        /// circle. Reads as the ground OPENING — the 묘지 파동 (grave) promise.
+        /// Vertical lines are the one silhouette the flat ring grammar cannot
+        /// produce, so this is what separates the field from every other AOE.
+        /// </summary>
+        void SpawnEruptionCrown(float simX, float simY, Color color, float radiusSim,
+                                float riseWorld, float life, int count)
+        {
+            for (var s = 0; s < count; s++)
+            {
+                var angle = (Mathf.PI * 2f * s) / count;
+                // radiusSim is SIM units (the same space the sim's own radii
+                // live in, e.g. the 190 pulse field) because the rim offset is
+                // applied BEFORE ToWorld — mixing spaces here would put the
+                // crown 100x off. riseWorld is WORLD units: it is added after
+                // the conversion, straight up the y axis the iso squash never
+                // touches.
+                //
+                // The /IsoY on y is NOT decoration. The sim judges every AOE
+                // with hypot(dx, dy*IsoY) <= radius (CinderSim.IsoWithin), so
+                // the true field is an ELLIPSE in sim space, SHORTER in y (the
+                // metric multiplies dy by 1.42, so y reaches only R/1.42).
+                // A plain circle here would throw the crown OUTSIDE the real
+                // damage edge along y (IsoY is 1.42, so y is compressed by the
+                // metric, not stretched) — measured 38.5% of the radius past
+                // it, promising a hit zone the sim will not honour. This is
+                // the same ellipse StepRingPool already draws for every ground
+                // ring, so the crown now agrees with both the sim and the
+                // existing ring grammar.
+                var offsetX = Mathf.Cos(angle) * radiusSim;
+                var offsetY = Mathf.Sin(angle) * radiusSim / SimConfig.IsoY;
+                SpawnShard(simX + offsetX, simY + offsetY, color, 0f, life,
+                    Vector3.up, rise: riseWorld);
+            }
+        }
+
+        void SpawnShard(float simX, float simY, Color color, float lengthWorld,
+                        float life, Vector3 direction, float rise)
+        {
+            ref var slot = ref _shards[_shardCursor];
+            _shardCursor = (_shardCursor + 1) % _shards.Length;
+            if (slot.Line == null)
+            {
+                var host = new GameObject("Shard");
+                host.transform.SetParent(transform, false);
+                slot.Line = host.AddComponent<LineRenderer>();
+                slot.Line.positionCount = ShardSegments;
+                slot.Line.useWorldSpace = true;
+                slot.Line.widthMultiplier = 0.05f;
+                slot.Material = ViewWorld.MakeAdditive(color);
+                slot.Line.sharedMaterial = slot.Material;
+            }
+            slot.Center = ViewWorld.ToWorld(simX, simY, 0.05f);
+            slot.Direction = direction.normalized;
+            slot.Length = lengthWorld;
+            slot.Rise = rise;
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            // Per-shard seed keeps the jag stable for this shard's whole life
+            // (re-randomising per frame would boil, which reads as noise, not
+            // fracture) while differing between shards of the same fan.
+            slot.Seed = _shardCursor * 12.9898f;
+            slot.Line.enabled = true;
+        }
+
+        /// <summary>
+        /// Shards grow out fast and retract, so the peak silhouette lands on
+        /// the impact frame rather than trailing after it — "particles must
+        /// dissipate the moment their communication task is finished".
+        /// </summary>
+        static void StepShardPool(Shard[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
+            {
+                ref var shard = ref pool[i];
+                if (shard.Line == null || !shard.Line.enabled) continue;
+                shard.Life -= deltaTime;
+                if (shard.Life <= 0f) { shard.Line.enabled = false; continue; }
+                var progress = 1f - shard.Life / shard.MaxLife;
+                // Ease-out extend: 0 -> full in the first ~35% of life, so the
+                // shape is already complete when the hit registers.
+                var extend = Mathf.Clamp01(progress / 0.35f);
+                extend = 1f - (1f - extend) * (1f - extend);
+                var reach = shard.Rise > 0f ? shard.Rise : shard.Length;
+                for (var s = 0; s < ShardSegments; s++)
+                {
+                    var t = (float)s / (ShardSegments - 1);
+                    var along = shard.Direction * (reach * extend * t);
+                    // Midpoint-style displacement perpendicular to the axis,
+                    // zero at both ends so the shard stays anchored.
+                    var jag = Mathf.Sin(t * Mathf.PI) * Mathf.Sin(shard.Seed + t * 9.7f)
+                              * reach * 0.16f;
+                    var perpendicular = shard.Rise > 0f
+                        ? new Vector3(jag, 0f, 0f)
+                        : new Vector3(-shard.Direction.z, 0f, shard.Direction.x) * jag;
+                    shard.Line.SetPosition(s, shard.Center + along + perpendicular);
+                }
+                var faded = shard.Color;
+                // Hold full value through the first third, then fall away —
+                // value contrast is the readability lever, so spend it early.
+                faded.a = shard.Color.a * Mathf.Clamp01((1f - progress) * 1.5f);
+                shard.Material.color = faded;
+            }
+        }
+
         /// <summary>End-of-run cleanup: hazard visuals, pickups, live bursts.</summary>
         public void ClearTransient()
         {
@@ -744,6 +1083,8 @@ namespace CinderCourt.View
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
                 if (_waveWarnings[i].Ring != null) _waveWarnings[i].Ring.enabled = false;
+            for (var i = 0; i < _shards.Length; i++)         // §S1 cracks/eruptions
+                if (_shards[i].Line != null) _shards[i].Line.enabled = false;
             if (_boltStreak != null) _boltStreak.enabled = false;
             // §3.6: the idle arrow must not survive into the lobby; reset the
             // idle accumulator too so the next run starts from a clean 0.
@@ -838,11 +1179,19 @@ namespace CinderCourt.View
                         _hazardViews[i].PrevCycleT = hazard.CycleT;
 
                         // Telegraph: ring brightens and pulses before the burst.
+                        // Reduced motion holds it STEADY at the pulse ceiling
+                        // instead of strobing at 6 Hz — this ring was the last
+                        // hazard telegraph still un-gated (TideCurrent edges and
+                        // AshWall boundary already do this), and 6 Hz is inside
+                        // the band the accessibility contract exists to exclude.
+                        // Steady-at-peak, never steady-at-trough: the warning
+                        // must not get QUIETER for the players who need it most.
                         var color = view.RingMaterial.color;
                         if (hazard.Telegraphing)
                         {
-                            var pulse = 0.55f + 0.45f * Mathf.PingPong(Time.time * 6f, 1f);
-                            color.a = pulse;
+                            color.a = ViewPrefs.ReducedMotion
+                                ? 1f
+                                : 0.55f + 0.45f * Mathf.PingPong(Time.time * 6f, 1f);
                             color.r = 1f; color.g = 0.42f; color.b = 0.18f;
                         }
                         else
@@ -861,8 +1210,27 @@ namespace CinderCourt.View
                             var fillRadius = hazard.Radius * ViewWorld.Scale * progress;
                             view.FillDisc.localScale = new Vector3(
                                 fillRadius * 2f, 0.010f, fillRadius * 2f / SimConfig.IsoY);
+                            // Contrast-safe imminence: the fill used to be a
+                            // two-step alpha (0.16 idle / 0.5 telegraph), which
+                            // failed exactly where it mattered — at high fill the
+                            // disc sits on the ring in the SAME ember hue at a
+                            // similar value, so the leading edge (the "how soon"
+                            // read) dissolved into the ring it was drawn inside.
+                            // Ramping BOTH value and hue with the cycle keeps
+                            // that boundary alive to the last frame and survives
+                            // grayscale, which is this file's stated readability
+                            // lever (§S1) rather than more alpha.
+                            //
+                            // Reduced motion needs no branch here: this is a
+                            // monotonic ramp over the whole vent period, not an
+                            // oscillation — the imminence stays fully readable
+                            // as a static state at any instant.
+                            var urgency = hazard.Telegraphing ? 1f : progress;
                             var fillColor = view.FillMaterial.color;
-                            fillColor.a = hazard.Telegraphing ? 0.5f : 0.16f;
+                            fillColor.r = 1f;
+                            fillColor.g = Mathf.Lerp(0.42f, 0.72f, urgency);
+                            fillColor.b = Mathf.Lerp(0.18f, 0.42f, urgency);
+                            fillColor.a = Mathf.Lerp(0.20f, 0.62f, urgency);
                             view.FillMaterial.color = fillColor;
                         }
                         break;
@@ -1015,7 +1383,7 @@ namespace CinderCourt.View
                 case HazardKind.EmberVent:
                 {
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(disc.GetComponent<Collider>());
+                    RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
                     disc.transform.localScale = new Vector3(r * 2f, 0.012f, r * 2f / SimConfig.IsoY);
@@ -1025,7 +1393,7 @@ namespace CinderCourt.View
                     // V2 imminence fill: inner disc grows 0..radius over the
                     // cycle (research: time-based fill answers "how soon").
                     var fill = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(fill.GetComponent<Collider>());
+                    RemovePrimitiveCollider(fill);
                     fill.transform.SetParent(root.transform, false);
                     fill.transform.localPosition = new Vector3(0f, 0.006f, 0f);
                     fill.transform.localScale = Vector3.zero;
@@ -1037,7 +1405,7 @@ namespace CinderCourt.View
                 case HazardKind.ObsidianPillar:
                 {
                     var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(pillar.GetComponent<Collider>());
+                    RemovePrimitiveCollider(pillar);
                     pillar.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
                     pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
@@ -1046,7 +1414,7 @@ namespace CinderCourt.View
                     pillar.GetComponent<Renderer>().sharedMaterial = material;
                     // Faint cyan edge ring at the base for readability.
                     var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(baseRing.GetComponent<Collider>());
+                    RemovePrimitiveCollider(baseRing);
                     baseRing.transform.SetParent(root.transform, false);
                     baseRing.transform.localScale = new Vector3(r * 2.3f, 0.008f, r * 2.3f);
                     baseRing.GetComponent<Renderer>().sharedMaterial =
@@ -1056,7 +1424,7 @@ namespace CinderCourt.View
                 case HazardKind.RelicAltar:
                 {
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(disc.GetComponent<Collider>());
+                    RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
                     disc.transform.localScale = new Vector3(r * 2f, 0.02f, r * 2f / SimConfig.IsoY);
@@ -1065,7 +1433,7 @@ namespace CinderCourt.View
                     view.Ring.sharedMaterial = view.RingMaterial;
                     // Center relic gem.
                     var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    Destroy(gem.GetComponent<Collider>());
+                    RemovePrimitiveCollider(gem);
                     gem.transform.SetParent(root.transform, false);
                     gem.transform.localScale = Vector3.one * 0.22f;
                     gem.transform.localPosition = new Vector3(0f, 0.5f, 0f);
@@ -1082,7 +1450,7 @@ namespace CinderCourt.View
                     var bandW = CampaignSpec.CurrentHalfW * 2f * ViewWorld.Scale;
                     var bandH = CampaignSpec.CurrentHalfH * 2f * ViewWorld.Scale;
                     var bed = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Destroy(bed.GetComponent<Collider>());
+                    RemovePrimitiveCollider(bed);
                     bed.transform.SetParent(root.transform, false);
                     bed.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                     bed.transform.localPosition = new Vector3(0f, 0.015f, 0f);
@@ -1104,7 +1472,7 @@ namespace CinderCourt.View
                     for (var side = -1; side <= 1; side += 2)
                     {
                         var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                        Destroy(line.GetComponent<Collider>());
+                        RemovePrimitiveCollider(line);
                         line.transform.SetParent(edges.transform, false);
                         line.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                         line.transform.localPosition =
@@ -1139,7 +1507,7 @@ namespace CinderCourt.View
                         for (var seg = -1; seg <= 1; seg += 2)
                         {
                             var dash = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                            Destroy(dash.GetComponent<Collider>());
+                            RemovePrimitiveCollider(dash);
                             dash.transform.SetParent(flow.transform, false);
                             dash.transform.localRotation =
                                 Quaternion.Euler(90f, seg * 40f, 0f);
@@ -1160,7 +1528,7 @@ namespace CinderCourt.View
                     // the ember band advertises "hit me" and dims with Hp.
                     var r = hazard.Radius * ViewWorld.Scale;
                     var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(body.GetComponent<Collider>());
+                    RemovePrimitiveCollider(body);
                     body.transform.SetParent(root.transform, false);
                     body.transform.localScale = new Vector3(r * 2f, 0.9f, r * 2f);
                     body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
@@ -1171,7 +1539,7 @@ namespace CinderCourt.View
                     // Ember-orange band riding the upper body — child of the
                     // body so the destroyed state hides both in one SetActive.
                     var band = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(band.GetComponent<Collider>());
+                    RemovePrimitiveCollider(band);
                     band.transform.SetParent(body.transform, false);
                     band.transform.localScale = new Vector3(1.12f, 0.09f, 1.12f);
                     band.transform.localPosition = new Vector3(0f, 0.3f, 0f);
@@ -1184,7 +1552,7 @@ namespace CinderCourt.View
                     // iso-scaled ellipse like the vent/altar rings. Persistent
                     // zone marker: never pulses (reduced-motion contract).
                     var aura = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(aura.GetComponent<Collider>());
+                    RemovePrimitiveCollider(aura);
                     aura.transform.SetParent(root.transform, false);
                     var auraR = CampaignSpec.PylonAuraRadius * ViewWorld.Scale;
                     aura.transform.localScale = new Vector3(
@@ -1196,7 +1564,7 @@ namespace CinderCourt.View
                     // Scorch disc — hidden until PylonDown, then it is all
                     // that remains (permanent destruction, no respawn).
                     var scorch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    Destroy(scorch.GetComponent<Collider>());
+                    RemovePrimitiveCollider(scorch);
                     scorch.transform.SetParent(root.transform, false);
                     scorch.transform.localScale = new Vector3(
                         r * 2.6f, 0.006f, r * 2.6f / SimConfig.IsoY);
@@ -1223,7 +1591,7 @@ namespace CinderCourt.View
                     // grey-on-grey against the echo-throne floor — contrast
                     // is the failure mode (qa benchmark band 6).
                     var line = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Destroy(line.GetComponent<Collider>());
+                    RemovePrimitiveCollider(line);
                     line.transform.SetParent(root.transform, false);
                     line.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                     line.transform.localPosition = new Vector3(0f, 0.04f, 0f);
@@ -1242,7 +1610,7 @@ namespace CinderCourt.View
                     // separates from the ash-grey floor: NOT pure
                     // dark-on-grey.
                     var overlay = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Destroy(overlay.GetComponent<Collider>());
+                    RemovePrimitiveCollider(overlay);
                     overlay.transform.SetParent(root.transform, false);
                     overlay.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                     view.Body = overlay.transform;
@@ -1259,7 +1627,7 @@ namespace CinderCourt.View
                     // particle systems, no lights; spec §V3 budget). Ember
                     // glow (v1.1): the advancing front is the kill read.
                     var curtain = GameObject.CreatePrimitive(PrimitiveType.Quad);
-                    Destroy(curtain.GetComponent<Collider>());
+                    RemovePrimitiveCollider(curtain);
                     curtain.transform.SetParent(root.transform, false);
                     // Left wall, yaw -90: quad normal lands on +x, toward the
                     // arena side the (yaw-0, south, pitched-down) dungeon
@@ -1398,6 +1766,14 @@ namespace CinderCourt.View
         readonly Dictionary<int, float> _pickupLife = new Dictionary<int, float>(16);
 
         public void SyncPickups(IReadOnlyList<PickupState> pickups)
+            => SyncPickups(pickups, null);
+
+        /// <summary>AMENDMENT #14 (V-3): graded loot must be readable at a
+        /// glance or the grade system is invisible. Grades arrive index-aligned
+        /// with pickups (IDungeonProgressionSnapshot.PickupGrades); a null or
+        /// short list (gate off, legacy callers) reads as Basic. Grade is fixed
+        /// per pickup id, so the dressing is applied once at spawn.</summary>
+        public void SyncPickups(IReadOnlyList<PickupState> pickups, IReadOnlyList<LootGrade> grades)
         {
             for (var i = 0; i < pickups.Count; i++)
             {
@@ -1405,6 +1781,13 @@ namespace CinderCourt.View
                 if (!_pickupViews.TryGetValue(pickup.Id, out var view))
                 {
                     view = SpawnPickupIcon(pickup) ?? SpawnGem(pickup);
+                    var grade = grades != null && i < grades.Count ? grades[i] : LootGrade.Basic;
+                    if (grade == LootGrade.Fine) view.localScale *= 1.18f;
+                    else if (grade == LootGrade.Epic)
+                    {
+                        view.localScale *= 1.35f;
+                        AttachEpicGlow(view);
+                    }
                     _pickupViews[pickup.Id] = view;
                 }
                 _pickupLife[pickup.Id] = pickup.Life;
@@ -1457,10 +1840,30 @@ namespace CinderCourt.View
             _pickupCollectedFlag = false;
         }
 
+        Material _epicGlowMaterial;   // one shared additive gold, lazily seeded
+
+        /// <summary>Epic underglow: a single additive quad child. The material
+        /// is cached — MakeAdditive clones the serialized seed, so per-pickup
+        /// clones would leak one material per drop.</summary>
+        void AttachEpicGlow(Transform view)
+        {
+            if (_epicGlowMaterial == null)
+                _epicGlowMaterial = ViewWorld.MakeAdditive(new Color(1f, 0.78f, 0.25f, 0.55f));
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(glow);
+            glow.name = "EpicGlow";
+            var renderer = glow.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = _epicGlowMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            glow.transform.SetParent(view, false);
+            glow.transform.localPosition = Vector3.zero;
+            glow.transform.localScale = Vector3.one * 1.8f;
+        }
+
         Transform SpawnGem(PickupState pickup)
         {
             var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Destroy(gem.GetComponent<Collider>());
+            RemovePrimitiveCollider(gem);
             gem.name = "Pickup";
             gem.transform.localScale = Vector3.one * 0.18f;
             gem.GetComponent<Renderer>().sharedMaterial =
@@ -1490,7 +1893,7 @@ namespace CinderCourt.View
                 _pickupIconMaterials[kind] = material;
             }
             var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Destroy(quad.GetComponent<Collider>());
+            RemovePrimitiveCollider(quad);
             quad.name = "PickupIcon";
             quad.transform.localScale = Vector3.one *
                 (pickup.Kind == PickupKind.EquipShard ? 0.42f : 0.3f);

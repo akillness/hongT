@@ -11,16 +11,34 @@ AMENDMENT #10. 전 사이클(20260807-ingame-guidance)은 cycle-6 회고로 마�
 | deep-interview 요구사항 확정 | director | 0 | .omc/specs/deep-interview-codex-readability.md | — | done |
 | 인테이크 브리프 | director | 0 | intake/production-brief.md | — | done |
 | 결함 재현 (해석적 좌표) | director+qa | 2.a | 아래 §재현 | G4 | done |
-| 아이콘 2종 생성 | programmer | 2.d | Assets/Resources/Icons/ui-{codex,abandon}.png | G4 | running |
-| 탭 이름 + 헤더 주석 | programmer | 2.d | View/HudViewCodex.cs | G1 | pending |
-| 그룹 페이징 레이아웃 | programmer | 2.d | View/HudViewCodex.cs | G4 | pending |
-| 버튼 아이콘 배선 | programmer | 2.d | View/HudView.cs | G4 | pending |
-| 폰트 재생성 (538 → +2) | programmer | 2.d | Assets/Resources/Fonts/HudKorean.otf | G1 | pending |
-| 글리프 실측 + 변이 증명 테스트 | qa | 2.d | Tests/EditMode/GuidanceTests.cs | G4 | pending |
-| 칩 터치 하한 테스트 | qa | 2.d | Tests/EditMode/HudLayoutTests.cs | G4 | pending |
-| 전체 스위트 + 빌드 + 브라우저 스모크 | qa | 2.d | engineering/unity-logs/, qa/codex-readability-smoke/ | G4,G6 | pending |
-| 게이트 판정 | director | 2.gate | production/gate-reviews/stage2-gates-v20.md | 전체 | pending |
-| 회고 + 룰 파일 재도출 | director | close | retrospectives/cycle-7-retrospective.md | — | pending |
+| 아이콘 2종 생성 | programmer | 2.d | Assets/Resources/Icons/ui-{codex,abandon}.png | G4 | done |
+| 탭 이름 + 헤더 주석 | programmer | 2.d | View/HudViewCodex.cs | G1 | done |
+| 그룹 페이징 레이아웃 | programmer | 2.d | View/HudViewCodex.cs | G4 | done |
+| 버튼 아이콘 배선 | programmer | 2.d | View/HudView.cs | G4 | done |
+| 폰트 재생성 (538 → 540) | programmer | 2.d | Assets/Resources/Fonts/HudKorean.otf | G1 | done |
+| 글리프 실측 + 변이 증명 테스트 | qa | 2.d | Tests/EditMode/GuidanceTests.cs | G4 | done |
+| 게이트 판정 | director | 2.gate | production/gate-reviews/stage2-gates-v20.md | 전체 | done |
+| 회고 + 룰 파일 재도출 | director | close | retrospectives/cycle-7-retrospective.md | — | done |
+| origin/main 머지 (116커밋) | director | close | 아래 §머지 | — | done |
+
+## 머지 — origin/main 116커밋, 충돌 10파일 24 hunk
+
+개정 번호가 갈라져 있었다. main이 훈련장·돌발을 **#10**으로 재정리했는데
+이 레인은 그것을 #7로 부르며 #8·#9·#10을 새로 썼다. 부록 A의 규칙대로
+헤딩은 남기고 원장에 canonical 16·17·18로 등록했다 — 코드 주석과 커밋이
+도착 헤딩을 인용하므로 문자열을 밀면 그 인용이 끊긴다.
+
+머지가 통합 결함 3건을 드러냈다. 어느 쪽 브랜치도 단독으로는 갖지 않던 상태다:
+
+| # | 결함 | 원인 |
+|---|---|---|
+| 1 | `FillSprite`·`AsFilled`/`MakeFilled` 이중 정의 | 양쪽이 같은 헬퍼를 다른 이름으로 만듦 (CS0111) |
+| 2 | 아코디언 70u 피치 × 터치 106u 카드 = 36u 겹침 | main은 카드를 키우고 이 레인은 피치를 동결 |
+| 3 | `Bar()`가 아틀라스 스프라이트를 1×1로 덮어씀 | main이 자기 주석과 반대 순서로 호출 |
+
+3번은 main 단독 결함이다. 다른 세 곳(`:2282`·`:2426`·`:2457`)에 "헬퍼 먼저,
+스프라이트 나중"이라고 적어놓고 `Bar()`에서만 뒤집었다. 게이지는 정상 동작하되
+그라디언트 대신 단색으로 렌더된다 — §4k의 더 조용한 형태다.
 
 ## 재현 — 결함 2 (해석적, 좌표 정확) `[OBSERVED]`
 

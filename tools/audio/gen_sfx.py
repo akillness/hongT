@@ -47,6 +47,13 @@ CUES = {
              "protective lantern barrier engage shimmer, game SFX one-shot"),
     "pickup": (0.7, "Bright tiny relic pickup sparkle, quick ascending glass chime, "
                "cheerful arcade collect blip, game SFX one-shot"),
+    # W12: UI/traversal SFX (deep-interview-seed-ui-vfx-flow.md D7/W12).
+    "click": (0.5, "Short crisp UI button click, tight dark-fantasy interface tap, "
+              "low wooden-stone knock with subtle metallic edge, dry, no tail, "
+              "game menu SFX one-shot"),
+    "footstep": (0.5, "Single soft dungeon footstep on stone, muffled leather boot "
+                 "fall, low thud with faint grit scrape, dry, no reverb tail, "
+                 "game SFX one-shot"),
     "wave": (1.4, "Ominous war horn signaling a new enemy wave, rising dark brass "
              "swell with distant ember hiss, short stinger, game SFX"),
     "gameover": (2.2, "Lantern extinguishing defeat sting, deep descending sine "

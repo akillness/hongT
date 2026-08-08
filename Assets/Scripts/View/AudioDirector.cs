@@ -10,6 +10,7 @@
 // (docs.unity3d.com/Manual/webgl-audio.html); the jitter range [0.94,1.06]
 // never crosses zero. `priority` is a no-op on WebGL, so voice spreading is the
 // only way to keep a loud cue from stealing a quiet one.
+using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
 
@@ -36,6 +37,10 @@ namespace CinderCourt.View
 
         AudioSource _bgm;
         AudioClip _strike, _hit, _kill, _nova, _ward, _pickup, _wave, _gameover, _lore;
+        AudioClip _bgmLegacy;
+        AudioClip _click, _footstep;
+        readonly Dictionary<string, AudioClip> _bgmByContext =
+            new Dictionary<string, AudioClip>(4);
         bool _muted;
 
         public bool Muted => _muted;
@@ -58,8 +63,15 @@ namespace CinderCourt.View
             _wave = Resources.Load<AudioClip>("Audio/cue-wave");
             _gameover = Resources.Load<AudioClip>("Audio/cue-gameover");
             _lore = Resources.Load<AudioClip>("Audio/cue-lore");
+            _click = Resources.Load<AudioClip>("Audio/cue-click");
+            _footstep = Resources.Load<AudioClip>("Audio/cue-footstep");
 
-            var bgmClip = Resources.Load<AudioClip>("Audio/cue-bgm");
+            // W12 (seed §2, 2026-08-08): per-context BGM tracks generated via
+            // the ElevenLabs Music API (Audio/bgm-{intro,lobby,loading,stage}).
+            // The legacy cue-bgm bed stays as the universal fallback so a build
+            // missing the new tracks keeps its music.
+            _bgmLegacy = Resources.Load<AudioClip>("Audio/cue-bgm");
+            var bgmClip = _bgmLegacy;
             if (bgmClip != null)
             {
                 _bgm = gameObject.AddComponent<AudioSource>();
@@ -80,6 +92,48 @@ namespace CinderCourt.View
                 if (_muted && _bgm.isPlaying) _bgm.Pause();
                 else if (!_muted && !_bgm.isPlaying) _bgm.Play();
             }
+        }
+
+        /// <summary>W12: UI button click. Null-safe — silent until the cue
+        /// asset ships.</summary>
+        public void PlayClick() => Play(_click, 0.8f);
+
+        /// <summary>W12: movement footstep tick. The caller owns the cadence
+        /// (view-side distance accumulator); this just voices it.</summary>
+        public void PlayFootstep() => Play(_footstep, 0.45f);
+
+        /// <summary>W12: swap the looping BGM bed for a context ("intro",
+        /// "lobby", "loading", "stage"). Loads Audio/bgm-{context} once and
+        /// caches it; a missing track falls back to the legacy cue-bgm bed.
+        /// Same-clip calls are no-ops so state transitions can call this
+        /// unconditionally without restarting the loop.</summary>
+        public void SetBgmContext(string context)
+        {
+            AudioClip clip = null;
+            if (!string.IsNullOrEmpty(context))
+            {
+                if (!_bgmByContext.TryGetValue(context, out clip))
+                {
+                    clip = Resources.Load<AudioClip>("Audio/bgm-" + context);
+                    _bgmByContext[context] = clip;   // cache misses too
+                }
+            }
+            if (clip == null) clip = _bgmLegacy;
+            if (clip == null) return;   // no music shipped at all
+
+            if (_bgm == null)
+            {
+                // Legacy bed was absent in Awake but a context track exists.
+                _bgm = gameObject.AddComponent<AudioSource>();
+                _bgm.loop = true;
+                _bgm.volume = 0.35f;
+                _bgm.playOnAwake = false;
+            }
+            if (_bgm.clip == clip) { ApplyMute(); return; }
+            var wasPlaying = _bgm.isPlaying;
+            _bgm.Stop();
+            _bgm.clip = clip;
+            if (!_muted && (wasPlaying || !_bgm.isPlaying)) _bgm.Play();
         }
 
         public void ToggleMute()

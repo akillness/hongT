@@ -58,8 +58,19 @@ namespace CinderCourt.View
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
         ActorView _playerView;
-        ActorView _companionView;
+        // AMENDMENT #6 (D6.6): up to 3 simultaneous companions, slot order
+        // matching HackConfig.CompanionSlots(). Unused trailing slots stay null.
+        const int MaxCompanionViews = 3;
+        readonly ActorView[] _companionViews = new ActorView[MaxCompanionViews];
+
         float _accumulator;
+        /// <summary>Sim seconds advanced by THIS frame's tick batch
+        /// (steps × FixedStep). ActorView's launch heuristics divide the sim
+        /// step by this, never by Time.deltaTime — a frame shorter than the
+        /// fixed step runs 0 or 1 ticks, so render time reports a walk as a
+        /// knockback (see ActorView.SyncPlayer).</summary>
+        float _simDelta;
+
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
@@ -74,6 +85,11 @@ namespace CinderCourt.View
         bool _campaignUiOn;
         bool _dungeonUiOn;
         string _logicalStageId;
+        // Room objective line for the live room, resolved ONCE per Begin from the
+        // catalog. Cached rather than looked up per frame: the sync path runs at
+        // 60 Hz and the catalog lookup is a linear id scan.
+        string _roomObjective = string.Empty;
+
 
         // --- presentation state (presentation-impact-spec #1/#3/#6) ----------
         // Hit-stop / slow-mo drive Time.timeScale ONLY. Determinism-safe: the
@@ -83,6 +99,10 @@ namespace CinderCourt.View
         // never wedge itself. timeScale is force-restored on EndRun, GameOver,
         // and OnDisable — every exit path.
         float _hitStopTimer;      // seconds left at HitStopScale (0.05)
+        // Unscaled seconds since the last ImpactBudget Light pulse. Starts huge so the
+        // very first connect of a run fires instead of being eaten by the refractory.
+        float _lightImpactAge = 999f;
+
         float _slowMoTimer;       // seconds left at _slowMoScale (boss beat)
         float _slowMoScale = 1f;
         DamageNumberPool _damageNumbers;
@@ -127,6 +147,39 @@ namespace CinderCourt.View
             EnsureInitialized();
         }
 
+        // W12 footsteps: sim distance accumulator. 52 sim units per step at the
+        // warden's 218 u/s gives ~4.2 steps/s — a jog cadence. View-only.
+        const float StepStride = 52f;
+        float _stepAccumulator, _lastStepX, _lastStepY;
+
+        void SyncFootsteps()
+        {
+            if (Audio == null || _sim == null || _sim.Player.Health <= 0f) return;
+            var dx = _sim.Player.X - _lastStepX;
+            var dy = _sim.Player.Y - _lastStepY;
+            _lastStepX = _sim.Player.X;
+            _lastStepY = _sim.Player.Y;
+            _stepAccumulator += Mathf.Abs(dx) + Mathf.Abs(dy);
+            if (_stepAccumulator < StepStride) return;
+            _stepAccumulator = 0f;
+            Audio.PlayFootstep();
+        }
+
+        /// <summary>W14: stage id -> weapon family, deterministic and stable
+        /// across sessions (plain char hash, no RNG). Empty id -> null.</summary>
+        internal static string WeaponArchetypeFor(string stageId)
+        {
+            if (string.IsNullOrEmpty(stageId)) return null;
+            var h = 0;
+            for (var i = 0; i < stageId.Length; i++) h = h * 31 + stageId[i];
+            switch (((h % 3) + 3) % 3)
+            {
+                case 0: return "dagger";
+                case 1: return "bow";
+                default: return "hammer";
+            }
+        }
+
         void EnsureInitialized()
         {
             if (_initialized) return;
@@ -155,17 +208,43 @@ namespace CinderCourt.View
             _dungeonPresentation = _isDungeon || _isTraining;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
-            var companionActive = !string.IsNullOrEmpty(companionId);
-            _sim = new CinderSim(in config);
+            // Arena/prologue resolve to "" and the HUD chip stays hidden; a dungeon
+            // room resolves to its own catalog objective.
+            _roomObjective = _isDungeon ? StageCatalog.ObjectiveFor(_logicalStageId) : string.Empty;
+
+            // AMENDMENT #6 (D6.6): companionId is kept for legacy single-
+            // companion call sites, but the spawned roster always comes from
+            // the config itself, so a config carrying 2-3 CompanionIds
+            // spawns every slot even when companionId only echoes slot 0.
+            var companionSlots = _isDungeon ? config.CompanionSlots() : System.Array.Empty<string>();
+            var companionActive = companionSlots.Length > 0;
+            // Integration 2026-08-08: arm AMENDMENT #13 (adaptive waves) and
+            // #14 (graded loot) for dungeon runs only. Bounds (#15) stays dark
+            // until the EnvironmentBuilder wall-ring sync (MV-2) lands —
+            // enabling it alone would let the player walk through the ring.
+            _sim = _isDungeon
+                ? new CinderSim(in config, DungeonProgressionConfig.All)
+                : new CinderSim(in config);
             _accumulator = 0f;
             _digestWritten = false;
             _lastPlayerHealth = _sim.Player.Health;
             _deathNumberPunchTimer = 0f;
             if (_damageNumbers != null) _damageNumbers.transform.localScale = Vector3.one;
             if (Hud != null) Hud.ResetRunUi();
+            // AMENDMENT #11 UI: latch the run's tier for the whole run. Unconditional
+            // on purpose — arena and prologue carry Difficulty.Normal, so this is what
+            // clears a badge left over from a previous Nightmare descent.
+            if (Hud != null) Hud.SetRunDifficulty(config.Difficulty);
+
             EnsureInitialized();
             _playerView.gameObject.SetActive(true);
             _playerView.ResetForPool();
+            // W14: deterministic weapon silhouette per dungeon room. Arena and
+            // prologue resolve to "" -> null -> the legacy equip-weapon mesh.
+            _playerView.SetWeaponArchetype(WeaponArchetypeFor(_logicalStageId));
+            _stepAccumulator = 0f;
+            _lastStepX = _sim.Player.X;
+            _lastStepY = _sim.Player.Y;
 
             if (_dungeonPresentation)
             {
@@ -191,13 +270,17 @@ namespace CinderCourt.View
                     Hud.SetCampaignSurfacesVisible(true);
                 }
 
-                if (_isDungeon && companionActive && Bootstrap != null)
+                if (Bootstrap != null)
                 {
-                    var (prefab, tint) = Bootstrap.CompanionVisual(companionId);
-                    _companionView = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
-                    _companionView.name = "Companion";
-                    if (tint.HasValue)
-                        LobbyStaging.TintRenderers(_companionView.gameObject, tint.Value);
+                    for (var slot = 0; slot < companionSlots.Length && slot < MaxCompanionViews; slot++)
+                    {
+                        var (prefab, tint) = Bootstrap.CompanionVisual(companionSlots[slot]);
+                        var view = ActorView.Create(prefab, new Color(1f, 0.86f, 0.55f), 0.92f);
+                        view.name = "Companion" + slot;
+                        if (tint.HasValue)
+                            LobbyStaging.TintRenderers(view.gameObject, tint.Value);
+                        _companionViews[slot] = view;
+                    }
                 }
             }
             else if (Hud != null)
@@ -207,6 +290,7 @@ namespace CinderCourt.View
             }
         }
 
+
         /// <summary>Stop the run and release run-scoped views. Safe when idle.</summary>
         public void EndRun()
         {
@@ -214,12 +298,15 @@ namespace CinderCourt.View
             foreach (var pair in _enemyViews)
                 Return(pair.Value);
             _enemyViews.Clear();
-            if (_companionView != null)
+            for (var slot = 0; slot < _companionViews.Length; slot++)
             {
-                if (Application.isPlaying) Destroy(_companionView.gameObject);
-                else DestroyImmediate(_companionView.gameObject);
-                _companionView = null;
+                var view = _companionViews[slot];
+                if (view == null) continue;
+                if (Application.isPlaying) Destroy(view.gameObject);
+                else DestroyImmediate(view.gameObject);
+                _companionViews[slot] = null;
             }
+
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
             ClearDamageNumbers();
@@ -231,6 +318,8 @@ namespace CinderCourt.View
             _lastPlayerHealth = 0f;
             _deathNumberPunchTimer = 0f;
             _logicalStageId = string.Empty;
+            _roomObjective = string.Empty;
+
             Time.timeScale = 1f;
         }
 
@@ -270,6 +359,7 @@ namespace CinderCourt.View
                 input.RestartQueued = false;
                 input.CompanionHoldQueued = false;
                 input.CompanionRecallQueued = false;
+                input.CompanionSkillQueued = false;
                 _accumulator -= SimConfig.FixedStep;
                 steps++;
             }
@@ -278,8 +368,10 @@ namespace CinderCourt.View
             // Only consume latches when at least one tick sampled them —
             // otherwise a 144 Hz frame with no step would eat Q/E presses.
             if (steps > 0 && Input != null) Input.ClearLatches();
+            _simDelta = steps * SimConfig.FixedStep;
 
             SyncViews();
+
             ApplyTimeScale();
         }
 
@@ -314,7 +406,12 @@ namespace CinderCourt.View
             // wall-clock per tick; tick size and input rules are unchanged
             // (presentation-impact-spec determinism note).
             var consoleOpen = Hud != null && Hud.CommandConsoleOpen;
+            // The Light refractory clock runs on unscaled time and OUTSIDE the
+            // reduced-motion gate, so toggling the accessibility switch mid-run can
+            // never leave the clock frozen at a value that suppresses the next hit.
+            if (_lightImpactAge < 999f) _lightImpactAge += Time.unscaledDeltaTime;
             if (!ViewPrefs.TimeEffectsAllowed)
+
             {
                 _hitStopTimer = 0f;
                 _slowMoTimer = 0f;
@@ -348,18 +445,25 @@ namespace CinderCourt.View
             if (Hud != null) Hud.OnEvents(events, _sim);
 
             // --- presentation pulses (spec #1/#2/#3) --------------------------
-            // Hit-stop: kill 40 ms, finisher 70 ms at timeScale 0.05 (spec cap
-            // is 80 ms; Max() merges overlapping pulses instead of stacking).
+            // Hit-stop and camera punch now resolve through ImpactBudget: one tier
+            // table, one merge rule, and a Light tier so an ordinary connect on a
+            // surviving enemy finally has a tactile channel instead of only flash +
+            // spark + SFX + number. The tiers are strictly ordered inside Resolve, so
+            // a finisher that also kills still reads as a finisher.
+            var impact = ImpactBudget.Resolve(
+                (events & SimEvents.EnemyHit) != 0,
+                (events & SimEvents.EnemyKilled) != 0,
+                (events & SimEvents.ComboFinisher) != 0,
+                _hitStopTimer,
+                _lightImpactAge,
+                ViewPrefs.TimeEffectsAllowed);
+            _hitStopTimer = impact.HitStop;
+            if (impact.ConsumedLight) _lightImpactAge = 0f;
             if ((events & SimEvents.ComboFinisher) != 0)
             {
-                if (ViewPrefs.TimeEffectsAllowed)
-                    _hitStopTimer = Mathf.Max(_hitStopTimer, 0.07f);
                 _finisherTick = true;   // gold damage numbers this batch (#6)
             }
-            else if ((events & SimEvents.EnemyKilled) != 0 && ViewPrefs.TimeEffectsAllowed)
-            {
-                _hitStopTimer = Mathf.Max(_hitStopTimer, 0.04f);
-            }
+
             // Boss phase-2 slow-mo beat, synced with the taunt bubble (#3).
             if ((events & SimEvents.BossPhase2) != 0 && ViewPrefs.TimeEffectsAllowed)
             {
@@ -384,14 +488,18 @@ namespace CinderCourt.View
             // Priority mirrors the rig chain: BossSpawned > Finisher > Kill >
             // WaveStarted — Punch itself refuses to weaken a stronger live
             // shake, and a boss wave raises BOTH events, so the wave tier sits
-            // LAST to keep the 0.35 boss punch intact (§W).
+            // LAST to keep the 0.35 boss punch intact (§W). The new Light tier is
+            // appended BELOW WaveStarted: it is the weakest punch in the game and
+            // must never preempt a wave arrival.
             if (Rig != null)
             {
+                var heavy = (events & (SimEvents.ComboFinisher | SimEvents.EnemyKilled)) != 0;
                 if ((events & SimEvents.BossSpawned) != 0) Rig.Punch(0.07f, 0.35f);
-                else if ((events & SimEvents.ComboFinisher) != 0) Rig.Punch(0.05f, 0.14f);
-                else if ((events & SimEvents.EnemyKilled) != 0) Rig.Punch(0.02f, 0.08f);
+                else if (heavy) Rig.Punch(impact.PunchAmplitude, impact.PunchDuration);
                 else if ((events & SimEvents.WaveStarted) != 0) Rig.Punch(0.05f, 0.15f);
+                else if (impact.PunchAmplitude > 0f) Rig.Punch(impact.PunchAmplitude, impact.PunchDuration);
             }
+
             // §W wave-arrival telegraph: warning rings at the incoming wave's
             // spawn points. Boss waves ring red/larger via the same call.
             if (Vfx != null && (events & SimEvents.WaveStarted) != 0)
@@ -449,8 +557,12 @@ namespace CinderCourt.View
             // the attack pose. ActorView only re-issues the animator value when
             // it CHANGES, so a tier that arrives after the swing starts would
             // lock the wrong variant for the entire swing, not just one frame.
+            // AMENDMENT #10 widens main's dungeon gate to include a trial, so the
+            // combo tier drives the pose there too. Everything else is main's.
             if (_dungeonPresentation) _playerView.SetComboTier(((IHackSnapshot)_sim).ComboIndex);
-            _playerView.SyncPlayer(_sim.Player);
+            _playerView.SyncPlayer(_sim.Player, _simDelta);
+            SyncFootsteps();
+
             if (playerDamage > 0.01f && _damageNumbers != null)
                 ShowDamageNumber(_sim.Player.X, _sim.Player.Y, playerDamage, EnemyDamageColor);
 
@@ -495,7 +607,8 @@ namespace CinderCourt.View
                 // after the last covering pylon dies (re-judged every frame).
                 view.SetShieldTint(CoveredByLivePylon(hazards, state.X, state.Y));
                 view.SetElementTint(liveTint);
-                var damage = view.SyncEnemy(in state);
+                var damage = view.SyncEnemy(in state, _simDelta);
+
                 if (state.IsBoss && StageCatalog.TryGet(_logicalStageId, out var stage)
                     && state.Visual == stage.Boss.Visual)
                     ApplyBossPresentation(view, in stage);
@@ -536,13 +649,13 @@ namespace CinderCourt.View
                 }
             }
 
-            if (Vfx != null) Vfx.SyncPickups(_sim.Pickups);
+            if (Vfx != null) Vfx.SyncPickups(_sim.Pickups, _sim.PickupGrades);
             if (Vfx != null) Vfx.SyncWard(_sim.Player);
             // §3.6 (#9): idle threat hint — arrow appears after 0.4 s of no
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
-            // AMENDMENT #7: the surge window is readable for EVERY player, sigils
+            // AMENDMENT #10: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.
             //
             // A finished run publishes ZERO. UpdateSurge stops running at
@@ -570,6 +683,46 @@ namespace CinderCourt.View
                         hack.DashCooldown, hack.SkillCooldowns, hack.Shield,
                         hack.ExtractionProgress, hack.ExtractionTarget,
                         hack.BossHp, hack.BossMaxHp, hack.BossPhase, _sim.Charge);
+                if (Hud != null)
+                {
+                    // AMENDMENT #8: reduce the per-slot cooldowns to the soonest one before
+                    // handing it to the HUD — the cast order is global, so that single number
+                    // is exactly what the control promises.
+                    var readySlots = hack.CompanionCount;
+                    var soonest = 0f;
+                    var anyReady = false;
+                    var anyCasting = false;
+                    for (var slot = 0; slot < readySlots; slot++)
+                    {
+                        var cooldown = hack.CompanionSkillCooldownAt(slot);
+                        if (cooldown <= 0f) anyReady = true;
+                        if (slot == 0 || cooldown < soonest) soonest = cooldown;
+                        if (hack.CompanionSkillCastingAt(slot)) anyCasting = true;
+                    }
+                    Hud.SyncCompanionSkill(readySlots, soonest, anyReady);
+
+                    // Companion stance readout: the console/keys' FocusAttack=Follow,
+                    // Defend=Hold, Recall=Follow orders drive CompanionBehavior; any slot
+                    // engaged means the Follow order is actively pursuing, not just escorting.
+                    var stanceEngaged = false;
+                    for (var slot = 0; slot < readySlots; slot++)
+                        if (hack.CompanionEngagedAt(slot)) { stanceEngaged = true; break; }
+                    Hud.SyncCompanionStance(readySlots, hack.CompanionBehavior, stanceEngaged);
+                    // Command agent: the same primitives, pushed once per frame
+                    // so a typed sequence can gate on readiness and wait for the
+                    // SIM to acknowledge each step before starting the next one
+                    // (HudView.CommandAgent.cs -> CommandSequenceRunner).
+                    Hud.SyncCommandAgent(runLive, _sim.Charge,
+                        hack.SkillCooldowns, hack.DashCooldown,
+                        readySlots, soonest, anyCasting,
+                        hack.CompanionBehavior, _sim.LivingEnemies);
+
+                    // Room objective readout: the contiguous route never returns to the
+                    // lobby between rooms, so BossAlive is what re-frames the same
+                    // objective as the room's final beat.
+                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive);
+                }
+
                 if (Vfx != null)
                     Vfx.SyncExtraction(hack.ExtractionProgress, hack.ExtractionTarget, _sim.Player);
                 // §P2 rank glow. ComboIndex IS the current swing during Attack
@@ -580,9 +733,15 @@ namespace CinderCourt.View
                 // §Lane P: socket props follow the same live ranks (idempotent
                 // per band — a mid-run rank-up swaps the prop immediately).
                 _playerView.AttachEquipProps(_sim.WeaponRank, _sim.LanternRank, _sim.CloakRank);
-                if (_companionView != null)
+                // AMENDMENT #6 (D6.6): one gaze/idle resolution per active
+                // slot. Each companion tracks the nearest living enemy inside
+                // its own attack range independently of its siblings.
+                for (var slot = 0; slot < _companionViews.Length; slot++)
                 {
-                    var preparation = _sim as IRunPreparationSnapshot;
+                    var view = _companionViews[slot];
+                    if (view == null) continue;
+                    var companionX = hack.CompanionXAt(slot);
+                    var companionY = hack.CompanionYAt(slot);
                     // G1: nearest living enemy inside the companion's attack
                     // range owns the gaze between strikes (iso-weighted metric,
                     // same as the sim's targeting). Near the player with no
@@ -593,24 +752,24 @@ namespace CinderCourt.View
                     {
                         var enemy = enemies[i];
                         if (enemy.Dead) continue;
-                        var deltaX = enemy.X - hack.CompanionX;
-                        var deltaY = (enemy.Y - hack.CompanionY) * SimConfig.IsoY;
+                        var deltaX = enemy.X - companionX;
+                        var deltaY = (enemy.Y - companionY) * SimConfig.IsoY;
                         var distSq = deltaX * deltaX + deltaY * deltaY;
                         if (distSq >= bestSq) continue;
                         bestSq = distSq;
                         gazeYaw = Mathf.Round(
-                            Mathf.Atan2(deltaX, -(enemy.Y - hack.CompanionY))
+                            Mathf.Atan2(deltaX, -(enemy.Y - companionY))
                             * Mathf.Rad2Deg / 22.5f) * 22.5f;
                     }
-                    var playerDeltaX = _sim.Player.X - hack.CompanionX;
-                    var playerDeltaY = _sim.Player.Y - hack.CompanionY;
-                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttacking
+                    var playerDeltaX = _sim.Player.X - companionX;
+                    var playerDeltaY = _sim.Player.Y - companionY;
+                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttackingAt(slot)
                         && playerDeltaX * playerDeltaX + playerDeltaY * playerDeltaY
                            < HackSpec.CompanionFollowOffset * HackSpec.CompanionFollowOffset * 2.25f;
-                    _companionView.SyncCompanion(hack.CompanionX, hack.CompanionY,
-                        preparation != null ? preparation.CompanionFacing : 0,
-                        hack.CompanionAttacking, gazeYaw, restIdle);
+                    view.SyncCompanion(companionX, companionY, hack.CompanionFacingAt(slot),
+                        hack.CompanionAttackingAt(slot), gazeYaw, restIdle);
                 }
+
             }
             SyncDeathNumberPunch();
         }

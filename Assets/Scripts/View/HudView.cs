@@ -31,11 +31,25 @@ namespace CinderCourt.View
         Font _font;
         Image _healthFill, _chargeFill;
         Text _healthText, _chargeText, _waveText, _scoreText, _relicText, _enemyText;
+        // AMENDMENT #11 UI: the run's difficulty tier is LOCKED at run creation, so
+        // unlike every other stat it never changes mid-run — it is latched once by
+        // SetRunDifficulty instead of polled in SyncStats.
+        Text _difficultyText;
+        Sim.Difficulty _runDifficulty;
+        bool _difficultyBadgeShown;
         Text _loreText, _finalText, _retryLabel;
         Image _novaCooldownOverlay, _wardCooldownOverlay;
+        Image _novaFrame, _wardFrame;   // HUD atlas: ready-state gold rim swap
+
         // Input depth §3/§5 surfaces, lazily built on first use.
         GameObject _chargeGauge;
         Image _chargeGaugeFill;
+        // AMENDMENT #9 momentum gauge, same lazy-build discipline as the charge bar.
+        GameObject _momentumGauge;
+        Image _momentumGaugeFill;
+        Text _momentumTierLabel;
+        int _momentumTierShown = -1;
+
         GameObject _growthPanel;
         Text _growthTitle, _growthOptions;
         CanvasGroup _novaGroup, _wardGroup;
@@ -59,6 +73,9 @@ namespace CinderCourt.View
         GameObject _emberRestBlocker, _emberRestPanel;
         Text _emberRestRoomText, _emberRestDecisionText;
         readonly Image[] _emberRestOfferCards = new Image[3];
+        // W15: optional painted backdrop + its readability scrim. Both stay null
+        // when the art is absent, and the panel's own flat fill is the fallback.
+        Image _emberRestBackdrop, _emberRestScrim;
         readonly PreparationOffer[] _emberRestOffers = new PreparationOffer[3];
         Button _emberRestContinueButton;
         bool _emberRestDecisionMade;
@@ -234,26 +251,37 @@ namespace CinderCourt.View
 
             // --- top-left: health + oil -------------------------------------
             var meters = Panel(root, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(16, -16), new Vector2(300, 74), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+                new Vector2(16, -16), new Vector2(300, 74), new Color(0.05f, 0.04f, 0.09f, 0.55f),
+                "hud-meters-panel-bg");
             _metersRect = meters.GetComponent<RectTransform>();
             _healthFill = Bar(meters.transform, 8, -8, 284, 22,
-                new Color(0.95f, 0.42f, 0.3f), out _healthText, "체력");
+                new Color(0.95f, 0.42f, 0.3f), out _healthText, "체력",
+                "hud-hp-bar-frame", "hud-hp-bar-fill");
             _chargeFill = Bar(meters.transform, 8, -40, 284, 22,
-                new Color(1f, 0.83f, 0.45f), out _chargeText, "기름");
+                new Color(1f, 0.83f, 0.45f), out _chargeText, "기름",
+                "hud-oil-bar-frame", "hud-oil-bar-fill");
             _healthBackRect = (RectTransform)_healthFill.transform.parent;
             _chargeBackRect = (RectTransform)_chargeFill.transform.parent;
 
-            // --- top-right: wave / score / relics / enemies -------------------
+            // --- top-right: wave / score / relics / enemies / difficulty ------
             var stats = Panel(root, new Vector2(1, 1), new Vector2(1, 1),
-                new Vector2(-16, -16), new Vector2(240, 108), new Color(0.05f, 0.04f, 0.09f, 0.55f));
+                new Vector2(-16, -16), new Vector2(240, StatsPanelHeight),
+                new Color(0.05f, 0.04f, 0.09f, 0.55f),
+                "hud-stats-panel-bg");
             _statsRect = stats.GetComponent<RectTransform>();
+
             _waveText = Label(stats.transform, 10, -6, 220, 24, "웨이브 1", 18, TextAnchor.MiddleLeft);
             _scoreText = Label(stats.transform, 10, -30, 220, 24, "점수 0", 18, TextAnchor.MiddleLeft);
             _relicText = Label(stats.transform, 10, -54, 220, 24, "유물 0", 18, TextAnchor.MiddleLeft);
             _enemyText = Label(stats.transform, 10, -78, 220, 24, "적 0", 18, TextAnchor.MiddleLeft);
+            // Row 5 exists from Build so no run-start allocation is needed, but it
+            // stays hidden until a run latches a non-baseline tier.
+            _difficultyText = Label(stats.transform, 10, -102, 220, 24, "", 18, TextAnchor.MiddleLeft);
+            _difficultyText.gameObject.SetActive(false);
 
             // --- mute toggle under stats --------------------------------------
-            var muteButton = TextButton(root, new Vector2(1, 1), new Vector2(-16, -132),
+            var muteButton = TextButton(root, new Vector2(1, 1),
+                new Vector2(-16, -MuteTopOffset),
                 new Vector2(240, 34), "소리: 켜짐", 16,
                 () => { if (Audio != null) { Audio.ToggleMute(); RefreshMuteLabel(); } });
             _muteLabel = muteButton.GetComponentInChildren<Text>();
@@ -263,10 +291,11 @@ namespace CinderCourt.View
             // --- bottom-center: skill cards ------------------------------------
             var novaCard = SkillCard(root, -95, "Q", "잿불 노바",
                 () => { if (Input != null) Input.QueueNova(); },
-                out _novaCooldownOverlay, out _novaGroup, "skill-nova");
+                out _novaCooldownOverlay, out _novaGroup, out _novaFrame, "skill-nova");
             var wardCard = SkillCard(root, 95, "E", "랜턴 결계",
                 () => { if (Input != null) Input.QueueWard(); },
-                out _wardCooldownOverlay, out _wardGroup, "skill-ward");
+                out _wardCooldownOverlay, out _wardGroup, out _wardFrame, "skill-ward");
+
             _novaRect = novaCard.GetComponent<RectTransform>();
             _wardRect = wardCard.GetComponent<RectTransform>();
 
@@ -473,6 +502,8 @@ namespace CinderCourt.View
             _scoreText.fontSize = statFont;
             _relicText.fontSize = statFont;
             _enemyText.fontSize = statFont;
+            if (_difficultyText != null) _difficultyText.fontSize = statFont;
+
             if (tier == LayoutTier.Phone)
             {
                 // Stats drop below the meters (left column), freeing the top
@@ -481,7 +512,7 @@ namespace CinderCourt.View
                 _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(0f, 1f);
                 _statsRect.pivot = new Vector2(0f, 1f);
                 _statsRect.anchoredPosition = new Vector2(16, -98);
-                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
+                _statsRect.sizeDelta = new Vector2(statsWidth, StatsPanelHeight);
                 _muteRect.anchoredPosition = new Vector2(-16, -16);
                 // Spec #6: 44 CSS px floor at the worst phone scale
                 // (0.488 px/u) needs >=90 u — the old 34 u was a 17 px target.
@@ -493,8 +524,8 @@ namespace CinderCourt.View
                 _statsRect.anchorMin = _statsRect.anchorMax = new Vector2(1f, 1f);
                 _statsRect.pivot = new Vector2(1f, 1f);
                 _statsRect.anchoredPosition = new Vector2(-16, -16);
-                _statsRect.sizeDelta = new Vector2(statsWidth, 108);
-                _muteRect.anchoredPosition = new Vector2(-16, -132);
+                _statsRect.sizeDelta = new Vector2(statsWidth, StatsPanelHeight);
+                _muteRect.anchoredPosition = new Vector2(-16, -MuteTopOffset);
                 _muteRect.sizeDelta = new Vector2(statsWidth, 34);
                 if (_muteLabel != null) _muteLabel.fontSize = 16;
             }
@@ -727,7 +758,7 @@ namespace CinderCourt.View
             // Built with the dungeon wording: PresentationFeedbackTests IDENTIFIES
             // this panel by finding "구역 정화" among its children, so an empty
             // default makes the panel invisible to the audit. A trial swaps the
-            // text at reveal time instead (AMENDMENT #7).
+            // text at reveal time instead (AMENDMENT #10).
             var clearTitle = Label(_stageClearPanel.transform, 0, -18, 480, 36, "구역 정화", 28, TextAnchor.MiddleCenter);
             _stageClearTitle = clearTitle;
             clearTitle.color = new Color(0.56f, 0.91f, 1f);
@@ -780,6 +811,13 @@ namespace CinderCourt.View
             if (_bossName != null) _bossName.text = bossDisplayName;
             if (_companionHoldButton != null) _companionHoldButton.SetActive(companionActive);
             if (_companionRecallButton != null) _companionRecallButton.SetActive(companionActive);
+            if (_companionSkillButton != null) _companionSkillButton.SetActive(companionActive);
+            if (_companionStanceLabel != null && !companionActive)
+                _companionStanceLabel.gameObject.SetActive(false);
+            _lastCompanionSkillTenths = int.MinValue;   // force one relabel on the next sync
+            _lastCompanionStanceKey = int.MinValue;      // force one stance relabel too
+            _lastRoomObjectiveKey = int.MinValue;        // the next room owns a new objective
+
         }
 
         /// <summary>True only while a visible terminal panel can consume the retry shortcut.</summary>
@@ -886,6 +924,11 @@ namespace CinderCourt.View
                 Vector2.zero, new Vector2(620, 420), new Color(0.02f, 0.05f, 0.06f, 0.96f));
             _emberRestPanel.name = "EmberRestPanel";
             _emberRestPanel.GetComponent<Image>().raycastTarget = true;
+            // Built BEFORE the title/cards/buttons on purpose: uGUI draw order is
+            // sibling order, so creating the art and its scrim first is what puts
+            // every readable thing on top of them. No sorting call needed, and
+            // none can be forgotten later.
+            BuildEmberRestBackdrop();
             var title = Label(_emberRestPanel.transform, 0, -18, 620, 34, "잿불 휴식", 26,
                 TextAnchor.MiddleCenter);
             title.color = new Color(1f, 0.83f, 0.45f);
@@ -914,6 +957,87 @@ namespace CinderCourt.View
                 TextAnchor.MiddleCenter);
             _emberRestDecisionText.color = new Color(0.92f, 0.94f, 1f);
             _emberRestBlocker.SetActive(false);
+        }
+
+        // ------------------------------------------- W15 Ember Rest backdrop --
+        // The interlude is the one moment the run stops and the player reads.
+        // A painted plate behind it is worth having, but the art is produced on a
+        // different lane and may simply not be there — so its ABSENCE is a
+        // supported state, not an error. Missing art means the panel renders
+        // exactly as it did before this feature existed.
+
+        /// <summary>
+        /// Resources id (no extension, no directory) of the Ember Rest backdrop.
+        /// This constant is the contract with the asset lane; see the lane report
+        /// for the accepted drop paths and the requested aspect.
+        /// </summary>
+        internal const string EmberRestBackdropId = "ui-ember-rest-bg";
+
+        /// <summary>Scrim opacity over the art. Sized for 15 pt body text on an
+        /// unknown painting: the art must still read as art, but no plausible
+        /// bright passage may win against the copy on top of it.</summary>
+        internal const float EmberRestScrimAlpha = 0.62f;
+
+        /// <summary>True when the painted plate actually loaded. Test seam —
+        /// both branches are real shipping states, so the fixture asserts the
+        /// one that is live rather than assuming the art exists.</summary>
+        internal bool EmberRestBackdropPresent => _emberRestBackdrop != null;
+
+        /// <summary>Live scrim opacity, 0 when there is no art to darken.</summary>
+        internal float EmberRestScrimOpacity => _emberRestScrim == null ? 0f : _emberRestScrim.color.a;
+
+        void BuildEmberRestBackdrop()
+        {
+            var sprite = TryLoadOptionalSprite(EmberRestBackdropId);
+            // Fallback IS the previous look: the panel's own near-opaque fill.
+            // Nothing below runs, nothing downstream reads these fields without
+            // a null check, and no code path can softlock on a missing file.
+            if (sprite == null) return;
+
+            _emberRestBackdrop = StretchedChild("EmberRestBackdrop", Color.white);
+            _emberRestBackdrop.sprite = sprite;
+            _emberRestBackdrop.type = Image.Type.Simple;
+            // Deliberately NOT preserveAspect: a letterboxed plate would expose
+            // the flat fill along two edges and read as a bug rather than as a
+            // frame. The asset lane is given the panel's aspect instead, so the
+            // stretch is nominally zero and degrades gently if it is not.
+            _emberRestBackdrop.preserveAspect = false;
+
+            _emberRestScrim = StretchedChild("EmberRestScrim",
+                new Color(0.02f, 0.03f, 0.05f, EmberRestScrimAlpha));
+        }
+
+        /// <summary>Full-bleed child of the Ember Rest panel. Never a raycast
+        /// target: the panel underneath already blocks, and a decorative layer
+        /// that ate the offer taps would be a softlock.</summary>
+        Image StretchedChild(string name, Color color)
+        {
+            var child = new GameObject(name);
+            child.transform.SetParent(_emberRestPanel.transform, false);
+            var image = child.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            var rect = child.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+            return image;
+        }
+
+        /// <summary>
+        /// Same three-directory search order HudIconIntegration uses
+        /// (regenerated → generated → flat), minus its theme material and minus
+        /// its not-found warning: this sprite is optional by design, so a miss
+        /// is not worth a log line every time the HUD builds.
+        /// </summary>
+        static Sprite TryLoadOptionalSprite(string iconKey)
+        {
+            var sprite = Resources.Load<Sprite>($"Icons/regenerated/{iconKey}");
+            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/generated/{iconKey}");
+            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/{iconKey}");
+            return sprite;
         }
 
         void SelectEmberRestOffer(int offerIndex)
@@ -1010,6 +1134,11 @@ namespace CinderCourt.View
             if (_gameOverPanel != null) _gameOverPanel.SetActive(false);
             SetTouchCombatControlsVisible(true);
             if (_bossBar != null) _bossBar.SetActive(false);
+            // Objective chip is room-scoped: clear it on every run entry/retry so a
+            // lobby return or an arena sortie can never show the last room's line.
+            if (_roomObjectivePanel != null) _roomObjectivePanel.SetActive(false);
+            _lastRoomObjectiveKey = int.MinValue;
+
             _lastBossFraction = -1f;
             _lastBossPhase = -1;
             _lastCombo = -1;
@@ -1609,6 +1738,93 @@ namespace CinderCourt.View
                              new Color(0.87f, 0.78f, 0.41f), progress * progress);
         }
 
+        /// <summary>AMENDMENT #9: the momentum gauge. Sits directly above the charge bar
+        /// and is built lazily on the first tick that has any momentum at all, so an
+        /// arena or prologue run — where the gauge can never move — never allocates it.
+        /// The TIER, not the raw value, drives the colour and the label: a player needs
+        /// to read "am I buffed and by how much", not a percentage.</summary>
+        void SyncMomentumGauge(float momentum, int tier, float multiplier)
+        {
+            if (momentum <= 0f)
+            {
+                if (_momentumGauge != null && _momentumGauge.activeSelf)
+                {
+                    _momentumGauge.SetActive(false);
+                    _momentumTierShown = -1;
+                }
+                return;
+            }
+
+            if (_momentumGauge == null)
+            {
+                var root = (Transform)_safeRoot;
+                _momentumGauge = Panel(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                    new Vector2(0, 112), new Vector2(220, 10), new Color(0.02f, 0.02f, 0.04f, 0.8f));
+                _momentumGauge.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
+
+                var fillObject = new GameObject("MomentumFill");
+                fillObject.transform.SetParent(_momentumGauge.transform, false);
+                _momentumGaugeFill = fillObject.AddComponent<Image>();
+                _momentumGaugeFill.raycastTarget = false;
+                _momentumGaugeFill.type = Image.Type.Filled;
+                _momentumGaugeFill.fillMethod = Image.FillMethod.Horizontal;
+                var fillRect = _momentumGaugeFill.rectTransform;
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = Vector2.one;
+                fillRect.sizeDelta = Vector2.zero;
+                fillRect.anchoredPosition = Vector2.zero;
+
+                var labelObject = new GameObject("MomentumTier");
+                labelObject.transform.SetParent(_momentumGauge.transform, false);
+                _momentumTierLabel = labelObject.AddComponent<Text>();
+                _momentumTierLabel.font = _font;
+                _momentumTierLabel.fontSize = 13;
+                _momentumTierLabel.alignment = TextAnchor.MiddleCenter;
+                _momentumTierLabel.raycastTarget = false;
+                _momentumTierLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+                var labelRect = _momentumTierLabel.rectTransform;
+                labelRect.anchorMin = new Vector2(0.5f, 1f);
+                labelRect.anchorMax = new Vector2(0.5f, 1f);
+                labelRect.pivot = new Vector2(0.5f, 0f);
+                labelRect.sizeDelta = new Vector2(220, 18);
+                labelRect.anchoredPosition = new Vector2(0, 2);
+            }
+
+            _momentumGauge.SetActive(true);
+            // The real sim constant, restored: main b97d609 landed HackSpec.MomentumMax
+            // with the A9 sim half. A local placeholder stood here only while that
+            // half was missing — a view literal would drift from the sim the first
+            // time the amendment retunes.
+            _momentumGaugeFill.fillAmount = Mathf.Clamp01(momentum / HackSpec.MomentumMax);
+            _momentumGaugeFill.color = MomentumTierColor(tier);
+
+            // Relabel only on a tier change — the raw value moves every tick, the tier
+            // does not, and rebuilding a Text mesh 60 times a second for an unchanged
+            // string is exactly the kind of WebGL cost §1 forbids.
+            if (tier != _momentumTierShown)
+            {
+                _momentumTierShown = tier;
+                _momentumTierLabel.text = tier <= 0
+                    ? string.Empty
+                    : $"기세 x{multiplier:0.00}";
+                _momentumTierLabel.color = MomentumTierColor(tier);
+            }
+        }
+
+        /// <summary>A9: one colour per tier, ascending in heat so the promotion reads at a
+        /// glance. Tier 0 is the muted "no buff" steel the bar drains back to.</summary>
+        static Color MomentumTierColor(int tier)
+        {
+            switch (tier)
+            {
+                case 1: return new Color(0.95f, 0.55f, 0.24f);
+                case 2: return new Color(0.99f, 0.78f, 0.30f);
+                case 3: return new Color(1f, 0.95f, 0.72f);
+                default: return new Color(0.42f, 0.48f, 0.62f);
+            }
+        }
+
+
         /// <summary>Input depth §5: the level-up offer. Shows the three keys
         /// and the countdown, so an ignoring player can SEE that waiting is
         /// safe rather than having to learn it.</summary>
@@ -1672,7 +1888,15 @@ namespace CinderCourt.View
         // dead here — so typing never reached the field (only Enter/ESC worked,
         // read straight off Keyboard.current). Feed Keyboard.onTextInput by
         // hand instead (Unity input-system docs: read-keyboard-text-input).
+        // The field itself is readOnly so it can NEVER also write: with an IME
+        // active the field's own KeyPressed path still saw the committed Hangul
+        // syllable and appended a second copy ("한" -> "한한"). One writer only,
+        // and it is this buffer.
         System.Action<char> _consoleTextHandler;
+        UnityEngine.InputSystem.Keyboard _consoleTextKeyboard;   // exact device we subscribed to
+        readonly CommandConsoleBuffer _consoleBuffer = new CommandConsoleBuffer(ConsoleCharacterLimit);
+        const int ConsoleCharacterLimit = 60;
+
         /// <summary>GameView caps timeScale at 0.2 while this is true — typing
         /// time, NOT decoration: deliberately outside TimeEffectsAllowed so
         /// reduced-motion players get the same breathing room.</summary>
@@ -1703,7 +1927,31 @@ namespace CinderCourt.View
             text.supportRichText = false;
 
             var placeholder = Label(fieldObject.transform, 0, 0, 440, 32,
-                "명령 입력: 집중공격 • 방어 • 복귀 • 노바 • 결계 …", 16, TextAnchor.MiddleLeft);
+                // The trigger half of the syntax is in the placeholder because a
+                // queue nobody knows how to fill is not a feature.
+                //
+                // Separator is BULLET (U+2022), not MIDDLE DOT (U+00B7). Main's
+                // copy used the middle dot and main ships a font that cannot
+                // render it — five of its player-visible strings were tofu on
+                // WebGL when this merge measured them (difficulty badge,
+                // objective lines, companion toast). All were converted.
+                //
+                // The codepoints are NAMED here, not typed. gen_hud_font.sh
+                // harvests every non-ASCII character in this file including
+                // comments, so a comment explaining that a glyph is unusable
+                // would itself demand that glyph — the first draft of this note
+                // did exactly that and turned the font gate red.
+                //
+                // U+00B7 IS in NanumBarunGothic, which is what makes the trap
+                // work: it lives ONLY in the platform-1 Macintosh format-6
+                // subtable, 189 entries. fontTools.subset and getBestCmap both
+                // read the Unicode subtable, where it is absent — the glyph
+                // exists in the file, cannot enter the subset, and renders as a
+                // box. A cmap probe that unions every subtable reports it
+                // present and is answering a question no part of the toolchain
+                // asks. CLAUDE.md §4b was right; a union-probe during this merge
+                // briefly said otherwise, and the union-probe was wrong.
+                "명령: 집중공격 • 노바 • 결계 / 대기: 셋 잡으면 노바", 15, TextAnchor.MiddleLeft);
             var placeholderRect = placeholder.rectTransform;
             placeholderRect.anchorMin = Vector2.zero;
             placeholderRect.anchorMax = Vector2.one;
@@ -1714,8 +1962,15 @@ namespace CinderCourt.View
             _consoleField = fieldObject.AddComponent<InputField>();
             _consoleField.textComponent = text;
             _consoleField.placeholder = placeholder;
-            _consoleField.characterLimit = 60;
+            _consoleField.characterLimit = ConsoleCharacterLimit;
             _consoleField.lineType = InputField.LineType.SingleLine;
+            // readOnly kills the field's OWN writer (InputField.Append/Backspace
+            // early-return on readOnly) while ActivateInputField still turns the
+            // IME on and the caret stays visible. Without this the IME-committed
+            // Hangul syllable was appended twice: once by the field, once by the
+            // Keyboard.onTextInput mirror below.
+            _consoleField.readOnly = true;
+
 
             _consoleToast = Label(root, 0, 346, 560, 28, "", 15, TextAnchor.MiddleCenter);
             var toastRect = _consoleToast.rectTransform;
@@ -1723,6 +1978,11 @@ namespace CinderCourt.View
             toastRect.pivot = new Vector2(0.5f, 0f);
             toastRect.anchoredPosition = new Vector2(0, 346);
             _consoleToast.color = new Color(0.62f, 0.95f, 0.88f, 0f);
+
+            // W10: the parked-order readout. Built with the console because the
+            // console is the only thing that can create a queue entry, and it
+            // stays hidden until one exists.
+            BuildCommandQueuePanel();
 
             _consoleRoot.SetActive(false);
         }
@@ -1741,54 +2001,62 @@ namespace CinderCourt.View
             _consoleRoot.SetActive(true);
             CommandConsoleOpen = true;
             if (Input != null) Input.TextInputActive = true;
+            _consoleBuffer.Clear();
             _consoleField.text = string.Empty;
             _consoleField.ActivateInputField();
             // New-input-only project: the uGUI InputField can't pull text from
             // the dead legacy Input stream, so we mirror Keyboard.onTextInput
             // into the field ourselves (printable chars + backspace).
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null)
+            if (keyboard != null && _consoleTextHandler == null)
             {
                 _consoleTextHandler = OnConsoleTextInput;
+                _consoleTextKeyboard = keyboard;
                 keyboard.onTextInput += _consoleTextHandler;
             }
             if (!GeminiCommandClient.HasKey)
                 ShowConsoleToast("로컬 명령: 집중공격/방어/복귀/스킬명 • 자유 문장은 '키 <Gemini키>' 등록 후", 3.5f);
         }
 
+
         void OnConsoleTextInput(char c)
         {
             if (!CommandConsoleOpen || _consoleField == null) return;
-            // Enter/ESC are handled separately in UpdateCommandConsole; ignore
-            // their control chars and the tab so the field stays clean.
-            if (c == '\n' || c == '\r' || c == '\t' || c == (char)27) return;
-            if (c == '\b' || c == (char)127)
-            {
-                var t = _consoleField.text;
-                if (t.Length > 0) _consoleField.text = t.Substring(0, t.Length - 1);
-                return;
-            }
-            if (!char.IsControl(c)) _consoleField.text += c;
+            // Every editing rule (control chars, backspace, 60-char cap,
+            // same-frame duplicate suppression) lives in the buffer; the field
+            // is a readOnly display of it.
+            if (!_consoleBuffer.Feed(c, Time.frameCount)) return;
+            _consoleField.text = _consoleBuffer.Text;
+            _consoleField.caretPosition = _consoleField.selectionAnchorPosition =
+                _consoleField.selectionFocusPosition = _consoleBuffer.Length;
         }
+
 
 
         void CloseCommandConsole(bool submit)
         {
             if (_consoleRoot == null) return;
-            var raw = _consoleField.text;
+            var raw = _consoleBuffer.Text;      // buffer is the single source of truth
             _consoleField.DeactivateInputField();
             // Detach the manual text feed so it never leaks onto other surfaces.
+            // Unsubscribe from the EXACT device we subscribed to: if
+            // Keyboard.current changed while the console was open, removing the
+            // handler from the new device would leave the old subscription live
+            // and every character would arrive twice on the next open.
             if (_consoleTextHandler != null)
             {
-                var keyboard = UnityEngine.InputSystem.Keyboard.current;
-                if (keyboard != null) keyboard.onTextInput -= _consoleTextHandler;
+                if (_consoleTextKeyboard != null)
+                    _consoleTextKeyboard.onTextInput -= _consoleTextHandler;
                 _consoleTextHandler = null;
+                _consoleTextKeyboard = null;
             }
+            _consoleBuffer.Clear();
             _consoleRoot.SetActive(false);
             CommandConsoleOpen = false;
             if (Input != null) Input.TextInputActive = false;
             if (submit && !string.IsNullOrWhiteSpace(raw)) SubmitCommand(raw.Trim());
         }
+
 
 
         void SubmitCommand(string raw)
@@ -1807,68 +2075,97 @@ namespace CinderCourt.View
                 return;
             }
 
-            var intent = CompanionCommandParser.Parse(raw);
-            if (intent != CompanionCommandIntent.Unknown)
+            // Sequence control ("취소"/"중단"/"stop") outranks everything else:
+            // it is the one order a player gives while another is still running.
+            if (TryHandleAgentControl(raw)) return;
+
+            // W10: an order that names an EVENT ("셋 잡으면 노바") is parked in
+            // the work queue instead of firing now. Falls through untouched when
+            // the sentence carries no trigger, so a plain order is unaffected.
+            if (TryQueueCommand(raw)) return;
+
+            // Local plan first — zero latency, no key, and it reads the sentence
+            // in POSITION order, so "노바 쓰고 결계 쳐" is two steps rather than
+            // the single rule-priority match the old classifier returned.
+            var localPlan = CommandPlanParser.ParseLocal(raw);
+            if (!localPlan.IsEmpty)
             {
-                ApplyCommandIntent(intent);
+                StartCommandPlan(localPlan);
                 return;
             }
             if (!GeminiCommandClient.HasKey)
             {
-                ShowConsoleToast("알 수 없는 명령 — 키워드: 집중공격/방어/복귀/노바/결계/파동/화살/질주", 3f);
+                ShowConsoleToast("알 수 없는 명령 — 키워드: 집중공격/방어/복귀/특기/노바/결계/파동/화살/질주", 3f);
                 return;
             }
             if (_consoleBusy) { ShowConsoleToast("이전 명령 해석 중…", 1.5f); return; }
             _consoleBusy = true;
-            ShowConsoleToast("해석 중…", 1.5f);
-            StartCoroutine(ClassifyRemote(raw));
+            ShowConsoleToast("시퀀스 구성 중…", 1.5f);
+            // Free-form sentence -> ordered plan. The runner then spends it one
+            // finished event at a time (HudView.CommandAgent.cs).
+            StartCoroutine(PlanRemote(raw));
         }
 
-        System.Collections.IEnumerator ClassifyRemote(string raw)
-        {
-            yield return GeminiCommandClient.Classify(raw, intent =>
-            {
-                _consoleBusy = false;
-                if (intent == CompanionCommandIntent.Unknown)
-                    ShowConsoleToast("해석 실패 — 키워드 명령을 써보세요: 집중공격/방어/복귀", 2.5f);
-                else ApplyCommandIntent(intent);
-            });
-        }
-
-        /// <summary>Intent -> deterministic latch. The reply copy is honest about
-        /// the actor: guardian orders say 수호자, skill casts say 시전 (the sim
-        /// has no companion skills — §S3 gate; PLAYER casts them).</summary>
-        void ApplyCommandIntent(CompanionCommandIntent intent)
+        /// <summary>Intent -> deterministic latch. The reply copy is honest about the
+        /// actor: 수호자 orders drive the companion, 시전 lines are the PLAYER's own kit.
+        /// AMENDMENT #8 added the one case where the companion itself acts —
+        /// CompanionSkill — and its copy names the companion for that reason.
+        ///
+        /// <paramref name="prefix"/> ("2/4 • ") and <paramref name="detail"/> (the
+        /// plan's own rationale for this beat) are what a SEQUENCE step adds. A
+        /// typed one-off passes neither and reads exactly as it did before the
+        /// command agent existed — one switch, so the latch mapping stays single-
+        /// sourced no matter who dispatches it.</summary>
+        void ApplyCommandIntent(CompanionCommandIntent intent, string prefix = null, string detail = null)
         {
             if (Input == null) return;
+            string copy;
+            var seconds = 2f;
             switch (intent)
             {
                 case CompanionCommandIntent.FocusAttack:
-                    Input.QueueCompanionHold();
-                    ShowConsoleToast("수호자: 현재 지점 사수 — 근접 적 집중공격", 2.5f);
+                    // Follow drives A7 autonomy: the slot pursues the nearest target inside its
+                    // leash instead of freezing in place, so "집중공격/싸워" actually chases.
+                    Input.QueueCompanionRecall();
+                    copy = "수호자: 집중공격 — 근접 표적 추격•교전";
+                    seconds = 2.5f;
                     break;
                 case CompanionCommandIntent.Defend:
-                    Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 방어태세 — 곁으로 복귀해 호위", 2.5f);
+                    // Hold pins the slot to its current spot and defends that zone (Amendment #3),
+                    // a distinct tactic from Recall's return-to-side.
+                    Input.QueueCompanionHold();
+                    copy = "수호자: 방어 태세 — 현재 지점 사수";
+                    seconds = 2.5f;
                     break;
                 case CompanionCommandIntent.Recall:
                     Input.QueueCompanionRecall();
-                    ShowConsoleToast("수호자: 복귀", 2f);
+                    copy = "수호자: 복귀 — 곁으로";
                     break;
                 case CompanionCommandIntent.PickupInfo:
-                    ShowConsoleToast("수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요", 3f);
+                    copy = "수호자는 아이템을 주울 수 없습니다 — 직접 밟아 획득하세요";
+                    seconds = 3f;
                     break;
                 case CompanionCommandIntent.SkillBolt:
-                    Input.QueueBolt(); ShowConsoleToast("균열 화살 시전", 1.5f); break;
+                    Input.QueueBolt(); copy = "균열 화살 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillPulse:
-                    Input.QueuePulse(); ShowConsoleToast("묘지 파동 시전", 1.5f); break;
+                    Input.QueuePulse(); copy = "묘지 파동 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillNova:
-                    Input.QueueNova(); ShowConsoleToast("잿불 노바 시전", 1.5f); break;
+                    Input.QueueNova(); copy = "잿불 노바 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillAegis:
-                    Input.QueueWard(); ShowConsoleToast("공허 방패 시전", 1.5f); break;
+                    Input.QueueWard(); copy = "공허 방패 시전"; seconds = 1.5f; break;
                 case CompanionCommandIntent.SkillDash:
-                    Input.QueueDash(); ShowConsoleToast("질주", 1.5f); break;
+                    Input.QueueDash(); copy = "질주"; seconds = 1.5f; break;
+                case CompanionCommandIntent.CompanionSkill:
+                    // A8.3: one global order; each ready slot casts its OWN skill. A slot
+                    // still on cooldown ignores it, so the copy promises "준비된" only.
+                    Input.QueueCompanionSkill();
+                    copy = "수호자: 준비된 고유 특기 발동";
+                    break;
+                default:
+                    return;
             }
+            if (!string.IsNullOrEmpty(detail)) copy += " — " + detail;
+            ShowConsoleToast(string.IsNullOrEmpty(prefix) ? copy : prefix + copy, seconds);
         }
 
         void ShowConsoleToast(string message, float seconds)
@@ -1900,6 +2197,10 @@ namespace CinderCourt.View
                     OpenCommandConsole();
                 }
             }
+            // Sequence agent: at most one step signal per frame, applied to the
+            // same latches a keystroke sets. Runs whether the console is open or
+            // closed — a plan outlives the text field that started it.
+            TickCommandAgent();
             if (_consoleToastTimer > 0f)
             {
                 _consoleToastTimer -= Time.unscaledDeltaTime;   // survives slow-mo
@@ -1918,7 +2219,10 @@ namespace CinderCourt.View
         Image[] _comboPips;
         Image[] _skillOverlays;         // bolt, pulse, nova(R), ward(F)
         CanvasGroup[] _skillGroups;
+        Image[] _skillFrames;           // HUD atlas: ready-state gold rim swap
         Image _dashOverlay;
+        Image _dashFrame;
+
         GameObject _bossBar;
         Image _bossFill;
         Text _bossName;
@@ -1926,12 +2230,37 @@ namespace CinderCourt.View
         Image _extractRing;
         GameObject _extractRoot;
         Text _shieldText;
+        GameObject _shieldPanel;        // HUD atlas: hidden until shield > 0
+
         GameObject _companionHoldButton, _companionRecallButton;
+        // AMENDMENT #8: commanded signature cast. The label doubles as the cooldown
+        // readout — the order is global, so ONE control covers every slot.
+        GameObject _companionSkillButton;
+        Text _companionSkillLabel;
+        int _lastCompanionSkillTenths = int.MinValue;
+        // Companion stance readout: names the live behavior so the command console's
+        // FocusAttack/Defend/Recall orders read as three DISTINCT sim states, not three
+        // toasts over the same motion. Backed only by CompanionBehavior + CompanionEngagedAt
+        // (both real snapshot fields) — hold is indefinite in the sim, so there is no timer
+        // ring to draw here.
+        Text _companionStanceLabel;
+        int _lastCompanionStanceKey = int.MinValue;
+
+        // Room objective chip (dungeon-revival spec §"HUD must expose the current room
+        // objective"): a contiguous route replaces the lobby return between rooms, so the
+        // only place the player can still read "what does THIS room want" is the HUD.
+        // Text comes from StageCatalog.RoomObjective; the boss phase recolors it.
+        GameObject _roomObjectivePanel;
+        Text _roomObjectiveText;
+        int _lastRoomObjectiveKey = int.MinValue;
+
         int _lastLevel = -1, _lastCombo = -1, _lastBossPhase = -1;
         float _lastXpFraction = -1f, _lastBossFraction = -1f;
         int _lastShield = -1;
         static readonly float[] SkillMaxCooldowns = { 6.5f, 4f, 8f, 12f };
         static readonly float[] SkillCosts = { 25f, 30f, 45f, 30f };
+        static Sprite _skillFrameNormalSprite, _skillFrameReadySprite;   // ready-state swap cache
+
 
         /// <summary>Dungeon combat HUD (spec §2, §7): XP, combo, 4 skills, dash,
         /// boss bar, extraction channel. Replaces the 2-card arena skill row.</summary>
@@ -1953,13 +2282,18 @@ namespace CinderCourt.View
 
             // --- XP bar (bottom edge) + level ---------------------------------
             var xpBack = Panel(dungeonRoot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f));
+                new Vector2(0, 4), new Vector2(560, 10), new Color(0f, 0f, 0f, 0.6f), "hud-xp-bar-frame");
+
             _xpBackRect = xpBack.GetComponent<RectTransform>();
             _xpBackRect.pivot = new Vector2(0.5f, 0f);
             var xpFillObject = new GameObject("XpFill");
             xpFillObject.transform.SetParent(xpBack.transform, false);
             _xpFill = xpFillObject.AddComponent<Image>();
             _xpFill.color = new Color(0.56f, 0.91f, 1f);
+            // Placeholder only — `hud-xp-bar-fill` is a centred medallion with a
+            // 58.6% opaque x-extent, not an edge-to-edge bar fill, and
+            // Image.Type.Filled trims to that. See Bar() for the measured table
+            // of all five and what the art has to become before it can be used.
             AsFilled(_xpFill, Image.FillMethod.Horizontal);
             _xpFill.raycastTarget = false;   // decorative fill must not eat taps
             var xpRect = xpFillObject.GetComponent<RectTransform>();
@@ -1984,14 +2318,24 @@ namespace CinderCourt.View
                 pip.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 0f);
                 _comboPips[i] = pip.GetComponent<Image>();
                 _comboPipRects[i] = pip.GetComponent<RectTransform>();
+                // Simple, not Sliced: a round gem art shouldn't be
+                // 9-slice-stretched onto a 20x20 square pip — it just
+                // fills the square, same as any other icon Image. The
+                // existing per-frame Color tint below keeps dimming/
+                // lighting it exactly as before, now over real art.
+                var pipGem = Resources.Load<Sprite>("Icons/hud-combo-pip-gem");
+                if (pipGem != null) _comboPips[i].sprite = pipGem;
+
             }
 
             // --- skill row: dash + Q/E/R/F --------------------------------------
             _skillOverlays = new Image[4];
             _skillGroups = new CanvasGroup[4];
+            _skillFrames = new Image[4];
             var dashCard = SkillCard(dungeonRoot, -232, "SHIFT", "질주",
                 () => { if (Input != null) Input.QueueDash(); },
-                out _dashOverlay, out _, "skill-dash");
+                out _dashOverlay, out _, out _dashFrame, "skill-dash");
+
             _dashCardRect = dashCard.GetComponent<RectTransform>();
             _dashCardRect.sizeDelta = new Vector2(110, 88);
             var labels = new[] { ("Q", "균열 화살"), ("E", "묘지 파동"), ("R", "잿불 노바"), ("F", "공허 방패") };
@@ -2006,7 +2350,8 @@ namespace CinderCourt.View
             for (var i = 0; i < 4; i++)
             {
                 var card = SkillCard(dungeonRoot, -116 + i * 116, labels[i].Item1, labels[i].Item2,
-                    actions[i], out _skillOverlays[i], out _skillGroups[i], icons[i]);
+                    actions[i], out _skillOverlays[i], out _skillGroups[i], out _skillFrames[i], icons[i]);
+
                 _skillCardRects[i] = card.GetComponent<RectTransform>();
                 _skillCardRects[i].sizeDelta = new Vector2(108, 88);
             }
@@ -2017,18 +2362,59 @@ namespace CinderCourt.View
             _companionRecallButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
                 new Vector2(-16, 4), new Vector2(154, 92), "동료 호출 (H)", 16,
                 () => { if (Input != null) Input.QueueCompanionRecall(); });
+            _companionSkillButton = TextButton(dungeonRoot, new Vector2(1f, 0.5f),
+                new Vector2(-16, -96), new Vector2(154, 92), "동료 특기 (V)", 16,
+                () => { if (Input != null) Input.QueueCompanionSkill(); });
+            _companionSkillLabel = _companionSkillButton.GetComponentInChildren<Text>();
+            _companionSkillLabel = _companionSkillButton.GetComponentInChildren<Text>();
 
-            // --- shield readout ---------------------------------------------------
-            _shieldText = Label(dungeonRoot, 0, 0, 200, 24, "", 15, TextAnchor.MiddleLeft);
-            var shieldRect = _shieldText.rectTransform;
-            shieldRect.anchorMin = shieldRect.anchorMax = new Vector2(0f, 1f);
-            shieldRect.pivot = new Vector2(0f, 1f);
-            shieldRect.anchoredPosition = new Vector2(16, -98);
+            // Companion stance chip: a non-interactive readout above the order buttons so
+            // the console/keys' FocusAttack/Defend/Recall map to a visible sim state. Right-
+            // center anchored to ride with the companion button column; raycastTarget stays
+            // false (Label default) so it never eats a tap the HudLayout contract guards.
+            _companionStanceLabel = Label(dungeonRoot, 0, 0, 154, 24, "", 14, TextAnchor.MiddleCenter);
+            var stanceRect = _companionStanceLabel.rectTransform;
+            stanceRect.anchorMin = stanceRect.anchorMax = new Vector2(1f, 0.5f);
+            stanceRect.pivot = new Vector2(1f, 0.5f);
+            stanceRect.anchoredPosition = new Vector2(-16, 196);
+            _companionStanceLabel.color = new Color(0.82f, 0.86f, 0.95f);
+            _companionStanceLabel.gameObject.SetActive(false);   // no companion, no chip
+
+            // --- room objective chip (top center, under the boss bar band) ------
+            // The revived route is contiguous: the player never returns to the lobby
+            // between rooms, so the room's own win condition has to stay legible on
+            // screen. Parked at y -108 — below the boss bar's -58..-104 band — so it
+            // never overlaps the bar when a boss spawns. Non-interactive by
+            // construction (Panel raycast off + Label raycast off).
+            _roomObjectivePanel = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0, -108), new Vector2(520, 26), new Color(0.03f, 0.04f, 0.08f, 0.66f));
+            _roomObjectiveText = Label(_roomObjectivePanel.transform, 0, 0, 520, 26, "", 14,
+                TextAnchor.MiddleCenter);
+            var objectiveTextRect = _roomObjectiveText.rectTransform;
+            objectiveTextRect.anchorMin = Vector2.zero;
+            objectiveTextRect.anchorMax = Vector2.one;
+            objectiveTextRect.sizeDelta = Vector2.zero;
+            objectiveTextRect.anchoredPosition = Vector2.zero;
+            _roomObjectivePanel.SetActive(false);   // no objective, no chip
+
+
+
+            // --- shield readout (backed panel, hidden until shield > 0) ---------
+            _shieldPanel = Panel(dungeonRoot, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                new Vector2(16, -98), new Vector2(190, 28), new Color(0.02f, 0.05f, 0.08f, 0.72f),
+                "hud-shield-readout-frame");
+            var shieldPanelRect = _shieldPanel.GetComponent<RectTransform>();
+            shieldPanelRect.pivot = new Vector2(0f, 1f);
+            _shieldText = Label(_shieldPanel.transform, 10, -2, 170, 24, "", 15, TextAnchor.MiddleLeft);
             _shieldText.color = new Color(0.56f, 0.85f, 1f);
+            _shieldPanel.SetActive(false);   // matches boss-bar/extraction-ring: no chip until it has a value
+
 
             // --- boss bar (top center, hidden until boss) --------------------------
             _bossBar = Panel(dungeonRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0, -58), new Vector2(520, 46), new Color(0.05f, 0.02f, 0.05f, 0.8f));
+                new Vector2(0, -58), new Vector2(520, 46), new Color(0.05f, 0.02f, 0.05f, 0.8f),
+                "hud-boss-bar-frame");
+
             _bossBarRect = _bossBar.GetComponent<RectTransform>();
             _bossBarRect.pivot = new Vector2(0.5f, 1f);
             _bossName = Label(_bossBar.transform, 10, -2, 400, 20, bossDisplayName, 14, TextAnchor.MiddleLeft);
@@ -2042,6 +2428,8 @@ namespace CinderCourt.View
             bossFillObject.transform.SetParent(bossBack.transform, false);
             _bossFill = bossFillObject.AddComponent<Image>();
             _bossFill.color = new Color(0.95f, 0.3f, 0.32f);
+            // Placeholder only — `hud-boss-bar-fill` has a 32.4% opaque
+            // x-extent. See Bar() for the measured table.
             AsFilled(_bossFill, Image.FillMethod.Horizontal);
             _bossFill.raycastTarget = false;
             var bossFillRect = bossFillObject.GetComponent<RectTransform>();
@@ -2056,12 +2444,15 @@ namespace CinderCourt.View
                 new Vector2(0, -120), new Vector2(120, 26), new Color(0.02f, 0.05f, 0.06f, 0.8f));
             Label(_extractRoot.transform, 0, 0, 120, 12, "추출", 11, TextAnchor.MiddleCenter);
             var extractBack = Panel(_extractRoot.transform, new Vector2(0, 0), new Vector2(0, 0),
-                new Vector2(6, 4), new Vector2(108, 8), new Color(0f, 0f, 0f, 0.6f));
+                new Vector2(6, 4), new Vector2(108, 8), new Color(0f, 0f, 0f, 0.6f), "hud-extraction-ring-frame");
+
             extractBack.GetComponent<RectTransform>().pivot = Vector2.zero;
             var extractFillObject = new GameObject("ExtractFill");
             extractFillObject.transform.SetParent(extractBack.transform, false);
             _extractRing = extractFillObject.AddComponent<Image>();
             _extractRing.color = new Color(0.62f, 0.95f, 0.88f);
+            // Placeholder only — `hud-extraction-ring-fill` has a 24.6% opaque
+            // x-extent. See Bar() for the measured table.
             AsFilled(_extractRing, Image.FillMethod.Horizontal);
             _extractRing.raycastTarget = false;
             var extractRect = extractFillObject.GetComponent<RectTransform>();
@@ -2071,13 +2462,14 @@ namespace CinderCourt.View
             extractRect.offsetMax = new Vector2(-1, -1);
             _extractRoot.SetActive(false);
 
-            _shieldRect = _shieldText.rectTransform;
+            _shieldRect = shieldPanelRect;
+
             ApplyLayoutTier();          // grade the fresh dungeon surfaces
             SyncTouchModeSurfaces();    // dash touch button goes live
             ShowRotateHintIfPortrait(); // spec #14: one-time landscape nudge
         }
 
-        // --- AMENDMENT #7 surge / trial banner ---------------------------------
+        // --- AMENDMENT #10 surge / trial banner ---------------------------------
         Text _surgeBanner;
         Text _trialBanner;
         string _lastSurgeText = "";
@@ -2088,7 +2480,7 @@ namespace CinderCourt.View
         int _lastTrialHits;
 
         /// <summary>
-        /// Surge windows and the trial clock (AMENDMENT #7). Text only, reusing
+        /// Surge windows and the trial clock (AMENDMENT #10). Text only, reusing
         /// the toast band — no new geometry, so the audited HUD rects the layout
         /// tests froze are untouched.
         ///
@@ -2135,7 +2527,7 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// Latches the run's mode ONCE at start (AMENDMENT #7). Separate from
+        /// Latches the run's mode ONCE at start (AMENDMENT #10). Separate from
         /// the per-frame sync on purpose: the clear ceremony reads this AFTER
         /// the run has ended, so a flag that decays with the run would hand the
         /// trial the dungeon's "구역 정화 • 점수 0 • 유물 0" wording — a line
@@ -2153,6 +2545,95 @@ namespace CinderCourt.View
             if (_relicText != null) _relicText.gameObject.SetActive(!training);
             if (_enemyText != null) _enemyText.gameObject.SetActive(!training);
         }
+
+        // --- AMENDMENT #11 UI: in-run difficulty badge -----------------------
+        //
+        // Why this exists: §16 deliberately LOCKS the tier at run creation so a run
+        // reproduces from (config, input sequence). A locked choice the player cannot
+        // see is a trap — they pick 악몽 in the lobby, die, and have no on-screen proof
+        // of which ruleset killed them. The lobby button is the only place the tier
+        // was ever stated, and it is three screens away by then.
+
+        /// <summary>Stats panel height. The difficulty row is a real 5th row, so the
+        /// panel grows to hold it and shrinks back when the run is baseline — an
+        /// always-tall panel would show 24 u of empty background on every Normal run,
+        /// which is most of them.</summary>
+        float StatsPanelHeight => _difficultyBadgeShown ? 132f : 108f;
+
+        /// <summary>Top inset of the mute button: it sits 8 u under the stats panel,
+        /// so it has to move with the panel rather than repeat a literal.</summary>
+        float MuteTopOffset => 16f + StatsPanelHeight + 8f;
+
+        /// <summary>
+        /// Baseline runs show nothing. <see cref="Sim.Difficulty.Normal"/> is the
+        /// pre-amendment ruleset and is what arena and prologue always run, so a
+        /// "난이도 보통" row there would be permanent noise that says nothing. The badge
+        /// is a deviation marker: it appears exactly when the rules are not the
+        /// default ones.
+        /// </summary>
+        internal static bool ShowsDifficultyBadge(Sim.Difficulty difficulty)
+            => difficulty != Sim.Difficulty.Normal;
+
+        /// <summary>
+        /// One HUD line for a tier. Deliberately shorter than the lobby's three-line
+        /// spec text (<see cref="LobbyView.DifficultyLabelText"/>): in-run this must
+        /// answer "which ruleset am I in" at a glance, not re-teach the multipliers.
+        /// The 협동 marker is the one mechanical fact worth carrying, because a group-AI
+        /// tier is the one that makes enemies circle instead of charge.
+        /// </summary>
+        internal static string DifficultyBadgeText(Sim.Difficulty difficulty)
+        {
+            var name = LobbyView.DifficultyName(difficulty);
+            return Sim.DifficultySpec.For(difficulty).GroupAi
+                ? $"난이도 {name} • 협동"
+                : $"난이도 {name}";
+        }
+
+        /// <summary>
+        /// Result-screen suffix. A score earned on 악몽 and one earned on 입문 are not
+        /// the same number, so the tier has to ride along with it or the run summary
+        /// misreports itself. Empty on the baseline tier, which keeps every existing
+        /// Normal-run result line byte-identical.
+        /// </summary>
+        internal static string DifficultyResultSuffix(Sim.Difficulty difficulty)
+            => ShowsDifficultyBadge(difficulty)
+                ? " • " + LobbyView.DifficultyName(difficulty)
+                : string.Empty;
+
+        /// <summary>
+        /// Latches the run's tier ONCE at start, like <see cref="SetTrialMode"/>: the
+        /// sim cannot change difficulty mid-run, so polling it per frame would be a
+        /// lie about how the value behaves.
+        /// </summary>
+        public void SetRunDifficulty(Sim.Difficulty difficulty)
+        {
+            _runDifficulty = difficulty;
+            var show = ShowsDifficultyBadge(difficulty);
+            if (_difficultyText != null)
+            {
+                _difficultyText.text = show ? DifficultyBadgeText(difficulty) : string.Empty;
+                // Gold reads as "this run is off-baseline" everywhere else in the HUD.
+                _difficultyText.color = new Color(1f, 0.83f, 0.45f);
+                _difficultyText.gameObject.SetActive(show);
+            }
+            if (show == _difficultyBadgeShown) return;
+            _difficultyBadgeShown = show;
+            // The panel and the mute button below it both resize; re-run the tier pass
+            // rather than duplicating its geometry. Guarded because Build() can latch a
+            // tier before the first ApplyLayout has supplied screen geometry.
+            if (_statsRect != null && _lastScreenWidth > 0 && _lastScreenHeight > 0)
+                ApplyLayoutTier();
+        }
+
+        /// <summary>The tier this run was created with (test/diagnostic seam).</summary>
+        internal Sim.Difficulty RunDifficulty => _runDifficulty;
+
+        /// <summary>Geometry seams for the layout regression tests: the stats panel and
+        /// the mute button move together when the badge row appears.</summary>
+        internal RectTransform StatsRectForTest => _statsRect;
+        internal RectTransform MuteRectForTest => _muteRect;
+        internal Text DifficultyLabelForTest => _difficultyText;
+
 
         void EnsureSurgeBanners()
         {
@@ -2194,6 +2675,111 @@ namespace CinderCourt.View
         }
 
         /// <summary>Per-frame dungeon sync (IHackSnapshot surface, primitives only).</summary>
+        /// <summary>
+        /// AMENDMENT #8 (A8.5) readout. Primitives only, like every other HUD sync: the
+        /// caller reduces the per-slot cooldowns to the SOONEST one, because the command is
+        /// global and the player only needs to know when SOMETHING will answer it. Relabels
+        /// at tenth-of-a-second granularity so the text is not rebuilt every frame.
+        /// </summary>
+        public void SyncCompanionSkill(int slots, float soonestCooldown, bool anyReady)
+        {
+            if (_companionSkillLabel == null) return;
+            var tenths = anyReady ? 0 : Mathf.Max(1, Mathf.CeilToInt(soonestCooldown * 10f));
+            if (slots <= 0 || tenths == _lastCompanionSkillTenths) return;
+            _lastCompanionSkillTenths = tenths;
+            _companionSkillLabel.text = anyReady
+                ? "동료 특기 (V)"
+                : $"동료 특기 {tenths / 10f:0.0}s";
+            _companionSkillLabel.color = anyReady
+                ? new Color(1f, 0.86f, 0.5f)
+                : new Color(0.72f, 0.72f, 0.78f);
+        }
+
+
+        /// <summary>
+        /// Companion stance readout. <paramref name="slots"/> &lt;= 0 hides the chip (no
+        /// companion in the run). Otherwise it names the live behavior — Hold = "방어 태세"
+        /// (pinned zone defense), Follow = "추격" while any slot is engaged else "호위" — so the
+        /// three console/keys orders read as distinct sim states. Keyed on (slots, behavior,
+        /// engaged) so the text is not rebuilt every frame.
+        /// </summary>
+        public void SyncCompanionStance(int slots, CompanionBehavior behavior, bool engaged)
+        {
+            if (_companionStanceLabel == null) return;
+            var active = slots > 0;
+            if (_companionStanceLabel.gameObject.activeSelf != active)
+                _companionStanceLabel.gameObject.SetActive(active);
+            if (!active) return;
+
+            // 0 = defend(hold), 1 = pursue(follow+engaged), 2 = escort(follow idle).
+            var key = behavior == CompanionBehavior.Hold ? 0 : engaged ? 1 : 2;
+            if (key == _lastCompanionStanceKey) return;
+            _lastCompanionStanceKey = key;
+            switch (key)
+            {
+                case 0:
+                    _companionStanceLabel.text = "동료: 방어 태세";
+                    _companionStanceLabel.color = new Color(0.56f, 0.85f, 1f);
+                    break;
+                case 1:
+                    _companionStanceLabel.text = "동료: 추격 교전";
+                    _companionStanceLabel.color = new Color(1f, 0.62f, 0.4f);
+                    break;
+                default:
+                    _companionStanceLabel.text = "동료: 호위";
+                    _companionStanceLabel.color = new Color(0.82f, 0.86f, 0.95f);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Room objective readout (dungeon-revival spec). An empty/null
+        /// <paramref name="objective"/> hides the chip entirely — that is how arena,
+        /// prologue and unknown stage ids opt out rather than showing a stale line
+        /// from the previous room. While the room boss is alive the same objective
+        /// is re-framed as the final beat and recolored amber, so the player sees
+        /// the room's win condition change shape instead of a second HUD element
+        /// appearing. Keyed on (objective, bossAlive) so the text is not rebuilt
+        /// every frame.
+        /// </summary>
+        public void SyncRoomObjective(string objective, bool bossAlive)
+        {
+            if (_roomObjectivePanel == null || _roomObjectiveText == null) return;
+            var active = !string.IsNullOrEmpty(objective);
+            if (_roomObjectivePanel.activeSelf != active)
+                _roomObjectivePanel.SetActive(active);
+            if (!active)
+            {
+                _lastRoomObjectiveKey = int.MinValue;
+                return;
+            }
+
+            var key = objective.GetHashCode() * 2 + (bossAlive ? 1 : 0);
+            if (key == _lastRoomObjectiveKey) return;
+            _lastRoomObjectiveKey = key;
+            if (bossAlive)
+            {
+                _roomObjectiveText.text = "최종 목표 • " + objective;
+                _roomObjectiveText.color = new Color(1f, 0.83f, 0.45f);
+            }
+            else
+            {
+                _roomObjectiveText.text = "목표 • " + objective;
+                _roomObjectiveText.color = new Color(0.82f, 0.88f, 0.96f);
+            }
+        }
+
+        /// <summary>
+        /// QA/test seam for the room objective chip: the line the player can
+        /// actually read, or "" while the chip is hidden.
+        /// </summary>
+        public string RoomObjectiveReadout =>
+            _roomObjectivePanel != null && _roomObjectivePanel.activeSelf && _roomObjectiveText != null
+                ? _roomObjectiveText.text
+                : "";
+
+
+
         public void SyncDungeon(
             int level, int xp, int xpNext, int comboIndex,
             float dashCooldown, IReadOnlyList<float> skillCooldowns, float shield,
@@ -2235,21 +2821,26 @@ namespace CinderCourt.View
             }
 
             _dashOverlay.fillAmount = Mathf.Clamp01(dashCooldown / 1.6f);
+            ApplySkillCardReadyState(_dashFrame, dashCooldown <= 0.0001f);
             if (skillCooldowns != null && skillCooldowns.Count >= 4)
             {
                 for (var i = 0; i < 4; i++)
                 {
                     _skillOverlays[i].fillAmount = Mathf.Clamp01(skillCooldowns[i] / SkillMaxCooldowns[i]);
                     _skillGroups[i].alpha = charge >= SkillCosts[i] ? 1f : 0.45f;
+                    ApplySkillCardReadyState(_skillFrames[i], skillCooldowns[i] <= 0.0001f);
                 }
             }
+
 
             var shieldShown = shield > 0f ? Mathf.CeilToInt(shield) : 0;
             if (shieldShown != _lastShield)
             {
                 _lastShield = shieldShown;
                 _shieldText.text = shieldShown > 0 ? $"방패 {shieldShown}" : "";
+                if (_shieldPanel != null) _shieldPanel.SetActive(shieldShown > 0);
             }
+
 
             var bossVisible = bossMaxHp > 0f && bossHp > 0f;
             if (_bossBar.activeSelf != bossVisible)
@@ -2359,7 +2950,17 @@ namespace CinderCourt.View
 
         // ------------------------------------------------------------- factory --
         GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
-                         Vector2 anchored, Vector2 size, Color color)
+                         Vector2 anchored, Vector2 size, Color color, string frameSpriteId = null)
+        {
+            return Panel(parent, anchorMin, anchorMax, anchored, size, color, out _, frameSpriteId);
+        }
+
+        /// <summary>Overload for callers that need the frame overlay's own
+        /// Image (e.g. SkillCard's ready-state art swap) — every other call
+        /// site keeps using the discarding overload above unchanged.</summary>
+        GameObject Panel(Transform parent, Vector2 anchorMin, Vector2 anchorMax,
+                         Vector2 anchored, Vector2 size, Color color, out Image frameImage,
+                         string frameSpriteId = null)
         {
             var panel = new GameObject("Panel");
             panel.transform.SetParent(parent, false);
@@ -2376,12 +2977,113 @@ namespace CinderCourt.View
             rect.pivot = anchorMin;
             rect.anchoredPosition = anchored;
             rect.sizeDelta = size;
+            frameImage = ApplyFrameOverlay(panel.transform, frameSpriteId);
             return panel;
         }
 
-        Image Bar(Transform parent, float x, float y, float width, float height,
-                  Color fillColor, out Text valueText, string label)
+        /// <summary>Additive decorative chrome (HUD atlas, see
+        /// _workspace/current/design/hud-atlas/): a full-stretch child drawn
+        /// ON TOP of the panel's own flat-color Image, never a replacement
+        /// for it. That keeps every existing translucent track/backdrop tint
+        /// exactly as before when the sprite is absent AND when a fill bar
+        /// sits on top of a partially-hollow frame — the flat base still
+        /// shows through as the "empty" track. No-op when the sprite hasn't
+        /// been generated/imported yet. Returns the created Image (or null)
+        /// so callers that need to swap its sprite later (skill-card
+        /// ready-state) can keep a reference.
+        ///
+        /// xp-bar-frame and extraction-ring-frame have no usable 9-slice
+        /// border (real on-screen height 8-10 u, see IconImportPipeline's
+        /// TryGetFrameBorder note) so they render Type.Simple — a flat
+        /// stretch with no border math and therefore no minimum size.</summary>
+        static Image ApplyFrameOverlay(Transform parent, string frameSpriteId)
         {
+            if (frameSpriteId == null) return null;
+            var frame = Resources.Load<Sprite>("Icons/" + frameSpriteId);
+            if (frame == null) return null;   // missing sprite keeps the flat-color fallback
+            var frameObject = new GameObject("Frame");
+            frameObject.transform.SetParent(parent, false);
+            var frameImage = frameObject.AddComponent<Image>();
+            frameImage.sprite = frame;
+            frameImage.type = frameSpriteId == "hud-xp-bar-frame" || frameSpriteId == "hud-extraction-ring-frame"
+                ? Image.Type.Simple
+                : Image.Type.Sliced;
+            frameImage.color = Color.white;
+            frameImage.raycastTarget = false;
+            var frameRect = frameObject.GetComponent<RectTransform>();
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.offsetMin = Vector2.zero;
+            frameRect.offsetMax = Vector2.zero;
+            return frameImage;
+        }
+
+        /// <summary>
+        /// 1x1 opaque white sprite shared by every generated Image. uGUI's
+        /// <c>Image.OnPopulateMesh</c> bails to the plain <c>Graphic</c> full-rect
+        /// quad when <c>activeSprite</c> is null — the <c>type</c>/<c>fillAmount</c>
+        /// switch is never reached. A Filled Image with no sprite therefore
+        /// renders permanently full no matter what fillAmount is written to it,
+        /// which is exactly how the 체력/기름 meters lost their drain.
+        /// </summary>
+        static Sprite _fillSprite;
+
+        static Sprite FillSprite()
+        {
+            if (_fillSprite != null) return _fillSprite;
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+            {
+                name = "HudFillTexture",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                // Procedural and cached in a static: without DontSave a domain
+                // reload or playmode exit destroys it while the Images that
+                // reference it survive, leaving them sprite-less again — the
+                // exact null-activeSprite state this whole helper exists to
+                // prevent, but only after a reload, which is worse than never.
+                hideFlags = HideFlags.HideAndDontSave,
+            };
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply(false, true);
+            _fillSprite = Sprite.Create(texture, new Rect(0, 0, 1, 1),
+                new Vector2(0.5f, 0.5f), 1f, 0, SpriteMeshType.FullRect);
+            _fillSprite.name = "HudFillSprite";
+            _fillSprite.hideFlags = HideFlags.HideAndDontSave;
+            return _fillSprite;
+        }
+
+        /// <summary>
+        /// The ONLY sanctioned way to make a Filled Image in this HUD.
+        ///
+        /// Assigning the sprite is not decoration — it is what makes fillAmount
+        /// reach the mesh at all (see <see cref="FillSprite"/>). Seven gauges
+        /// shipped without it — health, oil, XP, boss HP, extraction ring, skill
+        /// cooldowns, charge — every one rendering permanently full while Sync()
+        /// dutifully wrote the correct fillAmount into a field nothing read.
+        /// Caught in a browser smoke: the death panel showed 체력 0 over a bar
+        /// measured at 98% lit pixels (CLAUDE.md §4k, which names this method).
+        ///
+        /// Callers that also want atlas art assign it AFTER this returns. The
+        /// first line here overwrites `sprite`, so the reverse order silently
+        /// discards the art and leaves a working-but-flat gauge.
+        /// </summary>
+        static void AsFilled(Image image, Image.FillMethod method, int origin = 0)
+        {
+            image.sprite = FillSprite();
+            image.type = Image.Type.Filled;
+            image.fillMethod = method;
+            image.fillOrigin = origin;
+            image.preserveAspect = false;
+        }
+
+
+        Image Bar(Transform parent, float x, float y, float width, float height,
+                  Color fillColor, out Text valueText, string label,
+                  string frameSpriteId = null, string fillSpriteId = null)
+        {
+            // The frame overlay is added AFTER Fill below (not passed here)
+            // so it sits on top of the fill as a bezel instead of being
+            // covered by it — see ApplyFrameOverlay's ordering note.
             var back = Panel(parent, new Vector2(0, 1), new Vector2(0, 1),
                 new Vector2(x, y), new Vector2(width, height), new Color(0f, 0f, 0f, 0.55f));
             var fillObject = new GameObject("Fill");
@@ -2394,7 +3096,38 @@ namespace CinderCourt.View
             rect.anchorMax = new Vector2(1, 1);
             rect.offsetMin = new Vector2(2, 2);
             rect.offsetMax = new Vector2(-2, -2);
+            // The 1x1 placeholder is the fill, and the `hud-*-bar-fill` atlas
+            // art is deliberately NOT applied. Measured, not assumed:
+            //
+            //   hud-hp-bar-fill        256x64  opaque x-extent 22.7%
+            //   hud-oil-bar-fill       256x64  opaque x-extent 12.9%
+            //   hud-xp-bar-fill        256x64  opaque x-extent 58.6%
+            //   hud-boss-bar-fill      256x38  opaque x-extent 32.4%
+            //   hud-extraction-ring    256x64  opaque x-extent 24.6%
+            //
+            // They are centred medallions on transparent canvases, not
+            // edge-to-edge bar fills. Image.Type.Filled trims to the sprite's
+            // opaque rect, so a full health bar renders as a blob across the
+            // middle 22.7% — HudLayoutTests measured exactly 0.242 the moment
+            // this code applied them.
+            //
+            // Main applied them and shipped correct bars anyway, because main
+            // called the fill helper AFTER the Resources.Load and the helper's
+            // first line is `image.sprite = FillSprite()`. The art was being
+            // discarded on every bar. The ordering looked like the bug; it was
+            // the only thing holding the gauges together, and "fixing" it is
+            // what surfaced the real one. §4k's family again: the value was
+            // right and nothing read it, here the read is right and the value
+            // is unusable.
+            //
+            // Reinstate this when the fill art is regenerated edge-to-edge (a
+            // horizontal gradient spanning the full 256, no transparent
+            // margins). The frame sprites are unaffected and still applied.
             AsFilled(fill, Image.FillMethod.Horizontal);
+            // Sibling order: back (flat track) -> Fill -> Frame -> Label, so
+            // the ornate border bezel draws over the fill's edges but the
+            // readout text still draws over the bezel and stays legible.
+            ApplyFrameOverlay(back.transform, frameSpriteId);
             valueText = Label(back.transform, 6, 0, width - 12, height, label, 14, TextAnchor.MiddleLeft);
             valueText.rectTransform.anchoredPosition = new Vector2(6, 0);
             return fill;
@@ -2422,53 +3155,6 @@ namespace CinderCourt.View
             return text;
         }
 
-        // ================================================ AMENDMENT #9 =====
-        /// <summary>
-        /// A 1x1 white sprite, shared by every filled gauge.
-        ///
-        /// uGUI's Image only honours <c>type</c> and <c>fillAmount</c> when it
-        /// HAS a sprite: with a null sprite, Image.OnPopulateMesh falls through
-        /// to Graphic's, which emits one full rect and never consults either
-        /// field. Every gauge in this HUD was built as Type.Filled without a
-        /// sprite, so all seven of them — health, oil, XP, boss HP, extraction
-        /// ring, skill cooldowns, charge — rendered permanently full while
-        /// Sync() dutifully wrote the correct fillAmount into a value nothing
-        /// read. Caught in a browser smoke: the death panel read 체력 0 over a
-        /// bar measured at 98% lit pixels.
-        ///
-        /// One texture for all of them. Created once, never unloaded — it is
-        /// four bytes and lives as long as the HUD.
-        /// </summary>
-        static Sprite _fillSprite;
-        static Sprite FillSprite()
-        {
-            if (_fillSprite != null) return _fillSprite;
-            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
-            {
-                name = "HudFill",
-                // Point/Clamp: a 1x1 stretched across a bar must not sample
-                // outside itself or bleed at the edges.
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Clamp,
-            };
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply();
-            _fillSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f),
-                new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
-            _fillSprite.name = "HudFill";
-            return _fillSprite;
-        }
-
-        /// <summary>Makes an Image actually honour fillAmount. Every
-        /// Type.Filled image in this file must go through here.</summary>
-        static void AsFilled(Image image, Image.FillMethod method, int origin = 0)
-        {
-            image.sprite = FillSprite();
-            image.type = Image.Type.Filled;
-            image.fillMethod = method;
-            image.fillOrigin = origin;
-        }
-
         GameObject TextButton(Transform parent, Vector2 anchor, Vector2 anchored,
                               Vector2 size, string label, int fontSize,
                               UnityEngine.Events.UnityAction onClick,
@@ -2489,6 +3175,7 @@ namespace CinderCourt.View
             }
             var button = buttonObject.AddComponent<Button>();
             button.onClick.AddListener(onClick);
+            if (Audio != null) button.onClick.AddListener(Audio.PlayClick);   // W12
 
             // AMENDMENT #10 — optional glyph, and the label STAYS.
             //
@@ -2531,7 +3218,6 @@ namespace CinderCourt.View
                     }
                 }
             }
-
             var text = Label(buttonObject.transform, 0, 0, size.x, size.y, label, fontSize, TextAnchor.MiddleCenter);
             var rect = text.rectTransform;
             rect.anchorMin = Vector2.zero;
@@ -2549,16 +3235,20 @@ namespace CinderCourt.View
         GameObject SkillCard(Transform parent, float offsetX, string key, string label,
                              UnityEngine.Events.UnityAction onClick,
                              out Image cooldownOverlay, out CanvasGroup group,
-                             string iconId = null)
+                             out Image frameImage, string iconId = null)
         {
             var card = Panel(parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f));
+                new Vector2(offsetX, 18), new Vector2(150, 88), new Color(0.1f, 0.08f, 0.18f, 0.85f),
+                out frameImage, "hud-skill-card-frame");
+
+
             card.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             var rect = card.GetComponent<RectTransform>();
             rect.pivot = new Vector2(0.5f, 0f);
             group = card.AddComponent<CanvasGroup>();
             var button = card.AddComponent<Button>();
             button.onClick.AddListener(onClick);
+            if (Audio != null) button.onClick.AddListener(Audio.PlayClick);   // W12
             // Icon backdrop sits between the panel fill and the text rows so the
             // cooldown overlay (created last, full-stretch) still darkens it.
             if (iconId != null)
@@ -2617,7 +3307,9 @@ namespace CinderCourt.View
         /// so the audit measures what ships.</summary>
         internal RectTransform AbandonRectForTest =>
             _abandonButton == null ? null : (RectTransform)_abandonButton.transform;
-        internal RectTransform StatsRectForTest => _statsRect;
+        // StatsRectForTest lives at :2634 with the badge-row note. Main added it
+        // there while this lane added it here; one had to go and the documented
+        // one stays.
         internal RectTransform ShieldRectForTest => _shieldRect;
         internal RectTransform EquipRectForTest => _equipRect;
         /// <summary>Whether the abandon modal is on screen. Distinct from the
@@ -2830,6 +3522,10 @@ namespace CinderCourt.View
         public void OnEvents(SimEvents events, ISimSnapshot sim)
         {
             _bossAliveAtDeath = sim is ICampaignSnapshot campaign && campaign.BossAlive;
+            // W10: the command queue advances on the SAME per-tick mask the
+            // audio and VFX directors read, so a trigger can never disagree with
+            // the cue the player just heard.
+            ObserveCommandQueueEvents(events);
             if ((events & SimEvents.HazardPulse) != 0)
                 _recentHazardTime = Time.unscaledTime;
             if ((events & SimEvents.WaveStarted) != 0)
@@ -2856,9 +3552,14 @@ namespace CinderCourt.View
                         : Time.unscaledTime - _recentHazardTime <= 2f
                             ? "위험 지대에 잠식됐다"
                             : "군단에 함락됐다";
+                    // AMENDMENT #11 UI: the tier rides the summary line. Without it
+                    // the score is unreadable as a result — the same number means
+                    // different things on 입문 and 악몽.
                     _finalText.text =
                         $"점수 {digest.Score:N0} • 유물 {digest.Relics} • 처치 {digest.Kills}\n" +
-                        $"{deathContext} • 웨이브 {digest.Wave} 도달";
+                        $"{deathContext} • 웨이브 {digest.Wave} 도달" +
+                        DifficultyResultSuffix(_runDifficulty);
+
                 }
                 ResetTransientCeremonies();
                 _gameOverPanel.SetActive(true);
@@ -2967,9 +3668,10 @@ namespace CinderCourt.View
             }
 
             SyncSkill(_novaCooldownOverlay, _novaGroup, sim.NovaCooldown,
-                SimConfig.NovaCooldown, sim.Charge >= SimConfig.NovaCost);
+                SimConfig.NovaCooldown, sim.Charge >= SimConfig.NovaCost, _novaFrame);
             SyncSkill(_wardCooldownOverlay, _wardGroup, sim.WardCooldown,
-                SimConfig.WardCooldown, sim.Charge >= SimConfig.WardCost);
+                SimConfig.WardCooldown, sim.Charge >= SimConfig.WardCost, _wardFrame);
+
 
             if (_loreTimer > 0f)
             {
@@ -3001,6 +3703,17 @@ namespace CinderCourt.View
             if (sim is CinderSim liveSim)
             {
                 SyncChargeGauge(liveSim.ChargeProgress);
+            }
+            if (sim is IHackSnapshot hack)
+            {
+                // A9 momentum readout, re-enabled. This line was commented out
+                // while the VFX lane's view half sat in a tree whose sim knew
+                // nothing about momentum; main b97d609 landed the sim half
+                // (IHackSnapshot.Momentum / MomentumTier /
+                // MomentumDamageMultiplier, HackSpec.MomentumMax), so the seam
+                // closes here. Additive as before: a snapshot that predates the
+                // amendment reports 0 and the bar simply stays unbuilt.
+                SyncMomentumGauge(hack.Momentum, hack.MomentumTier, hack.MomentumDamageMultiplier);
             }
             if (sim is IGrowthChoiceSnapshot growth)
             {
@@ -3181,7 +3894,9 @@ namespace CinderCourt.View
             // "점수 0 • 유물 0" and imply a failed run instead of a finished one.
             _stageClearText.text = _trialStatsHidden
                 ? $"피격 {_trialClearHits}회"
-                : $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}";
+                : $"점수 {_stageClearFinalScore:N0} • 유물 {_stageClearFinalRelics}"
+                  + DifficultyResultSuffix(_runDifficulty);
+
             if (_stageClearTitle != null)
                 _stageClearTitle.text = _trialStatsHidden ? "시련 완료" : "구역 정화";
             _stageClearPanel.SetActive(true);
@@ -3234,10 +3949,32 @@ namespace CinderCourt.View
         }
 
         static void SyncSkill(Image overlay, CanvasGroup group, float cooldown,
-                              float maxCooldown, bool affordable)
+                              float maxCooldown, bool affordable, Image frame = null)
         {
             overlay.fillAmount = cooldown / maxCooldown;
             group.alpha = affordable ? 1f : 0.45f;
+            ApplySkillCardReadyState(frame, cooldown <= 0.0001f);
+        }
+
+        /// <summary>HUD atlas ready-state chrome: swap the card's frame
+        /// sprite to the gold-rim variant while its cooldown overlay is
+        /// fully retracted (fillAmount 0 = usable now). The dark cooldown
+        /// overlay already communicates "not ready" per-pixel as it wipes
+        /// down, so this only touches the border art, never fillAmount/alpha
+        /// — those keep working exactly as before. Sprites are cached after
+        /// first load and the swap is skipped when already applied, so this
+        /// costs nothing beyond a null/reference check on every other frame.
+        /// No-op for callers with no frame (arena is optional; frame == null
+        /// happens if the atlas sprite failed to import).</summary>
+        static void ApplySkillCardReadyState(Image frame, bool ready)
+        {
+            if (frame == null) return;
+            if (_skillFrameNormalSprite == null)
+                _skillFrameNormalSprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame");
+            if (_skillFrameReadySprite == null)
+                _skillFrameReadySprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame-ready");
+            var target = ready ? _skillFrameReadySprite : _skillFrameNormalSprite;
+            if (target != null && frame.sprite != target) frame.sprite = target;
         }
     }
 }

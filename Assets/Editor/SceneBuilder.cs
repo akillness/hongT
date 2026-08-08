@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using CinderCourt.View;
 
 namespace CinderCourt.EditorTools
 {
@@ -13,8 +14,27 @@ namespace CinderCourt.EditorTools
     {
         const string ScenePath = "Assets/Scenes/CinderCourt.unity";
         const string BackdropTexture = "Assets/Art/Textures/cinder-court-backdrop.png";
-        // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S). S=0.01 -> 15.36 x 10.24 m.
-        const float S = 0.01f;
+        /// <summary>Grain for the out-of-arena dark. Reuses a stage stone map -
+        /// they are generated seamless-tileable, so no new asset is needed.</summary>
+        const string VoidFloorTexture =
+            "Assets/Resources/Textures/Env/abyss-chancel-stone.png";
+        // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S).
+        //
+        // S is DERIVED, never a literal. It was hardcoded 0.01f, and when the
+        // runtime moved ViewWorld.Scale 0.01 -> 0.0125 nothing here followed:
+        // the painted court plate stayed centred on sim(768,512)*0.01 =
+        // (7.68,-5.12) while the arena moved to (9.6,-6.4), so the backdrop sat
+        // 154x102 sim px off-centre at 80% of the area it had to cover. Same
+        // raw-constant drift that hit the furniture caps; deriving it makes the
+        // baked scene track the runtime quotient by construction.
+        //
+        // Scope note: only the SimWorld() call sites follow S. The camera
+        // transform (L35) and VoidFloor's 40x26 extent are deliberate literals
+        // — the camera is scene-authored against the OLD quotient on purpose
+        // (CameraRig.Awake rebases it via LegacyScaleRatio, so moving it here
+        // would double-compensate), and VoidFloor is oversized on purpose to
+        // cover the widest frustum tier.
+        const float S = ViewWorld.Scale;
 
         [MenuItem("CinderCourt/Build Scene")]
         public static void Build()
@@ -147,7 +167,67 @@ namespace CinderCourt.EditorTools
             // reads as "the world ends here" even though floor IS present.
             // The floor must be dark enough to recede but close enough that
             // the apron edge becomes a gradient rather than a cliff.
-            voidMaterial.SetColor("_BaseColor", new Color(0.105f, 0.092f, 0.125f, 1f));
+            // 0.105/0.092/0.125 was the UNTEXTURED tuning. URP Unlit is
+            // _BaseColor x _BaseMap, so binding a map below (mean luma 0.336)
+            // multiplies that value down to an effective 0.035 - 1.6x DARKER
+            // than the 0.055 this very comment records as already failing
+            // ("the world ends here"). Compensate by the measured texture mean
+            // so the tuned appearance survives the multiply.
+            //
+            // Re-tuned the same way the original was: sampled the deployed
+            // frame either side of the plate edge. apron 48.34 vs void 22.28 =
+            // a 2.17x step; x1.36 brings it to ~1.6x, a gradient rather than
+            // the 4x cliff. Deliberately still DARKER than the apron - the
+            // arena must stay the bright centre (E0.5 readability, and the
+            // key art's own composition).
+            // VISIBILITY, measured after the fact so nobody re-invests here:
+            // baking this quad magenta and capturing the deploy showed it
+            // renders 0.25% of the frame (1616 of 655360 px). Both the grain
+            // and the tone below moved the frame's dominant colour bucket
+            // 0.0 pt. They are kept because the tone is a CORRECTNESS fix
+            // regardless of coverage — the multiply below was wrong, and if the
+            // camera is ever pushed out or the fog band widened this surface
+            // becomes visible with the right value already in place — but do
+            // not expect a visual return from tuning it further. The dark mass
+            // in frame is ground past fogEnd, which linear fog replaces
+            // wholesale, so the levers on it are the fog band width
+            // (FogEndOffset moves the boundary: 5.5 -> 9.6 u from focus,
+            // 9.0 -> 15.7 u, independent of camera distance), the camera
+            // distance (footprint scales with it), and FogColor(accent).
+            // Not this quad's albedo.
+            const float voidTextureMeanLuma = 0.336f;
+            const float voidSeamCorrection = 1.36f;
+            var voidTone = new Color(0.105f, 0.092f, 0.125f, 1f)
+                * (voidSeamCorrection / voidTextureMeanLuma);
+            voidTone.a = 1f;
+            voidMaterial.SetColor("_BaseColor", voidTone);
+            // MEASURED: this quad is the dark mass that owns the frame. Landing
+            // the stage textures took the dominant 24-step colour bucket from
+            // 86.2% to 54.5%, and realigning the painted backdrop moved it a
+            // further 0.5 pt only — because the backdrop covers 24% of this
+            // quad's area and sits entirely inside the terrain plate. What is
+            // left over IS VoidFloor, flat and untextured.
+            //
+            // So give it grain. URP Unlit multiplies _BaseColor x _BaseMap, so
+            // the shadow-tone value above is preserved exactly — only texture
+            // detail is added, never brightness. Tiling matches the world
+            // density the rest of the environment uses (1 tile per 1.28 u, the
+            // E2 module grid): a coarser void floor would put a visible grain
+            // step right at the apron edge, re-creating the "world ends here"
+            // line this quad exists to remove.
+            //
+            // One shared map for every stage, on purpose. This is the darkness
+            // OUTSIDE the arena — it carries no stage identity, so a per-stage
+            // bind would cost runtime code and a scene lookup for nothing.
+            const float voidTilesPerUnit = 1f / 1.28f;
+            var voidTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(VoidFloorTexture);
+            if (voidTexture != null)
+            {
+                voidMaterial.SetTexture("_BaseMap", voidTexture);
+                voidMaterial.SetTextureScale("_BaseMap",
+                    new Vector2(40f * voidTilesPerUnit, 26f * voidTilesPerUnit));
+            }
+            else Debug.LogWarning($"[SceneBuilder] void texture missing at {VoidFloorTexture}");
             AssetDatabase.DeleteAsset("Assets/Art/Materials/VoidFloor.mat");
             AssetDatabase.CreateAsset(voidMaterial, "Assets/Art/Materials/VoidFloor.mat");
             voidFloor.GetComponent<MeshRenderer>().sharedMaterial =

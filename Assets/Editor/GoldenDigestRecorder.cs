@@ -34,8 +34,7 @@ namespace CinderCourt.EditorTools
 
             foreach (var entry in StageCatalog.Entries)
             {
-                if (!HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(2, 1, 3),
-                        null, 0, out var config))
+                if (!HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(2, 1, 3), (string)null, 0, out var config))
                 {
                     sb.AppendLine(entry.Id + "|RESOLVE-FAIL");
                     continue;

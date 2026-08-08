@@ -13,7 +13,23 @@
 // geometry seam — and force-build the touch surfaces Build() gates on
 // hardware. The HUD canvas is switched to WorldSpace and sized to the
 // effective phone canvas so world-space rects are measurable canvas units.
+//
+// Also the uGUI FILL-RENDER contract for the 체력/기름 meters (and every other
+// generated Filled surface). uGUI short-circuits Image.OnPopulateMesh to the
+// plain Graphic full-rect quad when activeSprite is null
+// (Library/PackageCache/com.unity.ugui@67707a67a4ab/Runtime/UGUI/UI/Core/
+// Image.cs:883-889), so the Type.Filled branch — and fillAmount with it — is
+// never reached. The meters were built sprite-less and sat visually FULL for
+// the whole life of the bug while fillAmount was written correctly every
+// frame. ResetRunUi_ReseedsHealthBarForNewRun asserted fillAmount == 1f and
+// stayed green throughout: an assertion on fillAmount alone only re-states the
+// field the code already set, it never touches the geometry a player sees.
+// The guards below therefore assert (e) every Filled Image under the HUD owns
+// a sprite, and (f) the MESH those meters emit — read back out of
+// Graphic.OnPopulateMesh(VertexHelper) by reflection — narrows in proportion
+// to a drain driven through the real sim, not through a poked field.
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using CinderCourt.View;
 using CinderCourt.Sim;
@@ -35,12 +51,17 @@ namespace CinderCourt.Tests
         private const float MinCssPx = 44f;
         // Interactive rects may touch but not stack (<= 1 u counts as touch).
         private const float OverlapEpsilon = 1f;
+        // Mesh x-extent vs fillAmount: the quad is generated from the same
+        // float, so anything past this is a different code path, not drift.
+        private const float MeshFillTolerance = 0.005f;
 
         private GameObject _hudObject;
         private HudView _hud;
         private bool _hadRotateHintPref;
         private bool _hadReducedMotionPref;
         private int _reducedMotionPrefValue;
+        private bool _hadOsHintPref;
+        private string _osHintPrefValue;
 
         [SetUp]
         public void SetUp()
@@ -50,6 +71,10 @@ namespace CinderCourt.Tests
             _hadRotateHintPref = PlayerPrefs.HasKey("al:rotate-hint");
             _hadReducedMotionPref = PlayerPrefs.HasKey("al:reduced-motion");
             _reducedMotionPrefValue = PlayerPrefs.GetInt("al:reduced-motion");
+            // Editor fallback store of the WebGL OS hint (ViewPrefs seeding
+            // reads it through WebGLStorage) — snapshot for the same reason.
+            _hadOsHintPref = PlayerPrefs.HasKey("al:os-reduced-motion");
+            _osHintPrefValue = PlayerPrefs.GetString("al:os-reduced-motion");
 
             _hudObject = new GameObject("HudLayoutTests");
             _hud = _hudObject.AddComponent<HudView>();
@@ -68,6 +93,10 @@ namespace CinderCourt.Tests
                 PlayerPrefs.SetInt("al:reduced-motion", _reducedMotionPrefValue);
             else
                 PlayerPrefs.DeleteKey("al:reduced-motion");
+            if (_hadOsHintPref)
+                PlayerPrefs.SetString("al:os-reduced-motion", _osHintPrefValue);
+            else
+                PlayerPrefs.DeleteKey("al:os-reduced-motion");
             PlayerPrefs.Save();
         }
 
@@ -262,6 +291,238 @@ namespace CinderCourt.Tests
             return null;
         }
 
+        /// <summary>The 기름 meter fill. Unlike 체력 the oil prefix is ambiguous
+        /// — the prologue toast line "기름 게이지를 보라..." also starts with it —
+        /// so this takes the first candidate that actually owns a Fill child
+        /// and only fails once every candidate is exhausted.</summary>
+        private Image ChargeFill()
+        {
+            var candidates = 0;
+            foreach (var text in _hudObject.GetComponentsInChildren<Text>(true))
+            {
+                if (!text.text.StartsWith("기름 ")) continue;
+                candidates++;
+                var fill = text.transform.parent.Find("Fill")?.GetComponent<Image>();
+                if (fill != null) return fill;
+            }
+            Assert.Fail(candidates == 0
+                ? "HUD did not render an oil value"
+                : $"{candidates} oil label(s) rendered but none kept a visible Fill child");
+            return null;
+        }
+
+        /// <summary>Runs the graphic's real mesh generation and returns the
+        /// emitted x-extent as a fraction of its own rect width. Reflection is
+        /// the only seam: Graphic.OnPopulateMesh(VertexHelper) is protected and
+        /// CanvasRenderer never hands the built mesh back. The call is virtual,
+        /// so this dispatches to Image.OnPopulateMesh — the exact method whose
+        /// null-activeSprite early-out caused the meters to render full.</summary>
+        private static float MeshWidthFraction(Graphic graphic)
+        {
+            var populate = typeof(Graphic).GetMethod(
+                "OnPopulateMesh",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(VertexHelper) },
+                null);
+            Assert.That(populate, Is.Not.Null,
+                "Graphic.OnPopulateMesh(VertexHelper) is gone — this uGUI version "
+                + "needs a new mesh seam before the fill geometry can be graded");
+
+            var width = graphic.rectTransform.rect.width;
+            Assert.That(width, Is.GreaterThan(0f),
+                $"degenerate fill rect (layout did not resolve): {Path(graphic.transform)}");
+
+            using (var vertices = new VertexHelper())
+            {
+                populate.Invoke(graphic, new object[] { vertices });
+                Assert.That(vertices.currentVertCount, Is.GreaterThan(0),
+                    "the graphic emitted no geometry at all — the bar is invisible, "
+                    + $"not partial: {Path(graphic.transform)}");
+
+                var min = float.MaxValue;
+                var max = float.MinValue;
+                var vertex = new UIVertex();
+                for (var i = 0; i < vertices.currentVertCount; i++)
+                {
+                    vertices.PopulateUIVertex(ref vertex, i);
+                    min = Mathf.Min(min, vertex.position.x);
+                    max = Mathf.Max(max, vertex.position.x);
+                }
+                return (max - min) / width;
+            }
+        }
+
+        /// <summary>The assertion the shipped bug would have failed: the mesh
+        /// the meter actually emits must be as narrow as its fillAmount claims.
+        /// A sprite-less Filled Image keeps returning the full-rect quad
+        /// (fraction 1.0) no matter what fillAmount holds. Returns the measured
+        /// fraction so the caller can also grade it against the full bar.</summary>
+        private static float AssertFillReachesMesh(Image fill, string meter)
+        {
+            // overrideSprite is the public getter for the private activeSprite
+            // that Image.OnPopulateMesh gates on (Image.cs:885, :408). Compared
+            // through Unity's == so a destroyed sprite reads as null too.
+            Assert.That(fill.overrideSprite != null, Is.True,
+                $"{meter} fill has no sprite, so uGUI never reaches the Type.Filled "
+                + $"branch: {Path(fill.transform)}");
+            Assert.That(fill.type, Is.EqualTo(Image.Type.Filled),
+                $"{meter} fill stopped being a Filled Image: {Path(fill.transform)}");
+            Assert.That(fill.fillAmount, Is.LessThan(1f - MeshFillTolerance),
+                $"{meter} fill is still at {fill.fillAmount:F3} — a full bar cannot "
+                + "distinguish a real fill from the full-rect fallback quad");
+
+            var measured = MeshWidthFraction(fill);
+            Assert.That(measured, Is.EqualTo(fill.fillAmount).Within(MeshFillTolerance),
+                $"{meter} bar rendered {measured:P1} of its {fill.rectTransform.rect.width:F0} u "
+                + $"width but fillAmount says {fill.fillAmount:P1} "
+                + $"({Path(fill.transform)}) — fillAmount never reached the mesh");
+            return measured;
+        }
+
+        /// <summary>Dungeon run held on the attack key long enough for
+        /// CinderSim.ChargeProgress to go positive, which is the only thing
+        /// that lazily builds the charge-gauge Filled Image (HudView
+        /// SyncChargeGauge). Asserted, so a sim change that kills the charge
+        /// path fails here instead of quietly shrinking the surface census.</summary>
+        private static CinderSim ChargingDungeonRun()
+        {
+            Assert.That(HackConfig.TryDungeon(
+                    CampaignStages.CinderSpan,
+                    MetaStats.Of(0, 0, 0),
+                    EquipTiers.Of(0, 0, 0), (string)null,
+                    0,
+                    out var config),
+                Is.True, $"unknown stage {CampaignStages.CinderSpan}");
+            var sim = new CinderSim(in config);
+            var hold = new SimInput { AttackHeld = true };
+            for (var tick = 0; tick < 30 && sim.ChargeProgress <= 0f; tick++)
+            {
+                sim.Tick(in hold);
+            }
+            Assert.That(sim.ChargeProgress, Is.GreaterThan(0f),
+                "a held attack must accrue charge — without it the charge gauge "
+                + "is never built and the Filled surface census is short one");
+            return sim;
+        }
+
+        /// <summary>uGUI precondition, whole hierarchy. Image.OnPopulateMesh
+        /// returns the plain Graphic full-rect quad when activeSprite is null
+        /// (Image.cs:883-889), so a Filled Image with no sprite renders
+        /// permanently full. Walks every Image so a Filled surface added later
+        /// is graded automatically instead of shipping the same bug again.</summary>
+        [Test]
+        public void EveryFilledHudImage_OwnsASprite_SoFillAmountCanReachTheMesh()
+        {
+            ArrangePhone(dungeon: true);
+            // Lazily-built Filled surfaces: the charge gauge only exists once a
+            // live dungeon sim reports charge progress.
+            _hud.Sync(ChargingDungeonRun());
+
+            var filled = 0;
+            var violations = new List<string>();
+            foreach (var image in _hudObject.GetComponentsInChildren<Image>(true))
+            {
+                if (image.type != Image.Type.Filled) continue;
+                filled++;
+                if (image.overrideSprite == null)
+                    violations.Add(
+                        $"{Path(image.transform)} (fillMethod {image.fillMethod}, "
+                        + $"fillAmount {image.fillAmount:F3}) renders a full-rect quad "
+                        + "regardless of fillAmount");
+            }
+
+            // Census: StageClearFlash + 체력 + 기름 + nova/ward cooldowns (Build)
+            // + xp + boss + extract + dash + 4 skill cooldowns (EnableDungeonUi)
+            // + charge gauge = 14.
+            Assert.That(filled, Is.GreaterThanOrEqualTo(14),
+                $"only {filled} Filled surfaces found — the dungeon HUD lost fills "
+                + "and the sweep would be vacuous");
+            Assert.That(violations, Is.Empty,
+                "Filled Images with no sprite (uGUI never reaches Type.Filled):\n"
+                + string.Join("\n", violations));
+        }
+
+        /// <summary>체력 geometry, driven through the real sim. Ticks a live
+        /// arena run until enemy contact lands the first damage, then asserts
+        /// the MESH the bar emits narrowed. fillAmount alone was already
+        /// correct throughout the bug, so only the mesh grades the fix.</summary>
+        [Test]
+        public void HealthMeter_MeshNarrows_WhenTheSimDrainsHealth()
+        {
+            var sim = new CinderSim();
+            var idle = default(SimInput);
+            _hud.Sync(sim);
+
+            var fill = HealthFill();
+            Assert.That(fill.fillAmount, Is.EqualTo(1f).Within(0.001f),
+                "a fresh run must start visually full");
+            var fullFraction = MeshWidthFraction(fill);
+            Assert.That(fullFraction, Is.EqualTo(1f).Within(MeshFillTolerance),
+                "control: a full bar must emit a full-width quad, or the mesh "
+                + "readback itself is measuring the wrong thing");
+
+            // Enemies spawn, walk in, and land contact damage on their own —
+            // no field is poked, the drain path runs end to end.
+            var damagedAt = -1;
+            for (var tick = 1; tick <= 1200 && damagedAt < 0; tick++)
+            {
+                sim.Tick(in idle);
+                if ((sim.Events & SimEvents.PlayerDamaged) != SimEvents.None) damagedAt = tick;
+            }
+            Assert.That(damagedAt, Is.GreaterThan(0),
+                "no enemy ever damaged the idle player — the drain was never exercised");
+            Assert.That(sim.Player.Health, Is.LessThan(SimConfig.PlayerMaxHealth),
+                "the sim reported damage without taking health");
+
+            _hud.Sync(sim);
+            Assert.That(fill.fillAmount,
+                Is.EqualTo(sim.Player.Health / SimConfig.PlayerMaxHealth).Within(0.001f),
+                "the HUD did not take the sim's drained health");
+            var drainedFraction = AssertFillReachesMesh(fill, "체력");
+            Assert.That(drainedFraction, Is.LessThan(fullFraction - MeshFillTolerance),
+                $"체력 mesh did not narrow: full bar spanned {fullFraction:P1} of the "
+                + $"rect, the drained bar still spans {drainedFraction:P1}");
+        }
+
+        /// <summary>기름 geometry. The user reported BOTH meters, and the oil
+        /// bar is a second Bar() instance of the same Filled construction — it
+        /// gets the same mesh-level grade, spent through a real ward cast.</summary>
+        [Test]
+        public void OilMeter_MeshNarrows_WhenTheSimSpendsCharge()
+        {
+            var sim = new CinderSim();
+            _hud.Sync(sim);
+
+            var fill = ChargeFill();
+            Assert.That(fill.fillAmount, Is.EqualTo(1f).Within(0.001f),
+                "a fresh run starts at LanternMax, so the oil bar starts full");
+            var fullFraction = MeshWidthFraction(fill);
+            Assert.That(fullFraction, Is.EqualTo(1f).Within(MeshFillTolerance),
+                "control: a full oil bar must emit a full-width quad");
+
+            // Ward costs 30 oil against a LanternMax of 100 and only regains
+            // 7/s, so the cast is a visible bite out of the bar.
+            var ward = new SimInput { WardQueued = true };
+            var spentAt = -1;
+            for (var tick = 1; tick <= 600 && spentAt < 0; tick++)
+            {
+                sim.Tick(in ward);
+                if (sim.Charge < SimConfig.LanternMax - SimConfig.WardCost * 0.5f) spentAt = tick;
+            }
+            Assert.That(spentAt, Is.GreaterThan(0),
+                "the ward cast never took its oil — the spend was never exercised");
+
+            _hud.Sync(sim);
+            Assert.That(fill.fillAmount,
+                Is.EqualTo(sim.Charge / SimConfig.LanternMax).Within(0.001f),
+                "the HUD did not take the sim's spent charge");
+            var spentFraction = AssertFillReachesMesh(fill, "기름");
+            Assert.That(spentFraction, Is.LessThan(fullFraction - MeshFillTolerance),
+                $"기름 mesh did not narrow: full bar spanned {fullFraction:P1} of the "
+                + $"rect, the spent bar still spans {spentFraction:P1}");
+        }
+
         [Test]
         public void PrologueToast_DescribesDesktopOrTouchControls()
         {
@@ -408,6 +669,51 @@ namespace CinderCourt.Tests
             Assert.That(PlayerPrefs.GetInt("al:reduced-motion"), Is.EqualTo(1));
         }
 
+        /// <summary>Spec §2.4 auto-detection: with NO explicit lobby choice
+        /// (no "al:reduced-motion" key), the OS hint mirrored by the WebGL
+        /// shell ("al:os-reduced-motion", read via WebGLStorage — PlayerPrefs
+        /// string in the editor) decides the default.</summary>
+        [Test]
+        public void ReducedMotion_NoExplicitChoice_SeedsFromOsHint()
+        {
+            PlayerPrefs.DeleteKey("al:reduced-motion");
+            PlayerPrefs.SetString("al:os-reduced-motion", "1");
+            ViewPrefs.ResetCacheForTests();
+
+            Assert.That(ViewPrefs.ReducedMotion, Is.True,
+                "an OS prefers-reduced-motion user must get the reduced default without touching the lobby");
+            Assert.That(ViewPrefs.MotionScale, Is.EqualTo(0.4f));
+            Assert.That(ViewPrefs.TimeEffectsAllowed, Is.False);
+            Assert.That(PlayerPrefs.HasKey("al:reduced-motion"), Is.False,
+                "the OS hint is a default, not a choice — it must not be persisted as one");
+
+            PlayerPrefs.SetString("al:os-reduced-motion", "0");
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.False,
+                "clearing the OS setting must clear the seeded default on the next boot");
+        }
+
+        /// <summary>Spec §2.4 guard: an explicit lobby choice — including
+        /// explicit OFF — always beats the OS hint. HasKey is the
+        /// discriminator; GetInt(key, 0) could not tell OFF from no-choice,
+        /// and would force-enable reduced motion for explicit-OFF users on
+        /// every boot.</summary>
+        [Test]
+        public void ReducedMotion_ExplicitChoice_AlwaysBeatsOsHint()
+        {
+            ViewPrefs.ReducedMotion = false;                       // explicit OFF
+            PlayerPrefs.SetString("al:os-reduced-motion", "1");    // OS says reduce
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.False,
+                "an explicit OFF must survive an OS reduced-motion hint across boots");
+
+            ViewPrefs.ReducedMotion = true;                        // explicit ON
+            PlayerPrefs.SetString("al:os-reduced-motion", "0");    // OS says no-preference
+            ViewPrefs.ResetCacheForTests();
+            Assert.That(ViewPrefs.ReducedMotion, Is.True,
+                "an explicit ON must survive an OS no-preference hint across boots");
+        }
+
         [Test]
         public void RetryModalVisible_TracksActivePanel_NotPendingClearCeremony()
         {
@@ -519,6 +825,76 @@ namespace CinderCourt.Tests
             deferButton.onClick.Invoke();
             AssertVisibleText(canvas, "준비 보류");
             AssertVisibleText(canvas, "다음 방에 적용 (이전 준비 대체)");
+        }
+
+        /// <summary>
+        /// W15: the painted Ember Rest plate is produced on the asset lane and
+        /// may not exist yet, so BOTH states are real shipping states. This
+        /// asserts whichever one is live rather than assuming the art is there —
+        /// and in both cases the panel must stay fully actionable, because a
+        /// decorative layer that swallowed the offer taps is a softlock.
+        /// </summary>
+        [Test]
+        public void EmberRestBackdrop_IsOptional_AndNeverBlocksTheOffers()
+        {
+            var canvas = ArrangePhone(dungeon: true);
+            var attack = Preparation(PreparationOfferKind.Stat, 1, 1);
+            var gravePulse = Preparation(PreparationOfferKind.SkillRune, 2, 2);
+            var companionRange = Preparation(PreparationOfferKind.GuardianResonance, 2, 1);
+
+            _hud.ShowEmberRestForTest(2, attack, gravePulse, companionRange);
+            Canvas.ForceUpdateCanvases();
+
+            var panel = FindDescendant(canvas.transform, "EmberRestPanel");
+            Assert.That(panel, Is.Not.Null, "the Ember Rest panel must exist");
+            var backdrop = FindDescendant(panel, "EmberRestBackdrop");
+            var scrim = FindDescendant(panel, "EmberRestScrim");
+
+            if (_hud.EmberRestBackdropPresent)
+            {
+                Assert.That(backdrop, Is.Not.Null);
+                Assert.That(scrim, Is.Not.Null, "art without a scrim is unreadable copy");
+                Assert.That(_hud.EmberRestScrimOpacity,
+                    Is.EqualTo(HudView.EmberRestScrimAlpha).Within(0.001f));
+                // uGUI draws in sibling order, so readability is an ORDERING
+                // property, stated exactly: art at 0, scrim at 1, and every
+                // readable element after them.
+                Assert.That(backdrop.GetSiblingIndex(), Is.Zero,
+                    "the art must be the panel's first child");
+                Assert.That(scrim.GetSiblingIndex(), Is.EqualTo(1),
+                    "the scrim must be drawn over the art and under everything else");
+                Assert.That(panel.childCount, Is.GreaterThan(2),
+                    "the panel must carry readable content above the scrim");
+                foreach (var layer in new[] { backdrop, scrim })
+                    Assert.That(layer.GetComponent<Image>().raycastTarget, Is.False,
+                        $"{layer.name} must never intercept a tap meant for an offer");
+            }
+            else
+            {
+                Assert.That(backdrop, Is.Null, "no art means no backdrop layer at all");
+                Assert.That(scrim, Is.Null, "no art means nothing to darken");
+                Assert.That(_hud.EmberRestScrimOpacity, Is.Zero);
+            }
+
+            // The contract that matters is identical either way.
+            var actions = new[]
+            {
+                VisibleButtonWithText(canvas, "Attack +1"),
+                VisibleButtonWithText(canvas, "준비 보류"),
+                VisibleButtonWithText(canvas, "계속"),
+            };
+            AssertRaycastableActions(actions);
+            actions[0].onClick.Invoke();
+            Assert.That(actions[2].interactable, Is.True,
+                "an offer must remain selectable whether or not the plate loaded");
+        }
+
+        private static Transform FindDescendant(Transform root, string name)
+        {
+            foreach (var child in root.GetComponentsInChildren<Transform>(true))
+                if (child.name == name && child != root)
+                    return child;
+            return null;
         }
 
         [Test]

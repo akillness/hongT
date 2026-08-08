@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>AI-Native Builder Flow — hongT</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">AI-Native Builder Flow — hongT</h1>
+</header>
+<h1
+id="ai-native-builder-flow--hongt-abyssal-lantern--unity-webgl">AI-Native
+Builder Flow — hongT (Abyssal Lantern · Unity WebGL)</h1>
+<blockquote>
+<p>이 문서는 hongT 저장소(<code>akillness/hongT</code>)가
+<strong>AI-native builder</strong> 관점에서 어떤 플로우로 작업하도록
+설계되어 있는지를 정리한다. 즉, "사람이 에이전트를 어떻게 굴리도록
+프로젝트가 구조화되어 있는가"를 단일 그림과 계층 설명으로
+문서화한다.</p>
+</blockquote>
+<ul>
+<li>작성일: 2026-08-06 · 최신화: 2026-08-07 (main 병합 시점 실측으로
+수치·경로 정정)</li>
+<li>범위: 저장소 루트 계약(<code>CLAUDE.md</code> /
+<code>AGENTS.md</code>) · 워크스페이스(<code>_workspace/</code>) · 에셋
+파이프라인(<code>docs/*pipeline*.md</code>) · 위임
+레인(<code>_workspace/**/engineering/</code>) · 검증 게이트 · 배포
+런타임</li>
+<li>시각화: <a
+href="ai-native-builder-flow.svg"><code>ai-native-builder-flow.svg</code></a></li>
+</ul>
+<hr />
+<h2 id="0-한-줄-요약">0. 한 줄 요약</h2>
+<p><strong>제작 파이프라인은 AI 에이전트가 실행하고, 배포 런타임은 AI에
+의존하지 않는 정적 결정론 빌드다.</strong> 이 저장소는 단일 계약 문서가
+모든 세션을 강제하고, 오케스트레이터가 전문화 에이전트 레인에 스펙을
+바인딩 문서로 위임하며, 모든 주장이 수치 게이트(측정·테스트 인용)를
+통과해야만 다음 단계로 승격되는 구조로 설계되어 있다.</p>
+<hr />
+<h2 id="1-전체-플로우-svg">1. 전체 플로우 (SVG)</h2>
+<p><img src="ai-native-builder-flow.svg"
+alt="AI-Native Builder Flow" /></p>
+<pre><code>L0 운영 계약 (CLAUDE.md · AGENTS.md)
+        │ 강제 규칙 · 수치 게이트 · 증거 규율
+        ▼
+L1 에셋 생성 ──── god-tibo-imagen · perfectpixel · Blender headless · ElevenLabs/Mixamo
+        │ (빌드 시점에만 동작, provenance + SHA-256 보존)
+        ▼
+L2 코드·검증 위임 레인 ──── Sim(gjc) · Campaign/HackSlash(gjc) · View(jeo)
+        │ 오케스트레이터(Claude)가 스펙을 바인딩 문서로 전달
+        ▼
+L3 검증 하니스 ──── EditMode 게이트 · Playwright/CDP 브라우저 계약 · 진정성 캡처
+        │ (숫자 = 게이트; 형용사는 통과 불가)
+        ▼
+L4 배포 런타임 ──── 정적 WebGL · Sim/View 분리 · AI 제로 (opt-in 명령 콘솔 예외)</code></pre>
+<hr />
+<h2 id="2-l0--운영-계약-단일-진실-공급원">2. L0 — 운영 계약: 단일 진실
+공급원</h2>
+<p>이 프로젝트가 AI-native builder로 동작하는 <strong>첫 번째 설계
+결정</strong>은 자유 형식 프롬프트 대신 <strong>강제 규칙
+문서</strong>를 두는 것이다.</p>
+<table>
+<thead>
+<tr>
+<th>계약 조항</th>
+<th>내용</th>
+<th>실패 모드 차단</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>증거 표기</td>
+<td><code>[OBSERVED]</code> / <code>[INFERENCE]</code> /
+<code>[TARGET]</code> — 목표치를 측정치로 위장 금지</td>
+<td>그럴듯한 요약</td>
+</tr>
+<tr>
+<td>근거 규칙</td>
+<td>"파일이 존재한다는 사실은 근거가 아니다" — 측정·명령·테스트 결과
+인용</td>
+<td>미검증 주장</td>
+</tr>
+<tr>
+<td>결정론 불변</td>
+<td>시뮬레이션은 결정론적 고정 60Hz · 렌더러는 심 상태에 write-back
+금지</td>
+<td>상태 파괴</td>
+</tr>
+<tr>
+<td>수치 게이트</td>
+<td>"숫자는 게이트다. 형용사는 게이트를 못 통과한다"</td>
+<td>모호한 회고</td>
+</tr>
+<tr>
+<td>동결 계약</td>
+<td><code>// FROZEN CONTRACT</code> 파일은 위임 에이전트가 수정
+불가</td>
+<td>계약 드리프트</td>
+</tr>
+<tr>
+<td>워크스페이스</td>
+<td>산출물은 <code>_workspace/current/</code> 단일 폴더 · 이전 사이클은
+<code>archive/</code> 동결</td>
+<td>세션 간 충돌</td>
+</tr>
+<tr>
+<td>git 규율</td>
+<td>명시적 pathspec staging · <code>git add -A</code> 금지</td>
+<td>무단 커밋</td>
+</tr>
+</tbody>
+</table>
+<p><code>AGENTS.md</code>는 비-Claude 런타임(Codex · Gemini · OpenCode ·
+gjc · jeo)이 같은 규칙을 해석하도록 둔 단일 진입점이다. "두 번째로
+흩어진 복사본"을 만들지 않는 설계다.</p>
+<hr />
+<h2 id="3-l1--에셋-생성-자산-클래스당-하나의-고정-도구">3. L1 — 에셋
+생성: 자산 클래스당 하나의 고정 도구</h2>
+<p>AI-native builder 관점의 두 번째 결정: <strong>도구를 자산 클래스별로
+고정</strong>한다. 매번 모델/도구를 다시 고르지 않고, 클래스마다 검증된
+생성기를 계약처럼 사용한다.</p>
+<table>
+<thead>
+<tr>
+<th>자산 클래스</th>
+<th>도구</th>
+<th>산출물</th>
+<th>근거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>컨셉 · 배경 · 텍스처 · 아틀라스 · UI 아이콘</td>
+<td>god-tibo-imagen (<code>gti</code>, gpt-5.4)</td>
+<td>PNG · 아이콘 시트</td>
+<td><code>provenance.json</code> + SHA-256</td>
+</tr>
+<tr>
+<td>2D 스프라이트 시트 · 매니페스트</td>
+<td>PerfectPixel (<code>ppgen</code>)</td>
+<td><code>sheet.png</code> + <code>manifest.json</code></td>
+<td>프레임 품질 스코어</td>
+</tr>
+<tr>
+<td>3D 메시 · 재스키닝 · 지형 변환</td>
+<td>Blender 5.1 headless</td>
+<td>FBX 8종 · 터레인 파츠</td>
+<td><code>engineering/reskin/*.json</code></td>
+</tr>
+<tr>
+<td>사운드 · 모션</td>
+<td>ElevenLabs sound-gen / Mixamo 리타겟</td>
+<td>mp3 고정 · 11액션 라이브러리</td>
+<td><code>docs/provenance/audio.json</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>설계 의도 (문서에서 확인된 사례):</strong></p>
+<ul>
+<li>배경 프롬프트에 <code>no magenta</code>를 강제 → 뒤이은 스프라이트
+마젠타 키 매팅과의 팔레트 충돌을 <strong>파이프라인 전체에서 원천
+차단</strong>. 아트 지시가 곧 게임플레이 가독성 사양이 되는 사례.</li>
+<li>모든 생성물은 SHA-256 권리 영수증과 함께 저장소에 보존되어 재현
+가능.</li>
+<li>생성 어댑터는 임시 로컬 구성이며, <strong>배포된 게임은 어느
+생성기에도 의존하지 않는다.</strong></li>
+</ul>
+<hr />
+<h2 id="4-l2--코드검증-위임-레인">4. L2 — 코드·검증 위임 레인</h2>
+<p>세 번째 결정: <strong>오케스트레이터가 모든 것을 직접 쓰지 않고,
+전문화 에이전트 레인에 스펙을 바인딩 문서로 위임</strong>한다. 사이클별
+레인 런북(<code>gjc-sim-lane.md</code>,
+<code>gjc-campaign-lane.md</code>, <code>gjc-hackslash-lane.md</code>,
+<code>jeo-view-lane.md</code>)이 그 증거다. 런북은 사이클 종료 시
+<code>_workspace/archive/&lt;run-id&gt;/engineering/</code>으로 동결되고
+(cycle-1 = <code>20260805-visible-impact/</code>), 진행 중 레인만
+<code>_workspace/current/engineering/</code>에 남는다.</p>
+<p>레인 런북의 구조 (예: <code>gjc-sim-lane.md</code>):</p>
+<pre class="text"><code>LANE: Deterministic Simulation (owner: gjc)
+Mission     → &quot;CinderSim.cs 하나와 EditMode 테스트를 작성한다.
+               다른 파일 생성/수정 금지.&quot;
+Binding docs → SIM_SPEC.md(유일한 수치 진실) + SimTypes.cs(FROZEN CONTRACT)
+Requirements → 결정론 600-tick Digest 일치 · 클램프 L1 노름 ≤1 ·
+               Nova/Ward 경계값 · 픽업 id%3 · 보스 산술 · 공격판정
+성능         → 힙 할당 최소화 · LINQ 금지 · foreach 대신 for</code></pre>
+<table>
+<thead>
+<tr>
+<th>레인</th>
+<th>오너</th>
+<th>범위</th>
+<th>게이트</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deterministic Sim</td>
+<td>gjc</td>
+<td><code>CinderSim.cs</code> + 테스트</td>
+<td>EditMode 결정론 Digest</td>
+</tr>
+<tr>
+<td>Campaign</td>
+<td>gjc</td>
+<td>9단계 던전 · 융합 · 파티클</td>
+<td>레인 보고서 수치 근거</td>
+</tr>
+<tr>
+<td>HackSlash</td>
+<td>gjc</td>
+<td>시각 오버홀 스펙 8레인</td>
+<td>드레싱 테이블 무 RNG</td>
+</tr>
+<tr>
+<td>View</td>
+<td>jeo</td>
+<td>프레젠테이션(읽기 전용)</td>
+<td>풀링 · MakeUnlit · p95 게이트</td>
+</tr>
+</tbody>
+</table>
+<p>충돌 시 규율: <code>conflicts.md</code>가 크로스 세션 충돌을
+기록하고, "최소 침습 수정"을 선택하며, 비선택 대안과 후속 조치를
+명시한다(예: <code>CharacterRosterAnimationTests</code> 컴파일 차단
+사례).</p>
+<hr />
+<h2 id="5-l3--검증-하니스-수치-게이트">5. L3 — 검증 하니스: 수치
+게이트</h2>
+<p>네 번째 결정: <strong>검증을 사람의 리뷰가 아니라 실행 가능한
+하니스로 만든다.</strong> AI 산출물의 가장 흔한 실패 모드(그럴듯한 요약
+· 미검증 주장 · 조용한 범위 축소)를 구조적으로 차단한다.</p>
+<table>
+<thead>
+<tr>
+<th>게이트</th>
+<th>도구</th>
+<th>검증 내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EditMode</td>
+<td>Unity batchmode <code>-executeMethod</code></td>
+<td>502/502 통과 · 실패 0 · 결정론 · 웨이브 산술 · 보스 HP</td>
+</tr>
+<tr>
+<td>브라우저 계약</td>
+<td>Playwright + CDP 실입력</td>
+<td>자산 로드 · 상태 전이 · 레이아웃 무오버플로 · 입력 3경로 · 오류
+0</td>
+</tr>
+<tr>
+<td>진정성 캡처</td>
+<td><code>capture-unity-play.mjs</code></td>
+<td>실제 Chromium → 실제 게임 → CDP 키 입력 → 실프레임 인코딩 (합성
+없음)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>대표적 실패 격리 사례</strong> (AI가 잡아낸 치명적 결함):
+HUD가 <code>Q Ember Nova</code>를 광고하지만 45초 자동 플레이에서 Q 입력
+82회에 기름 소모 0 → <code>handleKeyDown</code>에
+<code>KeyQ</code>/<code>KeyE</code> 분기 부재와 버튼 리스너 미바인딩을
+측정으로 격리 → 수정 후 세 입력 경로 전부 복구 검증. "코드를 대신 쓰게
+하는 것이 아니라, <strong>사람이 놓치는 것을 측정으로 잡게</strong>
+하는" 것이 이 팀의 AI 사용 방식이라는 문서 선언이 설계 원칙으로 실증된
+사례다.</p>
+<hr />
+<h2 id="6-l4--배포-런타임-ai-제로">6. L4 — 배포 런타임: AI 제로</h2>
+<p>다섯 번째 결정: <strong>런타임에는 AI가 한 줄도 실행되지
+않는다.</strong></p>
+<ul>
+<li>배포물은 외부 추론 호출 · API 키 · 네트워크 요청이 없는 순수 정적
+페이지 (GitHub Pages, 상대경로만).</li>
+<li><code>CinderCourt.Sim</code> = 순수 C# 결정론 심(60Hz, RNG 금지),
+<code>CinderCourt.View</code> = 심 읽기 전용 프레젠테이션.</li>
+<li>AI는 제작 시점에만 동작하고, 산출물은 결정론적 자산/코드로
+고정.</li>
+<li><strong>단 하나의 opt-in 예외</strong> — 동료 명령 콘솔: 기본 경로는
+로컬 키워드 파서 (네트워크 0)이고, 플레이어가 <strong>자신의</strong>
+Gemini 키를 런타임에 직접 등록한 경우에만 자유문장 분류에 사용. 키는
+빌드·저장소에 미포함, 응답은 의도 단어 1개로 제한, 네트워크 실패는
+Unknown으로 강등. <strong>시뮬레이션은 어떤 경로로도 AI 출력에 의존하지
+않는다.</strong></li>
+</ul>
+<hr />
+<h2 id="7-설계-원칙-요약-ai-native-builder-관점">7. 설계 원칙 요약
+(AI-Native Builder 관점)</h2>
+<ol type="1">
+<li><strong>계약 우선</strong> — 자유 프롬프트가 아닌 강제 규칙 문서.
+모든 런타임이 같은 계약 해석.</li>
+<li><strong>제작 시점 AI, 런타임 AI 제로</strong> — AI는 파이프라인이지
+기능이 아님.</li>
+<li><strong>심/뷰 분리</strong> — 결정론은 불변 조건. 렌더러는 읽기만
+가능.</li>
+<li><strong>수치 게이트</strong> — 측정·테스트 인용 없이는 주장 불인정.
+목표치 위장 금지.</li>
+<li><strong>도구 고정</strong> — 자산 클래스당 하나의 검증된 생성기.
+프롬프트 충돌 사양은 사전 차단.</li>
+<li><strong>위임 레인</strong> — 오케스트레이터가 스펙을 바인딩 문서로
+전달. 레인은 미션+테스트로 배송.</li>
+<li><strong>증거 보존</strong> — provenance.json + SHA-256 + 레인
+보고서로 재현 가능성 보장.</li>
+<li><strong>진정성 하니스</strong> — 제출 영상까지 실제
+입력·실프레임으로만 생산.</li>
+</ol>
+<hr />
+<h2 id="8-산출물-위치">8. 산출물 위치</h2>
+<table>
+<thead>
+<tr>
+<th>파일</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/ai-native-builder/ai-native-builder-flow.svg</code></td>
+<td>플로우 시각화 (L0–L4)</td>
+</tr>
+<tr>
+<td><code>docs/ai-native-builder/ai-native-builder-flow.md</code></td>
+<td>본 문서</td>
+</tr>
+<tr>
+<td><code>docs/ai-native-builder/ai-native-builder-flow.html</code></td>
+<td>pandoc HTML 중간 산출물</td>
+</tr>
+<tr>
+<td><code>docs/ai-native-builder/ai-native-builder-flow.pdf</code></td>
+<td>PDF 변환본 (6쪽, git-lfs)</td>
+</tr>
+<tr>
+<td><code>docs/ai-native-builder/ai-native-builder-flow.png</code></td>
+<td>SVG 프리뷰 PNG (1280×1520, git-lfs)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="재생성-방법-pdf">재생성 방법 (PDF)</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SVG → PDF 프리뷰용 PNG (필요 시)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">rsvg-convert</span> <span class="at">-w</span> 1280 docs/ai-native-builder/ai-native-builder-flow.svg <span class="dt">\</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-o</span> docs/ai-native-builder/ai-native-builder-flow.png</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># MD → PDF (Chrome headless HTML 경로, 한글 폰트 유지)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="ex">pandoc</span> docs/ai-native-builder/ai-native-builder-flow.md <span class="at">-f</span> gfm <span class="at">-t</span> html5 <span class="dt">\</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--standalone</span> <span class="at">--metadata</span> title=<span class="st">&quot;AI-Native Builder Flow — hongT&quot;</span> <span class="dt">\</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">-o</span> docs/ai-native-builder/ai-native-builder-flow.html</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;/Applications/Google Chrome.app/Contents/MacOS/Google Chrome&quot;</span> <span class="at">--headless</span> <span class="dt">\</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">--disable-gpu</span> <span class="at">--print-to-pdf</span><span class="op">=</span>docs/ai-native-builder/ai-native-builder-flow.pdf <span class="dt">\</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">--no-pdf-header-footer</span> docs/ai-native-builder/ai-native-builder-flow.html</span></code></pre></div>
+</body>
+</html>

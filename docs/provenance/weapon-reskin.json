@@ -1,0 +1,32 @@
+{
+  "lane": "C",
+  "kind": "concept-art",
+  "note": "Skin-only weapon reskin. Sim/balance UNCHANGED. This file records the concept-art stage only; mesh/material/prefab/icon stages are gated (see blockers).",
+  "tool": "god-tibo-imagen (gti) --provider codex-cli",
+  "toolNote": "Default gti provider returned HTTP 429 (private Codex backend quota). The codex-cli provider succeeded 2026-08-06 ~23:45-23:49 KST.",
+  "generatedAt": "2026-08-06",
+  "concepts": [
+    {
+      "archetype": "dagger",
+      "prompt": "dark fantasy obsidian curved ritual dagger, glowing ember-orange edge, bone hilt, stylized low-poly game weapon prop, plain dark bg, single object centered",
+      "emberAccent": "edge emission {1.52,0.56,0.27}",
+      "output": "_workspace/current/design/assets/weapon-concepts/weapon-dagger-concept.png"
+    },
+    {
+      "archetype": "bow",
+      "prompt": "dark fantasy recurve ash-wood bow, glowing ember-orange string, dark metallic limbs, stylized low-poly game weapon prop, plain dark bg, single object centered",
+      "emberAccent": "string emission",
+      "output": "_workspace/current/design/assets/weapon-concepts/weapon-bow-concept.png"
+    },
+    {
+      "archetype": "hammer",
+      "prompt": "dark fantasy heavy basalt warhammer, molten lava core cracking through the stone head, iron shaft, stylized low-poly game weapon prop, plain dark bg, single object centered",
+      "emberAccent": "core emission, higher intensity",
+      "output": "_workspace/current/design/assets/weapon-concepts/weapon-hammer-concept.png"
+    }
+  ],
+  "blockers": [
+    "No image->3D tool present (meshy/tripo/trellis absent) and Abyssal-Surge has no dagger/bow/hammer source mesh, so archetype meshes cannot be produced this session; convert_equip_props.py only re-binds the retained blade/relic GLBs.",
+    "Archetype selection source undecided: AttachEquipProps loads only equip-weapon-{basic,fine} (no archetype dimension). Wiring the 3 archetypes at runtime is a behavior/UI decision, not part of the skin-only asset pass."
+  ]
+}

@@ -13,6 +13,34 @@
         "a": 1,
         "rgb": 15896107
       }
+    },
+    {
+      "query": "tag:#community/Community_2",
+      "color": {
+        "a": 1,
+        "rgb": 14767961
+      }
+    },
+    {
+      "query": "tag:#community/Community_3",
+      "color": {
+        "a": 1,
+        "rgb": 7780274
+      }
+    },
+    {
+      "query": "tag:#community/Community_4",
+      "color": {
+        "a": 1,
+        "rgb": 5873999
+      }
+    },
+    {
+      "query": "tag:#community/Community_5",
+      "color": {
+        "a": 1,
+        "rgb": 15583560
+      }
     }
   ]
 }

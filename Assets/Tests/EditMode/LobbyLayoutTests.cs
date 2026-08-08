@@ -90,16 +90,11 @@ namespace CinderCourt.Tests
 
         /// <summary>
         /// Every interactive lobby rect against the accessibility floor
-        /// (SIM_SPEC_HACKSLASH §9: 버튼 최소 44px). MEASURED, not asserted:
-        /// no lobby control currently clears the floor on the vertical axis
-        /// — the whole panel grammar predates the contract and v1.3's pact
-        /// toggle inherited it by cloning the 강하 row. Raising it moves the
-        /// audited 68 u card pitch, the 9-card scroll and the tab strip, so
-        /// it is a designer+pm negotiation, not a test-time edit.
-        ///
-        /// This is therefore a RATCHET, not a pass: the exact undersized set
-        /// is frozen below, so a new control cannot join it silently and a
-        /// real fix trips the test on the way out.
+        /// (SIM_SPEC_HACKSLASH §9: 버튼 최소 44px). The full phone-route pass
+        /// removes all sortie actions from the debt: prologue, descent, pact,
+        /// training tier and training entry grow with their scroll card pitch.
+        /// The remaining Sanctum controls are tracked separately until their
+        /// dense tab/row grammar receives the same treatment.
         /// </summary>
         [Test]
         public void InteractiveLobbyRects_HoldTheMeasuredTouchFloorDebt()
@@ -159,49 +154,33 @@ namespace CinderCourt.Tests
                 + $"{SpecCssPerUnit} CSS px/u, floor {MinCssPx}, union over "
                 + $"{ProgressionGuide.GroupCount} fold states]\n" + report);
 
+            // Deliberately smaller than the AMENDMENT #8 ratchet: main FIXED the
+            // primary sortie controls (강하 · 서약 · 견습/숙련/판결 · 수련) so they
+            // clear the floor, and a fixed control does not belong in a debt
+            // table. Re-adding them after the merge would re-register debt that
+            // no longer exists and hide the next real violation behind noise.
+            //
+            // What the merge does add is the four accordion fold headers, which
+            // main never saw. They are 179.6 x 21.5 CSS px — the width is the
+            // widest control in the lobby and clears easily; the HEIGHT is the
+            // same 21.5 class the Sanctum tab strip already carries, so this is
+            // not a new worst on either axis. Registered as negotiation entry 12,
+            // which also records why non-folding labels were rejected: they cost
+            // no controls but push content 1058 -> 1258 u and drop visibility
+            // 41.0% -> 34.5%.
+            //
             // KNOWN, DELIBERATELY UNCLOSED: the SANCTUM tabs hide controls the
             // same way the folds do, and this sweep does not cycle them. Only
-            // the selected tab's contents are ever measured — today that is
-            // 성장, which is why exactly three stat "+" appear below and the
-            // equip/legion/sigil rows appear not at all.
-            //
-            // Not closed here on purpose. Cycling the tabs would pull ~20
-            // controls this cycle never touched into the frozen table, and
-            // several of them (the sigil face pairs at 68 x 30 u) will land
-            // undersized — registering that much unrelated debt inside a
-            // navigation cycle would make the next diff unreadable about which
-            // change caused what. Measured and recorded, not silently ignored:
-            // it belongs to the same designer+pm touch-floor item as the rest.
-
-            // Frozen debt, re-measured 2026-08-07 after AMENDMENT #8 added the
-            // accordion (9 stage 강하 · 1 revealed 서약 · 3 tier · 5 수련 ·
-            // 4 tabs · 3 stat "+" · 재훈련 · 4 fold headers).
-            //
-            // The tab strip MOVED and the movement is an improvement: re-dividing
-            // the same 400 u panel into 4 x 91 u took tab WIDTH from 58.6 to 44.4
-            // CSS px, which now CLEARS the floor on that axis. They stay in this
-            // table because their 44 u HEIGHT is still 21.5 CSS px — the debt this
-            // ratchet exists to track, unchanged and still a designer+pm item.
-            //
-            // v1.6 joined 8 controls (견습/숙련/판결 + five 수련) and added NO new
-            // violation class: every one measures 41.0 x 13.7, the exact size the
-            // 강하 button has carried since cycle 2. An earlier draft did create a
-            // new class — three per-card tier buttons at 28.3 x 13.7, fifteen of
-            // them — and this test caught it; the fix was a shared tier row, not
-            // a wider table (negotiation entry 10).
-            //
-            // v1.7 joins 4 fold headers at 179.6 x 21.5. Height matches the tab
-            // strip's existing class exactly and the width is the WIDEST control
-            // in the lobby, so this is not a new worst on either axis — the
-            // narrowest is still the stat "+" at 25.4 and the shortest is still
-            // 강하/서약 at 13.7. Registered as negotiation entry 12, which also
-            // records why non-folding labels were rejected: they cost no controls
-            // but push content 1058 -> 1258 u and drop visibility 41.0% -> 34.5%.
+            // the selected tab's contents are measured — today 성장, which is why
+            // exactly three stat "+" appear below and the equip/legion/sigil rows
+            // do not. Cycling them would pull ~20 untouched controls into the
+            // frozen table, several undersized (the sigil face pairs at 68 x 30 u),
+            // and registering that much unrelated debt inside another cycle makes
+            // the next diff unreadable about which change caused what. Measured
+            // and recorded, not silently ignored: same designer+pm touch-floor item.
             var expected = new Dictionary<string, int>
             {
-                { "강하", 9 }, { "서약", 1 }, { "성장", 1 }, { "장비", 1 },
-                { "군단", 1 }, { "각인", 1 }, { "+", 3 }, { "재훈련", 1 },
-                { "견습", 1 }, { "숙련", 1 }, { "판결", 1 }, { "수련", 5 },
+                { "성장", 1 }, { "장비", 1 }, { "군단", 1 }, { "각인", 1 }, { "+", 3 },
                 { "제1부 기록", 1 }, { "제2부 증언", 1 }, { "제3부 집행", 1 },
                 { "훈련장", 1 },
             };
@@ -213,9 +192,80 @@ namespace CinderCourt.Tests
                 "the audit must have measured at least the undersized set");
             CollectionAssert.AreEquivalent(expected, actual,
                 "lobby touch-floor debt changed. A NEW undersized control is a defect — "
-                + "give it >= 44 CSS px. A control LEAVING this set is the fix landing — "
-                + "drop it from the frozen table and note the negotiation in "
-                + "_workspace/current/pm/negotiation-record.md. Measured:\n" + report);
+                + "give it >= 44 CSS px. A control LEAVING this set is an accessibility fix; "
+                + "record it in _workspace/current/pm/negotiation-record.md. Measured:\n" + report);
+        }
+
+        [Test]
+        public void PrimarySortieActions_ClearThe44CssPxTouchFloor()
+        {
+            var canvas = BuildClearedLobby();
+            var routePrefixes = new[] { "재훈련", "강하", "서약", "견습", "숙련", "판결", "수련" };
+
+            // The accordion hides four groups out of five, so a single sweep sees
+            // 5 of these 19 controls and calls the audit complete. §4d: a state UI
+            // removes controls from the audit, so the audit has to walk the
+            // states. Cycle-4 learned this on the Sanctum tabs; the accordion is
+            // the same shape one panel over.
+            //
+            // Deduped by INSTANCE, not by path: sibling cards share
+            // `Group0/Body/Panel/Panel`, so a path-keyed set collapses nine
+            // descents into one and the sweep meant to widen the audit narrows
+            // it instead (also §4d, also learned the hard way).
+            var audited = new HashSet<Button>();
+            var headers = FoldHeaders(canvas);
+            for (var open = 0; open < headers.Count; open++)
+            {
+                headers[open].onClick.Invoke();
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvas.transform);
+
+                foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+                {
+                    if (!button.gameObject.activeInHierarchy) continue;
+                    var label = LabelOf(button);
+                    var isRouteAction = false;
+                    for (var i = 0; i < routePrefixes.Length; i++)
+                        isRouteAction |= label.StartsWith(routePrefixes[i], System.StringComparison.Ordinal);
+                    if (!isRouteAction || !audited.Add(button)) continue;
+
+                    var world = WorldRect(button.GetComponent<RectTransform>());
+                    Assert.That(world.width * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx),
+                        $"{label} is narrower than the phone touch floor (fold {open})");
+                    Assert.That(world.height * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx),
+                        $"{label} is shorter than the phone touch floor (fold {open})");
+                }
+            }
+
+            Assert.That(audited.Count, Is.EqualTo(StageCatalog.Entries.Count + 1 + 1
+                + HackSpec.TrainingTiers + TrainingTrials.Ids.Length),
+                "the audit must cover prologue, every descent, revealed pact, all tier "
+                + "choices and trials — across every fold state, since no single one "
+                + "shows them all");
+        }
+
+
+        /// <summary>
+        /// W8 added the campaign map panel, and it is the ONLY route to the tab
+        /// meta screen on a phone — the stacked layout has no other entry point.
+        /// Both of its actions are therefore measured positively here, not just
+        /// left to the debt table's absence check: a control that is unreachable
+        /// on the one layout where it is the sole route is a dead end.
+        /// </summary>
+        [Test]
+        public void CampaignMapActions_AreReachableAndClearTheTouchFloor()
+        {
+            var canvas = BuildClearedLobby();   // 390x844 -> stacked layout
+            foreach (var label in new[] { "지도", "정비" })
+            {
+                var button = FindButton(canvas, label);
+                Assert.That(button, Is.Not.Null, $"the map panel must expose {label}");
+                Assert.That(button.gameObject.activeInHierarchy, Is.True,
+                    $"{label} is the phone's only route to the meta screen and must stay active");
+                var world = WorldRect(button.GetComponent<RectTransform>());
+                Assert.That(world.width * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
+                Assert.That(world.height * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
+            }
         }
 
         /// <summary>
@@ -253,6 +303,7 @@ namespace CinderCourt.Tests
             };
             _lobby.Build(data, default);
             _lobby.Refresh(data);
+            _lobby.ApplyLobbyLayoutForTest(390, 844);
 
             var canvas = _lobbyObject.GetComponentInChildren<Canvas>(true);
             Assert.That(canvas, Is.Not.Null, "the lobby must build its canvas");

@@ -32,6 +32,11 @@ namespace CinderCourt.Sim
         public bool PulseQueued;
         public bool CompanionHoldQueued;
         public bool CompanionRecallQueued;
+        /// <summary>AMENDMENT #8 (A8.3): one-shot, GLOBAL like hold/recall — it orders every
+        /// active slot whose skill is off cooldown to cast now, bypassing the archetype's
+        /// auto-fire target threshold. A slot still on cooldown ignores it; the command is
+        /// never buffered.</summary>
+        public bool CompanionSkillQueued;
         // --- input depth amendment (_workspace/current/design/input-depth-spec.md) ---
         /// <summary>§3: sustained, not an edge. True for every tick the attack
         /// key is DOWN. Deliberately a plain held bool: classifying a tap by
@@ -111,12 +116,27 @@ namespace CinderCourt.Sim
         ExtractionComplete = 1 << 19,
         BossPhase2 = 1 << 20,
         ComboFinisher = 1 << 21,
+        // --- companion signature skills (docs/SIM_SPEC_HACKSLASH.md A8) ---
+        /// <summary>A8.5: at least one companion slot cast its signature skill this tick.</summary>
+        CompanionSkillCast = 1 << 22,
+
+        // --- momentum gauge (docs/SIM_SPEC_HACKSLASH.md A9) ---
+        /// <summary>A9.5: the gauge crossed UP into a higher tier this tick. Edge-triggered
+        /// on the TIER, not the raw value, so the view gets exactly one cue per promotion
+        /// and none at all while the bar merely wobbles inside a tier.</summary>
+        MomentumTierUp = 1 << 23,
+
+
         // --- dungeon expansion amendment (docs/SIM_SPEC_DUNGEONS.md) ---
-        PylonDown = 1 << 22,
+        // Additive, and bumped twice by main landing an amendment underneath:
+        // bit 22 went to A8's CompanionSkillCast, bit 23 to A9's MomentumTierUp.
+        // main keeps the low bit each time; these move up. Free, because nothing
+        // reads these numerically — every reference is by symbol.
+        PylonDown = 1 << 24,
 
         // --- surge amendment (docs/SIM_SPEC_DUNGEONS.md §14) ---
-        PerilOpened = 1 << 23,
-        SurgeOpened = 1 << 24,
+        PerilOpened = 1 << 25,
+        SurgeOpened = 1 << 26,
     }
 
     public struct RunDigest

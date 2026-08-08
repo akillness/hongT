@@ -18,7 +18,7 @@
 
 ## 2026-08-06 15:30 — HudView.cs: 596e862가 게이지 렌더 수정을 되돌림
 
-- **관측**: `596e862`(AMENDMENT #7)가 `Assets/Scripts/View/HudView.cs`를 +80줄로
+- **관측**: `596e862`(AMENDMENT #10)가 `Assets/Scripts/View/HudView.cs`를 +80줄로
   커밋했는데, 그 시점 HEAD 버전에 View 레인의 게이지 수정이 **없다**.
   측정: `git show HEAD:...HudView.cs` → `MakeFilled` 0회 / `FillSprite` 0회.
   작업 트리 → 각각 7회 / 4회. **지금 HEAD에서 빌드하면 체력·기름 게이지가
@@ -55,7 +55,7 @@
 
 ---
 
-## 2026-08-06 16:45 — AMENDMENT #7 레인 (훈련장·돌발) ↔ VFX/클립 레인
+## 2026-08-06 16:45 — AMENDMENT #10 레인 (훈련장·돌발) ↔ VFX/클립 레인
 
 **공유 파일 2개에서 실제로 부딪혔고, 인덱스 사고 2건이 났다. 둘 다 해소.**
 
@@ -91,3 +91,154 @@
 - **상대 레인은 지금 그대로 커밋하면 된다.** 인덱스에 양쪽 작업이 다 들어
   있고, 내 몫은 이미 커밋됐으므로 중복 커밋되지 않는다.
 - 게이트: 이 상태에서 EditMode **319/319** (`unity-logs/test-results-164112.xml`).
+
+---
+
+## 2026-08-07 11:20 — PR #3 (training-on-main) 머지: stale-base 회귀 2건 수정
+
+**PR #3은 A9(모멘텀)가 main에 착지하기 전 분기점(53a1ed4) 기준으로 작성**됐다.
+PR 본문 §5 "A9 심 API는 main에도 없다"는 리뷰 시점에 이미 낡은 전제였다.
+
+### 충돌 4파일 해소
+
+| 파일 | 해소 |
+|---|---|
+| `SimTypes.cs` | **양측 보존 + 비트 재배정**: main `MomentumTierUp=1<<23` 유지, PR 3종을 `PylonDown=24 / PerilOpened=25 / SurgeOpened=26`으로 시프트. PR 자신의 규칙("main이 낮은 비트를 갖고 이쪽이 올라간다", 비트 22 선례) 연장. 숫자 참조 스윕: `(SimEvents)N`·`1 << 2x` 병합 트리 전수 0건 |
+| `ActorView.cs` | PR의 `CastPoseDuration` 상수 + main의 `_castPoseArmed` 프레임 래치 결합 |
+| `StageCatalog.cs` | 양 레인이 각각 추가한 필드 **둘 다 유지**: main `RoomObjective` + PR `Epithet` (생성자 16-인자). 엔트리 0-5는 양측 문자열 병기, PR 신규 스테이지 6-8(cinder-sluice/ember-bastion/ash-march)에는 RoomObjective 3문장 신규 저작 (계약: 비공백·트림·전역 유일·제목과 상이 — 데이터 검증 통과) |
+| `SIM_SPEC_HACKSLASH.md` | 양측 append 보존 (main A9 + PR 각인·#10 훈련장/돌발) |
+
+### stale-base 회귀 수정 (충돌 아님 — 자동머지가 조용히 통과시킴)
+
+1. `HudView.cs:2836` 주석 처리된 `SyncMomentumGauge(...)` 호출 복원 — A9 심 API가
+   main에 실재하므로(HackTypes.cs:363-368) 그대로 두면 A9 HUD가 꺼진 채 출하되고
+   MomentumTests는 심만 검증해서 게이트가 못 잡는다.
+2. `HudView.cs:1199` 로컬 `const momentumMax=100f` 제거, `HackSpec.MomentumMax` 복원.
+
+### 게이트 (에디터 pid 16568이 프로젝트 점유 — 배치모드 불가)
+
+- [OBSERVED] 심 게이트: `/tmp/pr3-simgate` dotnet test — 순수 심 스위트 8종
+  (CinderSim/CompanionAutonomy/CompanionSkill/HackSim/Momentum/Sigil/TrainingSurge/
+  WaveTelegraph) **198/198 통과** (병합 트리 소스, A9와 PR 신규 시스템 공존 증명).
+- [OBSERVED] View 컴파일: `msbuild CinderCourt.View.csproj` exit=0 (경고만).
+  StageCatalog 16-인자 생성자·HudView `HackSpec.MomentumMax` 타입체크 포함.
+- [OBSERVED] EditMode 테스트 어셈블리(구 파일 목록): msbuild exit=0.
+- [미실행] Unity EditMode 전체 러너 — 에디터 점유로 배치모드 불가. csproj가
+  머지 신규 테스트 7파일을 아직 미포함(에디터 재임포트 시 자동 갱신). PR 자체
+  게이트는 431/431이나 **pre-A9 베이스 측정치**라 병합 트리 증거로 인용 불가.
+- [OBSERVED] RoomObjective 계약(비공백/유일/제목상이): 카탈로그 9엔트리 데이터
+  수준 검증 통과 (러너 실행 아님).
+
+### 문서 부채 (머지에서 수정하지 않음 — 저작 판단 필요)
+
+- PR의 각인 증보가 "AMENDMENT #6" 제목을 사용 — main의 Frozen Contract
+  Amendment #6(멀티슬롯 동료 DRAFT)과 **번호 충돌**. 내부 §13.x도 main §13
+  결정론과 충돌. 코드 동작 무관, 스펙 넘버링 정리는 오퍼레이터/저자 몫.
+
+### 후속 (11:55) — 저자 재머지 수렴, PR #3 MERGED
+
+- 저자가 같은 stale-base 문제를 자기 브랜치에서 독립 해소하고 PR 헤드를
+  f747168로 갱신(Unity 재기록 골든 + EditMode 463/463 XML 7종 동봉).
+- **내 머지(685605f)의 결함 발견**: DungeonGoldenDigestTests에 pre-A9 골든
+  리터럴을 남김 — A9 모멘텀이 던전 스윙 피해를 곱하므로 9행이 이동해야 했다
+  (cinder-span 3700→4350 = tier-2 1.18×). 내 심 게이트 8스위트에 이 스위트가
+  없어(View 의존) 못 잡았다. 수렴 머지 c14d44e가 저자 버전 채택으로 해소.
+- 교훈(정정 2026-08-07 12:05): 골든 스위트는 `using CinderCourt.View`
+  (StageCatalog 경유) 때문에 심 소스 복사만으로는 스크래치 컴파일이 안 되지만
+  (CS0234 — 첫 시도에서 관측), **UnityEngine 직접 의존은 없고** 깨진 행
+  `cinder-span|3700→4350`은 **정수(score) 열**이라 dotnet에서도 판정 가능했다
+  (파일 헤더: 15행 전부 정수 열은 Unity와 일치, X/Y 부동소수점만 ~4 ULP 표류).
+  올바른 게이트 개선: 심 동작을 바꾸는 머지는 **골든 스위트 + CampaignSimTests
+  + StageCatalog(+Color 스텁)를 dotnet 게이트에 편입하고 정수 열만 신뢰**,
+  부동소수점 열은 Unity 러너 몫으로 남긴다. "Unity 없이는 불가"가 아니라
+  "게이트에 안 넣어서 못 잡은 것"이 정확한 원인이다.
+- 최종 상태: HEAD의 Sim 폴더+골든 테스트 2파일이 f747168과 **바이트 동일**
+  (git diff 0줄) → 저자의 463/463은 이 바이트에 대한 유효한 이월 증거.
+  4레인 후속 작업은 충돌 영역 밖 생존 검증 완료. PR #3 GitHub MERGED
+  (2026-08-07T04:16:25Z).
+
+## 2026-08-07 16:12 — AMENDMENT #11 레인이 라이브라서 푸시 보류
+
+- **관측**: "미커밋 전부 푸시" 정리 작업 중, 작업 트리에 다른 세션(jeo)의
+  진행 중 레인이 섞여 있었다. 판정 시점 기준 갱신 시각:
+  `Assets/Scripts/View/GameView.cs`·`ImpactBudget.cs` 1분 전,
+  `docs/SIM_SPEC_HACKSLASH.md` 3분 전, `DifficultyGroupAiTests.cs` 3분 전,
+  `CinderSim.cs` 9분 전, `HackTypes.cs` 19분 전.
+  `.jeo/artifacts/tool-results/` 최신 기록 66초 전 — 세션이 살아 있다.
+- **게이트 실측**: Unity 에디터가 다른 세션에 점유돼 있어(pid 16568) 배치
+  게이트를 못 돌렸다. Sim은 순수 C#이라 standalone dotnet으로 대체 검증:
+  - `Assets/Scripts/Sim/*.cs` 단독 빌드(netstandard2.1) → **0 error 0 warning**.
+    즉 `DifficultySpec.cs` 신설과 `HackConfig.Difficulty` 추가는 컴파일 성립.
+  - Sim + `DifficultyGroupAiTests.cs`(NUnit) 빌드 → **컴파일 실패 3건**:
+    - `DifficultyGroupAiTests.cs(15,28)` / `(48,38)` CS0121 — `TryDungeon`의
+      4번째 인자에 bare `null`을 넘겨 `string` 오버로드(HackTypes.cs:250)와
+      `string[]` 오버로드(:283)가 모호. `(string[])null` 등 캐스트 필요.
+    - `DifficultyGroupAiTests.cs(228,42)` CS8156 — `ref readonly var e =
+      ref enemies[i]`. 인덱서 반환값은 참조로 넘길 수 없다.
+- **판단**: 컴파일 에러는 어셈블리 전체를 막으므로, 이 상태를 푸시하면 502개
+  기존 테스트가 **한 개도 못 도는** 레드 main이 된다. 코드 5파일
+  (`DifficultySpec.cs`, `CinderSim.cs`, `HackTypes.cs`, `GameView.cs`,
+  `ImpactBudget.cs`, `DifficultyGroupAiTests.cs`, `SIM_SPEC_HACKSLASH.md`)은
+  **커밋하지 않는다**. 작업 트리 원본은 손대지 않았다 — 남의 라이브 버퍼를
+  고치면 lost-update가 난다.
+- **선반영한 것**: 같은 레인의 무해한 기록물은 먼저 밀어 증거를 보존했다 —
+  `docs/provenance/video-analysis-wbDv6nawEeY.md`,
+  `_workspace/current/design/video-review-analysis-amendment11.md` (86ff932).
+- **별건 결함(레인 소유자 확인 필요)**: 신규 `.cs` 3개에 `.meta`가 없다
+  (`DifficultySpec.cs`, `ImpactBudget.cs`, `DifficultyGroupAiTests.cs`).
+  같은 폴더의 다른 모든 `.cs`는 `.meta`를 추적 중이라, 이대로 커밋되면
+  머신마다 GUID가 새로 생겨 참조가 흔들린다. 에디터 임포트 후 함께 커밋할 것.
+- **프로버넌스 불일치**: provenance의 `derivedChanges`는
+  `Assets/Tests/EditMode/DifficultyTests.cs`를 가리키는데 실제 파일명은
+  `DifficultyGroupAiTests.cs`다. 레인 마감 시 정정 대상.
+
+## 2026-08-07 17:2x — 명령 에이전트 레인: EditMode 전체 게이트 차단(타 세션 파일)
+
+- **관측**: `msbuild CinderCourt.Tests.EditMode.csproj` → **error 9건, 전부
+  `Assets/Tests/EditMode/EnvironmentBuilderTests.cs`**
+  (`CS0103: The name 'EnvironmentBuilder' does not exist`). 해당 파일은
+  untracked(`??`), mtime 17:12 — **다른 세션의 라이브 버퍼**이고, 참조하는
+  `EnvironmentBuilder` 타입은 저장소 어디에도 아직 없다(작성 중).
+- **판단**: 남의 라이브 파일은 손대지 않는다(CLAUDE.md §5). 컴파일 에러는
+  어셈블리 전체를 막으므로 **Unity EditMode 전체 러너(502+)는 이 세션에서 실행
+  불가**. Unity 에디터도 다른 세션이 점유 중(pid 16568)이라 배치 러너 자체가 불가.
+- **대체 증거**: ① `msbuild CinderCourt.View.csproj` → `-> Temp/bin/Debug/
+  CinderCourt.View.dll` (error 0) ② `msbuild Assembly-CSharp-Editor.csproj` →
+  error 0 (신규 `Assets/Editor/GeminiDevKey.cs` 포함) ③ 신규 순수 로직 픽스처 2종
+  (`CommandPlanParserTests` 20 · `CommandSequenceRunnerTests` 15)을 net8.0 +
+  NUnit 3.14 하네스에서 빌드된 `CinderCourt.View.dll` 참조로 실행 → **35/35 pass**.
+  하네스는 `/tmp/cmdagent/harness`(저장소 밖), 어셈블리명을
+  `CinderCourt.Tests.EditMode`로 맞춰 `InternalsVisibleTo` 유지.
+- **후속(해당 레인 소유자)**: `EnvironmentBuilder` 구현이 들어오면 EditMode 전체
+  러너로 502+ 재측정 필요. 이 레인 신규 파일은 전부 `.meta` 동봉 커밋했다.
+
+### 별건 — 이 레인이 남긴 기록 부채 2건
+
+- **`.env.game-audio` 키 소진**: `GEMINI_API_KEY`가 `gemini-2.5-flash-lite` /
+  `gemini-2.5-flash` / `gemini-2.0-flash` 전부 **429
+  `Your prepayment credits are depleted`**. 로컬 키워드 시퀀스 경로는 네트워크
+  0이라 무관하지만, **원격 계획 왕복은 실측 미검증**이다. 콘솔은 실패 사유를
+  `(요청 실패 429)`처럼 상태코드로 노출한다.
+- **제출 문서 정오**: `docs/nan2026/02-ai-tech.md` §4.2와
+  `docs/ai-native-builder/*`가 "응답은 의도 단어 1개로 제한"이라고 적고 있는데,
+  이제 응답은 **닫힌 어휘의 순서 있는 계획(JSON)**이다. 두 문서는 PDF/SVG 파생물이
+  묶인 제출 패키지라 이 레인에서 건드리지 않았다 — 해당 레인에서 본문 정정 +
+  `tools/docs/build-nan2026-pdf.mjs` 재생성이 필요하다.
+
+---
+
+## 2026-08-07 18:55 — 커밋 97a5f3f가 타 세션 스테이징분을 함께 실음
+
+- **관측**: 위키 커밋(97a5f3f "docs(wiki): #12 환경 개정 결론 개념화")에 다른
+  세션이 스테이징해 둔 난이도 HUD 작업 6파일이 함께 들어감 — GameView/HudView/
+  LobbyView 수정 + DifficultyHudTests.cs(+.meta) 신규 + video-review-analysis-
+  amendment11.md. `git commit`이 pathspec 없이 공유 인덱스 전체를 커밋(사고 1과
+  동일 패턴 — 2026-08-06 16:45 항목).
+- **판단**: 이미 push됨 → rewrite/force-push 금지(§5). 내용은 무손실로 착지했고
+  그쪽 작업은 완결형(코드+테스트+문서)이라 되돌리지 않는다. 커밋 메시지가 그
+  6파일을 설명하지 않는 것이 유일한 결함.
+- **난이도 HUD 세션에게**: 당신의 스테이징분은 97a5f3f에 이미 커밋·푸시됐다.
+  재커밋 불필요 — 중복 커밋 주의. 남은 워킹트리 변경만 이어서 커밋하면 된다.
+- **교훈 재확인**: 공유 워크트리에서는 `git commit` 전에 반드시
+  `git status --short`로 인덱스를 확인하고 `--only <paths>` 또는 명시
+  pathspec 커밋을 쓸 것 (CLAUDE.md §5).

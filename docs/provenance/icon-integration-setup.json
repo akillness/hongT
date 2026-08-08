@@ -1,0 +1,53 @@
+{
+  "setup_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "description": "Cinder Court icon integration setup - prepares regenerated icons with glow shader",
+  "directories": {
+    "source_icons": "Assets/Resources/Icons",
+    "regenerated_icons": "Assets/Resources/Icons/regenerated",
+    "materials": "Assets/Resources/Materials",
+    "shaders": "Assets/Shaders"
+  },
+  "shader": {
+    "name": "UI/Icon-Glow",
+    "path": "Assets/Shaders/UI-Icon-Glow.shader",
+    "features": [
+      "drop_shadow",
+      "glow_intensity_slider",
+      "glow_color_multiplier",
+      "rim_glow_fresnel"
+    ]
+  },
+  "material_variants": [
+    {
+      "name": "UIIcon-Glow-Warm",
+      "glow_color": [1.0, 0.6, 0.2, 1.0],
+      "glow_intensity": 1.2,
+      "used_for": ["skills", "equipment", "pickups"]
+    },
+    {
+      "name": "UIIcon-Glow-Cold",
+      "glow_color": [0.3, 0.9, 1.0, 1.0],
+      "glow_intensity": 1.1,
+      "used_for": ["void_skills", "ui_elements"]
+    },
+    {
+      "name": "UIIcon-Glow-Void",
+      "glow_color": [0.7, 0.3, 1.0, 1.0],
+      "glow_intensity": 1.3,
+      "used_for": ["void_magic", "defense_skills"]
+    },
+    {
+      "name": "UIIcon-Glow-Neutral",
+      "glow_color": [0.8, 0.8, 0.8, 1.0],
+      "glow_intensity": 0.8,
+      "used_for": ["ui_buttons", "default"]
+    }
+  ],
+  "next_steps": [
+    "1. In Unity Editor, run Assets > Cinder Court > Create Icon Glow Material",
+    "2. Run Assets > Cinder Court > Create Icon Variants",
+    "3. Run Assets > Cinder Court > Setup Icon Prefabs",
+    "4. Verify with Assets > Cinder Court > Validate Icon Setup",
+    "5. Build WebGL and test in browser at https://akillness.github.io/hongT"
+  ]
+}

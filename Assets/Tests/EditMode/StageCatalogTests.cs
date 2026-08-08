@@ -90,7 +90,7 @@ namespace CinderCourt.Tests
             for (var index = 0; index < StageCatalog.Entries.Count; index += 1)
             {
                 var entry = StageCatalog.Entries[index];
-                Assert.That(HackConfig.TryDungeon(entry.SimAnchorId, default, default, null, 0, out var config), Is.True);
+                Assert.That(HackConfig.TryDungeon(entry.SimAnchorId, default, default, (string)null, 0, out var config), Is.True);
                 Assert.That(config.StageId, Is.EqualTo(entry.SimAnchorId));
 
                 if (entry.HazardOverride == null)

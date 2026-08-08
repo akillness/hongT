@@ -1,0 +1,72 @@
+{
+  "artifact": "Assets/StreamingAssets/Video/cinder-court-intro.mp4",
+  "mirror": "docs/nan2026/assets/video/cinder-court-intro.mp4",
+  "purpose": "Branded game-concept boot reel that replaces the plain engine loading screen. Played by Assets/Scripts/View/IntroVideoView.cs on the default boot route.",
+  "story": {
+    "method": "webtoon-harness pipeline (research -> beat sheet -> reference-consistent frame prompts -> validate), executed manually",
+    "harness_note": "The native webtoon-harness agent team could not be launched here: it requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1, which is unset in this environment. Only its method was reused, not its runtime.",
+    "source_of_truth": "docs/nan2026/01-game-overview.md (title, Dusk Warden, lantern-oil tension, abyssal Cinder Court)",
+    "beat_sheet": "_workspace/current/design/intro-video/scenario.md",
+    "beats": [
+      "1. Ember spark ignites in pitch black",
+      "2. Spark becomes the ember lantern, held aloft",
+      "3. Dusk Warden silhouette rises with the lantern",
+      "4. Wide reveal of the abyssal court of obsidian pillars",
+      "5. Molten cinders surge through the court (final hold, carries the title lockup)"
+    ],
+    "dropped_beat": "6. Heroic brand hold — the render (frame06.png, 1254x1254) was rejected on review because the central subject read as a piece of fruit instead of the lantern-bearing Warden. The beat was cut rather than regenerated; the title lockup moved onto beat 5."
+
+  },
+  "frames": {
+    "tool": "god-tibo-imagen",
+    "cli": "gti --provider codex-cli --prompt \"<beat prompt + shared STYLE suffix>\" --output frames/frameNN.png",
+    "script": "_workspace/current/design/intro-video/gen.sh",
+    "outputs": "_workspace/current/design/intro-video/frames/frame01..05.png (frame06.png generated, then removed from the repo)",
+    "provider_findings": [
+      "The default private-codex backend returned HTTP 429 (image quota exhausted on this account) for every attempt, including an 8-attempt backoff run that produced zero frames.",
+      "The codex-cli provider succeeds, but rejects image input (\"The codex-cli provider does not support image input\"), so cross-frame consistency is carried by a shared STYLE suffix appended to every prompt instead of a reference image."
+    ],
+    "observed_sizes": [
+      "frame01-04: 1536x1024",
+      "frame05: 1672x941",
+      "frame06: 1254x1254 (removed — rejected render)"
+    ]
+  },
+  "assembly": {
+    "tool": "ffmpeg 7.1.1",
+    "script": "_workspace/current/design/intro-video/assemble.sh",
+    "frame_count": 5,
+    "pipeline": "scale-to-cover + centre-crop to 16:9 -> per-frame Ken-Burns (zoompan, alternating push-in / pull-out, 1.8 s each) -> 0.6 s fade cross-transitions -> burned-in title lockup -> fade in/out",
+    "title_lockup": {
+      "line1": "ABYSSAL LANTERN",
+      "line2": "잿불의 법정을 지켜라",
+      "font": "Assets/Resources/Fonts/HudKorean.otf (same Korean subset the HUD ships)"
+    },
+    "observed_output": {
+      "codec": "h264",
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "duration_seconds": 6.6,
+      "bytes": 1432004,
+      "audio": "none"
+    },
+    "pitfall": "Feeding the stills as looped streams (-loop 1 -t 1.8) makes zoompan emit d frames per input frame; the first assembled reel was 87 s. Inputs must be single still frames so zoompan's d= alone sets segment length."
+  },
+  "integration": {
+    "component": "Assets/Scripts/View/IntroVideoView.cs",
+    "wiring": "Assets/Scripts/View/GameBootstrap.cs builds the IntroVideoView child; GameDirector.Attach takes it as an optional trailing argument and calls Play() on the default boot route only.",
+    "overlay_contract": "ScreenSpaceOverlay canvas at sorting order 520, above CutsceneView (500). The boot route runs underneath, so no game state is gated on playback.",
+    "skip": "Any key / tap, or the ?intro=off query parameter. QA deep links (?mode=arena|prologue|campaign) never show the reel.",
+    "webgl": "VideoPlayer on WebGL can only stream from a URL, so the clip lives in StreamingAssets rather than Resources. A 4 s prepare timeout and a 20 s watchdog guarantee the intro always finishes even when the browser cannot decode the clip.",
+    "tests": "Assets/Tests/EditMode/IntroVideoViewTests.cs — asserts the boot-never-blocks invariant (always finishes, reports completion exactly once per Play cycle, Hide is silent, replay re-arms) and the StreamingAssets path contract."
+  },
+  "qa": {
+    "frame_grabs": "_workspace/current/qa/intro-video/t0.5.png, t3.5.png, t6.2.png, t7.2.png",
+    "title_render_check": "signalstats YAVG over the title band rises 33.3 -> 79.6 and over the Korean subtitle band 29.1 -> 64.4 between t=3.0 s and t=7.2 s, confirming both lockup lines rasterised (Hangul glyphs present in HudKorean.otf). [6-frame cut]",
+    "title_render_check_5frame": "Re-measured after the frame06 cut: bright neutral pixels (r>200,g>195,b>180, saturation<40) inside the 1280x200 title band at y=225 count 7051 at t=5.5 s versus 1 at t=2.0 s, so the lockup still rasterises over the new final hold."
+  },
+  "revisions": [
+    "2026-08-06 — cut beat 6 (rejected \"apple-looking\" brand-hold render): frames/frame06.png deleted, assemble.sh made frame-list driven (FRAMES array), reel re-assembled at 5 frames / 6.6 s / 1432004 bytes."
+  ]
+}

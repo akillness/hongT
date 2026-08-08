@@ -29,7 +29,7 @@ namespace CinderCourt.Tests
         {
             Assert.IsTrue(
                 HackConfig.TryDungeon(anchor, MetaStats.Of(2, 2, 2),
-                    EquipTiers.Of(weapon, lantern, cloak), null, 0, out var config),
+                    EquipTiers.Of(weapon, lantern, cloak), (string)null, 0, out var config),
                 $"unknown anchor {anchor}");
             config.Sigils = sigils;
             return config;

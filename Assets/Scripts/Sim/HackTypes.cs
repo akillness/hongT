@@ -14,8 +14,57 @@ namespace CinderCourt.Sim
     /// </summary>
     public enum GameMode { Arena = 0, Prologue = 1, Dungeon = 2, Training = 3 }
 
-    /// <summary>Active dungeon companion locomotion mode.</summary>
+    /// <summary>Active dungeon companion locomotion mode. This is the COMMANDED mode and
+    /// stays exactly the frozen Amendment #3 pair: the AMENDMENT #7 autonomy state is a
+    /// derived per-slot flag (<c>IHackSnapshot.CompanionEngagedAt</c>), deliberately not a
+    /// third member here, so a command surface can never be confused with a derived one.</summary>
     public enum CompanionBehavior { Follow = 0, Hold = 1 }
+
+    /// <summary>AMENDMENT #8: the signature skill a companion archetype owns. Exactly one
+    /// per archetype, append-only, <see cref="None"/> = the slot has no skill (never
+    /// produced by <see cref="HackSpec.CompanionSkill"/>, which always resolves a skill).</summary>
+    public enum CompanionSkillId { None = 0, Volley = 1, Hex = 2, Quake = 3, Flare = 4 }
+
+    /// <summary>AMENDMENT #8 (A8.2): one archetype's signature-skill tuple. Immutable value
+    /// type so the sim can copy it per slot at construction and never re-resolve it.</summary>
+    public readonly struct CompanionSkillSpec
+    {
+        public readonly CompanionSkillId Id;
+        /// <summary>Seconds between casts. Also the value the cooldown starts at, so no slot
+        /// can open a run with a free cast.</summary>
+        public readonly float Cooldown;
+        /// <summary>Iso radius, measured from the COMPANION (not its anchor) — a skill is a
+        /// swing, so it uses swing geometry.</summary>
+        public readonly float Radius;
+        /// <summary>Damage per hit as a multiple of the player's current damage. Neutral:
+        /// A8.6 keeps companion skills out of the §2.4 element cycle.</summary>
+        public readonly float DamageScale;
+        /// <summary>Upper bound on enemies struck by one cast, nearest first.</summary>
+        public readonly int MaxTargets;
+        /// <summary>Living enemies required inside <see cref="Radius"/> before the skill
+        /// AUTO-fires. A commanded cast bypasses this and needs only one.</summary>
+        public readonly int MinAutoTargets;
+        /// <summary>Push applied away from the companion, 0 for skills that do not shove.</summary>
+        public readonly float Knockback;
+
+        public CompanionSkillSpec(
+            CompanionSkillId id,
+            float cooldown,
+            float radius,
+            float damageScale,
+            int maxTargets,
+            int minAutoTargets,
+            float knockback)
+        {
+            Id = id;
+            Cooldown = cooldown;
+            Radius = radius;
+            DamageScale = damageScale;
+            MaxTargets = maxTargets;
+            MinAutoTargets = minAutoTargets;
+            Knockback = knockback;
+        }
+    }
 
     /// <summary>
     /// Elemental cycle (docs/SIM_SPEC_HACKSLASH.md §2.4):
@@ -115,7 +164,7 @@ namespace CinderCourt.Sim
                && ((Slot0 == kind && Face0 == face) || (Slot1 == kind && Face1 == face));
 
         /// <summary>True when this sigil is equipped on EITHER face. The surge
-        /// clause (AMENDMENT #7) is face-independent: it is the sigil waking up,
+        /// clause (AMENDMENT #10) is face-independent: it is the sigil waking up,
         /// not the face doing more of what it already does.</summary>
         public bool HasKind(SigilKind kind)
             => kind != SigilKind.None && (Slot0 == kind || Slot1 == kind);
@@ -141,6 +190,13 @@ namespace CinderCourt.Sim
         public EquipTiers EquipTiers;
         /// <summary>Non-null enables the 1-slot companion (§4).</summary>
         public string CompanionId;
+        /// <summary>
+        /// AMENDMENT #6 (D6.2): 0..3 active companion ids, slot order preserved.
+        /// Append-only next to the frozen <see cref="CompanionId"/>. When null/empty
+        /// a non-empty <see cref="CompanionId"/> is promoted to a 1-element list; when
+        /// both are set this list wins. Normalize through <see cref="CompanionSlots"/>.
+        /// </summary>
+        public string[] CompanionIds;
         /// <summary>Dungeon gimmick placement; defaults to the stage table.</summary>
         public HazardConfig[] Hazards;
         /// <summary>
@@ -166,6 +222,14 @@ namespace CinderCourt.Sim
         /// Trial tier for <see cref="GameMode.Training"/> (0..2). Inert elsewhere.
         /// </summary>
         public int TrainingTier;
+        /// <summary>
+        /// AMENDMENT #11: run difficulty. Append-only and deliberately last, so
+        /// <c>default(HackConfig)</c> and every existing initializer keep resolving to
+        /// <see cref="Difficulty.Normal"/> (value 0) — the pre-amendment numbers.
+        /// Every multiplier lives in <see cref="DifficultySpec"/> (NOT frozen), so the
+        /// numeric contract can move without touching this file again.
+        /// </summary>
+        public Difficulty Difficulty;
 
         /// <summary>The frozen arena run expressed as a hack config (no meta/equipment).</summary>
         public static HackConfig Arena() => new HackConfig
@@ -210,7 +274,41 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// A training-ground trial (AMENDMENT #7). One gimmick, one tier, 60 s,
+        /// AMENDMENT #6 (D6.2): multi-slot dungeon overload. <paramref name="companionIds"/>
+        /// carries 0..3 companions in slot order; it is stored verbatim and normalized by
+        /// the sim through <see cref="CompanionSlots"/>. The single-id overload above stays
+        /// the frozen path, so every existing caller is byte-identical.
+        /// </summary>
+        public static bool TryDungeon(
+            string stageId,
+            MetaStats metaStats,
+            EquipTiers equipTiers,
+            string[] companionIds,
+            int rosterMask,
+            out HackConfig config)
+        {
+            if (!CampaignStages.TryGet(stageId, equipTiers.Weapon, equipTiers.Lantern, equipTiers.Cloak, out var stage))
+            {
+                config = default;
+                return false;
+            }
+
+            config = new HackConfig
+            {
+                Mode = GameMode.Dungeon,
+                StageId = stage.StageId,
+                MetaStats = metaStats,
+                EquipTiers = equipTiers,
+                CompanionId = companionIds != null && companionIds.Length > 0 ? companionIds[0] : null,
+                CompanionIds = companionIds,
+                Hazards = stage.Hazards,
+                RosterMask = rosterMask,
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// A training-ground trial (AMENDMENT #10). One gimmick, one tier, 60 s,
         /// no spawns. Meta stats and equipment ride along so the numbers you
         /// practise are the numbers you fight with; sigils do NOT — the trial is
         /// where you learn the gimmick unaided, and surge never fires here.
@@ -239,6 +337,40 @@ namespace CinderCourt.Sim
             };
             return true;
         }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.2): resolve the frozen <see cref="CompanionId"/> +
+        /// <see cref="CompanionIds"/> pair into the active slot list. Rule: if
+        /// <see cref="CompanionIds"/> has entries it wins (and <see cref="CompanionId"/>
+        /// is ignored), otherwise a non-empty <see cref="CompanionId"/> promotes to a
+        /// 1-element list. Null/empty/whitespace ids are dropped, duplicates are removed
+        /// keeping first occurrence, and the result is capped at 3 in slot order.
+        /// </summary>
+        public string[] CompanionSlots() => NormalizeCompanionSlots(CompanionId, CompanionIds);
+
+        internal static string[] NormalizeCompanionSlots(string companionId, string[] companionIds)
+        {
+            string[] source = companionIds != null && companionIds.Length > 0
+                ? companionIds
+                : (string.IsNullOrWhiteSpace(companionId) ? System.Array.Empty<string>() : new[] { companionId });
+            if (source.Length == 0)
+            {
+                return System.Array.Empty<string>();
+            }
+
+            var slots = new List<string>(3);
+            for (int index = 0; index < source.Length && slots.Count < 3; index += 1)
+            {
+                string id = source[index];
+                if (string.IsNullOrWhiteSpace(id) || slots.Contains(id))
+                {
+                    continue;
+                }
+                slots.Add(id);
+            }
+            return slots.Count == 0 ? System.Array.Empty<string>() : slots.ToArray();
+        }
+
 
         /// <summary>
         /// The campaign config this run rides on. Waves, boss visual and equipment
@@ -271,7 +403,7 @@ namespace CinderCourt.Sim
             * (1f + HackSpec.AttackPerPoint * HackSpec.ClampStat(MetaStats.Attack))
             * (1f + CampaignSpec.WeaponDamagePerRank * CampaignSpec.ClampRank(EquipTiers.Weapon));
 
-        /// <summary>Max health at level 1: <c>100 + 8·vitality + 8·cloak</c> (§5, §6).</summary>
+        /// <summary>Max health at level 1: <c>100 + 8•vitality + 8•cloak</c> (§5, §6).</summary>
         public float PlayerMaxHealth => SimConfig.PlayerMaxHealth
             + HackSpec.VitalityHealthPerPoint * HackSpec.ClampStat(MetaStats.Vitality)
             + CampaignSpec.CloakHealthPerRank * CampaignSpec.ClampRank(EquipTiers.Cloak);
@@ -317,6 +449,44 @@ namespace CinderCourt.Sim
         float CompanionY { get; }
         bool CompanionAttacking { get; }
         CompanionBehavior CompanionBehavior { get; }
+        /// <summary>AMENDMENT #6 (D6.5): number of active companion slots, 0..3.
+        /// A zero/single-companion run reports 0/1 and its scalar members above
+        /// alias slot 0 exactly.</summary>
+        int CompanionCount { get; }
+        /// <summary>D6.5: slot i follower x. Out-of-range i returns slot 0 (or 0 when empty).</summary>
+        float CompanionXAt(int slot);
+        /// <summary>D6.5: slot i follower y.</summary>
+        float CompanionYAt(int slot);
+        /// <summary>D6.5: slot i visible-attack flag.</summary>
+        bool CompanionAttackingAt(int slot);
+        /// <summary>D6.5: slot i commanded locomotion behavior (global hold/recall).</summary>
+        CompanionBehavior CompanionBehaviorAt(int slot);
+        /// <summary>D6.5: slot i target-facing (+1/-1).</summary>
+        int CompanionFacingAt(int slot);
+        /// <summary>A7.2: true while slot i is closing on its locked target instead of
+        /// trailing its anchor. Derived per tick — a held slot never reports it.</summary>
+        bool CompanionEngagedAt(int slot);
+        /// <summary>A7.1: enemy id this slot has locked, or 0 when it holds no target.
+        /// Ids are unique and never reused, so this survives enemy-array compaction.</summary>
+        int CompanionTargetIdAt(int slot);
+        /// <summary>A8.5: slot i's signature skill. Constant for the run — it is a property
+        /// of the archetype, not of the slot's state.</summary>
+        CompanionSkillId CompanionSkillIdAt(int slot);
+        /// <summary>A8.5: seconds until slot i can cast again; 0 = ready. Starts at the full
+        /// cooldown, so a run never opens with a free cast.</summary>
+        float CompanionSkillCooldownAt(int slot);
+        /// <summary>A8.5: true for the brief display window after slot i casts, so the view
+        /// has a cue without reading SimEvents (which is a per-tick, run-wide mask).</summary>
+        bool CompanionSkillCastingAt(int slot);
+        /// <summary>A9.5: the momentum gauge, 0..<see cref="HackSpec.MomentumMax"/>.
+        /// Always 0 outside a dungeon run.</summary>
+        float Momentum { get; }
+        /// <summary>A9.5: momentum tier 0..3, derived from <see cref="Momentum"/>.</summary>
+        int MomentumTier { get; }
+        /// <summary>A9.5: the melee damage multiplier the current tier grants; exactly 1
+        /// at tier 0, so a run that never builds momentum is unaffected.</summary>
+        float MomentumDamageMultiplier { get; }
+
         /// <summary>Living stage boss health; 0 when no boss is alive.</summary>
         float BossHp { get; }
         float BossMaxHp { get; }
@@ -336,7 +506,7 @@ namespace CinderCourt.Sim
         public const string PrologueStageId = "prologue";
         public const string PrologueClearReason = "prologue-clear";
         /// <summary>Trial end marker — the clock ran out, which is the only way
-        /// a trial ends (AMENDMENT #7).</summary>
+        /// a trial ends (AMENDMENT #10).</summary>
         public const string TrainingClearReason = "training-clear";
         public const int PrologueWaves = 3;
         private static readonly int[] PrologueSpawns = { 4, 6, 8 };
@@ -496,6 +666,181 @@ namespace CinderCourt.Sim
         public const float CompanionDamageScale = 0.6f;
         public const float CompanionAttackDisplay = 0.25f;
 
+        // --- §4 companion autonomy (AMENDMENT #7 — docs/SIM_SPEC_HACKSLASH.md A7) ---
+        // Every quantity is a compile-time constant compared against accumulated
+        // fixed-step floats, so §13 (no RNG anywhere) still holds. The relations are
+        // chosen, not tasted: AcquireRadius < LeashRadius guarantees a slot can always
+        // reach a target it is allowed to lock; LeashRadius = 4 x FollowOffset keeps the
+        // leash in anchor units; PursuitSpeedScale > 1 is the only way to close on a foe
+        // that walks at player speed, and stays low enough that a slot never leads.
+        /// <summary>A7.4: target acquisition radius, measured from the follow anchor
+        /// (not from the companion) so §4/D6.3 attack geometry is untouched.</summary>
+        public const float CompanionAcquireRadius = 300f;
+        /// <summary>A7.2: hard leash from the follow anchor. A locked target beyond it is
+        /// dropped and the slot returns; a slot beyond it never pursues.</summary>
+        public const float CompanionLeashRadius = 320f;
+        /// <summary>A7.2: pursuit speed as a multiple of the player's current speed.</summary>
+        public const float CompanionPursuitSpeedScale = 1.05f;
+        /// <summary>A7.1: seconds a locked target is retained against a nearer late arrival
+        /// (120 ticks at the 1/60 fixed step — integral, so the lock is frame-exact).</summary>
+        public const float CompanionTargetLockSeconds = 2f;
+        /// <summary>A7.3: dwell after an engagement ends before walking back to the anchor;
+        /// suppresses acquire/return oscillation at the radius edge.</summary>
+        public const float CompanionReturnGraceSeconds = 0.35f;
+
+        // --- §4 companion multi-slot (AMENDMENT #6 — docs/SIM_SPEC_HACKSLASH.md D6.3/D6.4) ---
+        /// <summary>D6.4: lateral fan-out per slot, perpendicular to facing.
+        /// slot 0 = 0 (identical to the frozen §4 follower), slot 1 = +64, slot 2 = -64.</summary>
+        public static readonly float[] CompanionSlotFanout = { 0f, 64f, -64f };
+
+        /// <summary>D6.3 per-archetype combat tuple: cadence (s), attack range (px),
+        /// player-damage scale. Keyed by the companion's underlying <see cref="EnemyVisual"/>.
+        /// ember-cohort is pinned to the §4 tuple so the pre-amendment single-companion
+        /// run stays digest-identical (approved AMENDMENT #6 correction).</summary>
+        public static void CompanionStats(
+            EnemyVisual visual,
+            out float cadence,
+            out float range,
+            out float damageScale)
+        {
+            switch (visual)
+            {
+                case EnemyVisual.Scout:      // scout-echo (skirmisher)
+                    cadence = 0.85f; range = 240f; damageScale = 0.50f; return;
+                case EnemyVisual.Shade:      // shade-echo (caster)
+                    cadence = 1.30f; range = 260f; damageScale = 0.65f; return;
+                case EnemyVisual.Possessed:  // possessed-echo (heavy)
+                    cadence = 1.45f; range = 150f; damageScale = 0.80f; return;
+                case EnemyVisual.EmberCohort: // ember-cohort — pinned to §4 fallback
+                default:
+                    cadence = CompanionAttackInterval;
+                    range = CompanionAttackRange;
+                    damageScale = CompanionDamageScale;
+                    return;
+            }
+        }
+
+        /// <summary>AMENDMENT #6: map a companion id (its <c>&lt;visual&gt;-echo</c> or bare
+        /// prefab id) to the underlying <see cref="EnemyVisual"/> archetype for D6.3 stats.
+        /// Unknown ids fall back to <see cref="EnemyVisual.EmberCohort"/> (= §4 tuple).</summary>
+        public static EnemyVisual CompanionArchetype(string companionId)
+        {
+            if (string.IsNullOrEmpty(companionId))
+            {
+                return EnemyVisual.EmberCohort;
+            }
+            string baseId = companionId.EndsWith("-echo")
+                ? companionId.Substring(0, companionId.Length - "-echo".Length)
+                : companionId;
+            switch (baseId)
+            {
+                case "scout": return EnemyVisual.Scout;
+                case "shade": return EnemyVisual.Shade;
+                case "possessed": return EnemyVisual.Possessed;
+                case "ember-cohort":
+                default: return EnemyVisual.EmberCohort;
+            }
+        }
+
+        // --- §4 companion signature skills (AMENDMENT #8 — docs/SIM_SPEC_HACKSLASH.md A8) ---
+        /// <summary>A8.5: seconds the cast cue stays up on the snapshot.</summary>
+        public const float CompanionSkillFlashSeconds = 0.35f;
+        /// <summary>A8.2: hard cap over every archetype's MaxTargets — sizes the sim's
+        /// selection scratch buffer, so no cast can allocate.</summary>
+        public const int CompanionSkillTargetCap = 8;
+
+        /// <summary>
+        /// A8.2 per-archetype signature skill — the numeric gate. Keyed by the same
+        /// <see cref="EnemyVisual"/> archetype as the D6.3 combat tuple, so a companion's
+        /// skill and its stats can never disagree about what it is.
+        /// Every archetype differs from every other on ALL FOUR of cooldown, radius,
+        /// damage scale and target count; that pairwise distinctness is the machine-checkable
+        /// form of "each companion has its own skill" and is asserted by
+        /// <c>CompanionSkill_TableIsPairwiseDistinctOnEveryAxis</c>.
+        /// Unlike D6.3 there is no §4 fallback tuple to preserve: skills are new surface,
+        /// so ember-cohort gets a real skill of its own instead of an inert default.
+        /// </summary>
+        public static CompanionSkillSpec CompanionSkill(EnemyVisual visual)
+        {
+            switch (visual)
+            {
+                case EnemyVisual.Scout:      // scout-echo — fast, shallow, multi-target
+                    return new CompanionSkillSpec(CompanionSkillId.Volley, 6f, 240f, 0.55f, 3, 2, 0f);
+                case EnemyVisual.Shade:      // shade-echo — widest net, weakest per hit
+                    return new CompanionSkillSpec(CompanionSkillId.Hex, 8f, 260f, 0.40f, 8, 2, 0f);
+                case EnemyVisual.Possessed:  // possessed-echo — tight shockwave, only shove
+                    return new CompanionSkillSpec(CompanionSkillId.Quake, 9f, 170f, 0.70f, 6, 2, 90f);
+                case EnemyVisual.EmberCohort: // ember-cohort — single focused nuke
+                default:
+                    return new CompanionSkillSpec(CompanionSkillId.Flare, 7f, 200f, 1.10f, 1, 1, 0f);
+            }
+        }
+
+        // --- §2 momentum gauge (AMENDMENT #9 — docs/SIM_SPEC_HACKSLASH.md A9) ---
+        // "Attacking makes you stronger" expressed as a bounded, decaying gauge.
+        // Dungeon-only, exactly like the §12.1 charge/growth depth, so the frozen
+        // arena and prologue contracts keep their numbers bit for bit.
+
+        /// <summary>A9.1: gauge ceiling. The gauge is a percentage by construction so
+        /// the view never needs a separate normalisation constant.</summary>
+        public const float MomentumMax = 100f;
+
+        /// <summary>A9.2: gained per ENEMY struck by a player melee swing (not per
+        /// swing), so cutting through a crowd is what fills the bar fastest.</summary>
+        public const float MomentumPerHit = 9f;
+
+        /// <summary>A9.2: paid ON TOP of <see cref="MomentumPerHit"/> when that melee
+        /// hit is the killing blow. Finishing beats flailing.</summary>
+        public const float MomentumPerKill = 14f;
+
+        /// <summary>A9.3: seconds of protection after any gain. Sized just above the
+        /// 1.22 s enemy attack cadence so a fair trade of blows holds the bar.</summary>
+        public const float MomentumGraceSeconds = 1.6f;
+
+        /// <summary>A9.3: drain per second once the grace lapses. At the ceiling the
+        /// bar is fully gone in 100/12 = 8.33 s of not connecting.</summary>
+        public const float MomentumDecayPerSecond = 12f;
+
+        /// <summary>A9.3: taking damage costs a quarter of the bar AND cancels the
+        /// grace, so a hit both burns momentum and starts the drain immediately.</summary>
+        public const float MomentumHurtPenalty = 25f;
+
+        /// <summary>A9.4: gauge value at which each tier starts. Ascending, index 0 = 0,
+        /// so <see cref="MomentumTierOf"/> is total over the whole 0..Max range.</summary>
+        public static readonly float[] MomentumTierThresholds = { 0f, 30f, 60f, 90f };
+
+        /// <summary>A9.4: player MELEE damage multiplier per tier. Strictly ascending and
+        /// index 0 is exactly 1, which is what keeps a momentum-less run frozen.</summary>
+        public static readonly float[] MomentumTierDamageMul = { 1f, 1.08f, 1.18f, 1.30f };
+
+        /// <summary>A9.4: number of momentum tiers (0..3).</summary>
+        public static readonly int MomentumTierCount = MomentumTierThresholds.Length;
+
+        /// <summary>A9.4: highest tier whose threshold the gauge has reached. Values below
+        /// 0 clamp to tier 0 and values above the last threshold clamp to the last tier,
+        /// so this is total for every float the sim can hold.</summary>
+        public static int MomentumTierOf(float momentum)
+        {
+            int tier = 0;
+            for (int index = MomentumTierThresholds.Length - 1; index >= 1; index -= 1)
+            {
+                if (momentum >= MomentumTierThresholds[index])
+                {
+                    tier = index;
+                    break;
+                }
+            }
+            return tier;
+        }
+
+        /// <summary>A9.4: the melee multiplier the gauge currently grants.</summary>
+        public static float MomentumDamageMulOf(float momentum)
+        {
+            return MomentumTierDamageMul[MomentumTierOf(momentum)];
+        }
+
+
+
         // --- §5 meta stats ---
         public const int MaxStatPoints = 10;
         public const float AttackPerPoint = 0.03f;
@@ -551,7 +896,7 @@ namespace CinderCourt.Sim
         /// <summary>증언인 B — altar oil burst, replacing 18.</summary>
         public const float SigilAltarOilBurst = 30f;
 
-        // --- §14 surge (AMENDMENT #7 — design/training-and-surge-spec.md) -----
+        // --- §14 surge (AMENDMENT #10 — design/training-and-surge-spec.md) -----
         // Deterministic surge windows. Sourced from
         // .survey/roguelike-training-and-surge/: the genre builds surges out of a
         // CLOCK (3/13) and never out of a health threshold (0/13) or a kill count
@@ -593,7 +938,7 @@ namespace CinderCourt.Sim
         /// second payout (a layer on the layer, not a duplicate grant).</summary>
         public const float SigilSurgeEnemyHazardMult = 3f;
 
-        // --- §15 training ground (AMENDMENT #7) -------------------------------
+        // --- §15 training ground (AMENDMENT #10) -------------------------------
         /// <summary>A trial is a fixed 60 s window — no wave table, no spawns.</summary>
         public const float TrainingSeconds = 60f;
         /// <summary>Trial tiers. Tier k scales hazard PERIODS by Tier{k}Rate; the
@@ -710,7 +1055,7 @@ namespace CinderCourt.Sim
             return (int)attacker % 4 + 1 == (int)defender;
         }
 
-        /// <summary>Skill damage multiplier: +20% favourable, −15% unfavourable (§2.4).</summary>
+        /// <summary>Skill damage multiplier: +20% favourable, -15% unfavourable (§2.4).</summary>
         public static float Matchup(Element attacker, Element defender)
         {
             if (Beats(attacker, defender))

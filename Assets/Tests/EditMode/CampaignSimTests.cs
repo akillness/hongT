@@ -357,7 +357,7 @@ namespace CinderCourt.Tests
         static HackConfig Dungeon213(string stageId)
         {
             Assert.IsTrue(
-                HackConfig.TryDungeon(stageId, default, EquipTiers.Of(2, 1, 3), null, 0, out var config),
+                HackConfig.TryDungeon(stageId, default, EquipTiers.Of(2, 1, 3), (string)null, 0, out var config),
                 $"unknown stage {stageId}");
             return config;
         }
@@ -719,7 +719,7 @@ namespace CinderCourt.Tests
             // (d) pylon-only combo swing sets ComboFinisher eligibility (hack lane —
             // the combo kit only exists there; same CinderSim contract).
             Assert.IsTrue(HackConfig.TryDungeon(
-                CampaignStages.EmberBastion, default, EquipTiers.Of(0, 0, 5), null, 0, out var hackConfig));
+                CampaignStages.EmberBastion, default, EquipTiers.Of(0, 0, 5), (string)null, 0, out var hackConfig));
             var comboSim = new CinderSim(in hackConfig);
             WalkOnto(comboSim, 450f, 500f, 60 * 4);
             for (var t = 0; t < 3; t++) comboSim.Tick(in east);
@@ -1380,11 +1380,33 @@ namespace CinderCourt.Tests
                 CampaignStages.EmberBastion,
                 hazards =>
                 {
+                    // Mutate the DOMINANT gimmick, matching the other two cases
+                    // (cinder-sluice moves its TideCurrent, ash-march its AshWall).
+                    // This case used to nudge the x=900 ObsidianPillar, which is
+                    // supporting furniture here — ember-bastion's identity is its
+                    // three EmberPylons.
+                    //
+                    // Why the target moved. A9 momentum (main b97d609) multiplies
+                    // swing damage, so the run resolves differently and the centre
+                    // bot's fixed zigzag no longer interacts with that corner. A
+                    // probe run INSIDE Unity (standalone dotnet disagrees here —
+                    // CLAUDE.md §4) swept every hazard at +50/120/200/300/400 px:
+                    //
+                    //   Pillar x=900   invisible at ALL five displacements
+                    //   Pylon  x=980   invisible at ALL five displacements
+                    //   Pylon  x=560   invisible +50, observed from +120
+                    //   Pylon  x=768   OBSERVED at +50   (3050|12 kills -> 2450|10)
+                    //
+                    // x=768 is the v1.1 third pylon whose aura covers the spawn, so
+                    // the bot meets it immediately and a 50 px nudge already moves
+                    // the shield off the enemies it was covering. That keeps the
+                    // original small-nudge intent AND makes it observable.
+                    // Re-run the probe if the recipe changes again; do not guess.
                     for (var i = 0; i < hazards.Length; i++)
-                        if (hazards[i].Kind == HazardKind.ObsidianPillar && hazards[i].X == 900f)
+                        if (hazards[i].Kind == HazardKind.EmberPylon && hazards[i].X == 768f)
                         { hazards[i].X += 50f; return; }
-                    Assert.Fail("ember-bastion lost its x=900 pillar — re-probe the recipe "
-                        + "(a mutation the bot cannot observe proves nothing)");
+                    Assert.Fail("ember-bastion lost its x=768 spawn-covering pylon — re-probe "
+                        + "the recipe (a mutation the bot cannot observe proves nothing)");
                 },
                 RunCentreScript);
 
@@ -1459,7 +1481,7 @@ namespace CinderCourt.Tests
         {
             Assert.IsTrue(StageCatalog.TryGet(catalogId, out var entry), $"unknown catalog id {catalogId}");
             Assert.IsTrue(
-                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), null, 0, out var config),
+                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), (string)null, 0, out var config),
                 $"unknown anchor {entry.SimAnchorId}");
             if (entry.HazardOverride != null) config.Hazards = entry.HazardOverride;
             return config;
@@ -1997,7 +2019,7 @@ namespace CinderCourt.Tests
         {
             Assert.IsTrue(StageCatalog.TryGet(catalogId, out var entry), $"unknown catalog id {catalogId}");
             Assert.IsTrue(
-                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), null, 0, out var config),
+                HackConfig.TryDungeon(entry.SimAnchorId, default, EquipTiers.Of(weapon, lantern, cloak), (string)null, 0, out var config),
                 $"unknown anchor {entry.SimAnchorId}");
             var pact = StageCatalog.PactFor(catalogId);
             Assert.IsNotNull(pact, $"{catalogId}: pact table must exist");

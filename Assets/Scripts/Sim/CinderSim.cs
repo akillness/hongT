@@ -18,7 +18,7 @@ namespace CinderCourt.Sim
     /// </summary>
     public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot,
                                     IRunPreparationSnapshot, IGrowthChoiceSnapshot,
-                                    IDerivedStatSnapshot
+                                    IDerivedStatSnapshot, IDungeonProgressionSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -87,9 +87,32 @@ namespace CinderCourt.Sim
         private int _enemyCount;
         private PickupState[] _pickups = new PickupState[SimConfig.EnemyCap];
         private int _pickupCount;
+        // AMENDMENT #14: PickupState lives in the FROZEN SimTypes.cs, so the grade
+        // rides a parallel array kept in lockstep with _pickups on every mutation.
+        private LootGrade[] _pickupGrades = new LootGrade[SimConfig.EnemyCap];
 
         private readonly List<EnemyState> _enemyView = new List<EnemyState>(SimConfig.EnemyCap);
         private readonly List<PickupState> _pickupView = new List<PickupState>(SimConfig.EnemyCap);
+        private readonly List<LootGrade> _pickupGradeView = new List<LootGrade>(SimConfig.EnemyCap);
+
+        // --- AMENDMENT #13 / #14 opt-in state (inert unless the caller opts in) ---
+        private readonly DungeonProgressionConfig _progression;
+        private int _ddaBand;
+        private int _waveBudget;
+        private int _waveEliteAllowance;
+        private int _waveHitsTaken;
+        private float _waveSeconds;
+        private int _elitesThisWave;
+        private int _finePity;
+        private int _epicPity;
+        private int _dropOrdinal;
+        private LootGrade _lastLootGrade;
+        // AMENDMENT #15: resolved ONCE in the constructor — the playfield cannot
+        // change mid-run, which is what keeps a run reproducible from
+        // (config, input sequence) alone. The field initializers are the frozen
+        // constants, so the arena and campaign constructors need no change at all.
+        private readonly float _boundsHalfWidth = SimConfig.ArenaHalfWidth;
+        private readonly float _boundsHalfHeight = SimConfig.ArenaHalfHeight;
 
         private PlayerState _player;
         private SimMode _mode;
@@ -148,6 +171,21 @@ namespace CinderCourt.Sim
         private readonly bool _hack;
         private readonly HackConfig _hackConfig;
         private readonly GameMode _gameMode;
+        /// <summary>
+        /// AMENDMENT #11 §16: the resolved difficulty table for this run. Assigned in
+        /// every constructor; the arena/campaign constructors leave it at
+        /// <see cref="Difficulty.Normal"/>, whose profile is entirely neutral, so their
+        /// behaviour is byte-identical to the pre-amendment build.
+        /// </summary>
+        private readonly DifficultyProfile _difficulty = DifficultySpec.For(Difficulty.Normal);
+        /// <summary>
+        /// §16 C scratch: per-enemy "cleared to swing this tick", rebuilt by
+        /// <c>PlanEnemyGroup</c> at the top of every enemy update. Indexed by the same
+        /// index as <c>_enemies</c>; only read on a token-limited tier.
+        /// </summary>
+        private bool[] _mayAttack = new bool[SimConfig.EnemyCap];
+
+
         private readonly bool _prologue;
         private readonly bool _dungeon;
         private readonly bool _companionActive;
@@ -159,6 +197,13 @@ namespace CinderCourt.Sim
         private float _comboLink;     // seconds left of the 0.9 s chain window
         private bool _comboLanded;    // current swing already damaged something
         private ComboVariant _comboVariant;  // finisher branch, latched at swing start
+        // AMENDMENT #9 momentum gauge (A9). Dungeon-only; in every other mode
+        // these stay 0 for the whole run, which is what keeps the frozen arena
+        // and prologue digests bit-identical.
+        private float _momentum;          // 0..HackSpec.MomentumMax
+        private float _momentumGrace;     // seconds of decay protection left
+        private int _momentumTierSeen;    // tier at the end of the previous tick
+
         // Input depth §3/§5.
         private float _chargeTime;            // seconds the attack key has been held
         private bool _growthOfferOpen;
@@ -189,17 +234,52 @@ namespace CinderCourt.Sim
         private int _rosterMask;
         private Corpse[] _corpses = new Corpse[8];
         private int _corpseCount;
-        private float _companionX, _companionY;
-        private float _companionTimer;
-        private float _companionShow;
-        private int _companionFacing;
+        // AMENDMENT #6 (D6.1-D6.5): 0..3 companion slots. slot 0 reproduces the
+        // frozen §4 follower exactly (fan-out 0, ember-cohort/fallback tuple), so a
+        // zero/single-companion run stays digest-identical. Arrays are length 3 and
+        // only the first _companionCount entries are live.
+        private const int MaxCompanions = 3;
+        private readonly float[] _companionX = new float[MaxCompanions];
+        private readonly float[] _companionY = new float[MaxCompanions];
+        private readonly float[] _companionTimer = new float[MaxCompanions];
+        private readonly float[] _companionShow = new float[MaxCompanions];
+        private readonly int[] _companionFacing = new int[MaxCompanions];
         private CompanionBehavior _companionBehavior;
+        private readonly int _companionCount;
         private readonly float _boltDamage;
         private readonly float _pulseTickDamage;
         private readonly float _ashNovaDamage;
-        private readonly float _companionAttackInterval;
-        private readonly float _companionAttackRange;
-        private readonly float _companionDamageScale;
+        // Per-slot D6.3 combat tuple. slot 0 carries the §4/ember-cohort values and any
+        // GuardianResonance modifier; further slots carry their own archetype tuple.
+        private readonly float[] _companionAttackInterval = new float[MaxCompanions];
+        private readonly float[] _companionAttackRange = new float[MaxCompanions];
+        private readonly float[] _companionDamageScale = new float[MaxCompanions];
+        // NOTE — amendment numbering, settled at merge time. main owns #7
+        // (companion autonomy) and #8 (signature skills); the momentum lane
+        // already writes itself as A9 in HudView. The training-ground + surge
+        // work below, which briefly also called itself #7, is therefore
+        // **AMENDMENT #10** everywhere. Only the label moved — no field, no
+        // constant and no behaviour changed with it.
+        // AMENDMENT #7 (A7.1-A7.4): per-slot autonomy state. All of it is derived from
+        // counters and fixed-step accumulation — no RNG, so §13 still holds. The target is
+        // stored as an ENEMY ID, never an index: RemoveEnemyAt (CinderSim.cs:2245) shifts
+        // the tail down, so indices are reused while ids from _nextEnemyId never are.
+        private readonly int[] _companionTargetId = new int[MaxCompanions];
+        private readonly float[] _companionLockTimer = new float[MaxCompanions];
+        private readonly float[] _companionReturnGrace = new float[MaxCompanions];
+        private readonly bool[] _companionEngaged = new bool[MaxCompanions];
+        // AMENDMENT #8 (A8.2-A8.5): per-slot signature skill. The SPEC is resolved once at
+        // construction because it is a constant of the archetype; only the cooldown and the
+        // display flash are state. No RNG: the cooldown is fixed-step accumulation compared
+        // against compile-time constants, so §13 still holds.
+        private readonly CompanionSkillSpec[] _companionSkill = new CompanionSkillSpec[MaxCompanions];
+        private readonly float[] _companionSkillCooldown = new float[MaxCompanions];
+        private readonly float[] _companionSkillFlash = new float[MaxCompanions];
+        /// <summary>Target-selection scratch for ONE cast, sized by the A8.2 hard cap so a
+        /// cast never allocates. Holds enemy INDICES and is only ever live inside
+        /// <see cref="CastCompanionSkill"/>, which does not compact the enemy array.</summary>
+        private readonly int[] _companionSkillHits = new int[HackSpec.CompanionSkillTargetCap];
+
         // --- AMENDMENT #6 sigils: resolved ONCE at construction, so the per-tick
         // cost is a field read and an unequipped run keeps every original constant
         // (the 15 golden rows prove it). Initializers are the pre-amendment values,
@@ -214,7 +294,7 @@ namespace CinderCourt.Sim
         private float _sigilVentEnemyDamage;                   // 0 = vents stay player-only
         private float _sigilAltarHoldSeconds = CampaignSpec.AltarHoldSeconds;
         private float _sigilAltarOilBurst = CampaignSpec.AltarOilBurst;
-        // --- AMENDMENT #7 surge: two deterministic windows, different axes.
+        // --- AMENDMENT #10 surge: two deterministic windows, different axes.
         // Peril slows the hazard CLOCK (only ever lengthens a telegraph); surge
         // multiplies hazard damage dealt to ENEMIES (never touches timing). Both
         // are inert in a run that never trips them, so the goldens do not move.
@@ -231,7 +311,7 @@ namespace CinderCourt.Sim
         private bool _sigilPerilWallHalf;                      // 집행인 peril clause
         private bool _sigilPerilAltarInstant;                  // 증언인 peril clause
         private bool _sigilSurgePylonAuraStop;                 // 판결인 surge clause
-        // --- AMENDMENT #7 training: a fixed-length trial with no spawn table.
+        // --- AMENDMENT #10 training: a fixed-length trial with no spawn table.
         private readonly bool _training;
         // 1, NOT default(float). The arena/classic-campaign constructors never
         // touch this field, and a 0 here freezes the hazard clock for every
@@ -265,9 +345,10 @@ namespace CinderCourt.Sim
             _boltDamage = HackSpec.BoltDamage;
             _pulseTickDamage = HackSpec.PulseTickDamage;
             _ashNovaDamage = HackSpec.AshNovaDamage;
-            _companionAttackInterval = HackSpec.CompanionAttackInterval;
-            _companionAttackRange = HackSpec.CompanionAttackRange;
-            _companionDamageScale = HackSpec.CompanionDamageScale;
+            // Initialize companion slot 0 to frozen §4 spec (single-companion backward compat)
+            _companionAttackInterval[0] = HackSpec.CompanionAttackInterval;
+            _companionAttackRange[0] = HackSpec.CompanionAttackRange;
+            _companionDamageScale[0] = HackSpec.CompanionDamageScale;
             _hazards = NoHazards;
             _hazardRuntime = NoHazardRuntime;
             _hazardView = new List<HazardState>(0);
@@ -290,9 +371,10 @@ namespace CinderCourt.Sim
             _boltDamage = HackSpec.BoltDamage;
             _pulseTickDamage = HackSpec.PulseTickDamage;
             _ashNovaDamage = HackSpec.AshNovaDamage;
-            _companionAttackInterval = HackSpec.CompanionAttackInterval;
-            _companionAttackRange = HackSpec.CompanionAttackRange;
-            _companionDamageScale = HackSpec.CompanionDamageScale;
+            // Initialize companion slot 0 to frozen §4 spec (campaign compat)
+            _companionAttackInterval[0] = HackSpec.CompanionAttackInterval;
+            _companionAttackRange[0] = HackSpec.CompanionAttackRange;
+            _companionDamageScale[0] = HackSpec.CompanionDamageScale;
             _hazards = config.Hazards ?? NoHazards;
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
@@ -306,8 +388,25 @@ namespace CinderCourt.Sim
 
         /// <summary>Hack &amp; slash run — docs/SIM_SPEC_HACKSLASH.md §0-§7.</summary>
         public CinderSim(in HackConfig config)
+            : this(in config, default)
+        {
+        }
+
+        /// <summary>
+        /// Hack &amp; slash run with the opt-in progression amendments (#13 point-budget
+        /// waves + DDA, #14 graded loot + pity). This is the ONLY way to reach either
+        /// amendment; the single-argument constructor forwards
+        /// <c>default(DungeonProgressionConfig)</c>, which is both switches off, so
+        /// every existing caller and every golden digest keeps its frozen numbers.
+        /// </summary>
+        public CinderSim(in HackConfig config, in DungeonProgressionConfig progression)
         {
             _hack = true;
+            // AMENDMENT #13/#14 are dungeon-only (seed decision D3): the arena and the
+            // prologue must not gain a branch, and a trial has no economy to grade.
+            _progression = config.Mode == GameMode.Dungeon ? progression : default;
+            DungeonBoundsSpec.Resolve(
+                in _progression.Bounds, out _boundsHalfWidth, out _boundsHalfHeight);
             _gameMode = config.Mode;
             _prologue = config.Mode == GameMode.Prologue;
             _dungeon = config.Mode == GameMode.Dungeon;
@@ -340,15 +439,46 @@ namespace CinderCourt.Sim
             }
 
             _hackConfig = configured;
+            // AMENDMENT #11 §16: resolved once — the tier cannot change mid-run, which is
+            // what keeps a run reproducible from (config, input sequence) alone.
+            _difficulty = DifficultySpec.For(configured.Difficulty);
+
             _boltDamage = boltDamage;
             _pulseTickDamage = pulseTickDamage;
             _ashNovaDamage = ashNovaDamage;
-            _companionAttackInterval = companionAttackInterval;
-            _companionAttackRange = companionAttackRange;
-            _companionDamageScale = companionDamageScale;
+            // AMENDMENT #6 (D6.2-D6.4): resolve 0..3 companion slots from the frozen
+            // CompanionId + CompanionIds pair. Every slot resolves its own D6.3
+            // per-archetype base tuple, then folds in the same GuardianResonance modifier.
+            // For a legacy ember-cohort/fallback slot the archetype tuple IS the §4 base,
+            // so this reproduces ApplyPreparation's resonance bit-for-bit and a
+            // zero/single-companion ember-cohort run stays digest-identical.
+            string[] slots = _dungeon ? configured.CompanionSlots() : System.Array.Empty<string>();
+            _companionCount = slots.Length;
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                EnemyVisual archetype = HackSpec.CompanionArchetype(slots[slot]);
+                HackSpec.CompanionStats(
+                    archetype,
+                    out float cadence,
+                    out float range,
+                    out float damageScale);
+                // AMENDMENT #8: same archetype key as D6.3, so a slot's skill and its combat
+                // tuple can never disagree about which companion this is. GuardianResonance
+                // is deliberately NOT folded in — A8.6 keeps skills out of preparation scaling.
+                _companionSkill[slot] = HackSpec.CompanionSkill(archetype);
+                ApplyGuardianResonance(
+                    in config.PreparationOffer, ref cadence, ref range, ref damageScale);
+                _companionAttackInterval[slot] = cadence;
+                _companionAttackRange[slot] = range;
+                _companionDamageScale[slot] = damageScale;
+            }
             _config = _dungeon ? configured.ToCampaignConfig() : default;
-            _companionActive = _dungeon && !string.IsNullOrEmpty(configured.CompanionId);
+            _companionActive = _companionCount > 0;
+
             ResolveSigils(_dungeon ? configured.Sigils : default);
+            // AMENDMENT #10: a trial carries its hazards on the config directly
+            // (there is no campaign table for it), so the routing gains a third
+            // arm. The dungeon and non-dungeon arms are main's, unchanged.
             _hazards = _dungeon
                 ? (_config.Hazards ?? NoHazards)
                 : (_training ? (configured.Hazards ?? NoHazards) : NoHazards);
@@ -367,7 +497,7 @@ namespace CinderCourt.Sim
 
         /// <summary>
         /// Turns the equipped loadout into the per-run gimmick constants
-        /// (AMENDMENT #6 · design/sigil-spec.md). Called once from the hack
+        /// (AMENDMENT #6 • design/sigil-spec.md). Called once from the hack
         /// constructor; an empty loadout writes nothing, so every field keeps the
         /// pre-amendment initializer and the run is byte-identical.
         ///
@@ -402,7 +532,7 @@ namespace CinderCourt.Sim
             if (loadout.Has(SigilKind.Witness, SigilFace.B))
                 _sigilAltarOilBurst = HackSpec.SigilAltarOilBurst;
 
-            // --- AMENDMENT #7 surge clauses. Face-independent: the clause is the
+            // --- AMENDMENT #10 surge clauses. Face-independent: the clause is the
             // sigil waking up inside a window, not the face doing more.
             //
             // The three PERIL clauses are the ones that looked like immunity in
@@ -482,24 +612,49 @@ namespace CinderCourt.Sim
                     }
                     break;
                 case PreparationOfferKind.GuardianResonance:
-                    switch (offer.Variant)
-                    {
-                        case 1:
-                            companionAttackInterval = MathF.Max(
-                                0.5f,
-                                HackSpec.CompanionAttackInterval * (1f - 0.10f * offer.Magnitude));
-                            break;
-                        case 2:
-                            companionAttackRange = HackSpec.CompanionAttackRange + 20f * offer.Magnitude;
-                            break;
-                        case 3:
-                            companionDamageScale = HackSpec.CompanionDamageScale
-                                * (1f + 0.10f * offer.Magnitude);
-                            break;
-                    }
+                    ApplyGuardianResonance(
+                        in offer,
+                        ref companionAttackInterval,
+                        ref companionAttackRange,
+                        ref companionDamageScale);
                     break;
             }
         }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.3): the Amendment #4 GuardianResonance modifier, factored out so
+        /// it can be applied to every companion slot after its per-archetype base. Preserves
+        /// the frozen clamps (0.5 s cadence floor). Variants: 1 = faster cadence,
+        /// 2 = longer range, 3 = higher damage scale; magnitude 1..2.
+        /// </summary>
+        private static void ApplyGuardianResonance(
+            in PreparationOffer offer,
+            ref float companionAttackInterval,
+            ref float companionAttackRange,
+            ref float companionDamageScale)
+        {
+            if (offer.Kind != PreparationOfferKind.GuardianResonance
+                || offer.Variant < 1 || offer.Variant > 3
+                || offer.Magnitude < 1 || offer.Magnitude > 2)
+            {
+                return;
+            }
+
+            switch (offer.Variant)
+            {
+                case 1:
+                    companionAttackInterval = MathF.Max(
+                        0.5f, companionAttackInterval * (1f - 0.10f * offer.Magnitude));
+                    break;
+                case 2:
+                    companionAttackRange += 20f * offer.Magnitude;
+                    break;
+                case 3:
+                    companionDamageScale *= 1f + 0.10f * offer.Magnitude;
+                    break;
+            }
+        }
+
 
         // --- ISimSnapshot ----------------------------------------------------
         public SimMode Mode => _mode;
@@ -518,11 +673,29 @@ namespace CinderCourt.Sim
         public PlayerState Player => _player;
         public IReadOnlyList<EnemyState> Enemies => _enemyView;
         public IReadOnlyList<PickupState> Pickups => _pickupView;
+
+        // --- IDungeonProgressionSnapshot (AMENDMENT #13 / #14) ----------------
+
+        public bool AdaptiveWavesActive => _progression.AdaptiveWaves;
+        public bool GradedLootActive => _progression.GradedLoot;
+        public int DifficultyBand => _ddaBand;
+        public int WaveBudget => _waveBudget;
+        public int WaveEliteAllowance => _waveEliteAllowance;
+        public int WaveHitsTaken => _waveHitsTaken;
+        public float WaveElapsedSeconds => _waveSeconds;
+        public int FinePity => _finePity;
+        public int EpicPity => _epicPity;
+        public LootGrade LastLootGrade => _lastLootGrade;
+        public IReadOnlyList<LootGrade> PickupGrades => _pickupGradeView;
+        public float BoundsHalfWidth => _boundsHalfWidth;
+        public float BoundsHalfHeight => _boundsHalfHeight;
+        public bool ExpandedBoundsActive =>
+            _boundsHalfWidth > SimConfig.ArenaHalfWidth || _boundsHalfHeight > SimConfig.ArenaHalfHeight;
         public SimEvents Events => _events;
         public float NovaX => _novaX;
         public float NovaY => _novaY;
 
-        // --- AMENDMENT #7 surge / training (view-read only) -------------------
+        // --- AMENDMENT #10 surge / training (view-read only) -------------------
         /// <summary>Seconds left in the peril window (0 = closed).</summary>
         public float PerilRemaining => _perilTimer;
         /// <summary>Seconds left in the surge window (0 = closed).</summary>
@@ -555,6 +728,14 @@ namespace CinderCourt.Sim
 
         // --- IHackSnapshot ---------------------------------------------------
         public GameMode HackMode => _gameMode;
+        /// <summary>
+        /// AMENDMENT #11 §16: the tier this run was constructed with. Read-only — the
+        /// tier is fixed for the life of the sim, so a run stays reproducible from
+        /// (config, input sequence) alone. Deliberately a CinderSim member and not an
+        /// IHackSnapshot member: the frozen interface stays frozen.
+        /// </summary>
+        public Difficulty RunDifficulty => _hackConfig.Difficulty;
+
         public int Level => _level;
         public int Xp => _xp;
         public int XpNext => HackSpec.XpToNextLevel(_level);
@@ -565,9 +746,9 @@ namespace CinderCourt.Sim
         public int ElitesAlive => _elitesAlive;
         public float ExtractionProgress => _extractionProgress;
         public float ExtractionTarget => _extractionTarget;
-        public float CompanionX => _companionX;
-        public float CompanionY => _companionY;
-        public bool CompanionAttacking => _companionShow > 0f;
+        public float CompanionX => _companionX[0];
+        public float CompanionY => _companionY[0];
+        public bool CompanionAttacking => _companionShow[0] > 0f;
         public CompanionBehavior CompanionBehavior => _companionBehavior;
         public float BossHp => _bossHp;
         public float BossMaxHp => _bossMaxHp;
@@ -582,7 +763,40 @@ namespace CinderCourt.Sim
         public PreparationOffer SelectedPreparation => _selectedPreparation;
         /// <summary>Ember Rest offer supplied to this dungeon run at construction.</summary>
         public PreparationOffer AppliedPreparationInput => _appliedPreparationInput;
-        public int CompanionFacing => _companionFacing;
+        public int CompanionFacing => _companionFacing[0];
+        // AMENDMENT #6 (D6.5): multi-slot snapshot surface. Scalars above alias slot 0,
+        // so a zero/single-companion run reads identically to the pre-amendment contract.
+        public int CompanionCount => _companionCount;
+        public float CompanionXAt(int slot) => _companionX[ClampCompanionSlot(slot)];
+        public float CompanionYAt(int slot) => _companionY[ClampCompanionSlot(slot)];
+        public bool CompanionAttackingAt(int slot) => _companionShow[ClampCompanionSlot(slot)] > 0f;
+        public CompanionBehavior CompanionBehaviorAt(int slot) => _companionBehavior;
+        public int CompanionFacingAt(int slot) => _companionFacing[ClampCompanionSlot(slot)];
+        // AMENDMENT #7 (A7.1/A7.2): derived autonomy state. Kept apart from the commanded
+        // CompanionBehavior above so a command can never be read back as a derived state.
+        public bool CompanionEngagedAt(int slot) => _companionEngaged[ClampCompanionSlot(slot)];
+        public int CompanionTargetIdAt(int slot) => _companionTargetId[ClampCompanionSlot(slot)];
+        // AMENDMENT #8 (A8.5). A run with no companions reports the default skill (None, 0, false).
+        public CompanionSkillId CompanionSkillIdAt(int slot) =>
+            _companionCount <= 0 ? CompanionSkillId.None : _companionSkill[ClampCompanionSlot(slot)].Id;
+        public float CompanionSkillCooldownAt(int slot) =>
+            _companionCount <= 0 ? 0f : _companionSkillCooldown[ClampCompanionSlot(slot)];
+        public bool CompanionSkillCastingAt(int slot) =>
+            _companionCount > 0 && _companionSkillFlash[ClampCompanionSlot(slot)] > 0f;
+
+        private int ClampCompanionSlot(int slot)
+        {
+            if (_companionCount <= 0)
+            {
+                return 0;
+            }
+            if (slot < 0)
+            {
+                return 0;
+            }
+            return slot >= _companionCount ? 0 : slot;
+        }
+
 
         // --- input depth §5 (IGrowthChoiceSnapshot, additive) -----------------
         public bool GrowthOfferOpen => _growthOfferOpen;
@@ -615,6 +829,16 @@ namespace CinderCourt.Sim
         public float ChargeProgress => _chargeTime <= 0f
             ? 0f
             : MathF.Min(1f, _chargeTime / HackSpec.ChargeReadySeconds);
+
+        // --- AMENDMENT #9 momentum (A9.5, additive) --------------------------
+        /// <summary>A9.5: the gauge, 0..100. Outside a dungeon run nothing ever adds to
+        /// it, so this is a constant 0 there rather than a mode-checked expression.</summary>
+        public float Momentum => _momentum;
+        /// <summary>A9.5: the tier the gauge currently sits in (0..3).</summary>
+        public int MomentumTier => HackSpec.MomentumTierOf(_momentum);
+        /// <summary>A9.5: the melee multiplier that tier grants; exactly 1 at tier 0.</summary>
+        public float MomentumDamageMultiplier => HackSpec.MomentumDamageMulOf(_momentum);
+
 
         // --- Pure wave arithmetic (shared by sim and tests) -------------------
 
@@ -821,18 +1045,24 @@ namespace CinderCourt.Sim
             // the step body: a ward cast is already up for this step's enemy contacts.
             CastSkills(in input);
 
+            // A9.3: the gauge decays BEFORE this tick's swing resolves, so the
+            // damage a swing deals is the tier the HUD showed when the player
+            // committed to it — never a value that only existed mid-tick.
+            UpdateMomentumDecay(dt);
+
             UpdatePlayer(dt, in input);
+
             if (_companionActive && _mode != SimMode.GameOver)
             {
                 UpdateCompanionBehavior(in input);
-                UpdateCompanion(dt);
+                UpdateCompanion(dt, input.CompanionSkillQueued);
             }
             UpdateEnemies(dt);
             if (_dungeon && _mode != SimMode.GameOver)
             {
                 UpdateBossPhase();
             }
-            // AMENDMENT #7: surge windows resolve BEFORE the hazards they modify,
+            // AMENDMENT #10: surge windows resolve BEFORE the hazards they modify,
             // so a window that opens this tick is already in force for this tick's
             // hazard arithmetic (no one-tick lag between "you dropped below 35%"
             // and "the clock slowed").
@@ -866,8 +1096,71 @@ namespace CinderCourt.Sim
                 }
             }
 
+            // A9.5: edge-trigger the tier AFTER every gain and loss this tick, so a
+            // gauge that crossed two thresholds in one tick still raises exactly one
+            // cue, and a hit that knocked it back down raises none.
+            PublishMomentumTier();
+
             Publish();
         }
+
+        // --- AMENDMENT #9 momentum gauge (A9) --------------------------------
+
+        /// <summary>A9.3: hold the gauge for the grace window after the last gain, then
+        /// drain it at a constant rate. Dungeon-gated at the single point where the
+        /// gauge can move at all, so every other mode carries a permanent 0.</summary>
+        private void UpdateMomentumDecay(float deltaTime)
+        {
+            if (!_dungeon || _momentum <= 0f)
+            {
+                return;
+            }
+            if (_momentumGrace > 0f)
+            {
+                _momentumGrace = MathF.Max(0f, _momentumGrace - deltaTime);
+                return;
+            }
+            _momentum = MathF.Max(0f, _momentum - HackSpec.MomentumDecayPerSecond * deltaTime);
+        }
+
+        /// <summary>A9.2: the ONLY way the gauge rises. Called once per enemy a player
+        /// melee swing connects with; <paramref name="killed"/> adds the finish bonus.
+        /// Skills and companions deliberately do not feed it (A9.6).</summary>
+        private void GainMomentum(bool killed)
+        {
+            if (!_dungeon)
+            {
+                return;
+            }
+            float gain = HackSpec.MomentumPerHit + (killed ? HackSpec.MomentumPerKill : 0f);
+            _momentum = MathF.Min(HackSpec.MomentumMax, _momentum + gain);
+            _momentumGrace = HackSpec.MomentumGraceSeconds;
+        }
+
+        /// <summary>A9.3: being hit costs a flat slice AND cancels the grace, so the
+        /// drain starts on the very next tick instead of after another 1.6 s.</summary>
+        private void SpendMomentumOnHurt()
+        {
+            if (!_dungeon)
+            {
+                return;
+            }
+            _momentum = MathF.Max(0f, _momentum - HackSpec.MomentumHurtPenalty);
+            _momentumGrace = 0f;
+        }
+
+        /// <summary>A9.5: raise <see cref="SimEvents.MomentumTierUp"/> only on an upward
+        /// tier crossing, and remember the tier for the next tick's comparison.</summary>
+        private void PublishMomentumTier()
+        {
+            int tier = HackSpec.MomentumTierOf(_momentum);
+            if (tier > _momentumTierSeen)
+            {
+                _events |= SimEvents.MomentumTierUp;
+            }
+            _momentumTierSeen = tier;
+        }
+
 
         // --- Skills ----------------------------------------------------------
 
@@ -881,7 +1174,17 @@ namespace CinderCourt.Sim
             }
 
             // §2.2/§2.3: the dungeon replaces the arena kit with dash + four skills.
-            if (_dungeon)
+            //
+            // AMENDMENT #10: a TRIAL gets the same kit. The view already promised
+            // it — GameDirector sets InputAdapter.Profile.Dungeon on entry with
+            // the comment "full kit: you practise with your tools" — but the sim
+            // fell through to the arena branch, which reads only Nova and Ward.
+            // Q/E/Shift were dead keys in every trial: the input published
+            // BoltQueued/PulseQueued/DashQueued and nothing consumed them.
+            // Found by the skill-VFX lane (qa/skill-vfx-mode-coverage.md) as
+            // "2 of 5 silhouettes never fire in training" — a VFX symptom whose
+            // cause was here, in the sim.
+            if (_dungeon || _training)
             {
                 CastDungeonSkills(in input);
                 return;
@@ -1131,12 +1434,29 @@ namespace CinderCourt.Sim
         /// <summary>Lowest-index living enemy inside the iso radius, or -1.</summary>
         private int NearestEnemyIndex(float x, float y, float radius)
         {
+            // Zero exclusions runs exactly the frozen comparison sequence below.
+            return NearestEnemyIndexExcluding(x, y, radius, null, 0);
+        }
+
+        /// <summary>
+        /// <see cref="NearestEnemyIndex"/> with the first <paramref name="excludeCount"/>
+        /// entries of <paramref name="exclude"/> (enemy INDICES) skipped — AMENDMENT #8 needs
+        /// the 2nd..Nth nearest for a multi-target cast. Indices are valid only within one
+        /// cast, which never compacts the enemy array.
+        /// </summary>
+        private int NearestEnemyIndexExcluding(
+            float x, float y, float radius, int[] exclude, int excludeCount)
+        {
             int best = -1;
             float bestSquared = 0f;
             for (int index = 0; index < _enemyCount; index += 1)
             {
                 ref Enemy enemy = ref _enemies[index];
                 if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                if (IsExcluded(exclude, excludeCount, index))
                 {
                     continue;
                 }
@@ -1156,11 +1476,34 @@ namespace CinderCourt.Sim
             return best;
         }
 
+        private static bool IsExcluded(int[] exclude, int excludeCount, int index)
+        {
+            for (int slot = 0; slot < excludeCount; slot += 1)
+            {
+                if (exclude[slot] == index)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Push an enemy straight away from the player over <paramref name="time"/>.</summary>
         private void Knockback(ref Enemy enemy, float distance, float time)
         {
-            float deltaX = enemy.State.X - _player.X;
-            float deltaY = enemy.State.Y - _player.Y;
+            KnockbackFrom(ref enemy, _player.X, _player.Y, distance, time);
+        }
+
+        /// <summary>
+        /// <see cref="Knockback"/> from an arbitrary source point — AMENDMENT #8's shockwave
+        /// shoves away from the COMPANION, not the player. Passing the player's position
+        /// reproduces the frozen push exactly, including the degenerate-overlap fallback.
+        /// </summary>
+        private void KnockbackFrom(
+            ref Enemy enemy, float sourceX, float sourceY, float distance, float time)
+        {
+            float deltaX = enemy.State.X - sourceX;
+            float deltaY = enemy.State.Y - sourceY;
             float length = Hypot(deltaX, deltaY);
             if (length <= MoveEpsilon)
             {
@@ -1432,56 +1775,331 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// §4: the companion trails the player by 80 px and, every 1.1 s, hits the
-        /// nearest enemy inside 200 px for 60% of the player's damage. It cannot be
-        /// targeted, so it has no health and never appears in the enemy contact loop.
+        /// §4 + AMENDMENT #6 (D6.3/D6.4): each active companion slot trails the player
+        /// by 80 px (plus its D6.4 lateral fan-out) and, on its own per-archetype cadence,
+        /// hits the nearest enemy inside its range for a per-archetype share of the player's
+        /// damage. Slot 0 uses fan-out 0 and — for a legacy ember-cohort/fallback run — the
+        /// frozen §4 tuple, so a zero/single-companion run stays digest-identical. Companions
+        /// cannot be targeted, so they have no health and never appear in the enemy contact loop.
+        /// The shared <see cref="_companionBehavior"/> makes global hold/recall drive every slot.
         /// </summary>
-        private void UpdateCompanion(float deltaTime)
+        private void UpdateCompanion(float deltaTime, bool skillQueued)
         {
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                UpdateCompanionSlot(slot, deltaTime, skillQueued);
+            }
+        }
+
+        private void UpdateCompanionSlot(int slot, float deltaTime, bool skillQueued)
+        {
+            // D6.4: lateral fan-out perpendicular to the player's facing. Slot 0 = 0 (frozen §4).
+            float fanout = HackSpec.CompanionSlotFanout[slot];
+
+            // AMENDMENT #7: every autonomy radius is measured from the slot's ANCHOR, not from
+            // the slot itself, so §4/D6.3 attack geometry is untouched. A held slot is pinned,
+            // so its own position IS its anchor — that keeps Amendment #3 hold behavior intact
+            // (a held slot never pursues and never loses its swing).
+            bool held = _companionBehavior == CompanionBehavior.Hold;
+            float anchorX = held ? _companionX[slot] : _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+            float anchorY = held ? _companionY[slot] : _player.Y + fanout;
+
+            // A7.1: keep the locked target or acquire a new one from the anchor.
+            int target = ResolveCompanionTarget(slot, anchorX, anchorY, deltaTime);
+
+            bool wasEngaged = _companionEngaged[slot];
+            bool engaged = false;
             if (_companionBehavior == CompanionBehavior.Follow)
             {
-                float targetX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-                float targetY = _player.Y;
-                float deltaX = targetX - _companionX;
-                float deltaY = targetY - _companionY;
-                float distance = Hypot(deltaX, deltaY);
-                if (distance > MoveEpsilon)
+                float anchorDistance = IsoDistance(_companionX[slot], _companionY[slot], anchorX, anchorY);
+                if (anchorDistance > HackSpec.CompanionLeashRadius)
                 {
-                    float stepX = deltaX / distance * _playerSpeed * deltaTime;
-                    float stepY = deltaY / distance * _playerSpeed * SimConfig.YMoveScale * deltaTime;
-                    _companionX += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
-                    _companionY += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+                    // A7.3: the leash is hard. Drop the lock and walk home this tick.
+                    ClearCompanionTarget(slot);
+                    target = -1;
+                }
+                else if (target >= 0
+                    && _companionReturnGrace[slot] <= 0f
+                    && IsoDistance(
+                        _companionX[slot], _companionY[slot],
+                        _enemies[target].State.X, _enemies[target].State.Y) > _companionAttackRange[slot])
+                {
+                    // A7.2: the locked target is outside this slot's attack range but still inside
+                    // the leash, so close on it instead of trailing the anchor. The return grace
+                    // above is hysteresis: a slot that just came home cannot immediately re-engage,
+                    // which is what stops acquire/return oscillation at the radius edge.
+                    engaged = true;
+                }
+
+                if (engaged)
+                {
+                    StepCompanionToward(
+                        slot,
+                        _enemies[target].State.X,
+                        _enemies[target].State.Y,
+                        _playerSpeed * HackSpec.CompanionPursuitSpeedScale,
+                        deltaTime);
+                }
+                else
+                {
+                    // Frozen §4 follower step. With no target inside the acquire radius this is
+                    // the pre-amendment path, arithmetic included.
+                    StepCompanionToward(slot, anchorX, anchorY, _playerSpeed, deltaTime);
                 }
             }
 
-            _companionShow = MathF.Max(0f, _companionShow - deltaTime);
-            _companionTimer = MathF.Max(0f, _companionTimer - deltaTime);
-            if (_companionTimer > 0f)
+            // A7.3: an engagement that just ended opens the return grace; otherwise it decays.
+            if (!engaged)
             {
-                if (_companionShow <= 0f)
+                _companionReturnGrace[slot] = wasEngaged
+                    ? HackSpec.CompanionReturnGraceSeconds
+                    : MathF.Max(0f, _companionReturnGrace[slot] - deltaTime);
+            }
+
+            _companionEngaged[slot] = engaged;
+
+            // AMENDMENT #8 (A8.4): the signature skill resolves AFTER this tick's movement and
+            // BEFORE the §4 swing. Both orderings matter and both are gated by tests: moving
+            // first means the skill fires from where the companion actually is (same geometry
+            // the swing uses), and firing before the swing means the cadence timer below can
+            // never swallow a cast that was legally ready this tick.
+            UpdateCompanionSkill(slot, deltaTime, skillQueued);
+
+            _companionShow[slot] = MathF.Max(0f, _companionShow[slot] - deltaTime);
+            _companionTimer[slot] = MathF.Max(0f, _companionTimer[slot] - deltaTime);
+            if (_companionTimer[slot] > 0f)
+            {
+                if (_companionShow[slot] <= 0f)
                 {
-                    _companionFacing = _player.Facing;
+                    _companionFacing[slot] = _player.Facing;
                 }
                 return;
             }
 
-            int target = NearestEnemyIndex(_companionX, _companionY, _companionAttackRange);
+            // A7.4: the swing itself is unchanged §4/D6.3 geometry — per-archetype range from the
+            // slot's OWN position. The locked target is preferred when it is in range; otherwise
+            // the frozen nearest-in-range rule applies, so a lock can never cost the slot a swing.
+            if (target >= 0 && IsoDistance(
+                    _companionX[slot], _companionY[slot],
+                    _enemies[target].State.X, _enemies[target].State.Y) > _companionAttackRange[slot])
+            {
+                target = -1;
+            }
             if (target < 0)
             {
-                _companionFacing = _player.Facing;
+                target = NearestEnemyIndex(_companionX[slot], _companionY[slot], _companionAttackRange[slot]);
+            }
+            if (target < 0)
+            {
+                _companionFacing[slot] = _player.Facing;
                 return;
             }
 
-            float targetDeltaX = _enemies[target].State.X - _companionX;
+            float targetDeltaX = _enemies[target].State.X - _companionX[slot];
             if (MathF.Abs(targetDeltaX) > MoveEpsilon)
             {
-                _companionFacing = targetDeltaX > 0f ? 1 : -1;
+                _companionFacing[slot] = targetDeltaX > 0f ? 1 : -1;
             }
 
-            _companionTimer = _companionAttackInterval;
-            _companionShow = HackSpec.CompanionAttackDisplay;
-            DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale);
+            _companionTimer[slot] = _companionAttackInterval[slot];
+            _companionShow[slot] = HackSpec.CompanionAttackDisplay;
+            DamageEnemy(ref _enemies[target], _playerDamage * _companionDamageScale[slot]);
+            if (_enemies[target].State.Dead && _enemies[target].State.Id == _companionTargetId[slot])
+            {
+                // A7.1: the slot finished its own target — release the lock in the same tick so the
+                // snapshot never publishes a lock on a corpse.
+                ClearCompanionTarget(slot);
+            }
         }
+
+        /// <summary>
+        /// A7.1: hold the locked target while it lives, stays inside the leash and the lock has
+        /// not expired; otherwise acquire the nearest living enemy inside
+        /// <see cref="HackSpec.CompanionAcquireRadius"/> of the anchor. Returns the enemy INDEX
+        /// for this tick (indices shift on removal, which is why the lock itself stores the id).
+        /// </summary>
+        private int ResolveCompanionTarget(int slot, float anchorX, float anchorY, float deltaTime)
+        {
+            _companionLockTimer[slot] = MathF.Max(0f, _companionLockTimer[slot] - deltaTime);
+
+            int index = -1;
+            bool released = false;
+            if (_companionTargetId[slot] != 0)
+            {
+                index = EnemyIndexById(_companionTargetId[slot]);
+                bool valid = index >= 0
+                    && !_enemies[index].State.Dead
+                    && _companionLockTimer[slot] > 0f
+                    && IsoDistance(_enemies[index].State.X, _enemies[index].State.Y, anchorX, anchorY)
+                        <= HackSpec.CompanionLeashRadius;
+                if (!valid)
+                {
+                    ClearCompanionTarget(slot);
+                    index = -1;
+                    released = true;
+                }
+            }
+
+            // A release costs one tick before the next acquisition. That single tick is what makes
+            // every lock transition visible on the snapshot (id -> 0 -> id) instead of an invisible
+            // same-tick refresh, and it lets an expired lock be re-contested fairly.
+            if (index < 0 && !released)
+            {
+                int acquired = NearestEnemyIndex(anchorX, anchorY, HackSpec.CompanionAcquireRadius);
+                if (acquired >= 0)
+                {
+                    _companionTargetId[slot] = _enemies[acquired].State.Id;
+                    _companionLockTimer[slot] = HackSpec.CompanionTargetLockSeconds;
+                    index = acquired;
+                }
+            }
+
+            return index;
+        }
+
+        /// <summary>
+        /// AMENDMENT #8 (A8.3): tick the cooldown, then cast when it is ready and enough
+        /// enemies stand inside the skill radius. Auto-fire needs the archetype's
+        /// <see cref="CompanionSkillSpec.MinAutoTargets"/>; a commanded cast needs only one,
+        /// which is the entire difference between the two paths. A slot still on cooldown
+        /// ignores the command — it is never buffered, matching the Amendment #3 rule that a
+        /// redundant companion command is a no-op.
+        /// A HELD slot may cast: Amendment #3 only suspends locomotion, never the slot's
+        /// offensive behavior.
+        /// </summary>
+        private void UpdateCompanionSkill(int slot, float deltaTime, bool skillQueued)
+        {
+            _companionSkillFlash[slot] = MathF.Max(0f, _companionSkillFlash[slot] - deltaTime);
+            _companionSkillCooldown[slot] = MathF.Max(0f, _companionSkillCooldown[slot] - deltaTime);
+            if (_companionSkillCooldown[slot] > 0f)
+            {
+                return;
+            }
+
+            CompanionSkillSpec skill = _companionSkill[slot];
+            if (skill.Id == CompanionSkillId.None || skill.MaxTargets <= 0)
+            {
+                return;
+            }
+
+            int required = skillQueued ? 1 : skill.MinAutoTargets;
+            if (CountLivingEnemiesWithin(
+                    _companionX[slot], _companionY[slot], skill.Radius, required) < required)
+            {
+                return;
+            }
+
+            CastCompanionSkill(slot, in skill);
+        }
+
+        /// <summary>
+        /// A8.2: strike the up-to-MaxTargets nearest living enemies inside the radius,
+        /// nearest first, measured from the COMPANION. Selection reuses the frozen
+        /// <see cref="NearestEnemyIndex"/> comparison (lowest index wins a tie) with the
+        /// already-struck indices excluded, so the hit set is a pure function of geometry.
+        /// Damage is NEUTRAL — A8.6 keeps companion skills out of the §2.4 element cycle,
+        /// exactly like the companion's ordinary swing.
+        /// </summary>
+        private void CastCompanionSkill(int slot, in CompanionSkillSpec skill)
+        {
+            _companionSkillCooldown[slot] = skill.Cooldown;
+            _companionSkillFlash[slot] = HackSpec.CompanionSkillFlashSeconds;
+            _events |= SimEvents.CompanionSkillCast;
+
+            float damage = _playerDamage * skill.DamageScale;
+            float originX = _companionX[slot];
+            float originY = _companionY[slot];
+            int cap = skill.MaxTargets < HackSpec.CompanionSkillTargetCap
+                ? skill.MaxTargets
+                : HackSpec.CompanionSkillTargetCap;
+            int struck = 0;
+            while (struck < cap)
+            {
+                int index = NearestEnemyIndexExcluding(
+                    originX, originY, skill.Radius, _companionSkillHits, struck);
+                if (index < 0)
+                {
+                    break;
+                }
+
+                _companionSkillHits[struck] = index;
+                struck += 1;
+                if (skill.Knockback > 0f)
+                {
+                    KnockbackFrom(
+                        ref _enemies[index], originX, originY,
+                        skill.Knockback, HackSpec.ComboKnockbackTime);
+                }
+                DamageEnemy(ref _enemies[index], damage);
+            }
+        }
+
+        /// <summary>Living enemies inside the iso radius, counted no further than
+        /// <paramref name="cap"/> — the callers only ever ask "are there at least N?".</summary>
+        private int CountLivingEnemiesWithin(float x, float y, float radius, int cap)
+        {
+            int found = 0;
+            for (int index = 0; index < _enemyCount && found < cap; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                if (enemy.State.Dead)
+                {
+                    continue;
+                }
+                float deltaX = enemy.State.X - x;
+                float deltaY = (enemy.State.Y - y) * SimConfig.IsoY;
+                if (deltaX * deltaX + deltaY * deltaY <= radius * radius)
+                {
+                    found += 1;
+                }
+            }
+            return found;
+        }
+
+        private void ClearCompanionTarget(int slot)
+        {
+            _companionTargetId[slot] = 0;
+            _companionLockTimer[slot] = 0f;
+        }
+
+        /// <summary>
+        /// The frozen §4 follower step, parameterised by speed: normalize, scale Y by
+        /// <see cref="SimConfig.YMoveScale"/>, clamp the overshoot. Called with
+        /// <c>_playerSpeed</c> it is bit-identical to the pre-amendment follow path.
+        /// </summary>
+        private void StepCompanionToward(int slot, float targetX, float targetY, float speed, float deltaTime)
+        {
+            float deltaX = targetX - _companionX[slot];
+            float deltaY = targetY - _companionY[slot];
+            float distance = Hypot(deltaX, deltaY);
+            if (distance > MoveEpsilon)
+            {
+                float stepX = deltaX / distance * speed * deltaTime;
+                float stepY = deltaY / distance * speed * SimConfig.YMoveScale * deltaTime;
+                _companionX[slot] += MathF.Abs(stepX) >= MathF.Abs(deltaX) ? deltaX : stepX;
+                _companionY[slot] += MathF.Abs(stepY) >= MathF.Abs(deltaY) ? deltaY : stepY;
+            }
+        }
+
+        /// <summary>Iso-weighted distance — the §2.3 metric <c>hypot(dx, dy*1.42)</c>.</summary>
+        private static float IsoDistance(float fromX, float fromY, float toX, float toY)
+        {
+            return Hypot(toX - fromX, (toY - fromY) * SimConfig.IsoY);
+        }
+
+        /// <summary>Index of the living-or-dying enemy carrying <paramref name="id"/>, or -1.</summary>
+        private int EnemyIndexById(int id)
+        {
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                if (_enemies[index].State.Id == id)
+                {
+                    return index;
+                }
+            }
+            return -1;
+        }
+
 
         /// <summary>0-based index into the per-phase stat vectors.</summary>
         private int BossPhaseVectorIndex()
@@ -1883,7 +2501,10 @@ namespace CinderCourt.Sim
             SetPlayerAction(ActorAction.Critical, true);
             _events |= SimEvents.PlayerStruck;
 
-            float damage = _playerDamage * HackSpec.ChargeDamageMul;
+            // A9.4: the multiplier is sampled ONCE, before any of this swing's hits
+            // feed the gauge, so a swing can never buff its own later targets.
+            float damage = _playerDamage * HackSpec.ChargeDamageMul * MomentumDamageMultiplier;
+
             bool landed = false;
             for (int index = 0; index < _enemyCount; index += 1)
             {
@@ -1906,6 +2527,8 @@ namespace CinderCourt.Sim
                     HackSpec.ComboKnockbackDistance * HackSpec.ChargeKnockbackMul,
                     HackSpec.ComboKnockbackTime);
                 DamageEnemy(ref enemy, damage);
+                GainMomentum(enemy.State.Dead);
+
             }
             if (landed)
             {
@@ -1920,7 +2543,9 @@ namespace CinderCourt.Sim
         private void SwingCombo(int index)
         {
             bool finisher = index == HackSpec.ComboLength - 1;
-            float damage = _playerDamage * HackSpec.ComboDamageScale[index];
+            // A9.4: sampled once per swing, before this swing's own hits feed the gauge.
+            float damage = _playerDamage * HackSpec.ComboDamageScale[index] * MomentumDamageMultiplier;
+
             bool landed = false;
 
             for (int enemyIndex = 0; enemyIndex < _enemyCount; enemyIndex += 1)
@@ -1953,6 +2578,8 @@ namespace CinderCourt.Sim
                         HackSpec.ComboKnockbackTime);
                 }
                 DamageEnemy(ref enemy, damage);
+                GainMomentum(enemy.State.Dead);
+
             }
 
             if (_campaign)
@@ -2010,6 +2637,15 @@ namespace CinderCourt.Sim
                 return;
             }
 
+            // AMENDMENT #11 §16 A: the difficulty tier scales incoming damage BEFORE
+            // Ward and the shield, so an absorbed hit absorbs the tier-scaled number.
+            // Normal resolves to 1.0, so the frozen arena/dungeon numbers are untouched.
+            if (_difficulty.IncomingDamageMul != 1f)
+            {
+                amount *= _difficulty.IncomingDamageMul;
+            }
+
+
             // Ward refuses the damage outright but still burns the contact grace so a
             // warded player is not chain-hit by the same swing.
             if (!bypassWard && _player.WardTime > 0f)
@@ -2040,6 +2676,16 @@ namespace CinderCourt.Sim
             _player.Health = MathF.Max(0f, _player.Health - amount);
             _events |= SimEvents.PlayerDamaged;
 
+            // AMENDMENT #13 §17.4: the DDA counts hits that actually cost health —
+            // the same "real hit" definition 부록 B pins for the channel reset, so a
+            // fully-absorbed shield hit does not push the band down.
+            _waveHitsTaken += 1;
+
+            // A9.3: the gauge measures an unbroken offensive, so being hit costs a
+            // flat slice of it and ends the grace window immediately.
+            SpendMomentumOnHurt();
+
+
             // Motion depth: the authored `hit` clip (Standing React Small From
             // Left) shipped dead — damage only ever produced a colour flash.
             // A real hit that is not a kill now poses the recoil. Dungeon-gated
@@ -2064,6 +2710,13 @@ namespace CinderCourt.Sim
 
         private void UpdateEnemies(float deltaTime)
         {
+            // AMENDMENT #11 §16 C/E: decide WHO is allowed to swing this tick before any
+            // enemy moves. Doing it as a pre-pass is what makes the choice independent of
+            // array order — the token goes to the best candidate, not to whichever enemy
+            // happens to sit at a low index.
+            PlanEnemyGroup();
+
+
             for (int index = 0; index < _enemyCount; index += 1)
             {
                 if (_enemies[index].State.Dead)
@@ -2086,6 +2739,117 @@ namespace CinderCourt.Sim
                 }
             }
         }
+
+        /// <summary>
+        /// AMENDMENT #11 §16 C/E — the cooperative half of the group AI.
+        /// <para>
+        /// Runs once per tick, before any enemy moves, and decides which enemies are
+        /// cleared to start a swing. A tier with <see cref="DifficultyProfile.AttackTokens"/>
+        /// == 0 is unlimited and short-circuits, which is the pre-amendment rule: every
+        /// enemy in range swings whenever its own cooldown allows.
+        /// </para>
+        /// <para>
+        /// Determinism: the candidate scan is a fixed forward pass over the enemy array
+        /// with a strict &lt; comparison and an id tie-break, and it uses no RNG. Same
+        /// state in, same grants out — the reason it is a pre-pass at all is that granting
+        /// inline would silently hand the token to the lowest array index.
+        /// </para>
+        /// </summary>
+        private void PlanEnemyGroup()
+        {
+            if (_difficulty.AttackTokens <= 0)
+            {
+                return;   // unlimited — MayAttackThisTick answers true without the array
+            }
+
+            if (_mayAttack.Length < _enemies.Length)
+            {
+                _mayAttack = new bool[_enemies.Length];
+            }
+
+            // Pass 1: clear the plan and count the tokens already held by live swings.
+            // A boss is the fight, not a member of the pack, so it is never gated and
+            // never consumes a pack token.
+            int free = _difficulty.AttackTokens;
+            for (int index = 0; index < _enemyCount; index += 1)
+            {
+                ref Enemy enemy = ref _enemies[index];
+                bool boss = !enemy.State.Dead && enemy.State.IsBoss;
+                _mayAttack[index] = boss;
+                if (!boss && !enemy.State.Dead && enemy.State.Action == ActorAction.Attack)
+                {
+                    free -= 1;
+                }
+            }
+
+            // Pass 2: hand each remaining token to the best candidate. "Best" is the
+            // nearest enemy that is off cooldown, except that an enemy which is NOT in
+            // front of the player scores as if it were FlankBias times closer — that is
+            // what makes the opening hit come from the side or the back instead of the
+            // pack politely queueing in the player's face.
+            //
+            // Candidacy deliberately does NOT require being inside attack range. It used
+            // to, and that deadlocked the whole tier: a token is what lets an enemy walk
+            // at the player at all, so gating the token on already being in range meant
+            // the pack orbited its holding ring (which sits OUTSIDE attack range) and
+            // nobody ever swung. The token is permission to commit, not permission to
+            // land. Cooldown still gates it, which is what produces the rotation — an
+            // enemy that just swung drops its token and falls back to the ring to
+            // recover while a fresh one steps in.
+            for (int grant = 0; grant < free; grant += 1)
+            {
+                int best = -1;
+                float bestScore = float.MaxValue;
+                for (int index = 0; index < _enemyCount; index += 1)
+                {
+                    ref Enemy enemy = ref _enemies[index];
+                    if (enemy.State.Dead
+                        || _mayAttack[index]
+                        || enemy.State.Action == ActorAction.Attack
+                        || enemy.AttackCooldown > 0f)
+                    {
+                        continue;
+                    }
+
+                    float toPlayerX = _player.X - enemy.State.X;
+                    float toPlayerY = (_player.Y - enemy.State.Y) * SimConfig.IsoY;
+                    float range = Hypot(toPlayerX, toPlayerY);
+
+
+
+                    bool inFront = (enemy.State.X - _player.X) * _player.Facing
+                        >= DifficultySpec.ForwardThreshold;
+                    float score = inFront ? range : range * _difficulty.FlankBias;
+                    if (score < bestScore
+                        || (score == bestScore && best >= 0
+                            && enemy.State.Id < _enemies[best].State.Id))
+                    {
+                        bestScore = score;
+                        best = index;
+                    }
+                }
+
+                if (best < 0)
+                {
+                    break;   // nobody else is in range and off cooldown this tick
+                }
+                _mayAttack[best] = true;
+            }
+        }
+
+        /// <summary>
+        /// §16 C: did <paramref name="index"/> get a swing token this tick? Always true on
+        /// an unlimited tier, which is how Normal keeps the frozen behaviour.
+        /// </summary>
+        private bool MayAttackThisTick(int index)
+        {
+            if (_difficulty.AttackTokens <= 0)
+            {
+                return true;
+            }
+            return index >= 0 && index < _mayAttack.Length && _mayAttack[index];
+        }
+
 
         private void UpdateEnemy(int index, float deltaTime)
         {
@@ -2115,17 +2879,43 @@ namespace CinderCourt.Sim
 
             if (enemy.State.Action != ActorAction.Attack)
             {
-                if (distance <= SimConfig.EnemyAttackRange && enemy.AttackCooldown <= 0f)
+                // AMENDMENT #11 §16 C: on a group-AI tier the swing also needs a token
+                // that PlanEnemyGroup granted this tick. On Normal/Story the plan grants
+                // every enemy, so this reads exactly like the pre-amendment condition.
+                if (distance <= SimConfig.EnemyAttackRange
+                    && enemy.AttackCooldown <= 0f
+                    && MayAttackThisTick(index))
                 {
                     enemy.DidDamage = false;
-                    enemy.AttackCooldown = SimConfig.EnemyAttackCooldown
-                        + MathF.Min(EnemyCooldownWaveCap, _wave * EnemyCooldownPerWave);
+                    enemy.AttackCooldown = (SimConfig.EnemyAttackCooldown
+                        + MathF.Min(EnemyCooldownWaveCap, _wave * EnemyCooldownPerWave))
+                        * _difficulty.AttackCooldownMul;   // §16 B, 1.0 on Normal
                     SetEnemyAction(ref enemy, ActorAction.Attack, true);
                 }
                 else
                 {
-                    float moveX = deltaX;
-                    float moveY = deltaY;
+                    // AMENDMENT #11 §16 D: an enemy that is NOT cleared to swing walks to
+                    // its own slot on the holding ring around the player instead of
+                    // shoving into the pile. That is the whole "the pack surrounds you and
+                    // takes turns" read. Neutral tiers keep chasing the player directly.
+                    float goalX = _player.X;
+                    float goalY = _player.Y;
+                    bool holding = false;
+                    if (_difficulty.GroupAi && !MayAttackThisTick(index))
+                    {
+                        DifficultySpec.RingTarget(
+                            enemy.State.Id,
+                            _player.X,
+                            _player.Y,
+                            SimConfig.EnemyAttackRange * _difficulty.RingRadiusMul,
+                            out goalX,
+                            out goalY);
+                        holding = true;
+                    }
+
+                    float moveX = goalX - enemy.State.X;
+                    float moveY = goalY - enemy.State.Y;
+
                     float rawDistance = Hypot(moveX, moveY);
                     if (rawDistance > MoveEpsilon)
                     {
@@ -2165,8 +2955,15 @@ namespace CinderCourt.Sim
                     }
 
                     float speed = SpeedFor(enemy.State.Id, enemy.State.IsBoss);
-                    if (distance > SimConfig.EnemyAttackRange - EnemyChaseSlack)
+                    // §16 D: a ring holder parks on ITS slot, so the arrival test is the
+                    // distance to that slot. Everyone else keeps the frozen rule — stop
+                    // just inside attack range of the player.
+                    bool advance = holding
+                        ? rawDistance > DifficultySpec.RingArriveTolerance
+                        : distance > SimConfig.EnemyAttackRange - EnemyChaseSlack;
+                    if (advance)
                     {
+
                         enemy.State.X += moveX * speed * deltaTime;
                         enemy.State.Y += moveY * speed * SimConfig.YMoveScale * deltaTime;
                         ClampToArena(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp);
@@ -2351,7 +3148,29 @@ namespace CinderCourt.Sim
             if (_pickupCount == _pickups.Length)
             {
                 Array.Resize(ref _pickups, _pickups.Length * 2);
+                Array.Resize(ref _pickupGrades, _pickups.Length);
             }
+
+            // AMENDMENT #14 §18: grade the drop before it is published. Bosses are
+            // outside the pity ledger by contract — a guaranteed Epic must not be able
+            // to satisfy or reset a counter that measures the grind.
+            LootGrade grade = LootGrade.Basic;
+            if (_progression.GradedLoot)
+            {
+                if (isBoss)
+                {
+                    grade = LootGradeSpec.BossGrade;
+                }
+                else
+                {
+                    _dropOrdinal += 1;
+                    int roll = LootGradeSpec.Roll(enemyId, _wave, _dropOrdinal);
+                    grade = LootGradeSpec.Resolve(roll, _finePity, _epicPity);
+                    LootGradeSpec.Advance(grade, ref _finePity, ref _epicPity);
+                }
+                _lastLootGrade = grade;
+            }
+            _pickupGrades[_pickupCount] = grade;
 
             ref PickupState pickup = ref _pickups[_pickupCount];
             pickup.Id = _nextPickupId;
@@ -2383,7 +3202,7 @@ namespace CinderCourt.Sim
                 float deltaY = (_player.Y - pickup.Y) * SimConfig.IsoY;
                 if (deltaX * deltaX + deltaY * deltaY <= SimConfig.PickupMagnetRadius * SimConfig.PickupMagnetRadius)
                 {
-                    CollectPickup(pickup.Kind);
+                    CollectPickup(pickup.Kind, _pickupGrades[index]);
                     RemovePickupAt(index);
                     continue;
                 }
@@ -2395,25 +3214,40 @@ namespace CinderCourt.Sim
             }
         }
 
-        private void CollectPickup(PickupKind kind)
+        private void CollectPickup(PickupKind kind, LootGrade grade)
         {
+            // AMENDMENT #14 §18.3: the grade scales the payload of the kind that
+            // already dropped — it never changes WHICH kind dropped, so the frozen
+            // id%3 / id%7 routing in SpawnPickup is untouched. With the amendment off
+            // the multiplier is exactly 1 and the rank step exactly 1.
+            float valueMul = _progression.GradedLoot ? LootGradeSpec.ValueMultiplier(grade) : 1f;
             if (kind == PickupKind.EmberShard)
             {
-                _player.Health = MathF.Min(_playerMaxHealth, _player.Health + SimConfig.EmberShardHeal);
+                _player.Health = MathF.Min(_playerMaxHealth, _player.Health + SimConfig.EmberShardHeal * valueMul);
             }
             else if (kind == PickupKind.OilFlask)
             {
-                _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.OilFlaskCharge);
+                _charge = MathF.Min(SimConfig.LanternMax, _charge + SimConfig.OilFlaskCharge * valueMul);
             }
             else if (kind == PickupKind.EquipShard)
             {
                 // Rank lands on the kill-count slot; it applies to the *next* run start.
-                RaiseRank(_kills % CampaignSpec.EquipSlotCount);
+                int steps = _progression.GradedLoot ? LootGradeSpec.RankSteps(grade) : 1;
+                for (int step = 0; step < steps; step += 1)
+                {
+                    RaiseRank(_kills % CampaignSpec.EquipSlotCount);
+                }
             }
             else
             {
                 _relics += 1;
-                _score += SimConfig.RelicScore;
+                // +0.5f: round-to-nearest. Bare truncation reads 250 x 2.10f as
+                // 524 under Unity's float semantics (2.10f * 250 = 524.999...),
+                // drifting from the spec table's 525. Deterministic — same
+                // float expression every run, no platform branch.
+                _score += _progression.GradedLoot
+                    ? (int)(SimConfig.RelicScore * valueMul + 0.5f)
+                    : SimConfig.RelicScore;
             }
             _events |= SimEvents.PickupCollected;
         }
@@ -2424,9 +3258,14 @@ namespace CinderCourt.Sim
             if (tail > 0)
             {
                 Array.Copy(_pickups, index + 1, _pickups, index, tail);
+                // AMENDMENT #14: the grade array is index-aligned with _pickups, so it
+                // has to survive the same swap-down or grades would drift onto the
+                // wrong drop.
+                Array.Copy(_pickupGrades, index + 1, _pickupGrades, index, tail);
             }
             _pickupCount -= 1;
             _pickups[_pickupCount] = default;
+            _pickupGrades[_pickupCount] = LootGrade.Basic;
         }
 
         // --- Wave ------------------------------------------------------------
@@ -2446,14 +3285,37 @@ namespace CinderCourt.Sim
                     ? SpawnCountForStageWave(in _config, waveNumber)
                     : SpawnCountForWave(waveNumber);
                 _pendingBoss = _campaign ? waveNumber > _config.Waves : IsBossWave(waveNumber);
+
+                // AMENDMENT #13 §17.2: a mob wave is bought from the point budget
+                // instead of the fixed 3 + floor(wave*1.2) queue. The boss wave keeps
+                // the frozen boss + escort formula — the budget never buys a boss.
+                if (_progression.AdaptiveWaves && !_pendingBoss)
+                {
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveEliteAllowance = WaveBudgetSpec.EliteAllowanceForBudget(_waveBudget);
+                    _pendingSpawns = Math.Min(
+                        SimConfig.EnemyCap, WaveBudgetSpec.SpawnCountForBudget(_waveBudget));
+                }
+                else if (_progression.AdaptiveWaves)
+                {
+                    // Boss wave: the budget is still published (the HUD band readout
+                    // must not blank out) but it buys nothing.
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveEliteAllowance = 0;
+                }
             }
+            // AMENDMENT #13 §17.4: the DDA reads the wave that just ended, so both
+            // accumulators are per wave and reset here.
+            _waveHitsTaken = 0;
+            _waveSeconds = 0f;
+            _elitesThisWave = 0;
             _eliteThisWave = false;
             _extractedThisWave = false;
             _spawnIndexInWave = 0;
             _spawnTimer = SimConfig.FirstSpawnDelay;
             _intermission = 0f;
             _mode = SimMode.Running;
-            // AMENDMENT #7: the surge cap is per wave, so a new wave re-arms it.
+            // AMENDMENT #10: the surge cap is per wave, so a new wave re-arms it.
             // Peril's cap is per RUN and deliberately not touched here.
             _surgeUsedThisWave = false;
 
@@ -2474,6 +3336,13 @@ namespace CinderCourt.Sim
                     StartWave(_wave + 1);
                 }
                 return;
+            }
+
+            // AMENDMENT #13 §17.4: wave clock, one of the three DDA signals. It only
+            // runs while the wave is live, so the intermission is not charged to it.
+            if (_progression.AdaptiveWaves)
+            {
+                _waveSeconds += deltaTime;
             }
 
             if (_pendingSpawns > 0 && _enemyCount < SimConfig.EnemyCap)
@@ -2497,9 +3366,26 @@ namespace CinderCourt.Sim
                     ClearRun(HackSpec.PrologueClearReason);
                     return;
                 }
+                SettleDifficultyBand();
                 _intermission = SimConfig.WaveIntermission;
                 _mode = SimMode.WaveClear;
             }
+        }
+
+        /// <summary>
+        /// AMENDMENT #13 §17.4. Reads the wave that just ended and moves the band at
+        /// most one step. Deterministic: three threshold comparisons on accumulated
+        /// fixed-step state, no RNG, no history beyond the current band.
+        /// </summary>
+        private void SettleDifficultyBand()
+        {
+            if (!_progression.AdaptiveWaves)
+            {
+                return;
+            }
+            float maxHealth = _playerMaxHealth;
+            float fraction = maxHealth > 0f ? _player.Health / maxHealth : 0f;
+            _ddaBand = WaveBudgetSpec.NextBand(_ddaBand, fraction, _waveSeconds, _waveHitsTaken);
         }
 
         private void SpawnEnemy(bool boss)
@@ -2513,9 +3399,15 @@ namespace CinderCourt.Sim
             float[] spawnPoint = SimConfig.SpawnPoints[SpawnPointIndexFor(_wave, id)];
             // §2.1: dungeon mobs carry the combo-DPS health curve; arena/prologue keep
             // the frozen SIM_SPEC curve.
+            // AMENDMENT #13 §17.2: with the budget on, the surplus left after paying
+            // for bodies buys hit points, so the health term is a multiplier on the
+            // same frozen base instead of the fixed per-wave ramp.
             float health = _dungeon
-                ? HackSpec.DungeonEnemyBaseHealth
-                    + MathF.Min(HackSpec.DungeonEnemyHealthCap, (_wave - 1) * HackSpec.DungeonEnemyHealthPerWave)
+                ? (_progression.AdaptiveWaves
+                    ? HackSpec.DungeonEnemyBaseHealth
+                        * WaveBudgetSpec.HealthMultiplierForBudget(_waveBudget)
+                    : HackSpec.DungeonEnemyBaseHealth
+                        + MathF.Min(HackSpec.DungeonEnemyHealthCap, (_wave - 1) * HackSpec.DungeonEnemyHealthPerWave))
                 : SimConfig.EnemyBaseHealth
                     + MathF.Min(EnemyHealthWaveCap, (_wave - 1) * EnemyHealthPerWave);
             // §3: every seventh dungeon spawn is an elite, at most one per wave.
@@ -2523,7 +3415,12 @@ namespace CinderCourt.Sim
             if (_dungeon && !boss)
             {
                 _spawnOrdinal += 1;
-                elite = !_eliteThisWave && _spawnOrdinal % HackSpec.EliteSpawnModulus == 0;
+                bool onModulus = _spawnOrdinal % HackSpec.EliteSpawnModulus == 0;
+                // AMENDMENT #13 §17.2: the id%7 cadence is unchanged; the budget only
+                // replaces the "at most one per wave" cap with a purchased allowance.
+                elite = _progression.AdaptiveWaves
+                    ? onModulus && _elitesThisWave < _waveEliteAllowance
+                    : onModulus && !_eliteThisWave;
             }
 
             if (boss)
@@ -2585,6 +3482,7 @@ namespace CinderCourt.Sim
             {
                 _elitesAlive += 1;
                 _eliteThisWave = true;
+                _elitesThisWave += 1;
             }
         }
 
@@ -2599,7 +3497,7 @@ namespace CinderCourt.Sim
             _stageTime = 0f;
             _stageCleared = false;
             _livingBosses = 0;
-            // AMENDMENT #7: both windows and both caps are run-scoped.
+            // AMENDMENT #10: both windows and both caps are run-scoped.
             _perilTimer = 0f;
             _perilUsed = 0;
             _perilArmed = true;
@@ -2608,6 +3506,19 @@ namespace CinderCourt.Sim
             _surgeUsedThisWave = false;
             _trainingTimer = 0f;
             _trainingHits = 0;
+            // AMENDMENT #13/#14: every counter is run-scoped. A restart re-opens at
+            // band 0 with an empty pity ledger — neither is banked across runs, which
+            // is what makes a run reproducible from (config, input sequence) alone.
+            _ddaBand = 0;
+            _waveBudget = 0;
+            _waveEliteAllowance = 0;
+            _waveHitsTaken = 0;
+            _waveSeconds = 0f;
+            _elitesThisWave = 0;
+            _finePity = 0;
+            _epicPity = 0;
+            _dropOrdinal = 0;
+            _lastLootGrade = LootGrade.Basic;
 
             for (int index = 0; index < _hazardRuntime.Length; index += 1)
             {
@@ -2626,7 +3537,7 @@ namespace CinderCourt.Sim
                 // §5/§6: meta stats and equipment tiers apply to dungeon runs only —
                 // the prologue and the arena keep the frozen SIM_SPEC numbers.
                 //
-                // AMENDMENT #7: a trial rides them too. The point of the training
+                // AMENDMENT #10: a trial rides them too. The point of the training
                 // ground is to practise the gimmick at YOUR numbers; a trial run
                 // at stock stats would teach the wrong spacing.
                 if (_dungeon || _training)
@@ -2713,6 +3624,12 @@ namespace CinderCourt.Sim
             _comboLanded = false;
             _comboVariant = ComboVariant.Neutral;
             _chargeTime = 0f;
+            // A9.3: a restart re-opens at an empty gauge — momentum is never banked
+            // across runs (§11 persistence is untouched).
+            _momentum = 0f;
+            _momentumGrace = 0f;
+            _momentumTierSeen = 0;
+
             _growthOfferOpen = false;
             _growthOfferTime = 0f;
             _lastGrowthChoice = GrowthChoiceKind.None;
@@ -2742,8 +3659,12 @@ namespace CinderCourt.Sim
             _extractionBonus = 0f;
             _rosterMask = _hack ? _hackConfig.RosterMask : 0;
             _corpseCount = 0;
-            _companionTimer = _companionAttackInterval;
-            _companionShow = 0f;
+            // Initialize all companion slots to defaults.
+            for (int i = 0; i < MaxCompanions; i++)
+            {
+                _companionTimer[i] = _companionAttackInterval[i];
+                _companionShow[i] = 0f;
+            }
             _companionBehavior = CompanionBehavior.Follow;
             _emberRestOpen = false;
             _emberRestRoomIndex = 0;
@@ -2763,13 +3684,29 @@ namespace CinderCourt.Sim
             }
         }
 
-        /// <summary>Park the companion at its follow offset (§4). No-op when disabled.</summary>
+        /// <summary>Park each active companion at its follow offset + D6.4 lateral fan-out (§4).
+        /// No-op when no slots are active. Slot 0 uses fan-out 0, reproducing the frozen §4 follower.</summary>
         private void ResetCompanion()
         {
-            _companionX = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
-            _companionY = _player.Y;
-            _companionFacing = _player.Facing;
+            for (int slot = 0; slot < _companionCount; slot += 1)
+            {
+                _companionX[slot] = _player.X - HackSpec.CompanionFollowOffset * _player.Facing;
+                _companionY[slot] = _player.Y + HackSpec.CompanionSlotFanout[slot];
+                _companionFacing[slot] = _player.Facing;
+                // AMENDMENT #7: a restart drops every lock and every pursuit, so a fresh run
+                // always starts in Follow at the anchor (test RestartResetsBehaviorAndTarget).
+                _companionTargetId[slot] = 0;
+                _companionLockTimer[slot] = 0f;
+                _companionReturnGrace[slot] = 0f;
+                _companionEngaged[slot] = false;
+                // AMENDMENT #8 (A8.3): the cooldown starts FULL, so neither a fresh run nor a
+                // restart can open with a free cast. The first cast is therefore at a time the
+                // table alone predicts.
+                _companionSkillCooldown[slot] = _companionSkill[slot].Cooldown;
+                _companionSkillFlash[slot] = 0f;
+            }
         }
+
 
         private void RaiseRank(int slot)
         {
@@ -2827,7 +3764,7 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// Deterministic surge windows (AMENDMENT #7 · design/training-and-surge-spec.md).
+        /// Deterministic surge windows (AMENDMENT #10 • design/training-and-surge-spec.md).
         ///
         /// Two doors, both opened by state the sim already keeps, neither by a
         /// clock and neither by chance. The survey found the genre builds surges
@@ -2915,7 +3852,7 @@ namespace CinderCourt.Sim
             => _surgeTimer > 0f && _sigilSurgeEnemyBoost ? _sigilSurgeEnemyHazardMult : 1f;
 
         /// <summary>
-        /// A trial is a fixed 60 s window with no spawn table (AMENDMENT #7).
+        /// A trial is a fixed 60 s window with no spawn table (AMENDMENT #10).
         /// It ends by the clock, never by a wave count, and it never spawns an
         /// enemy — so no kill can drop a relic here and the training ground
         /// cannot feed the economy (negotiation entry 7).
@@ -2949,7 +3886,7 @@ namespace CinderCourt.Sim
         /// telegraph cue and apply band damage on the global 0.6 s tick grid. All run
         /// on stage time, so they keep ticking through the wave intermission.
         ///
-        /// AMENDMENT #7: <see cref="HazardRate"/> scales how fast stage time
+        /// AMENDMENT #10: <see cref="HazardRate"/> scales how fast stage time
         /// accumulates — peril halves it, a trial tier tightens it. Everything
         /// downstream reads <see cref="_stageTime"/>, so ONE multiply moves every
         /// gimmick together and the monotonic cycle guards stay valid: time still
@@ -3050,14 +3987,14 @@ namespace CinderCourt.Sim
                     {
                         continue;
                     }
-                    // Edge encoding (spec v1.1): PushX +1 = left wall, −1 = right wall.
+                    // Edge encoding (spec v1.1): PushX +1 = left wall, -1 = right wall.
                     bool fromRight = hazard.PushX < 0f;
                     if (WallCovers(fromRight, depth, _player.X))
                     {
                         // 집행인 A: 10 -> 6. Still a tick you must walk out of —
                         // the wall keeps owning the space (AMENDMENT #6).
                         //
-                        // AMENDMENT #7 peril clause: HALVED for the window, not
+                        // AMENDMENT #10 peril clause: HALVED for the window, not
                         // waived. The draft waived it and the director's
                         // arithmetic killed that: 6 s of exemption avoids 100
                         // damage, 100% of base HP — reversal grade. Halved for
@@ -3113,7 +4050,7 @@ namespace CinderCourt.Sim
                 // 증언인 A shortens the channel (1.2 -> 0.8): still a window the
                 // gimmick rhythm has to allow, just a narrower one. AMENDMENT #6.
                 //
-                // AMENDMENT #7 peril clause: the channel completes instantly.
+                // AMENDMENT #10 peril clause: the channel completes instantly.
                 // Cleared by the director's arithmetic unchanged — the altar
                 // grants OIL, so this avoids no damage and never touches the
                 // comeback band. What it buys is a resource you still have to
@@ -3303,7 +4240,7 @@ namespace CinderCourt.Sim
         /// </summary>
         private float PylonAuraMultiplier(float enemyX, float enemyY)
         {
-            // AMENDMENT #7 판결인 surge clause: inside a surge window the aura
+            // AMENDMENT #10 판결인 surge clause: inside a surge window the aura
             // stops entirely. This IS a full lift, and it is allowed where the
             // peril clauses were not, for one reason the arithmetic settles: the
             // aura protects ENEMIES, so lifting it costs the player nothing in
@@ -3348,8 +4285,13 @@ namespace CinderCourt.Sim
         /// newly admits already has floor drawn under it.</summary>
         private void ClampToArena(ref float x, ref float y, float margin)
         {
-            float halfWidth = SimConfig.ArenaHalfWidth - margin;
-            float halfHeight = SimConfig.ArenaHalfHeight - margin * 0.5f;
+            // AMENDMENT #15 §19: the half-axes come from the resolved bounds instead of
+            // the frozen constants. Outside a dungeon (and inside one without #15) they
+            // ARE the frozen constants, so the diamond/arena path is untouched. The
+            // margin arithmetic is unchanged — a wider playfield still keeps the same
+            // 34 px player / 24 px enemy standoff from the boundary.
+            float halfWidth = _boundsHalfWidth - margin;
+            float halfHeight = _boundsHalfHeight - margin * 0.5f;
             float localX = x - SimConfig.ArenaX;
             float localY = y - SimConfig.ArenaY;
 
@@ -3379,9 +4321,13 @@ namespace CinderCourt.Sim
             }
 
             _pickupView.Clear();
+            _pickupGradeView.Clear();
             for (int index = 0; index < _pickupCount; index += 1)
             {
                 _pickupView.Add(_pickups[index]);
+                // AMENDMENT #14: index-aligned with _pickupView by construction, which
+                // is the contract IDungeonProgressionSnapshot.PickupGrades states.
+                _pickupGradeView.Add(_pickupGrades[index]);
             }
 
             for (int index = 0; index < _hazards.Length; index += 1)

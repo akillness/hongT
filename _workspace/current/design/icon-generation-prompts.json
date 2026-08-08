@@ -1,0 +1,180 @@
+{
+  "batch_1_skills": [
+    {
+      "filename": "skill-nova.png",
+      "name": "Ember Nova",
+      "prompt": "Ember Nova skill icon, radial explosion effect with flames radiating outward, warm orange and red colors, dark background with bright glow, fantasy game ui, 256x256 square, minimalist professional style",
+      "color_theme": "warm",
+      "primary_color": "#FF6B35"
+    },
+    {
+      "filename": "skill-ward.png",
+      "name": "Lantern Ward",
+      "prompt": "Lantern Ward protective shield icon, ethereal blue shield barrier, glowing runes or shield pattern, dark mystical background, cool blue and purple tones, fantasy defense skill, 256x256 square, professional game ui",
+      "color_theme": "cold",
+      "primary_color": "#1E90FF"
+    },
+    {
+      "filename": "skill-bolt.png",
+      "name": "Rift Bolt",
+      "prompt": "Rift Bolt lightning skill icon, purple electrical bolt striking downward, crackling energy effect, dark background with electric glow, magical void-themed, 256x256 square, fantasy game ui minimalist",
+      "color_theme": "void",
+      "primary_color": "#4B0082"
+    },
+    {
+      "filename": "skill-pulse.png",
+      "name": "Grave Pulse",
+      "prompt": "Grave Pulse wave skill icon, dark blue emanating waves or shockwave pattern from center, spectral energy, ancient death magic theme, dark background, 256x256 square, fantasy game ui professional",
+      "color_theme": "cold",
+      "primary_color": "#1E90FF"
+    },
+    {
+      "filename": "skill-dash.png",
+      "name": "Dash/Rekindle",
+      "prompt": "Dash Rekindle skill icon, swift motion with golden orange flame trails, dynamic movement effect, warm orange and gold colors, dark background, speed and fire combined, 256x256 square, game ui",
+      "color_theme": "warm",
+      "primary_color": "#FFD700"
+    },
+    {
+      "filename": "skill-strike.png",
+      "name": "Basic Strike",
+      "prompt": "Basic Strike melee attack icon, warrior striking with weapon, red and orange impact effect, powerful melee theme, dark background with impact glow, 256x256 square, fantasy game ui",
+      "color_theme": "warm",
+      "primary_color": "#FF4500"
+    },
+    {
+      "filename": "skill-aegis.png",
+      "name": "Void Aegis",
+      "prompt": "Void Aegis protection icon, dark purple void shield or barrier, mystical defensive magic, deep indigo and black tones, dark mystical background, ethereal protective aura, 256x256 square, game ui",
+      "color_theme": "void",
+      "primary_color": "#6A0572"
+    }
+  ],
+  "batch_2_equipment": [
+    {
+      "filename": "equip-weapon.png",
+      "name": "Warden's Weapon",
+      "prompt": "Warden's weapon icon, fantasy sword or staff, metallic silver and gold tones, powerful melee weapon, ornate guard or hilt, dark background, legendary warrior equipment, 256x256 square, game ui",
+      "color_theme": "neutral",
+      "primary_color": "#FFD700"
+    },
+    {
+      "filename": "equip-cloak.png",
+      "name": "Dark Cloak",
+      "prompt": "Dark cloak equipment icon, flowing fabric robe or cape, dark navy and black tones, shadowy elegant cloth, mysterious protective garment, dark background, 256x256 square, fantasy game ui",
+      "color_theme": "void",
+      "primary_color": "#1F1F1F"
+    },
+    {
+      "filename": "equip-lantern.png",
+      "name": "Lantern Equipment",
+      "prompt": "Lantern equipment icon, ornate magical lantern with glowing flame inside, warm golden orange light emission, ancient powerful artifact, dark background, luminous glow effect, 256x256 square, game ui",
+      "color_theme": "warm",
+      "primary_color": "#FFD700"
+    }
+  ],
+  "batch_2_pickups": [
+    {
+      "filename": "pickup-ember.png",
+      "name": "Ember Shard",
+      "prompt": "Ember Shard pickup icon, glowing red orange crystal or fragment, health restoration item, crystalline texture with fire glow, dark background, +HP item, 256x256 square, fantasy game ui",
+      "color_theme": "warm",
+      "primary_color": "#FF6B35"
+    },
+    {
+      "filename": "pickup-flask.png",
+      "name": "Oil Flask",
+      "prompt": "Oil Flask pickup icon, vintage glass bottle with glowing amber liquid, oil or mana potion, warm golden colors, mystical glow, energy restoration item, dark background, 256x256 square, game ui",
+      "color_theme": "warm",
+      "primary_color": "#FFB347"
+    },
+    {
+      "filename": "pickup-relic.png",
+      "name": "Relic Mote",
+      "prompt": "Relic Mote pickup icon, mystical glowing orb or crystal, score/points reward item, ethereal blue and purple glow, ancient artifact essence, dark background, magical shimmer, 256x256 square, game ui",
+      "color_theme": "cold",
+      "primary_color": "#87CEEB"
+    }
+  ],
+  "batch_3_stats": [
+    {
+      "filename": "stat-vitality.png",
+      "name": "Vitality/HP",
+      "prompt": "Vitality stat icon, red heart or life force symbol, health points indicator, warm red tones with slight glow, dark background, RPG game stat, 256x256 square, professional ui",
+      "color_theme": "warm",
+      "primary_color": "#FF6B35"
+    },
+    {
+      "filename": "stat-swiftness.png",
+      "name": "Swiftness/Speed",
+      "prompt": "Swiftness stat icon, blue wings or speed effect, movement speed indicator, cool blue tones with motion trail, dark background, dynamic energy effect, 256x256 square, game ui",
+      "color_theme": "cold",
+      "primary_color": "#1E90FF"
+    },
+    {
+      "filename": "stat-attack.png",
+      "name": "Attack Power",
+      "prompt": "Attack stat icon, orange sword or striking weapon, damage/attack power indicator, warm orange and red, impact effect lines, dark background, 256x256 square, fantasy game ui",
+      "color_theme": "warm",
+      "primary_color": "#FF4500"
+    }
+  ],
+  "batch_3_ui_buttons": [
+    {
+      "filename": "ui-button.png",
+      "name": "Button Default",
+      "prompt": "UI button default state icon, rounded square button outline, neutral gray tones, subtle border, dark background, interactive element, 256x256 square, game ui interface",
+      "color_theme": "neutral",
+      "primary_color": "#404040"
+    },
+    {
+      "filename": "ui-button-active.png",
+      "name": "Button Active/Pressed",
+      "prompt": "UI button active pressed state icon, rounded square button highlighted, glowing blue or orange highlight, pressed effect, interactive state, dark background, 256x256 square, game ui",
+      "color_theme": "neutral_highlight",
+      "primary_color": "#1E90FF"
+    },
+    {
+      "filename": "ui-button-disabled.png",
+      "name": "Button Disabled",
+      "prompt": "UI button disabled state icon, rounded square button grayed out, desaturated gray tones, inactive state, subtle appearance, dark background, 256x256 square, game ui",
+      "color_theme": "neutral",
+      "primary_color": "#808080"
+    }
+  ],
+  "batch_3_joystick": [
+    {
+      "filename": "ui-joystick-base.png",
+      "name": "Joystick Base",
+      "prompt": "Joystick base circle icon, dark gray circular pad, mobile touch control, concentric circles, neutral appearance, dark background, game ui mobile control, 256x256 square",
+      "color_theme": "neutral",
+      "primary_color": "#404040"
+    },
+    {
+      "filename": "ui-joystick-nub.png",
+      "name": "Joystick Thumb",
+      "prompt": "Joystick thumb nub icon, small circular control knob, directional input indicator, light gray with highlight, mobile touch element, dark background, 256x256 square, game ui",
+      "color_theme": "neutral",
+      "primary_color": "#CCCCCC"
+    }
+  ],
+  "batch_3_app": [
+    {
+      "filename": "app-lantern.png",
+      "name": "App Icon",
+      "prompt": "Cinder Court app icon, magical lantern symbol, warm glowing flame inside, golden orange light, mystical artifact, professional app logo, dark background, 512x512 or 256x256, game app icon",
+      "color_theme": "warm",
+      "primary_color": "#FFD700"
+    }
+  ],
+  "generation_config": {
+    "provider": "codex-cli",
+    "output_directory": "./Assets/Resources/Icons/regenerated/",
+    "batch_size": 3,
+    "rate_limit_delay_seconds": 30,
+    "size": "1254x1254",
+    "final_size": "256x256",
+    "format": "png",
+    "compression": "max"
+  }
+}

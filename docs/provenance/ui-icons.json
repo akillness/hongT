@@ -1,0 +1,49 @@
+{
+  "tool": "god-tibo-imagen",
+  "provider": "codex-cli",
+  "output_directory": "./Assets/Resources/Icons/generated/",
+  "icons": [
+    {
+      "filename": "ui-pause.png",
+      "prompt": "pause button icon, dark background with glowing effect, video player ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "ui-play.png",
+      "prompt": "play button icon, dark background with glowing effect, video player ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "ui-restart.png",
+      "prompt": "restart button icon, circular arrow, dark background with glowing effect, video player ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "ui-settings.png",
+      "prompt": "settings gear icon, dark background with glowing effect, video player ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "skill-cooldown-ring.png",
+      "prompt": "cooldown ring indicator icon, circular progress bar, dark background with glowing effect, game ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "skill-highlight.png",
+      "prompt": "skill highlight border icon, glowing square frame, dark background with glowing effect, game ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    },
+    {
+      "filename": "stat-oil-energy.png",
+      "prompt": "oil energy fuel drop icon, dark background with glowing effect, game ui, minimalist style, 256x256 square",
+      "original_size": [1254, 1254],
+      "final_size": [256, 256]
+    }
+  ]
+}

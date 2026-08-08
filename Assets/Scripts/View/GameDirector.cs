@@ -20,6 +20,9 @@ namespace CinderCourt.View
         VfxDirector _vfx;
         GameView _game;
         SpeechBubbleView _speech;
+        CutsceneView _cutscene;
+        IntroVideoView _intro;
+
 
         State _state = State.Lobby;
         CampaignData _data;
@@ -34,6 +37,9 @@ namespace CinderCourt.View
         string _stageTerrainId = "";
         GameObject _stageDressing;        // instantiated dressing clones (view-only)
         string _stageDressingId = "";
+        GameObject _stageEnvironment;     // EnvironmentBuilder root (AMENDMENT #12)
+        string _stageEnvironmentId = "";
+        GameObject _stageMood;            // StageMood rig (separate light root)
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -44,7 +50,9 @@ namespace CinderCourt.View
             GameBootstrap bootstrap, LobbyView lobby, LobbyStaging staging,
             CameraRig rig, InputAdapter input, HudView hud,
             AudioDirector audio, VfxDirector vfx, GameView game,
-            SpeechBubbleView speech)
+            SpeechBubbleView speech, CutsceneView cutscene,
+            IntroVideoView intro = null)
+
         {
             _bootstrap = bootstrap;
             _lobby = lobby;
@@ -56,6 +64,9 @@ namespace CinderCourt.View
             _vfx = vfx;
             _game = game;
             _speech = speech;
+            _cutscene = cutscene;
+            _intro = intro;
+
 
             _data = CampaignStore.Load();
             _hud.OnReturnHome = ReturnToLobby;
@@ -92,11 +103,23 @@ namespace CinderCourt.View
             // Boot route (spec §0): default Lobby; QA deep links preserved.
             var mode = WebGLStorage.QueryParam("mode");
             var stage = WebGLStorage.QueryParam("stage");
+
+            // Brand intro reel replaces the plain engine loading screen. It is a
+            // pure overlay (sorting 520) above the route that boots underneath,
+            // so no state is gated on it. QA deep links and ?intro=off skip it.
+            if (_intro != null && string.IsNullOrEmpty(mode)
+                && WebGLStorage.QueryParam("intro") != "off")
+            {
+                _intro.Play();
+                if (_audio != null) _audio.SetBgmContext("intro");   // W12
+            }
+
             if (mode == "arena") StartArena();
             else if (mode == "prologue") StartPrologue();
             else if (mode == "training") StartTraining(TrialFromQuery(), TierFromQuery());
             else if (mode == "campaign" && IsStageUnlocked(stage)) StartDungeon(stage);
             else EnterLobby();
+
         }
 
         // ------------------------------------------------------------- lobby --
@@ -104,8 +127,11 @@ namespace CinderCourt.View
         {
             _state = State.Lobby;
             ClearEmberRestRoute();
+            if (_audio != null) _audio.SetBgmContext("lobby");   // W12
+            if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
             SetStageTerrain(null);        // back to the base court plate
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             _game.EndRun();
             _lobby.Refresh(_data);
             _lobby.Show();
@@ -197,6 +223,38 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Modular tile environment (docs/SIM_SPEC_ENVIRONMENT.md AMENDMENT #12):
+        /// Zone A floor accents + Zone B boundary ring/gates + Zone C outer
+        /// verticality + §E6 lights, built deterministically ONCE at stage entry
+        /// (same cadence as SetStageTerrain/ApplyStageDressing — never per
+        /// frame). Pass null to clear (lobby/arena/prologue/training keep the
+        /// bare court; the diamond-clamp modes are §E3 out of scope).
+        /// </summary>
+        void SetStageEnvironment(string stageId)
+        {
+            if (_stageEnvironmentId == (stageId ?? "")) return;
+            if (_stageEnvironment != null)
+            {
+                if (Application.isPlaying) Destroy(_stageEnvironment);
+                else DestroyImmediate(_stageEnvironment);
+                _stageEnvironment = null;
+            }
+            if (_stageMood != null)
+            {
+                if (Application.isPlaying) Destroy(_stageMood);
+                else DestroyImmediate(_stageMood);
+                _stageMood = null;
+                StageMood.Clear();      // RenderSettings is global
+            }
+            _stageEnvironmentId = stageId ?? "";
+            if (string.IsNullOrEmpty(stageId)) return;
+            _stageEnvironment = EnvironmentBuilder.Build(stageId);
+            // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
+            // root at 4 realtime point lights.
+            _stageMood = StageMood.Apply(stageId);
+        }
+
         void ReturnToLobby() => EnterLobby();
 
         /// <summary>
@@ -262,8 +320,10 @@ namespace CinderCourt.View
         {
             ClearEmberRestRoute();
             _state = State.Arena;
+            if (_audio != null) _audio.SetBgmContext("stage");   // W12
             SetStageTerrain(null);
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Arena;
             _rig.SetProfile(CameraRig.Profile.Arena);
@@ -279,6 +339,7 @@ namespace CinderCourt.View
             _state = State.Prologue;
             SetStageTerrain(null);        // tutorial runs on the court plate
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Prologue;
             _rig.SetProfile(CameraRig.Profile.Prologue);
@@ -287,6 +348,11 @@ namespace CinderCourt.View
             _prologueStep = 0;
             _prologueStepTimer = 0f;
             _hud.ShowPrologueToast(0);
+            // Intro cutscene doubles as the prologue loading screen (spec §8/§1):
+            // the pre-rendered lantern-court key art holds while the fresh sim
+            // spins up underneath, then fades to reveal the tutorial court.
+            _cutscene.Show("scene-intro", "PROLOGUE", "잿불의 법정",
+                "등불을 들어라. 사슬이 무엇을 붙들고 있는지 확인할 시간이다.");
         }
 
         // --------------------------------------------------- training ground --
@@ -307,7 +373,7 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// Enter a trial (AMENDMENT #7). The first run of the game still gets the
+        /// Enter a trial (AMENDMENT #10). The first run of the game still gets the
         /// original three-wave prologue — a trial only replaces the REPEAT visit,
         /// so a new player's path and the prologue golden are both untouched.
         /// </summary>
@@ -335,6 +401,7 @@ namespace CinderCourt.View
             _trialTier = tier;
             SetStageTerrain(null);
             ApplyStageDressing(null);
+            SetStageEnvironment(null);
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;   // full kit: you practise with your tools
             _rig.SetProfile(CameraRig.Profile.Dungeon);
@@ -346,7 +413,7 @@ namespace CinderCourt.View
 
         /// <summary>
         /// A trial survived to the clock records its tier and nothing else
-        /// (AMENDMENT #7 · negotiation entry 7). The ONLY currency the training
+        /// (AMENDMENT #10 • negotiation entry 7). The ONLY currency the training
         /// ground can ever pay is the one-time mastery grant, and only when every
         /// trial sits at the top tier — PM's band was "one-time <=2 relics,
         /// repeat payouts banned", and a trial spawns no enemies so there is no
@@ -372,10 +439,10 @@ namespace CinderCourt.View
             }
             var metaStats = MetaStats.Of(_data.Attack, _data.Vitality, _data.Swiftness);
             var equipTiers = EquipTiers.Of(_data.Weapon, _data.Lantern, _data.Cloak);
-            var companion = string.IsNullOrEmpty(_data.Active) ? null : _data.Active;
-            if (!HackConfig.TryDungeon(entry.SimAnchorId, metaStats, equipTiers, companion,
+            if (!HackConfig.TryDungeon(entry.SimAnchorId, metaStats, equipTiers, _data.ActiveSlots,
                     RosterMaskOf(_data.Roster), out var config))
             {
+
                 EnterLobby();
                 return;
             }
@@ -394,11 +461,17 @@ namespace CinderCourt.View
             // AMENDMENT #6: the equipped loadout rides the same view-composed seam
             // as the pact table. Empty loadout = every pre-sigil constant.
             config.Sigils = SigilsOf(in _data);
+            // AMENDMENT #11 §16: the selected tier rides the same view-composed seam.
+            // Dungeon only on purpose — the arena run is the frozen contract and the
+            // prologue is a tutorial, so both stay on Difficulty.Normal.
+            config.Difficulty = ViewPrefs.Difficulty;
+
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;
             SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
             ApplyStageDressing(entry.Id);     // per-LOGICAL-stage dressing (spec §T-a)
+            SetStageEnvironment(entry.Id);    // modular environment (AMENDMENT #12)
             PrepareRunUi();
             _input.Mode = InputAdapter.Profile.Dungeon;
             _rig.SetProfile(CameraRig.Profile.Dungeon);
@@ -407,6 +480,23 @@ namespace CinderCourt.View
             _game.Begin(config,
                 _runWasPact ? entry.DisplayName + " — 서약" : entry.DisplayName,
                 _data.Active, entry.Id);
+
+            // Stage-entry cutscene loading screen (spec §8): pick the pre-rendered
+            // scene frame by context — a mid-campaign continuation from Ember Rest
+            // rides the transition art, a Gate Sovereign stage opens on the boss
+            // key art, everything else on the generic stage-entry frame. The
+            // watcher's stageStart narration (frozen StoryCatalog) captions it.
+            StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out _, out var introNarration);
+            var cutsceneSprite = preparation.IsValid
+                ? "scene-transition"
+                : entry.Boss.Visual == EnemyVisual.BossMonarch
+                    ? "scene-boss-entry"
+                    : "scene-stage-entry";
+            _cutscene.Show(cutsceneSprite, entry.Kicker, entry.Title, introNarration);
+            // W12: the loading/story frame rides its own bed, then the stage
+            // track takes over when the cutscene yields to live play (the
+            // same-clip no-op in SetBgmContext makes the retry path safe).
+            if (_audio != null) _audio.SetBgmContext("stage");
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
@@ -545,35 +635,90 @@ namespace CinderCourt.View
             _lobby.Refresh(_data);
         }
 
-        // AMENDMENT #8: the second copy of the price table is gone. It agreed
-        // with LobbyView's copy by luck, not by construction.
-        static readonly int[] EquipCosts = ProgressionGuide.EquipCosts;
+        // AMENDMENT #8 x main: the second copy of the price table is gone and the
+        // purchase is a testable pure function. Both sides removed the same
+        // duplication and chose different halves — main extracted the LOGIC into
+        // TryBuyEquip (LobbyEconomyTests covers it seven ways), AMENDMENT #8 moved
+        // the DATA to ProgressionGuide, where LobbyView's buy line already reads
+        // it. Taking one and dropping the other would restore the duplicate this
+        // alias exists to kill: the two tables agreed by luck, not construction.
+        // internal: LobbyEconomyTests pins the purchase against this table, and
+        // a price the tests cannot see is a price nothing defends.
+        internal static readonly int[] EquipCosts = ProgressionGuide.EquipCosts;
 
         void OnBuyEquip(string slot)
         {
-            var tier = slot switch
-            {
-                "weapon" => _data.Weapon,
-                "lantern" => _data.Lantern,
-                _ => _data.Cloak,
-            };
-            if (tier >= ProgressionGuide.EquipCap) return;
-            var cost = EquipCosts[tier];
-            if (_data.Relics < cost) return;
-            _data.Relics -= cost;
-            switch (slot)
-            {
-                case "weapon": _data.Weapon++; break;
-                case "lantern": _data.Lantern++; break;
-                default: _data.Cloak++; break;
-            }
+            if (!TryBuyEquip(ref _data, slot)) return;
             CampaignStore.Save(in _data);
             _lobby.Refresh(_data);
         }
 
+        /// <summary>
+        /// Pure purchase judgment + data mutation (audit M9 T-3 seam): tier
+        /// lookup, tier-5 cap, cost ladder, balance check, relic debit, tier
+        /// increment. NO side effects — persistence (CampaignStore.Save) and UI
+        /// refresh stay with the caller so tests never touch PlayerPrefs.
+        /// Unknown slot strings intentionally keep the historical behavior of
+        /// both original switches (`_ =>` / `default:`): they buy CLOAK.
+        /// </summary>
+        internal static bool TryBuyEquip(ref CampaignData data, string slot)
+        {
+            var tier = slot switch
+            {
+                "weapon" => data.Weapon,
+                "lantern" => data.Lantern,
+                _ => data.Cloak,
+            };
+            // Derived, not literal: EquipCap is EquipCosts.Length, so a sixth
+            // price cannot disagree with the cap that guards the index below.
+            if (tier >= ProgressionGuide.EquipCap) return false;
+            var cost = EquipCosts[tier];
+            if (data.Relics < cost) return false;
+            data.Relics -= cost;
+            switch (slot)
+            {
+                case "weapon": data.Weapon++; break;
+                case "lantern": data.Lantern++; break;
+                default: data.Cloak++; break;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// AMENDMENT #6 (D6.6): the legion tab toggles membership instead of
+        /// replacing a single slot. "" (the "없음" button) clears every slot;
+        /// clicking an already-active companion removes it; clicking a new
+        /// one appends it while under the 3-slot cap and is a no-op at cap.
+        /// </summary>
         void OnSelectCompanion(string id)
         {
-            _data.Active = id ?? "";
+            id = id ?? "";
+            var slots = _data.ActiveSlots ?? System.Array.Empty<string>();
+            if (string.IsNullOrEmpty(id))
+            {
+                slots = System.Array.Empty<string>();
+            }
+            else
+            {
+                var index = System.Array.IndexOf(slots, id);
+                if (index >= 0)
+                {
+                    var shrunk = new string[slots.Length - 1];
+                    for (int i = 0, w = 0; i < slots.Length; i++)
+                        if (i != index) shrunk[w++] = slots[i];
+                    slots = shrunk;
+                }
+                else if (slots.Length < 3)
+                {
+                    var grown = new string[slots.Length + 1];
+                    System.Array.Copy(slots, grown, slots.Length);
+                    grown[slots.Length] = id;
+                    slots = grown;
+                }
+                // else: 3 slots already active — click is a no-op.
+            }
+            _data.ActiveSlots = slots;
+            _data.Active = slots.Length > 0 ? slots[0] : "";
             CampaignStore.Save(in _data);
             _lobby.Refresh(_data);
             _staging.Show(_selectedStage, _data.Active);
@@ -901,7 +1046,12 @@ namespace CinderCourt.View
             if (firstClear && !string.IsNullOrEmpty(entry.CompanionReward))
             {
                 AddToRoster(entry.CompanionReward);
-                if (string.IsNullOrEmpty(_data.Active)) _data.Active = entry.CompanionReward;
+                if (_data.ActiveSlots == null || _data.ActiveSlots.Length == 0)
+                {
+                    _data.Active = entry.CompanionReward;
+                    _data.ActiveSlots = new[] { entry.CompanionReward };
+                }
+
             }
 
             var hack = sim as IHackSnapshot;
@@ -972,11 +1122,21 @@ namespace CinderCourt.View
                 _hud.ShowBossIntro(GameView.BossNameFor(_runStageId));
                 _rig.FocusPulse(bossAnchor, 0.45f);
             }
-            if ((events & SimEvents.BossPhase2) != 0 &&
-                StoryCatalog.TryGet(storyKey, StoryCatalog.BossPhase2, out var phaseSpeaker, out var phaseText))
+            if ((events & SimEvents.BossPhase2) != 0)
             {
-                _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
-                _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
+                // BossPhase2 fires on EVERY phase boundary (P1->P2 and P2->P3;
+                // the frozen SimEvents surface has no separate P3 bit). WHICH
+                // phase is read from the snapshot, per the sim's own contract
+                // (CinderSim.UpdateBossPhase): spec §8 L154 wants a DIFFERENT
+                // last-warning line at 20% HP, so branch on BossPhase >= 3.
+                var phaseBeat = sim is IHackSnapshot snap && snap.BossPhase >= 3
+                    ? StoryCatalog.BossPhase3
+                    : StoryCatalog.BossPhase2;
+                if (StoryCatalog.TryGet(storyKey, phaseBeat, out var phaseSpeaker, out var phaseText))
+                {
+                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
+                    _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
+                }
             }
             if ((events & SimEvents.StageCleared) != 0 &&
                 StoryCatalog.TryGet(storyKey, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
@@ -1009,6 +1169,10 @@ namespace CinderCourt.View
                 var hack = sim as IHackSnapshot;
                 var bigWave = sim.LivingEnemies >= 10 || (hack != null && hack.BossHp > 0f);
                 _rig.SetDungeonCrowd(bigWave);
+                // Player-follow framing (2026-10): the dungeon camera tracks
+                // the warden instead of sitting on the arena centre. CameraRig
+                // clamps + smooths; this only supplies the live world point.
+                _rig.SetFollowAnchor(ViewWorld.ToWorld(sim.Player.X, sim.Player.Y));
             }
 
             // Prologue: tutorial toast progression (spec §1) + reveal return.

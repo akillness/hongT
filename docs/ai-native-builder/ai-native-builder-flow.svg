@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1520" viewBox="0 0 1280 1520" font-family="'Apple SD Gothic Neo','Helvetica Neue',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8a8f98"/>
+    </marker>
+    <linearGradient id="gHeader" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1a1c22"/>
+      <stop offset="1" stop-color="#2d3038"/>
+    </linearGradient>
+    <linearGradient id="gContract" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b3f4a"/>
+      <stop offset="1" stop-color="#2d3038"/>
+    </linearGradient>
+    <linearGradient id="gAsset" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e3a2f"/>
+      <stop offset="1" stop-color="#16281f"/>
+    </linearGradient>
+    <linearGradient id="gCode" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26324a"/>
+      <stop offset="1" stop-color="#1b2336"/>
+    </linearGradient>
+    <linearGradient id="gVerify" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a3a26"/>
+      <stop offset="1" stop-color="#33291b"/>
+    </linearGradient>
+    <linearGradient id="gRuntime" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3c1f24"/>
+      <stop offset="1" stop-color="#291518"/>
+    </linearGradient>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="1520" fill="#14161b"/>
+
+  <!-- header -->
+  <rect x="0" y="0" width="1280" height="88" fill="url(#gHeader)" filter="url(#shadow)"/>
+  <text x="40" y="38" fill="#f2c46b" font-size="26" font-weight="700">AI-Native Builder Flow — hongT (Abyssal Lantern · Unity WebGL)</text>
+  <text x="40" y="64" fill="#9aa0ab" font-size="15">제작 파이프라인은 AI가 실행하고, 배포 런타임은 AI에 의존하지 않는 정적 결정론 빌드</text>
+  <text x="40" y="82" fill="#6b7280" font-size="12">CLAUDE.md 계약 · 오케스트레이터 + 위임 레인 · 검증 게이트 · 결정론 심/뷰 분리</text>
+
+  <!-- ============ LAYER 0: OPERATING CONTRACT ============ -->
+  <rect x="40" y="112" width="1200" height="150" rx="12" fill="url(#gContract)" stroke="#5a6072" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="64" y="142" fill="#f2c46b" font-size="18" font-weight="700">L0 · 운영 계약 (단일 진실 공급원)</text>
+  <text x="64" y="168" fill="#c8cdd6" font-size="13.5">CLAUDE.md(및 AGENTS.md) = 모든 에이전트 세션의 강제 규칙 문서. 자유 프롬프트가 아니라 계약.</text>
+  <text x="64" y="192" fill="#9aa0ab" font-size="12.5">· `[OBSERVED]`/`[INFERENCE]`/`[TARGET]` 표기 — 목표치를 측정치로 위장 금지 · 파일 존재 ≠ 근거 (측정·명령·테스트 인용)</text>
+  <text x="64" y="212" fill="#9aa0ab" font-size="12.5">· 시뮬레이션 결정론 불변 · 숫자는 게이트(형용사 불통과) · FROZEN CONTRACT 파일 수정 금지 · 명시적 pathspec staging(`git add -A` 금지)</text>
+  <text x="64" y="232" fill="#9aa0ab" font-size="12.5">· `_workspace/current/` 단일 기록 폴더 · 이전 사이클은 `_workspace/archive/`로 동결 · 렌더러는 심 상태에 write-back 금지</text>
+  <text x="1164" y="142" fill="#8a8f98" font-size="11" text-anchor="end">CLAUDE.md</text>
+  <text x="1164" y="158" fill="#8a8f98" font-size="11" text-anchor="end">AGENTS.md</text>
+
+  <!-- ============ LAYER 1: ASSET GENERATION ============ -->
+  <rect x="40" y="290" width="1200" height="280" rx="12" fill="url(#gAsset)" stroke="#2f6b4f" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="64" y="320" fill="#7fd6a5" font-size="18" font-weight="700">L1 · 에셋 생성 — AI 제작 파이프라인 (빌드 시점에만 동작)</text>
+  <text x="64" y="346" fill="#c8cdd6" font-size="13">도구는 자산 클래스별로 고정. 모든 생성은 provenance.json + SHA-256 권리 영수증으로 보존.</text>
+
+  <!-- 4 tool boxes -->
+  <g filter="url(#shadow)">
+    <rect x="64" y="366" width="270" height="180" rx="8" fill="#20241e" stroke="#3a6b52" stroke-width="1.2"/>
+    <rect x="64" y="366" width="270" height="34" rx="8" fill="#2c4a38"/>
+    <text x="80" y="388" fill="#7fd6a5" font-size="13.5" font-weight="700">god-tibo-imagen (gti)</text>
+    <text x="80" y="414" fill="#b9c2b8" font-size="12">컨셉 아트 · 배경 플레이트 · 텍스처</text>
+    <text x="80" y="434" fill="#b9c2b8" font-size="12">아틀라스 · UI 아이콘 (gpt-5.4)</text>
+    <text x="80" y="460" fill="#8a948c" font-size="11">`gti --prompt … --input &lt;ref&gt;`</text>
+    <text x="80" y="478" fill="#8a948c" font-size="11">`--dry-run` 선검증 → PNG 고정</text>
+    <text x="80" y="502" fill="#6b756d" font-size="10.5">출력: PNG/Sprite · SHA-256 기록</text>
+    <text x="80" y="520" fill="#6b756d" font-size="10.5">예: 배경 1536×1024, 아이콘 256px</text>
+
+    <rect x="358" y="366" width="270" height="180" rx="8" fill="#20241e" stroke="#3a6b52" stroke-width="1.2"/>
+    <rect x="358" y="366" width="270" height="34" rx="8" fill="#2c4a38"/>
+    <text x="374" y="388" fill="#7fd6a5" font-size="13.5" font-weight="700">PerfectPixel (ppgen)</text>
+    <text x="374" y="414" fill="#b9c2b8" font-size="12">2D 스프라이트 시트 · 매니페스트</text>
+    <text x="374" y="434" fill="#b9c2b8" font-size="12">상태별 프레임 생성·매팅·패킹</text>
+    <text x="374" y="460" fill="#8a948c" font-size="11">생성→마젠타 키 매팅→바운딩→</text>
+    <text x="374" y="478" fill="#8a948c" font-size="11">품질 스코어→양자화→시트 패킹</text>
+    <text x="374" y="502" fill="#6b756d" font-size="10.5">출력: sheet.png + manifest.json</text>
+    <text x="374" y="520" fill="#6b756d" font-size="10.5">예: 2캐릭터 × 3상태 시트</text>
+
+    <rect x="652" y="366" width="270" height="180" rx="8" fill="#20241e" stroke="#3a6b52" stroke-width="1.2"/>
+    <rect x="652" y="366" width="270" height="34" rx="8" fill="#2c4a38"/>
+    <text x="668" y="388" fill="#7fd6a5" font-size="13.5" font-weight="700">Blender 5.1 headless</text>
+    <text x="668" y="414" fill="#b9c2b8" font-size="12">3D 메시 · 재스키닝 · 지형 변환</text>
+    <text x="668" y="434" fill="#b9c2b8" font-size="12">본히트 자동 웨이트 (FBX)</text>
+    <text x="668" y="460" fill="#8a948c" font-size="11">에이전트 워크플로(스크립트 구동)</text>
+    <text x="668" y="478" fill="#8a948c" font-size="11">원작 GLB → FBX → URP Unlit 리맵</text>
+    <text x="668" y="502" fill="#6b756d" font-size="10.5">출력: 8종 휴머노이드 FBX</text>
+    <text x="668" y="520" fill="#6b756d" font-size="10.5">48파츠 융합 터레인 연결성 분할</text>
+
+    <rect x="946" y="366" width="270" height="180" rx="8" fill="#20241e" stroke="#3a6b52" stroke-width="1.2"/>
+    <rect x="946" y="366" width="270" height="34" rx="8" fill="#2c4a38"/>
+    <text x="962" y="388" fill="#7fd6a5" font-size="13.5" font-weight="700">ElevenLabs / Mixamo</text>
+    <text x="962" y="414" fill="#b9c2b8" font-size="12">SFX 8종 · 로어 앰비언트 · BGM</text>
+    <text x="962" y="434" fill="#b9c2b8" font-size="12">모션: 벤치 FBX → Humanoid 리타겟</text>
+    <text x="962" y="460" fill="#8a948c" font-size="11">sound-generation API → mp3 고정</text>
+    <text x="962" y="478" fill="#8a948c" font-size="11">11액션 공유 라이브러리</text>
+    <text x="962" y="502" fill="#6b756d" font-size="10.5">출력: audio.json 권리 영수증</text>
+    <text x="962" y="520" fill="#6b756d" font-size="10.5">`docs/provenance/audio.json`</text>
+  </g>
+
+  <line x1="640" y1="570" x2="640" y2="610" stroke="#8a8f98" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ============ LAYER 2: CODE LANES ============ -->
+  <rect x="40" y="612" width="1200" height="280" rx="12" fill="url(#gCode)" stroke="#4a5b8a" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="64" y="642" fill="#8fa8e0" font-size="18" font-weight="700">L2 · 코드·검증 위임 레인 — 오케스트레이터 + 전문화 에이전트</text>
+  <text x="64" y="668" fill="#c8cdd6" font-size="13">오케스트레이터(Claude)가 스펙·계약을 바인딩 문서로 주고, 각 레인은 미션 + 요구사항 + 테스트로 배송.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="688" width="352" height="180" rx="8" fill="#1c2130" stroke="#4a5b8a" stroke-width="1.2"/>
+    <rect x="64" y="688" width="352" height="34" rx="8" fill="#2c3a5c"/>
+    <text x="80" y="710" fill="#8fa8e0" font-size="13.5" font-weight="700">Sim 레인 (gjc) — 결정론 심</text>
+    <text x="80" y="736" fill="#b9c2d6" font-size="12">`CinderSim.cs` + EditMode 테스트</text>
+    <text x="80" y="756" fill="#b9c2d6" font-size="12">고정 60 Hz · UnityEngine 금지 · RNG 금지</text>
+    <text x="80" y="782" fill="#8a94ab" font-size="11">SIM_SPEC.md = 유일한 수치 진실</text>
+    <text x="80" y="800" fill="#8a94ab" font-size="11">같은 입력 → 같은 Digest (결정론)</text>
+    <text x="80" y="824" fill="#6b748c" font-size="10.5">게이트: EditMode 502/502 통과</text>
+    <text x="80" y="842" fill="#6b748c" font-size="10.5">결함 사례: Q/E 키 분기 부재 → 측정으로 격리</text>
+
+    <rect x="436" y="688" width="352" height="180" rx="8" fill="#1c2130" stroke="#4a5b8a" stroke-width="1.2"/>
+    <rect x="436" y="688" width="352" height="34" rx="8" fill="#2c3a5c"/>
+    <text x="452" y="710" fill="#8fa8e0" font-size="13.5" font-weight="700">Campaign / HackSlash 레인 (gjc)</text>
+    <text x="452" y="736" fill="#b9c2d6" font-size="12">9단계 던전 · 융합 · 원소 파티클</text>
+    <text x="452" y="756" fill="#b9c2d6" font-size="12">레인 보고서: 측정 + 수치 근거</text>
+    <text x="452" y="782" fill="#8a94ab" font-size="11">SIM_SPEC_CAMPAIGN/HACKSLASH</text>
+    <text x="452" y="800" fill="#8a94ab" font-size="11">시각 오버홀 스펙 8레인 배포</text>
+    <text x="452" y="824" fill="#6b748c" font-size="10.5">드레싱 테이블(무 RNG) · 벤트 fill</text>
+    <text x="452" y="842" fill="#6b748c" font-size="10.5">텔레그래프 계약 · Aegis 플래시</text>
+
+    <rect x="808" y="688" width="408" height="180" rx="8" fill="#1c2130" stroke="#4a5b8a" stroke-width="1.2"/>
+    <rect x="808" y="688" width="408" height="34" rx="8" fill="#2c3a5c"/>
+    <text x="824" y="710" fill="#8fa8e0" font-size="13.5" font-weight="700">View 레인 (jeo) — 프레젠테이션</text>
+    <text x="824" y="736" fill="#b9c2d6" font-size="12">심 상태 읽기 전용 · write-back 금지</text>
+    <text x="824" y="756" fill="#b9c2d6" font-size="12">풀링 · MakeUnlit · 블룸/비네트(실측 p95)</text>
+    <text x="824" y="782" fill="#8a94ab" font-size="11">URP 블룸 게이트: 실측 p95 ≤ 10ms</text>
+    <text x="824" y="800" fill="#8a94ab" font-size="11">본 소켓 장비 프롭 6종 · HUD 폰트</text>
+    <text x="824" y="824" fill="#6b748c" font-size="10.5">캐릭터 ≤25k tri · 텍스처 ≤1024</text>
+    <text x="824" y="842" fill="#6b748c" font-size="10.5">빌드 ≤120MB · gzip+fallback</text>
+  </g>
+
+  <line x1="640" y1="892" x2="640" y2="932" stroke="#8a8f98" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ============ LAYER 3: VERIFICATION ============ -->
+  <rect x="40" y="934" width="1200" height="230" rx="12" fill="url(#gVerify)" stroke="#8a6b2f" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="64" y="964" fill="#e0b96b" font-size="18" font-weight="700">L3 · 검증 하니스 — AI 산출물의 가장 흔한 실패 모드 차단</text>
+  <text x="64" y="990" fill="#c8cdd6" font-size="13">그럴듯한 요약 · 미검증 주장 · 조용한 범위 축소를 수치 게이트로 구조적으로 차단.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="1010" width="352" height="130" rx="8" fill="#2b2317" stroke="#6b5426" stroke-width="1.2"/>
+    <text x="80" y="1036" fill="#e0b96b" font-size="13" font-weight="700">EditMode 게이트</text>
+    <text x="80" y="1060" fill="#b9b08c" font-size="12">Unity batchmode `-executeMethod`</text>
+    <text x="80" y="1080" fill="#b9b08c" font-size="12">502/502 통과 · 실패 0 (숫자=게이트)</text>
+    <text x="80" y="1106" fill="#8a8271" font-size="11">결정론: 600-tick 동일 입력 → Digest 일치</text>
+    <text x="80" y="1124" fill="#8a8271" font-size="11">클램프 L1 노름 ≤1 · 보스·픽업 산술</text>
+
+    <rect x="436" y="1010" width="352" height="130" rx="8" fill="#2b2317" stroke="#6b5426" stroke-width="1.2"/>
+    <text x="452" y="1036" fill="#e0b96b" font-size="13" font-weight="700">브라우저 계약 테스트</text>
+    <text x="452" y="1060" fill="#b9b08c" font-size="12">Playwright + CDP 실입력</text>
+    <text x="452" y="1080" fill="#b9b08c" font-size="12">자산 로드·상태 전이·레이아웃</text>
+    <text x="452" y="1106" fill="#8a8271" font-size="11">3 입력 경로 · 게임오버·재시작</text>
+    <text x="452" y="1124" fill="#8a8271" font-size="11">페이지 오류 0 · 무오버플로</text>
+
+    <rect x="808" y="1010" width="408" height="130" rx="8" fill="#2b2317" stroke="#6b5426" stroke-width="1.2"/>
+    <text x="824" y="1036" fill="#e0b96b" font-size="13" font-weight="700">진정성 캡처 (제출 영상)</text>
+    <text x="824" y="1060" fill="#b9b08c" font-size="12">실제 Chromium이 실제 게임 로드 → CDP 입력</text>
+    <text x="824" y="1080" fill="#b9b08c" font-size="12">드라이버 판단 근거 = 렌더 스냅샷 + HUD만</text>
+    <text x="824" y="1106" fill="#8a8271" font-size="11">보간·리타이밍·합성·생성 없음</text>
+    <text x="824" y="1124" fill="#8a8271" font-size="11">실측: 웨이브 6 · 점수 13550 · 오류 0</text>
+  </g>
+
+  <line x1="640" y1="1164" x2="640" y2="1204" stroke="#8a8f98" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ============ LAYER 4: RUNTIME ============ -->
+  <rect x="40" y="1206" width="1200" height="150" rx="12" fill="url(#gRuntime)" stroke="#8a4a55" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="64" y="1236" fill="#e08a99" font-size="18" font-weight="700">L4 · 배포 런타임 — AI 제로 (정적 결정론 빌드)</text>
+  <text x="64" y="1262" fill="#c8cdd6" font-size="13">외부 추론 호출 · API 키 · 네트워크 요청이 없는 순수 정적 페이지. GitHub Pages (상대경로만).</text>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="1282" width="260" height="52" rx="6" fill="#2a1b1f" stroke="#6b3a44" stroke-width="1.2"/>
+    <text x="80" y="1306" fill="#e08a99" font-size="13" font-weight="700">CinderCourt.Sim</text>
+    <text x="80" y="1326" fill="#b98c94" font-size="11.5">순수 C# · 결정론 60Hz · RNG 금지</text>
+
+    <rect x="348" y="1282" width="260" height="52" rx="6" fill="#2a1b1f" stroke="#6b3a44" stroke-width="1.2"/>
+    <text x="364" y="1306" fill="#e08a99" font-size="13" font-weight="700">CinderCourt.View</text>
+    <text x="364" y="1326" fill="#b98c94" font-size="11.5">심 읽기 전용 · write-back 금지</text>
+
+    <rect x="632" y="1282" width="260" height="52" rx="6" fill="#2a1b1f" stroke="#6b3a44" stroke-width="1.2"/>
+    <text x="648" y="1306" fill="#e08a99" font-size="13" font-weight="700">결정론적 자산 고정</text>
+    <text x="648" y="1326" fill="#b98c94" font-size="11.5">PNG · FBX · mp3 · manifest 고정</text>
+
+    <rect x="916" y="1282" width="300" height="52" rx="6" fill="#2a1b1f" stroke="#6b3a44" stroke-width="1.2"/>
+    <text x="932" y="1306" fill="#e08a99" font-size="13" font-weight="700">opt-in 동료 명령 콘솔</text>
+    <text x="932" y="1326" fill="#b98c94" font-size="11.5">기본: 로컬 키워드 파서(네트워크 0)</text>
+  </g>
+
+  <line x1="640" y1="1356" x2="640" y2="1392" stroke="#8a8f98" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- footer -->
+  <rect x="0" y="1396" width="1280" height="124" fill="#101217"/>
+  <text x="40" y="1424" fill="#c8cdd6" font-size="14" font-weight="700">핵심 설계 원칙 (AI-Native Builder 관점)</text>
+  <text x="40" y="1448" fill="#9aa0ab" font-size="12.5">① 계약 우선 — 자유 프롬프트가 아닌 강제 규칙 문서(CLAUDE.md) ② 제작 시점 AI, 런타임 AI 제로 ③ 심/뷰 분리로 결정론 보호</text>
+  <text x="40" y="1470" fill="#9aa0ab" font-size="12.5">④ 수치 게이트 — 측정·테스트 인용 없이는 주장 불인정 ⑤ 도구 고정 — 자산 클래스당 1개의 검증된 생성기 ⑥ 위임 레인 — 오케스트레이터가 스펙을 바인딩으로 전달</text>
+  <text x="40" y="1492" fill="#6b7280" font-size="11">hongT repository · docs/ai-native-builder/ai-native-builder-flow.svg · 2026-08-06 (최신화 2026-08-07)</text>
+</svg>

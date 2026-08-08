@@ -745,9 +745,24 @@ namespace CinderCourt.Tests
                     headerObjects.Add(header.gameObject);
                 }
 
+                // Clipped to the scroll viewport before comparing. StageScroll
+                // carries a RectMask2D, so a header scrolled past the viewport
+                // edge is not drawn and cannot cover anything — comparing its
+                // raw world rect reports collisions with whatever the panel
+                // below happens to hold. After main's stacked phone layout put
+                // the Sanctum tab strip directly under the sortie panel, that
+                // false positive was four hits per fold state against controls
+                // the header is masked away from.
+                //
+                // The clip is the assertion's subject, not a tolerance: what the
+                // player can see is exactly the intersection of the header and
+                // the viewport.
+                var viewport = WorldRect(ViewportOf(canvas));
                 foreach (var header in headers)
                 {
-                    var headerRect = WorldRect(header);
+                    var headerRect = Intersect(WorldRect(header), viewport);
+                    if (headerRect.width <= 0f || headerRect.height <= 0f) continue;
+
                     foreach (var button in canvas.GetComponentsInChildren<Button>(true))
                     {
                         if (!button.gameObject.activeInHierarchy) continue;
@@ -829,7 +844,10 @@ namespace CinderCourt.Tests
         [Test]
         public void Accordion_ContentHeightMatchesTheSpecArithmetic()
         {
-            var canvas = BuildLobby(Save(true, 1));
+            // Desktop: §2.2's 416/626 are computed from the 70 u desktop card
+            // pitch. At the 112 u touch pitch an open act is 542 u, which is
+            // correct and a different claim than the one this test makes.
+            var canvas = BuildLobby(Save(true, 1), desktop: true);
             var viewport = WorldRect(FindDescendant(canvas.transform, "StageScroll"));
 
             OpenGroup(canvas, 0);
@@ -1097,10 +1115,30 @@ namespace CinderCourt.Tests
             return bits;
         }
 
-        private Canvas BuildLobby(CampaignData data)
+        /// <summary>
+        /// Builds the lobby AND runs the tier layout pass.
+        ///
+        /// Build leaves every panel at its CONSTRUCTION coordinate, where the
+        /// sortie panel (local x 390..783) and the campaign map panel (local x
+        /// 432..856) genuinely overlap — the tier pass is what separates them,
+        /// side by side on desktop and stacked on phone. Skipping it audits a
+        /// screen the game never draws, and once main's map/gear buttons arrived
+        /// that showed up as fold headers "covering" two controls they are
+        /// nowhere near at any real tier.
+        ///
+        /// Phone by default (390x844, the worst viewport LobbyLayoutTests audits
+        /// with, so both files reason about one geometry). Callers asserting the
+        /// spec's desktop arithmetic pass <paramref name="desktop"/> — the 416 u
+        /// and 626 u figures in §2.2 are computed from the 70 u desktop card
+        /// pitch and are simply a different number at the 112 u touch pitch.
+        /// </summary>
+        private Canvas BuildLobby(CampaignData data, bool desktop = false)
         {
             _lobby.Build(data, default);
             _lobby.Refresh(data);
+            if (desktop) _lobby.ApplyLobbyLayoutForTest(1280, 720);
+            else _lobby.ApplyLobbyLayoutForTest(390, 844);
+
 
             var canvas = _lobbyObject.GetComponentInChildren<Canvas>(true);
             Assert.That(canvas, Is.Not.Null, "the lobby must build its canvas");
@@ -1162,6 +1200,34 @@ namespace CinderCourt.Tests
                 if (found != null) return found;
             }
             return null;
+        }
+        /// <summary>The scroll viewport — the RectMask2D that decides which
+        /// rows are on screen. Named lookup rather than a stored reference so
+        /// the test breaks loudly if the object is renamed, instead of quietly
+        /// clipping against nothing.</summary>
+        private static RectTransform ViewportOf(Canvas canvas)
+        {
+            var viewport = FindDescendant(canvas.transform, "StageScroll");
+            Assert.That(viewport, Is.Not.Null,
+                "the sortie list must have a StageScroll viewport — without it there "
+                + "is no mask, and every clipped-rect assertion below is comparing "
+                + "geometry the player never sees");
+            Assert.That(viewport.GetComponent<RectMask2D>(), Is.Not.Null,
+                "StageScroll lost its RectMask2D: rows outside the viewport are now "
+                + "DRAWN over whatever is beneath the panel, so the clipping this "
+                + "test does is no longer a description of the screen");
+            return viewport;
+        }
+
+        private static Rect Intersect(Rect a, Rect b)
+        {
+            var xMin = Mathf.Max(a.xMin, b.xMin);
+            var yMin = Mathf.Max(a.yMin, b.yMin);
+            var xMax = Mathf.Min(a.xMax, b.xMax);
+            var yMax = Mathf.Min(a.yMax, b.yMax);
+            return xMax <= xMin || yMax <= yMin
+                ? new Rect(0f, 0f, 0f, 0f)
+                : Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
         private static CanvasGroup AncestorCanvasGroup(Transform from)

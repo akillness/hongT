@@ -3,13 +3,17 @@
 // build (GitHub Pages). Every frame is a frame the browser actually rendered
 // while the game ran; input goes through the CDP input domain — the same path
 // a physical keyboard/mouse takes. Nothing is composited or regenerated; the
-// only post steps are a head-trim (loading splash) and H.264 transcode.
+// only post steps are a head-trim (loading splash), an H.264 30 fps mezzanine,
+// and a CompressO offline ffmpeg compression pass for the deliverable size.
 //
 //   node tools/video/capture-unity-play.mjs [--seconds 55] [--out <path>]
 //
-// Route: lobby (live diorama) → Cinder Span descent → melee/skills → companion
-// command console (Enter, ASCII alias 'nova' → Korean feedback toast) → more
-// combat → console 'shield' (Void Aegis) → fight to credits. A returning-player
+// Route: lobby (live diorama) → Ember Gallery descent → (a) plain melee
+// attack cadence → (b) hotkey skill rotation (Q Bolt / E Pulse / Shift Dash /
+// F Aegis / R Nova) → (c) companion command console: guardian orders
+// ('focus', 'defend') then skill casts ('shield' → Void Aegis, 'nova' → Ash
+// Nova), each an ASCII alias that the local parser maps to a deterministic
+// SimInput latch while the on-screen toast stays Korean. A returning-player
 // save (prologueDone) is seeded via localStorage so stage 1 is unlocked — the
 // same JSON shape CampaignStore.Save writes; gameplay itself is not touched.
 //
@@ -98,6 +102,44 @@ async function main() {
 
   // Combat helpers -----------------------------------------------------------
   let flip = false;
+  // Plain melee: WASD facing flips + Space combo, NO skills. Shows the
+  // baseline attack cadence (sim cooldown / combo-link window owns the rate).
+  const meleeOnly = async (ms) => {
+    const stop = Date.now() + ms;
+    let lastFace = 0, lastSpace = 0;
+    while (Date.now() < stop) {
+      const now = Date.now();
+      if (now - lastFace > 1100) {
+        const key = flip ? "KeyA" : "KeyD";
+        flip = !flip;
+        await page.keyboard.down(key);
+        await page.waitForTimeout(130);
+        await page.keyboard.up(key);
+        lastFace = Date.now();
+      }
+      if (now - lastSpace > 270) {
+        await page.keyboard.press("Space");
+        log.attacks += 1;
+        lastSpace = Date.now();
+      }
+      await page.waitForTimeout(45);
+    }
+  };
+  // Hotkey skill rotation: the dungeon skill row is Q=Rift Bolt, E=Grave
+  // Pulse, R=Ash Nova, F=Void Aegis, Shift=Dash. Fire them on their own so
+  // the four skill overlays + dash light up on camera, interleaved with melee.
+  const skillHotkeys = async () => {
+    for (const key of ["KeyQ", "KeyE", "ShiftLeft", "KeyF", "KeyR"]) {
+      await page.keyboard.press("Space");   // keep pressure on
+      log.attacks += 1;
+      await page.keyboard.press(key);
+      log.skills = (log.skills || 0) + 1;
+      beat(`hotkey:${key}`);
+      await page.waitForTimeout(950);
+    }
+  };
+  // Death-safety loop used only between scripted beats: presses R which is
+  // Nova mid-run, but the defeat panel rebinds R = 재강하 so a bad run recovers.
   const fight = async (ms) => {
     const stop = Date.now() + ms;
     let lastFace = 0, lastSpace = 0, lastR = 0;
@@ -116,9 +158,6 @@ async function main() {
         log.attacks += 1;
         lastSpace = Date.now();
       }
-      // Alive: casts Ash Nova when oil allows (harmless extra flair).
-      // Dead: the defeat panel binds R = 재강하, so a bad run self-recovers
-      // instead of freezing the tail of the video on a static panel.
       if (now - lastR > 6500) {
         await page.keyboard.press("KeyR");
         lastR = Date.now();
@@ -133,15 +172,26 @@ async function main() {
     await page.waitForTimeout(350);
     await page.keyboard.press("Enter");        // submit -> intent -> SimInput
     beat(`console:${text}`);
-    await page.waitForTimeout(900);            // feedback toast + cast visual
+    await page.waitForTimeout(1100);           // feedback toast + cast visual
   };
 
-  // 3) Fight, showcasing the command console twice — shield early while HP
-  //    is high (Void Aegis buys survival), nova once a pack has gathered.
+  // 3) Three demonstrated input patterns, in order:
+  //    (a) plain melee attack cadence, (b) direct hotkey skill rotation,
+  //    (c) text command console — a guardian order AND skill casts. Every
+  //    console command uses the parser's documented ASCII alias because CDP
+  //    has no Hangul IME; the on-screen feedback copy stays Korean.
   const end = started + args.seconds * 1000;
-  await fight(4500);
-  await consoleCommand("shield");  // -> Void Aegis ring + 방패 HUD
-  await fight(8000);
+  await meleeOnly(6000);                        // (a) 일반 공격 패턴
+  beat("melee-demo-done");
+  await skillHotkeys();                          // (b) Q/E/Shift/F/R 스킬 패턴
+  beat("skill-demo-done");
+  await fight(2500);
+  await consoleCommand("focus");   // 수호자 집중공격 order (companion latch)
+  await fight(2500);
+  await consoleCommand("defend");  // 수호자 방어태세 order
+  await fight(2500);
+  await consoleCommand("shield");  // -> Void Aegis ring + 공허 방패 시전
+  await fight(4000);
   await consoleCommand("nova");    // -> "잿불 노바 시전", AOE burn decal
   while (Date.now() < end) await fight(Math.min(2000, Math.max(250, end - Date.now())));
 
@@ -153,15 +203,36 @@ async function main() {
   const raw = await video.path();
   const outPath = path.join(ROOT, args.out);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
+
+  // Transcode the raw Playwright capture to a mezzanine H.264 (head-trim +
+  // 30 fps), then run the CompressO offline ffmpeg pass for the deliverable
+  // size. CompressO ships its own static ffmpeg; fall back to PATH ffmpeg if
+  // the app is not installed. Audio is dropped — the WebGL build's decoded
+  // audio is unreliable under headless capture (EncodingError spam) and the
+  // submission video is judged on gameplay footage, not sound.
+  const COMPRESSO_FFMPEG =
+    "/Applications/CompressO.app/Contents/MacOS/compresso_ffmpeg";
+  const ffmpegBin = fs.existsSync(COMPRESSO_FFMPEG) ? COMPRESSO_FFMPEG : "ffmpeg";
+  const mezz = path.join(videoDir, "mezzanine.mp4");
   execFileSync("ffmpeg", [
     "-y", "-loglevel", "error",
     "-ss", String(Math.max(0, loadOffset - 0.4)),
     "-i", raw,
     "-t", String(args.seconds),
     "-r", "30", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
+    "-an",
+    mezz,
+  ]);
+  // CompressO compression pass (crf 28, slow preset, faststart web streaming).
+  execFileSync(ffmpegBin, [
+    "-y", "-loglevel", "error",
+    "-i", mezz,
+    "-c:v", "libx264", "-preset", "slow", "-crf", "28",
+    "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an",
     outPath,
   ]);
   fs.rmSync(videoDir, { recursive: true, force: true });
+
 
   const probe = execFileSync("ffprobe", [
     "-v", "error", "-select_streams", "v:0",

@@ -1,0 +1,53 @@
+{
+  "asset_class": "concept/composition (구성 이미지)",
+  "tool": "god-tibo-imagen (gti) 0.3.0",
+  "provider": "codex-cli",
+  "note": "private-codex backend returned HTTP 429 (rate limited) repeatedly; fell back to the codex-cli provider which succeeded. codex-cli does not support --size, so outputs are the model default which happened to render 1536x1024.",
+  "date": "2025-08-06",
+  "outputs": [
+    {
+      "path": "docs/nan2026/assets/scenes/01-intro.png",
+      "dims": "1536x1024",
+      "md5": "dbd560894064588e34acc7c471d032f2",
+      "scene": "인트로씬",
+      "prompt": "Cinematic key art, dark fantasy 2.5D beat-em-up game intro scene. A lone lantern-bearing warden stands on a stone court plate, side-view camera, embers drifting, low ember-orange glow, chains in shadow. Painterly game concept art, moody, cinematic, no text."
+    },
+    {
+      "path": "docs/nan2026/assets/scenes/02-stage-entry.png",
+      "dims": "1536x1024",
+      "md5": "b25ab4792f40b58ab626e372fd8c2d20",
+      "scene": "스테이지 입장씬",
+      "prompt": "Cinematic dark fantasy dungeon stage-entry scene, 55-degree perspective aerial view of an empty circular arena bridge (Bridge of Ash), ember-orange accent lighting, ghostly watcher narration mood, first wave of shadow enemies spawning at the ring edge, painterly game concept art, cinematic, no text."
+    },
+    {
+      "path": "docs/nan2026/assets/scenes/03-transition.png",
+      "dims": "1536x1024",
+      "md5": "17b0259ccbe479a395171b6dcd38d9a4",
+      "scene": "스테이지 간 이동씬",
+      "prompt": "Cinematic dark fantasy transition scene between two arenas, a chain motif linking a collapsing bridge of embers (warm orange) crossfading into a violet mirrored sanctuary, a lantern light traveling along the chain, dusk warden silhouette, painterly game concept art, atmospheric, cinematic, no text."
+    },
+    {
+      "path": "docs/nan2026/assets/scenes/04-boss-entry.png",
+      "dims": "1536x1024",
+      "md5": "8a725da14c009aaa627ee14c15b30180",
+      "scene": "보스 등장씬",
+      "prompt": "Cinematic dark fantasy boss appearance scene, the Gate Sovereign, a towering broken-court monarch boss looming over the arena, ash-gold judgment light, imposing scale, dramatic name-plate reveal mood, screen shake energy, painterly game concept art, cinematic, no text."
+    }
+  ],
+  "sprite_animation": {
+    "decision": "not generated",
+    "reason": "The deliverable is a storyboard/synopsis document; the four scenes are static composition frames. All in-game motion for these scenes is already delivered at runtime by CameraRig (PrologueReveal sweep, Dungeon distance tiers, FocusPulse, Shake) and the deterministic Sim, so no new 2D sprite sheet is required. The perfectpixel/ppgen sprite tool is also not installed in this environment (`ppgen: command not found`), so any sprite work would need that tool provisioned first."
+  },
+  "runtime_integration": {
+    "applied": true,
+    "component": "Assets/Scripts/View/CutsceneView.cs",
+    "resources": [
+      "Assets/Resources/Scenes/scene-intro.png",
+      "Assets/Resources/Scenes/scene-stage-entry.png",
+      "Assets/Resources/Scenes/scene-transition.png",
+      "Assets/Resources/Scenes/scene-boss-entry.png"
+    ],
+    "note": "The four synopsis frames were copied into Assets/Resources/Scenes/ as sprite-mode textures (WebGL maxTextureSize 1024) and are shown as fade-in/hold/fade-out loading cutscenes. GameDirector.StartPrologue -> scene-intro; GameDirector.StartDungeon picks scene-transition (Ember Rest continuation) / scene-boss-entry (EnemyVisual.BossMonarch stage) / scene-stage-entry (default), captioned with entry.Kicker/Title + frozen StoryCatalog stageStart narration. EnterLobby calls CutsceneView.Hide().",
+    "verification": "tools/unity_batch.sh tests -> total=242 passed=238; GameDirectorCampaignRouteTests + StageCatalogTests pass. The 4 remaining failures are pre-existing HudIconIntegrationTests from the icon-merge commit (missing generated icon PNGs / glow materials), unrelated to cutscene work."
+  }
+}
