@@ -433,6 +433,24 @@ namespace CinderCourt.View
         /// </summary>
         void ApplyTimeScale()
         {
+            // AMENDMENT #9: a guidance card holds the run at a hard 0, and it
+            // takes precedence over everything below — including the smoothing
+            // ease-back, which would otherwise walk the scale up to 1 under an
+            // open card. Returned early rather than folded into `target` so the
+            // freeze is exact and cannot be softened by a concurrent hit-stop.
+            //
+            // The console proved this trap is real: it pinned timeScale at 0.2
+            // when a run ended with it open, and needed a guard in
+            // HudView.ResetRunUi to escape. 0.2 is merely slow; 0 is a hard
+            // freeze with Time.deltaTime == 0, so even a dismiss animation would
+            // not run. Two guarantees keep it escapable: ResetRunUi closes the
+            // card on every run end, and the dismiss path is driven by
+            // unscaled input polling, never by scaled time.
+            if (Hud != null && Hud.GuidancePaused)
+            {
+                Time.timeScale = 0f;
+                return;
+            }
             // Console slow-mo first and OUTSIDE TimeEffectsAllowed: it buys
             // typing time (accessibility), not decoration — reduced-motion
             // players need it most. Determinism: timeScale only stretches

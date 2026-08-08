@@ -513,9 +513,13 @@ namespace CinderCourt.View
             _detailTitle.text = LobbyView.EquipTierNames[slot][tier];
             _detailGrade.text = $"{GradeNames[tier]} • T{tier}/T5";
             _detailGrade.color = GradeColors[Mathf.Clamp(tier, 0, GradeColors.Length - 1)];
-            _detailNote.text = tier >= 5
+            // Cap and price both from ProgressionGuide — the one place that
+            // owns them. GameDirector.EquipCosts is an alias to this and used to
+            // be the read path; going through it made the meta screen's price
+            // depend on the director's, when neither owns it.
+            _detailNote.text = tier >= ProgressionGuide.EquipCap
                 ? "최고 등급 — 이 슬롯은 더 오를 곳이 없다."
-                : $"다음 등급까지 유물 {GameDirector.EquipCosts[tier]}";
+                : $"다음 등급까지 유물 {ProgressionGuide.EquipCosts[tier]}";
 
             _statColumnBodies[0].text =
                 $"공격력 {probe.PlayerDamage:F1}\n" +

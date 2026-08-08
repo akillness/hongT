@@ -71,9 +71,9 @@ namespace CinderCourt.View
         /// <summary>
         /// Warmth band that counts as "neither". The floor tint is
         /// Lerp(floorBase, accent, 0.30) with floorBase carrying a 0.025 cool
-        /// bias, so (r − b) recovers 0.30 × the accent's own warmth − 0.025.
+        /// bias, so (r - b) recovers 0.30 × the accent's own warmth - 0.025.
         /// Across the shipped nine stages that lands 5 warm / 3 cold and leaves
-        /// ash-march (grey #B8B0A4) at −0.001, i.e. genuinely neutral.
+        /// ash-march (grey #B8B0A4) at -0.001, i.e. genuinely neutral.
         /// </summary>
         internal const float NeutralBand = 0.05f;
 

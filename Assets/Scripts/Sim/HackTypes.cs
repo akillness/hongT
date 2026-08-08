@@ -403,7 +403,7 @@ namespace CinderCourt.Sim
             * (1f + HackSpec.AttackPerPoint * HackSpec.ClampStat(MetaStats.Attack))
             * (1f + CampaignSpec.WeaponDamagePerRank * CampaignSpec.ClampRank(EquipTiers.Weapon));
 
-        /// <summary>Max health at level 1: <c>100 + 8·vitality + 8·cloak</c> (§5, §6).</summary>
+        /// <summary>Max health at level 1: <c>100 + 8•vitality + 8•cloak</c> (§5, §6).</summary>
         public float PlayerMaxHealth => SimConfig.PlayerMaxHealth
             + HackSpec.VitalityHealthPerPoint * HackSpec.ClampStat(MetaStats.Vitality)
             + CampaignSpec.CloakHealthPerRank * CampaignSpec.ClampRank(EquipTiers.Cloak);
@@ -1055,7 +1055,7 @@ namespace CinderCourt.Sim
             return (int)attacker % 4 + 1 == (int)defender;
         }
 
-        /// <summary>Skill damage multiplier: +20% favourable, −15% unfavourable (§2.4).</summary>
+        /// <summary>Skill damage multiplier: +20% favourable, -15% unfavourable (§2.4).</summary>
         public static float Matchup(Element attacker, Element defender)
         {
             if (Beats(attacker, defender))
