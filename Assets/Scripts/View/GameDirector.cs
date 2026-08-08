@@ -516,6 +516,14 @@ namespace CinderCourt.View
                 : entry.Boss.Visual == EnemyVisual.BossMonarch
                     ? "scene-boss-entry"
                     : "scene-stage-entry";
+            // Per-stage frame when one has been authored, generic otherwise. All
+            // nine stages used to collapse onto the three literals above, so the
+            // loading screen said nothing about WHICH door you were opening —
+            // the accent, the terrain and the boss archetype all stopped at the
+            // catalog. CutsceneView already degrades to the dark backdrop on a
+            // miss, but resolving here keeps the generic frame as the floor
+            // instead of dropping to no art at all while the set fills in.
+            cutsceneSprite = StageCutsceneSprite(cutsceneSprite, entry.Id);
             _cutscene.Show(cutsceneSprite, entry.Kicker, entry.Title, introNarration);
             // W12: the loading/story frame rides its own bed, then the stage
             // track takes over when the cutscene yields to live play (the
@@ -524,6 +532,30 @@ namespace CinderCourt.View
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
                 _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
+        }
+
+        // Cached per stage id: Resources.Load on a miss is not free, and this
+        // runs on every sortie including retries. Empty string = "no per-stage
+        // frame authored", which is the common case until the set is complete.
+        readonly System.Collections.Generic.Dictionary<string, string> _stageCutsceneCache =
+            new System.Collections.Generic.Dictionary<string, string>(9);
+
+        /// <summary>
+        /// `<c>generic</c>-<c>stageId</c>` when that sprite exists, otherwise
+        /// <paramref name="generic"/>. Authoring a new frame is therefore a
+        /// drop-in: no code change, no catalog entry — the file appearing under
+        /// Resources/Scenes is the whole opt-in.
+        /// </summary>
+        internal string StageCutsceneSprite(string generic, string stageId)
+        {
+            if (string.IsNullOrEmpty(stageId)) return generic;
+            var key = generic + "-" + stageId;
+            if (!_stageCutsceneCache.TryGetValue(key, out var resolved))
+            {
+                resolved = Resources.Load<Sprite>("Scenes/" + key) != null ? key : generic;
+                _stageCutsceneCache[key] = resolved;
+            }
+            return resolved;
         }
 
         void PrepareRunUi()
