@@ -1043,17 +1043,24 @@ namespace CinderCourt.View
                 // reads as points, not as a second light source competing with
                 // the arena centre (§E0.5).
                 //
-                // MEASURED, and this is why there are TWO: one head rendered a
-                // 140-luminance patch whose radial profile fell 140 -> 44 in a
-                // single 3 px step. That is a cliff, i.e. a flat bright chip,
-                // not a glow. StageTints Clamp01s the ember colour on purpose,
-                // so one additive quad lands just UNDER CinderPostProfile's
-                // 1.05 bloom threshold and can never flare on its own. The
-                // documented way past it is the one ViewWorld.MakeAdditive
-                // states outright - overlapping quads ACCUMULATE - so the head
-                // is two concentric shells rather than a brighter tint. Doing
-                // it here keeps the change local: unclamping StageTints would
-                // have relit every gate, bridge and torch in all nine stages.
+                // MEASURED, and this is why there are TWO. StageTints Clamp01s
+                // the ember colour on purpose, so ONE additive quad lands just
+                // UNDER CinderPostProfile's 1.05 bloom threshold and can never
+                // flare on its own. The documented way past it is the one
+                // ViewWorld.MakeAdditive states outright - overlapping quads
+                // ACCUMULATE - so the head is two concentric shells rather
+                // than a brighter tint. Doing it here keeps the change local:
+                // unclamping StageTints would have relit every gate, bridge
+                // and torch in all nine stages.
+                //
+                // Deployed numbers, one shell -> two, at the nine ring cores
+                // visible in frame: core peak 131 -> 169 (+29%), and the
+                // radial falloff softened from a 26% single-step drop to 20%.
+                //
+                // An earlier draft of this comment cited a "140 -> 44 in one
+                // 3px step" cliff. That reading is RETRACTED: the sample sat
+                // on a tan floor prop, not on a head. The conclusion survives
+                // the correction - the numbers above are from the heads.
                 var headY = height * (float)SimToWorld * 0.92f;
                 module.Pieces.Add(new Piece
                 {
