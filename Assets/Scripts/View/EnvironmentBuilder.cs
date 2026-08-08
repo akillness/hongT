@@ -37,15 +37,27 @@ namespace CinderCourt.View
         // enemies at halfW−margin on x and halfH−margin/2 on y; the min of the
         // two axis ratios is the x one, so a single conservative constant is
         // the x-axis quotient (spec §E3 "구현은 보수적으로 min").
-        /// <summary>Enemy stop line as an ellipse parameter (≈0.9538).</summary>
-        public static float EnemyStopE
-            => (SimConfig.ArenaHalfWidth - SimConfig.EnemyMarginClamp)
-               / SimConfig.ArenaHalfWidth;
+        //
+        // AMENDMENT #15 (W-MV, MV-3): the derivation itself now lives in the sim
+        // (DungeonBoundsSpec.EnemyStopE/PlayerStopE) so the clamp and the wall
+        // ring can never disagree — sim test W-MV-7 pins that feeding the frozen
+        // half-width back through it reproduces these exact numbers. The
+        // no-argument properties stay FROZEN-derived on purpose: they are the
+        // §E8 contract constants the EditMode gate pins. Callers that build an
+        // expanded ring pass the published half-width to the *For overloads.
+        /// <summary>Enemy stop line as an ellipse parameter at the FROZEN half-width (≈0.9538).</summary>
+        public static float EnemyStopE => EnemyStopEFor(SimConfig.ArenaHalfWidth);
 
-        /// <summary>Player stop line as an ellipse parameter (≈0.935).</summary>
-        public static float PlayerStopE
-            => (SimConfig.ArenaHalfWidth - SimConfig.PlayerMarginClamp)
-               / SimConfig.ArenaHalfWidth;
+        /// <summary>Player stop line as an ellipse parameter at the FROZEN half-width (≈0.935).</summary>
+        public static float PlayerStopE => PlayerStopEFor(SimConfig.ArenaHalfWidth);
+
+        /// <summary>Enemy stop line for a sim-published half-width (AMENDMENT #15).</summary>
+        public static float EnemyStopEFor(float halfWidth)
+            => DungeonBoundsSpec.EnemyStopE(halfWidth);
+
+        /// <summary>Player stop line for a sim-published half-width (AMENDMENT #15).</summary>
+        public static float PlayerStopEFor(float halfWidth)
+            => DungeonBoundsSpec.PlayerStopE(halfWidth);
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
@@ -73,8 +85,19 @@ namespace CinderCourt.View
         /// (name, pos, rot, scale) sequence. Unknown stageId → null (no throw).
         /// </summary>
         public static GameObject Build(string stageId)
+            => Build(stageId, SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+
+        /// <summary>
+        /// AMENDMENT #15 (W-MV, MV-2): same contract, but the Zone A/B geometry
+        /// is laid out against the half-axes the SIM actually clamps to instead
+        /// of the frozen constants. Feeding the frozen values reproduces the
+        /// pre-amendment layout byte-for-byte (see MV-2 tests), so the arena,
+        /// prologue and lobby paths — which call the one-argument overload —
+        /// are structurally unable to move.
+        /// </summary>
+        public static GameObject Build(string stageId, float halfWidth, float halfHeight)
         {
-            var modules = EnvironmentLayout.Compute(stageId);
+            var modules = EnvironmentLayout.Compute(stageId, halfWidth, halfHeight);
             if (modules == null) return null;
             StageCatalog.TryGet(stageId, out var entry); // Compute proved it exists
 
@@ -561,14 +584,52 @@ namespace CinderCourt.View
         // ---------------------------------------------------- sim geometry --
         const double Cx = SimConfig.ArenaX;
         const double Cy = SimConfig.ArenaY;
-        const double HalfW = SimConfig.ArenaHalfWidth;
-        const double HalfH = SimConfig.ArenaHalfHeight;
         // Mirrors ViewWorld.Scale (const there too). Grown with it 0.01 ->
         // 0.0125 so module footprints keep matching sim-space geometry.
         const double SimToWorld = 0.0125;
 
-        static double StopE
-            => (SimConfig.ArenaHalfWidth - SimConfig.EnemyMarginClamp) / HalfW;
+        // AMENDMENT #15 (W-MV, MV-2). These were `const double HalfW/HalfH =
+        // SimConfig.Arena*` — the sim can now clamp to an expanded ellipse, and
+        // a ring built against the frozen constants would let the player walk
+        // straight through it. They are the ONLY per-build inputs besides the
+        // stage id, and Compute assigns both at entry before touching anything
+        // else, so the core stays a pure function of (stageId, halfW, halfH):
+        // no call can observe another call's values. Defaults are the frozen
+        // constants so an unconverted caller is a no-op.
+        static double _halfW = SimConfig.ArenaHalfWidth;
+        static double _halfH = SimConfig.ArenaHalfHeight;
+
+        internal static double HalfW => _halfW;
+        internal static double HalfH => _halfH;
+
+        /// <summary>
+        /// Stop-line ellipse parameter for the ACTIVE half-width. Algebraically
+        /// identical to <see cref="DungeonBoundsSpec.EnemyStopE"/> — the sim's
+        /// clamp derivation — but evaluated in DOUBLE on purpose: the whole
+        /// layout core is double math, and rounding this one term through float
+        /// would shift every ring module by ~1e-9 e and cost the byte-exact
+        /// reproduction of the pre-amendment layout at frozen half-axes.
+        /// </summary>
+        static double StopE => (_halfW - SimConfig.EnemyMarginClamp) / _halfW;
+
+        /// <summary>Painted backdrop plate's far edge in sim y (SceneBuilder's
+        /// CourtBackdrop quad is 1536×1024 centred on sim (768, 512)).</summary>
+        const double PlateBottomY = 1024.0;
+
+        /// <summary>Floor left to a y-facing terrace after it retreats.</summary>
+        const double TerraceMinDepth = 120.0;
+
+        /// <summary>
+        /// How far the stop-line ring has grown along y against the frozen
+        /// geometry, in sim px. Exactly 0 at the frozen half-axes — the two
+        /// operands are then the identical expression — so every placement that
+        /// subtracts it is bit-for-bit unchanged on the arena/prologue path.
+        /// </summary>
+        static double RingGrowthY()
+            => _halfH * StopE
+               - SimConfig.ArenaHalfHeight
+                 * ((SimConfig.ArenaHalfWidth - (double)SimConfig.EnemyMarginClamp)
+                    / SimConfig.ArenaHalfWidth);
 
         // §E3 heights (contract): gallery +0.8, bridge +1.1, channel −0.5.
         const float GalleryH = 0.8f;
@@ -901,7 +962,20 @@ namespace CinderCourt.View
         // ------------------------------------------------------ stage entry --
         /// <summary>Null for unknown stage ids (no throw) — Build's contract.</summary>
         internal static List<Module> Compute(string stageId)
+            => Compute(stageId, SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+
+        /// <summary>
+        /// AMENDMENT #15 (W-MV): lay the stage out against the sim's ACTIVE
+        /// clamp half-axes. The two assignments below are the first statements
+        /// on purpose — every helper reads them, so nothing may run before they
+        /// are set. Shrinking is refused the same way the sim refuses it
+        /// (DungeonBoundsSpec.Resolve), so a bad caller cannot pull the ring
+        /// inside the hazards.
+        /// </summary>
+        internal static List<Module> Compute(string stageId, double halfWidth, double halfHeight)
         {
+            _halfW = halfWidth < SimConfig.ArenaHalfWidth ? SimConfig.ArenaHalfWidth : halfWidth;
+            _halfH = halfHeight < SimConfig.ArenaHalfHeight ? SimConfig.ArenaHalfHeight : halfHeight;
             if (string.IsNullOrEmpty(stageId)) return null;
             if (!StageCatalog.TryGet(stageId, out _)) return null;
             // Pact table = effective base (override ?? anchor) + extras — a
@@ -1092,25 +1166,60 @@ namespace CinderCourt.View
         // (496, 257.5)px the mid row (|dy|=0) allows |dx| ≤ 399 and the ±108px
         // rows allow |dx| ≤ 274. Hazard-saturated stages legitimately keep
         // fewer panels — clearance always wins over the count target.
-        static readonly double[] FloorMidRowX =
-            { 400, 496, 592, 688, 768, 848, 944, 1040, 1136 };
-        static readonly double[] FloorOuterRowX = { 512, 640, 768, 896, 1024 };
+        //
+        // AMENDMENT #15 (W-MV, MV-5): the tables are stored as OFFSETS from the
+        // arena centre and scaled by the active half-axes, because the rows used
+        // to be absolute sim coordinates tuned against a 520×270 ellipse. At the
+        // frozen half-axes both scale factors are exactly 1.0, so `768 + (-368)
+        // * 1.0` reproduces the old literal 400 bit-for-bit — this is a rewrite
+        // of how the numbers are spelled, not of the numbers.
+        static readonly double[] FloorMidRowDx =
+            { -368, -272, -176, -80, 0, 80, 176, 272, 368 };
+        static readonly double[] FloorOuterRowDx = { -256, -128, 0, 128, 256 };
+        const double FloorOuterRowDy = 108.0;
+
+        /// <summary>Worst-case panel half-extent: 128px ±10% at yaw-snap ±3°.</summary>
+        const double FloorPanelWorstHalfExtent = 75.0;
+
+        /// <summary>
+        /// MV-5 expansion rows, as a fraction of the stop-line half-height. The
+        /// three shipped rows cover |dy| ≤ 108 of a 257.5px stop radius — 42% of
+        /// the floor. Expanding the ellipse to a 400px stop radius would leave
+        /// everything past ±167px bare, which is exactly the "확장부 민무늬"
+        /// failure MV-5 names. These two rows only exist when the ring actually
+        /// grew, so the frozen candidate list is untouched.
+        /// </summary>
+        const double FloorExpansionRowFraction = 0.72;
+        static readonly double[] FloorExpansionRowUnitDx = { -1.0, -0.5, 0.0, 0.5, 1.0 };
+        /// <summary>Keeps the outermost expansion slot off the ring's own relief.</summary>
+        const double FloorExpansionRowInset = 0.88;
 
         static void AddFloorPanels(
             List<Module> modules, uint stageSeed, HazardConfig[] hazards)
         {
+            var scaleX = _halfW / SimConfig.ArenaHalfWidth;
+            var scaleY = _halfH / SimConfig.ArenaHalfHeight;
+            var outerDy = FloorOuterRowDy * scaleY;
+
             var candidates = new List<(double x, double y)>(
-                FloorMidRowX.Length + FloorOuterRowX.Length * 2);
-            for (var i = 0; i < FloorOuterRowX.Length; i++)
-                candidates.Add((FloorOuterRowX[i], 496.0));
-            for (var i = 0; i < FloorMidRowX.Length; i++)
-                candidates.Add((FloorMidRowX[i], 604.0));
-            for (var i = 0; i < FloorOuterRowX.Length; i++)
-                candidates.Add((FloorOuterRowX[i], 712.0));
+                FloorMidRowDx.Length + FloorOuterRowDx.Length * 2
+                + FloorExpansionRowUnitDx.Length * 2);
+            for (var i = 0; i < FloorOuterRowDx.Length; i++)
+                candidates.Add((Cx + FloorOuterRowDx[i] * scaleX, Cy - outerDy));
+            for (var i = 0; i < FloorMidRowDx.Length; i++)
+                candidates.Add((Cx + FloorMidRowDx[i] * scaleX, Cy));
+            for (var i = 0; i < FloorOuterRowDx.Length; i++)
+                candidates.Add((Cx + FloorOuterRowDx[i] * scaleX, Cy + outerDy));
+            AddFloorExpansionRows(candidates);
 
             var stream = ModuleSeed(stageSeed, Kind.Floor, 0);
             Shuffle(candidates, ref stream);
             var want = 6 + (int)((stageSeed >> 8) % 5u);   // 6..10 (§ change 4)
+            // Panel DENSITY, not count, is what the §E3 target is about: an
+            // expanded floor asking for the same 6..10 quads would read emptier
+            // than the frozen one. Scale by the ring's area ratio (1.0 → no-op).
+            var areaRatio = scaleX * scaleY;
+            if (areaRatio > 1.0) want = (int)(want * areaRatio);
 
             var index = 0;
             for (var i = 0; i < candidates.Count && index < want; i++)
@@ -1134,6 +1243,34 @@ namespace CinderCourt.View
                 });
                 modules.Add(module);
                 index++;
+            }
+        }
+
+        /// <summary>
+        /// MV-5: two extra candidate rows near the top and bottom of an EXPANDED
+        /// stop ellipse. No-op at the frozen half-height — the guard is the ring
+        /// itself, not a flag: the rows are only reachable once the ellipse is
+        /// tall enough that a whole panel fits at ±0.72 of the stop radius with
+        /// its worst-case half-extent clear of the ring.
+        /// </summary>
+        static void AddFloorExpansionRows(List<(double x, double y)> candidates)
+        {
+            if (_halfH <= SimConfig.ArenaHalfHeight) return;
+            var e = StopE;
+            var stopHalfW = _halfW * e;
+            var stopHalfH = _halfH * e;
+            var dy = FloorExpansionRowFraction * stopHalfH;
+            // Ellipse half-chord at this row, minus the panel's own half-extent.
+            var span = stopHalfW
+                * Math.Sqrt(1.0 - FloorExpansionRowFraction * FloorExpansionRowFraction)
+                - FloorPanelWorstHalfExtent;
+            if (span <= 0.0) return;
+            var reach = span * FloorExpansionRowInset;
+            for (var i = 0; i < FloorExpansionRowUnitDx.Length; i++)
+            {
+                var x = Cx + FloorExpansionRowUnitDx[i] * reach;
+                candidates.Add((x, Cy - dy));
+                candidates.Add((x, Cy + dy));
             }
         }
 
@@ -1490,14 +1627,31 @@ namespace CinderCourt.View
             // sliver survives at the seam (32×32 grid, verified numerically:
             // bare 526/1024 → 0/1024). Terraces sit far outside the ring
             // (nearest edge e ≥ 1.3), so zone tests never see them inside.
+            //
+            // AMENDMENT #15 (W-MV, MV-5): "far outside the ring" was true of the
+            // FROZEN ring only. The north rim spans y −70..270 while an expanded
+            // ring reaches y ≈ 192 and the player's own reach reaches y ≈ 212 —
+            // the player would walk into a +0.8 u raised deck. The two y-facing
+            // terraces therefore keep their OUTER edges (frustum bounds, which
+            // do not move) and retreat their INNER edges by exactly the ring's
+            // growth. The x-facing wings need nothing: even the expanded ring
+            // reaches only x 238..1298 and they end at x 20 / start at x 1500.
+            var growthY = RingGrowthY();
+            // The south apron never retreats past the plate's own bottom edge —
+            // the band it would vacate is bare VoidFloor, and that is the one
+            // thing the §E8 coverage gate measures.
+            var apronInner = Math.Min(1010.0 + growthY, PlateBottomY);
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 0,
-                775.0, 1290.0, 4900.0, 560.0);       // south apron y 1010..1570
+                775.0, (apronInner + 1570.0) * 0.5, 4900.0, 1570.0 - apronInner);
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 1,
                 -860.0, 730.0, 1760.0, 1740.0);      // west wing x −1740..20
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 2,
                 2380.0, 730.0, 1760.0, 1740.0);      // east wing x 1500..3260
+            // The north rim retreats ONTO the plate (y 0..1024), so nothing it
+            // vacates is void either.
+            var rimInner = Math.Max(270.0 - growthY, -70.0 + TerraceMinDepth);
             AddTerrace(modules, counters, palette.GenericKind, stageSeed, 3,
-                775.0, 100.0, 4900.0, 340.0);        // north rim y −70..270
+                775.0, (rimInner - 70.0) * 0.5, 4900.0, rimInner + 70.0);
 
             // 2) Fixed landmarks (§E4 identity — manual anchors, no shuffle).
             for (var i = 0; i < palette.Fixed.Length; i++)

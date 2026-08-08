@@ -71,6 +71,33 @@ namespace CinderCourt.View
         /// knockback (see ActorView.SyncPlayer).</summary>
         float _simDelta;
 
+        // --- dungeon progression gate (AMENDMENTS #13/#14/#15) ---------------
+        /// <summary>
+        /// The ONE place the view decides which dungeon amendments are armed.
+        /// <c>Everything</c> = #13 adaptive waves + #14 graded loot + #15
+        /// expanded movement bounds. It is a static readonly rather than a call
+        /// site literal because the sim is not the only reader: the environment
+        /// ring, the camera follow clamp and the ash-wall visuals must all be
+        /// laid out against the SAME half-axes the sim clamps to, and they are
+        /// built BEFORE the sim exists (GameDirector.SetStageEnvironment runs at
+        /// GameDirector.cs:434, _game.Begin after it), so they cannot read the
+        /// snapshot. Resolving both sides through this one field — and through
+        /// the sim's own DungeonBoundsSpec.Resolve — is what keeps them equal.
+        ///
+        /// Non-dungeon modes never see it: the sim drops the whole progression
+        /// struct when Mode != Dungeon, and SetStageEnvironment is only called
+        /// with a stage id on the dungeon route.
+        /// </summary>
+        public static readonly DungeonProgressionConfig DungeonProgression =
+            DungeonProgressionConfig.Everything;
+
+        /// <summary>
+        /// Half-axes the dungeon sim will clamp to, resolved through the sim's
+        /// own resolver so the view can never disagree with it.
+        /// </summary>
+        public static void DungeonPlayfield(out float halfWidth, out float halfHeight)
+            => DungeonBoundsSpec.Resolve(DungeonProgression.Bounds, out halfWidth, out halfHeight);
+
         bool _digestWritten;
         bool _pendingBossRoar;    // §M: BossSpawned seen, boss view not yet rented
         bool _isDungeon;
@@ -218,12 +245,8 @@ namespace CinderCourt.View
             // spawns every slot even when companionId only echoes slot 0.
             var companionSlots = _isDungeon ? config.CompanionSlots() : System.Array.Empty<string>();
             var companionActive = companionSlots.Length > 0;
-            // Integration 2026-08-08: arm AMENDMENT #13 (adaptive waves) and
-            // #14 (graded loot) for dungeon runs only. Bounds (#15) stays dark
-            // until the EnvironmentBuilder wall-ring sync (MV-2) lands —
-            // enabling it alone would let the player walk through the ring.
             _sim = _isDungeon
-                ? new CinderSim(in config, DungeonProgressionConfig.All)
+                ? new CinderSim(in config, DungeonProgression)
                 : new CinderSim(in config);
             _accumulator = 0f;
             _digestWritten = false;
@@ -564,7 +587,7 @@ namespace CinderCourt.View
                 var state = enemies[i];
                 if (!_enemyViews.TryGetValue(state.Id, out var view))
                 {
-                    view = Rent(state.Visual);
+                    view = state.IsBoss ? RentBoss(state.Visual) : Rent(state.Visual);
                     _enemyViews[state.Id] = view;
                     // Elite marker (spec §3 + presentation #14): non-boss with
                     // the 1.35 scale-up gets the pulsing gold tint.
@@ -893,6 +916,29 @@ namespace CinderCourt.View
             return false;
         }
 
+        /// <summary>
+        /// AMENDMENT #16 (W6): when the run resolved a boss archetype, the boss
+        /// wears its own imported model (s1/s2/s3 reskins) instead of the shared
+        /// visual prefab. Created UNPOOLED on purpose — bosses are one per run,
+        /// and pooling per-EnemyVisual would let a Warden mesh resurface as a
+        /// Tactician on the next stage. Falls back to the ordinary pooled rent
+        /// whenever the archetype has no prefab (gate off, Monarch, missing
+        /// asset), so a build without the reskins keeps today's bosses.
+        /// </summary>
+        ActorView RentBoss(EnemyVisual visual)
+        {
+            var archetype = _sim != null ? _sim.BossArchetype : BossArchetype.None;
+            var prefab = Bootstrap != null ? Bootstrap.BossArchetypePrefab(archetype) : null;
+            if (prefab == null) return Rent(visual);
+            var (_, color, scale) = Bootstrap.EnemyVisualFor(visual);
+            var view = ActorView.Create(prefab, color, scale);
+            view.name = $"{visual}-{archetype}";
+            var marker = view.gameObject.AddComponent<VisualMarker>();
+            marker.Visual = visual;
+            marker.Unpooled = true;
+            return view;
+        }
+
         ActorView Rent(EnemyVisual visual)
         {
             var pool = _pools[(int)visual];
@@ -917,6 +963,12 @@ namespace CinderCourt.View
         {
             if (view == null) return;
             var marker = view.GetComponent<VisualMarker>();
+            if (marker != null && marker.Unpooled)
+            {
+                _bossRenderers.Remove(view);   // presentation cache dies with the view
+                Destroy(view.gameObject);
+                return;
+            }
             var visual = marker != null ? marker.Visual : EnemyVisual.EmberCohort;
             view.gameObject.SetActive(false);
             _pools[(int)visual].Push(view);
@@ -925,6 +977,8 @@ namespace CinderCourt.View
         sealed class VisualMarker : MonoBehaviour
         {
             public EnemyVisual Visual;
+            /// <summary>Archetype boss views never enter the pool (see RentBoss).</summary>
+            public bool Unpooled;
         }
     }
 }

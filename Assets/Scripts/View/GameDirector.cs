@@ -237,8 +237,32 @@ namespace CinderCourt.View
                 StageMood.Clear();      // RenderSettings is global
             }
             _stageEnvironmentId = stageId ?? "";
-            if (string.IsNullOrEmpty(stageId)) return;
-            _stageEnvironment = EnvironmentBuilder.Build(stageId);
+            if (string.IsNullOrEmpty(stageId))
+            {
+                // Lobby/arena/prologue/training keep the frozen diamond-clamp
+                // playfield; clearing the environment restores it (AMENDMENT #15
+                // is dungeon-only, exactly as the sim scopes it).
+                if (_rig != null)
+                    _rig.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+                VfxDirector.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+                PostFxGate.SetStageActive(false);   // §V4: post is dungeon-only
+                return;
+            }
+            // AMENDMENT #15 (W-MV, MV-2): the boundary wall ring must be laid
+            // out against the half-axes the SIM will clamp to, or an expanded
+            // clamp puts the player outside the ring. This runs BEFORE
+            // _game.Begin constructs the sim, so the value comes from the one
+            // view-side source (GameView.DungeonProgression) rather than from a
+            // snapshot that does not exist yet; both sides run it through
+            // DungeonBoundsSpec.Resolve, so they cannot drift.
+            GameView.DungeonPlayfield(out var halfWidth, out var halfHeight);
+            _stageEnvironment = EnvironmentBuilder.Build(stageId, halfWidth, halfHeight);
+            // MV-4/MV-6: the camera follow clamp and the ash-wall span are
+            // derived from the same half-axes.
+            if (_rig != null) _rig.SetPlayfield(halfWidth, halfHeight);
+            VfxDirector.SetPlayfield(halfWidth, halfHeight);
+            // §V4: bloom + vignette are dungeon-only and watchdogged from here on.
+            PostFxGate.SetStageActive(true);
             // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
             // root at 4 realtime point lights.
             _stageMood = StageMood.Apply(stageId);
