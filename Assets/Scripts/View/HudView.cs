@@ -159,6 +159,48 @@ namespace CinderCourt.View
         float _bossRevealTimer;
         float _bossPhasePunchTimer;
 
+        // --- loot acquisition toasts -----------------------------------------
+        // Non-blocking "what did I just pick up" popups. Parked on the LEFT edge
+        // at vertical centre, which is the one band no combat surface claims:
+        // the meters/shield/equip column stops at y -164 from the top, the touch
+        // joystick catch box tops out at y 260 from the bottom, and every skill
+        // card, boss bar, objective chip and wave banner is horizontally centred
+        // (x 370..896 at the 1280 u reference). Measured spans are recorded in
+        // _workspace/current/engineering/ui-lane3-loot-toast-map-report.md.
+        //
+        // Timing/stacking lives in LootToastQueue (pure C#); this side is
+        // widgets and colour only, rebuilt from the queue's Revision so a
+        // steady-state fade writes colours and nothing else.
+        const float LootToastLeftX = 16f;
+        const float LootToastTopY = 66f;
+        const float LootToastPitch = 40f;
+        const float LootToastWidth = 230f;
+        const float LootToastHeight = 34f;
+        /// <summary>Epic rows render slightly larger. Static, so reduced motion
+        /// keeps it — it is a size difference, not an animation.</summary>
+        const float LootToastEpicScale = 1.07f;
+
+        readonly LootToastQueue _lootToasts = new LootToastQueue();
+        RectTransform[] _lootToastRects;
+        Image[] _lootToastPlates;
+        Image[] _lootToastPips;
+        Text[] _lootToastLabels;
+        uint _lootToastRevisionShown = uint.MaxValue;
+
+        /// <summary>Row nouns, indexed by <see cref="LootToastKind"/>.</summary>
+        static readonly string[] LootToastNames =
+            { "잿불 파편", "랜턴 기름", "유물", "장비 파편" };
+        /// <summary>Grade adjectives, indexed by <see cref="LootGrade"/>. Basic
+        /// is unqualified on purpose: naming the common case adds a word to every
+        /// row and steals the contrast the two rare grades need.</summary>
+        static readonly string[] LootGradeNames = { "", "정교한", "전설의" };
+        static readonly Color[] LootGradeColors =
+        {
+            new Color(0.82f, 0.86f, 0.95f),   // Basic — HUD ink, calm
+            new Color(0.17f, 0.68f, 0.84f),   // Fine  — cyan, the clear/ward token
+            new Color(1f, 0.83f, 0.45f),      // Epic  — gold, the relic token
+        };
+
         public void Build()
         {
             // Subset OTF (NanumBarunGothic, OFL) — LegacyRuntime.ttf has no
@@ -329,6 +371,8 @@ namespace CinderCourt.View
             toastRect.anchoredPosition = new Vector2(0, 170);
             _levelToast.color = new Color(0.56f, 0.91f, 1f, 0f);
 
+            BuildLootToasts(root);
+
             // --- touch controls: mobile platforms, plus touch-only devices
             // whose UA hides mobility (iPadOS desktop-mode Safari reports no
             // iPad UA -> isMobilePlatform false). Headless desktop Chrome is
@@ -361,12 +405,142 @@ namespace CinderCourt.View
 
             UpdateCommandConsole();
 
+            // Unscaled: a pickup during hit-stop or the boss slow-mo beat must
+            // still fade on wall-clock time, exactly like the console toast.
+            SyncLootToasts(Time.unscaledDeltaTime);
+
             if (_rotateHintTimer > 0f)
             {
                 _rotateHintTimer -= Time.deltaTime;
                 if (_rotateHintTimer <= 0f) HidePrologueToast();
             }
         }
+
+        // ============================================= loot acquisition toasts --
+
+        /// <summary>Builds the toast column once. Every row exists from Build so
+        /// a pickup mid-combat allocates no GameObject; rows start inactive and
+        /// are shown/hidden by the queue's live count.</summary>
+        void BuildLootToasts(Transform root)
+        {
+            _lootToastRects = new RectTransform[LootToastQueue.Capacity];
+            _lootToastPlates = new Image[LootToastQueue.Capacity];
+            _lootToastPips = new Image[LootToastQueue.Capacity];
+            _lootToastLabels = new Text[LootToastQueue.Capacity];
+
+            for (var i = 0; i < LootToastQueue.Capacity; i++)
+            {
+                var row = Panel(root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+                    new Vector2(LootToastLeftX, LootToastTopY - i * LootToastPitch),
+                    new Vector2(LootToastWidth, LootToastHeight),
+                    new Color(0.03f, 0.04f, 0.08f, 0.72f));
+                row.name = "LootToast";
+                _lootToastRects[i] = row.GetComponent<RectTransform>();
+                _lootToastPlates[i] = row.GetComponent<Image>();
+
+                // Grade pip: a 4 u colour bar on the leading edge. Carries the
+                // grade even when the row's text is read at a glance, and stays
+                // legible for a player who cannot separate cyan from gold text.
+                var pip = Panel(row.transform, new Vector2(0f, 0f), new Vector2(0f, 1f),
+                    Vector2.zero, new Vector2(4f, 0f), Color.white);
+                var pipRect = pip.GetComponent<RectTransform>();
+                pipRect.anchorMin = new Vector2(0f, 0f);
+                pipRect.anchorMax = new Vector2(0f, 1f);
+                pipRect.pivot = new Vector2(0f, 0.5f);
+                pipRect.offsetMin = new Vector2(0f, 0f);
+                pipRect.offsetMax = new Vector2(4f, 0f);
+                _lootToastPips[i] = pip.GetComponent<Image>();
+
+                var label = Label(row.transform, 14f, 0f,
+                    LootToastWidth - 22f, LootToastHeight, "", 15, TextAnchor.MiddleLeft);
+                var labelRect = label.rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.sizeDelta = Vector2.zero;
+                labelRect.offsetMin = new Vector2(14f, 0f);
+                labelRect.offsetMax = new Vector2(-8f, 0f);
+                _lootToastLabels[i] = label;
+
+                row.SetActive(false);
+            }
+        }
+
+        /// <summary>Announces one collected pickup. Called by GameView once per
+        /// item, with the grade that item actually carried.</summary>
+        public void PushLootToast(LootToastKind kind, LootGrade grade)
+        {
+            if (_lootToastRects == null) return;
+            _lootToasts.Push(kind, grade);
+            SyncLootToasts(0f);
+        }
+
+        /// <summary>Ages the queue and writes the row visuals. Text is rebuilt
+        /// only when the queue's Revision moves, so a fade costs colour writes
+        /// and nothing else — no per-frame string allocation.</summary>
+        void SyncLootToasts(float deltaTime)
+        {
+            if (_lootToastRects == null) return;
+            _lootToasts.Instant = ViewPrefs.ReducedMotion;
+            _lootToasts.Tick(deltaTime);
+
+            var rebuildText = _lootToasts.Revision != _lootToastRevisionShown;
+            _lootToastRevisionShown = _lootToasts.Revision;
+
+            for (var i = 0; i < LootToastQueue.Capacity; i++)
+            {
+                var live = i < _lootToasts.Count;
+                var row = _lootToastRects[i].gameObject;
+                if (row.activeSelf != live) row.SetActive(live);
+                if (!live) continue;
+
+                var slot = _lootToasts.SlotAt(i);
+                var gradeIndex = (int)slot.Grade;
+                if (gradeIndex < 0 || gradeIndex >= LootGradeColors.Length) gradeIndex = 0;
+                var tint = LootGradeColors[gradeIndex];
+
+                if (rebuildText)
+                {
+                    var noun = LootToastNames[(int)slot.Kind];
+                    var adjective = LootGradeNames[gradeIndex];
+                    var line = adjective.Length == 0 ? noun : adjective + " " + noun;
+                    if (slot.Count > 1) line = line + " x" + slot.Count;
+                    _lootToastLabels[i].text = line;
+                    var scale = slot.Grade == LootGrade.Epic ? LootToastEpicScale : 1f;
+                    _lootToastRects[i].localScale = new Vector3(scale, scale, 1f);
+                }
+
+                var alpha = _lootToasts.AlphaAt(i);
+                _lootToastLabels[i].color = new Color(tint.r, tint.g, tint.b, alpha);
+                _lootToastPips[i].color = new Color(tint.r, tint.g, tint.b, alpha);
+                _lootToastPlates[i].color = new Color(0.03f, 0.04f, 0.08f, 0.72f * alpha);
+            }
+        }
+
+        /// <summary>QA/test seam: the line row <paramref name="index"/> is
+        /// actually rendering, or "" when that row is not on screen.</summary>
+        internal string LootToastReadout(int index)
+            => _lootToastRects != null && index >= 0 && index < _lootToasts.Count
+                ? _lootToastLabels[index].text
+                : string.Empty;
+
+        internal int LootToastCount => _lootToasts.Count;
+
+        /// <summary>Test seam: the rects the toast column is actually occupying
+        /// this frame, so the placement claim ("clears every combat surface") is
+        /// measured rather than asserted in a comment.</summary>
+        internal void CollectActiveLootToastRects(List<RectTransform> into)
+        {
+            if (_lootToastRects == null) return;
+            for (var i = 0; i < _lootToastRects.Length; i++)
+                if (_lootToastRects[i] != null && _lootToastRects[i].gameObject.activeSelf)
+                    into.Add(_lootToastRects[i]);
+        }
+
+        /// <summary>Test seam: the two non-interactive combat readouts the toast
+        /// column must never cover. Null while they are not built.</summary>
+        internal RectTransform RoomObjectiveRect
+            => _roomObjectivePanel == null ? null : (RectTransform)_roomObjectivePanel.transform;
+        internal RectTransform BossBarRectForTest => _bossBarRect;
 
         void SyncLayout(bool force)
         {
@@ -1031,6 +1205,10 @@ namespace CinderCourt.View
             // lobby return or an arena sortie can never show the last room's line.
             if (_roomObjectivePanel != null) _roomObjectivePanel.SetActive(false);
             _lastRoomObjectiveKey = int.MinValue;
+            // Loot toasts are run-scoped for the same reason: a retry must not
+            // open on the last run's final pickup still fading out.
+            _lootToasts.Clear();
+            SyncLootToasts(0f);
 
             _lastBossFraction = -1f;
             _lastBossPhase = -1;

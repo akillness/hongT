@@ -292,6 +292,16 @@ namespace CinderCourt.View
         /// future deep link (or a QA route) can reach it without a click.</summary>
         public void OpenMetaScreen() => _meta?.Show(in _lastData, MetaScreenView.TabEquip);
 
+        /// <summary>Test seam: the word a sortie card is actually showing on its
+        /// right edge. "" is the de-duplicated state — the map owns it.</summary>
+        internal string StageStatusReadout(int index)
+            => _stageStatus[index] == null ? string.Empty : _stageStatus[index].text;
+
+        /// <summary>Test seam: the lobby's own compact map widget, so the route
+        /// state the sortie cards stopped repeating can be asserted where it
+        /// actually lives now.</summary>
+        internal CampaignMapView CompactMap => _map;
+
         /// <summary>Re-render balances/card states. Text + interactable only —
         /// never re-instantiates.</summary>
         public void Refresh(CampaignData data)
@@ -318,8 +328,22 @@ namespace CinderCourt.View
                 var entry = StageCatalog.Entries[i];
                 var cleared = StageCatalog.IsCleared(in data, in entry);
                 var unlocked = StageCatalog.IsUnlocked(in data, in entry);
-                _stageStatus[i].text = cleared ? "정화 완료" : unlocked ? "강하 가능" : "잠김";
-                _stageStatus[i].color = cleared ? Gold : unlocked ? Cyan : Lock;
+                // Route STATE is the map's job, not the card's. The card used to
+                // repeat all three states in words on its right edge — "강하 가능"
+                // beside a live 강하 button, and "잠김" beside a disabled one —
+                // while the 심연 지도 panel next to it said the same thing nine
+                // more times in node opacity, hidden "???" labels and its own
+                // "정화 N / 9 • 다음 X" header. Two of those words are now gone:
+                //   강하 가능 -> the enabled 강하 button IS the statement, and the
+                //               map's header names the same stage as "다음 X".
+                //   잠김      -> the disabled button plus the map's "???" label,
+                //               which CampaignMapView now renders at a readable
+                //               opacity precisely because it became load-bearing.
+                // "정화 완료" stays: a cleared card keeps a live 강하 button for
+                // replay, so nothing else on the card distinguishes it, and the
+                // compact map has no room for the epithet that would.
+                _stageStatus[i].text = cleared ? "정화 완료" : string.Empty;
+                _stageStatus[i].color = Gold;
                 _stageButtons[i].interactable = unlocked;
                 _stageGroups[i].alpha = unlocked ? 1f : 0.45f;
 
@@ -975,7 +999,10 @@ namespace CinderCourt.View
                     $"{entry.Epithet} • 보상: {rewardText}", 10, TextAnchor.MiddleLeft);
                 sub.color = Gold;
                 _stageSubLabels[i] = sub;
-                _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "잠김", 11, TextAnchor.MiddleRight);
+                // Empty until Refresh: only a CLEARED card carries a word here
+                // (see the de-duplication note in Refresh). Building it with
+                // "잠김" would flash the removed state for one frame.
+                _stageStatus[i] = Label(card.transform, -12, -8, 100, 18, "", 11, TextAnchor.MiddleRight);
                 AnchorTopRight(_stageStatus[i].rectTransform);
 
                 var button = TextButton(card.transform, new Vector2(1, 0), new Vector2(-12, 6),

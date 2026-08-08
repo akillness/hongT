@@ -33,6 +33,7 @@ namespace CinderCourt.Tests
         // Interactive rects may touch but not stack (<= 1 u counts as touch).
         private const float OverlapEpsilon = 1f;
         private const string CampaignKey = "abyssal-lantern:unity:campaign";
+        private const string ReducedMotionKey = "al:reduced-motion";
 
         private GameObject _lobbyObject;
         private LobbyView _lobby;
@@ -188,6 +189,94 @@ namespace CinderCourt.Tests
                 var world = WorldRect(button.GetComponent<RectTransform>());
                 Assert.That(world.width * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
                 Assert.That(world.height * SpecCssPerUnit, Is.GreaterThanOrEqualTo(MinCssPx), label);
+            }
+        }
+
+        /// <summary>
+        /// The lobby used to state every route's progression TWICE at once: as a
+        /// word on the right edge of each sortie card ("정화 완료"/"강하 가능"/
+        /// "잠김", LobbyView.Refresh) and as node opacity + hidden "???" labels +
+        /// a "정화 N / 9 • 다음 X" header on the 심연 지도 panel beside it. The
+        /// two states the card repeated for free are gone; the one it uniquely
+        /// carries stays. This pins the split so a future edit cannot quietly
+        /// restore the wall of nine status chips.
+        /// </summary>
+        [Test]
+        public void SortieCards_StateOnlyWhatTheMapCannot()
+        {
+            BuildClearedLobby();   // cinder-span cleared, ember-gallery reachable
+
+            Assert.That(_lobby.StageStatusReadout(0), Is.EqualTo("정화 완료"),
+                "a cleared card keeps a live 강하 button for replay, so the clear "
+                + "marker is the ONE state nothing else on the card shows");
+            for (var i = 1; i < StageCatalog.Entries.Count; i++)
+                Assert.That(_lobby.StageStatusReadout(i), Is.Empty,
+                    $"card {i} must not repeat a route state the map already owns "
+                    + "(reachable -> its own enabled 강하 button; locked -> the "
+                    + "map's ??? node)");
+        }
+
+        /// <summary>
+        /// The other half of that trade: removing "잠김" made the map's "???"
+        /// label the only place the lock is stated in words, and the map used to
+        /// draw it at the NODE's 0.16 reveal alpha — Ink over Charcoal at 1.6:1,
+        /// which is not text anyone reads. Labels now ride their own floor.
+        /// </summary>
+        [Test]
+        public void CampaignMap_DrawsLockedLabelsAtAReadableOpacity()
+        {
+            BuildClearedLobby();
+            var map = _lobby.CompactMap;
+            Assert.That(map, Is.Not.Null, "the lobby must build its compact map");
+
+            // cinder-span cleared -> ember-gallery reachable -> the rest locked.
+            for (var i = 2; i < map.NodeCount; i++)
+            {
+                Assert.That(map.LabelAt(i), Is.EqualTo(CampaignMapLayout.HiddenLabel),
+                    $"node {i} is locked and must still SAY so");
+                Assert.That(map.LabelAlphaAt(i),
+                    Is.GreaterThanOrEqualTo(0.6f),
+                    $"node {i}'s lock label is now load-bearing and must be legible; "
+                    + $"the node itself stays at the {CampaignMapLayout.LockedAlpha} reveal alpha");
+                Assert.That(map.AlphaAt(i), Is.EqualTo(CampaignMapLayout.LockedAlpha).Within(0.001f),
+                    "raising the LABEL floor must not flatten the node reveal ladder");
+            }
+        }
+
+        /// <summary>
+        /// "Where do I go next" was carried only by the frontier pulse, and
+        /// CampaignMapView.Tick returns early under 모션 약함 — so the players who
+        /// most need a static cue were the ones getting none. The ring is a
+        /// placement, not an animation.
+        /// </summary>
+        [Test]
+        public void CampaignMap_MarksTheFrontier_WithMotionReducedToo()
+        {
+            var hadPref = PlayerPrefs.HasKey(ReducedMotionKey);
+            var previous = PlayerPrefs.GetInt(ReducedMotionKey, 0);
+            try
+            {
+                ViewPrefs.ReducedMotion = true;
+                BuildClearedLobby();
+                var map = _lobby.CompactMap;
+
+                Assert.That(map.FrontierMarkerVisible, Is.True,
+                    "the reachable stage must be marked without relying on the pulse");
+                Assert.That(map.FrontierMarkerPosition, Is.EqualTo(map.NodeCentreAt(1)),
+                    "cinder-span is cleared, so ember-gallery is the frontier");
+                Assert.That(map.LabelColorAt(1).a, Is.EqualTo(1f).Within(0.001f),
+                    "the frontier's name is fully lit — colour is never the only cue");
+
+                map.Tick(0.5f);
+                Assert.That(map.FrontierMarkerVisible, Is.True,
+                    "a tick under reduced motion must not retire the marker");
+            }
+            finally
+            {
+                ViewPrefs.ReducedMotion = previous == 1;
+                if (!hadPref) PlayerPrefs.DeleteKey(ReducedMotionKey);
+                ViewPrefs.ResetCacheForTests();
+                PlayerPrefs.Save();
             }
         }
 

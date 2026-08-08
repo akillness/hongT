@@ -406,6 +406,105 @@ namespace CinderCourt.Tests
             return sim;
         }
 
+        /// <summary>
+        /// The acquisition toast column is parked on the left edge at vertical
+        /// centre because that is the one band nothing else claims. That is a
+        /// geometric claim about a HUD whose surfaces move per tier, so it is
+        /// measured here rather than trusted: a full column at phone tier must
+        /// clear every interactive surface (skill row, dash card, companion
+        /// orders, mute, joystick catch box, strike/dash touch pads) and the two
+        /// non-interactive combat readouts a toast could bury — the boss bar and
+        /// the room objective chip.
+        /// </summary>
+        [Test]
+        public void LootToastColumn_CoversNoCombatSurfaceAtPhoneTier()
+        {
+            var canvas = ArrangePhone(dungeon: true);
+            // Four DISTINCT rows: identical pickups stack onto one row by design,
+            // so pushing the same kind four times would measure a third of the
+            // column and pass vacuously.
+            _hud.PushLootToast(LootToastKind.Shard, LootGrade.Basic);
+            _hud.PushLootToast(LootToastKind.Flask, LootGrade.Fine);
+            _hud.PushLootToast(LootToastKind.Relic, LootGrade.Epic);
+            _hud.PushLootToast(LootToastKind.Equip, LootGrade.Fine);
+            // Both readouts have to be ON SCREEN for the audit to mean anything.
+            _hud.SyncRoomObjective("증언의 우물을 사수하라", true);
+            Canvas.ForceUpdateCanvases();
+
+            var toasts = new List<RectTransform>();
+            _hud.CollectActiveLootToastRects(toasts);
+            Assert.That(toasts.Count, Is.EqualTo(LootToastQueue.Capacity),
+                "a full column is the worst case and the only one worth measuring");
+
+            var others = InteractiveRects(canvas);
+            var objective = _hud.RoomObjectiveRect;
+            Assert.That(objective, Is.Not.Null);
+            Assert.That(objective.gameObject.activeInHierarchy, Is.True,
+                "the objective chip must be up, or this audit measures nothing");
+            others.Add(objective);
+            var bossBar = _hud.BossBarRectForTest;
+            if (bossBar != null && bossBar.gameObject.activeInHierarchy) others.Add(bossBar);
+
+            var violations = new List<string>();
+            for (var i = 0; i < toasts.Count; i++)
+            {
+                var a = WorldRect(toasts[i]);
+                Assert.That(a.width > 0f && a.height > 0f, Is.True,
+                    $"degenerate toast rect: {Path(toasts[i].transform)}");
+                for (var j = 0; j < others.Count; j++)
+                {
+                    var b = WorldRect(others[j]);
+                    var overlapX = Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+                    var overlapY = Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin);
+                    if (overlapX > OverlapEpsilon && overlapY > OverlapEpsilon)
+                        violations.Add($"toast row {i} {a} covers "
+                            + $"{Path(others[j].transform)} {b} by {overlapX:F1}x{overlapY:F1} u");
+                }
+            }
+            Assert.That(violations, Is.Empty,
+                "the loot toast column buries a combat surface at phone tier:\n"
+                + string.Join("\n", violations));
+        }
+
+        /// <summary>
+        /// The toast has to answer WHAT and HOW GOOD, and a stack has to say how
+        /// many — that is the whole feature. Read back off the rendered Text, not
+        /// off the model, so a row wired to the wrong widget fails here.
+        /// </summary>
+        [Test]
+        public void LootToastRows_NameTheItemItsGradeAndTheStackCount()
+        {
+            ArrangePhone(dungeon: true);
+
+            _hud.PushLootToast(LootToastKind.Relic, LootGrade.Epic);
+            Assert.That(_hud.LootToastReadout(0), Is.EqualTo("전설의 유물"),
+                "an Epic relic must be named as one");
+
+            _hud.PushLootToast(LootToastKind.Shard, LootGrade.Basic);
+            _hud.PushLootToast(LootToastKind.Shard, LootGrade.Basic);
+            Assert.That(_hud.LootToastCount, Is.EqualTo(2), "two shards are one row");
+            Assert.That(_hud.LootToastReadout(0), Is.EqualTo("잿불 파편 x2"),
+                "a stacked row states its count");
+            Assert.That(_hud.LootToastReadout(1), Is.EqualTo("전설의 유물"),
+                "the older row keeps its own text while the newer one stacks");
+        }
+
+        /// <summary>A retry must not open on the previous run's last pickup.</summary>
+        [Test]
+        public void ResetRunUi_ClearsTheLootToastColumn()
+        {
+            ArrangePhone(dungeon: true);
+            _hud.PushLootToast(LootToastKind.Flask, LootGrade.Fine);
+            Assert.That(_hud.LootToastCount, Is.EqualTo(1));
+
+            _hud.ResetRunUi();
+
+            Assert.That(_hud.LootToastCount, Is.EqualTo(0));
+            var rows = new List<RectTransform>();
+            _hud.CollectActiveLootToastRects(rows);
+            Assert.That(rows, Is.Empty, "cleared rows must also be deactivated");
+        }
+
         /// <summary>uGUI precondition, whole hierarchy. Image.OnPopulateMesh
         /// returns the plain Graphic full-rect quad when activeSprite is null
         /// (Image.cs:883-889), so a Filled Image with no sprite renders

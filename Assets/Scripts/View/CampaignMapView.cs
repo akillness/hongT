@@ -23,10 +23,28 @@ namespace CinderCourt.View
         static readonly Color Cyan = new Color(0x2C / 255f, 0xAD / 255f, 0xD6 / 255f);
         static readonly Color Ember = new Color(0xF3 / 255f, 0x59 / 255f, 0x2C / 255f);
         static readonly Color Ink = new Color(0.92f, 0.94f, 1f);
+        static readonly Color Gold = new Color(1f, 0.83f, 0.45f);
 
         /// <summary>Inset from the field edge to the node centres, in UI units.
         /// Labels hang below their node, so the bottom pad is the deeper one.</summary>
         const float PadX = 26f, PadTop = 18f, PadBottom = 34f;
+
+        /// <summary>Opacity floor for node LABELS, deliberately decoupled from
+        /// the node opacity ladder above.
+        ///
+        /// The reveal grammar wants a locked NODE at 0.16 — but the label is
+        /// text, and Ink at 0.16 over Charcoal measures 1.6:1 contrast, which is
+        /// unreadable. That mattered the moment the sortie cards stopped
+        /// repeating the route state (LobbyView.Refresh): "???" is now the only
+        /// place the lock is stated in words, so it has to be legible. At 0.62
+        /// the same ink measures ~5.4:1, and the node itself still carries the
+        /// dim/bright ladder.</summary>
+        const float LabelAlphaLocked = 0.62f;
+        const float LabelAlphaUnlocked = 0.85f;
+
+        /// <summary>Frontier ring geometry: outer diamond size added to the node
+        /// mark, and the stroke left visible once the core is inset.</summary>
+        const float FrontierRingPad = 10f, FrontierRingStroke = 3f;
 
         Font _font;
         RectTransform _field;
@@ -38,7 +56,14 @@ namespace CinderCourt.View
         Image[] _linkLines;
         CampaignMapLink[] _links;
         RectTransform[] _nodeRects;
+        Vector2[] _nodeCentres;
         float[] _nodeBaseSize;
+        // Static "you are here" marker. The frontier pulse in Tick is skipped
+        // entirely under reduced motion, which left those players with no
+        // current-position emphasis at all; this ring is a placement, not an
+        // animation, so it survives the pref.
+        RectTransform _frontierRingRect;
+        Image _frontierRing;
         int _frontier = -1;
         bool _showEpithets;
 
@@ -53,6 +78,17 @@ namespace CinderCourt.View
         internal string LabelAt(int index) => _nodeLabels[index].text;
         internal bool LinkLitAt(int index) => _linkLines[index].color.a > 0.5f;
         internal int LinkCount => _linkLines == null ? 0 : _linkLines.Length;
+        /// <summary>Test seam: the opacity the node's TEXT renders at, which
+        /// rides its own floor and is not <see cref="AlphaAt"/>.</summary>
+        internal float LabelAlphaAt(int index) => _nodeLabels[index].color.a;
+        internal Color LabelColorAt(int index) => _nodeLabels[index].color;
+        /// <summary>Test seam: the static frontier marker's visibility and
+        /// placement, which must hold with reduced motion on.</summary>
+        internal bool FrontierMarkerVisible
+            => _frontierRing != null && _frontierRing.gameObject.activeSelf;
+        internal Vector2 FrontierMarkerPosition
+            => _frontierRingRect == null ? Vector2.zero : _frontierRingRect.anchoredPosition;
+        internal Vector2 NodeCentreAt(int index) => _nodeCentres[index];
 
         /// <param name="size">Field size in UI units. The host owns it because
         /// the compact lobby panel and the full-screen map tab are deliberately
@@ -118,6 +154,35 @@ namespace CinderCourt.View
             }
 
             var markSize = Mathf.Max(12f, labelSize + 4f);
+
+            // Frontier ring, built between the links and the nodes so the node
+            // diamond always draws on top of its own marker. One instance,
+            // re-anchored by Refresh — the frontier is singular by construction
+            // (CampaignMapLayout.FrontierIndex returns one index or -1).
+            var ringSize = markSize + FrontierRingPad;
+            var ring = new GameObject("FrontierRing");
+            ring.transform.SetParent(_field, false);
+            _frontierRing = ring.AddComponent<Image>();
+            _frontierRing.color = Gold;
+            _frontierRing.raycastTarget = false;
+            _frontierRingRect = ring.GetComponent<RectTransform>();
+            _frontierRingRect.anchorMin = _frontierRingRect.anchorMax = new Vector2(0f, 1f);
+            _frontierRingRect.pivot = new Vector2(0.5f, 0.5f);
+            _frontierRingRect.sizeDelta = new Vector2(ringSize, ringSize);
+            _frontierRingRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            var ringCore = new GameObject("FrontierRingCore");
+            ringCore.transform.SetParent(ring.transform, false);
+            var ringCoreImage = ringCore.AddComponent<Image>();
+            ringCoreImage.color = Charcoal;
+            ringCoreImage.raycastTarget = false;
+            var ringCoreRect = ringCore.GetComponent<RectTransform>();
+            ringCoreRect.anchorMin = Vector2.zero;
+            ringCoreRect.anchorMax = Vector2.one;
+            ringCoreRect.offsetMin = new Vector2(FrontierRingStroke, FrontierRingStroke);
+            ringCoreRect.offsetMax = new Vector2(-FrontierRingStroke, -FrontierRingStroke);
+            ring.SetActive(false);   // no reachable stage, no marker
+
+            _nodeCentres = centres;
             _nodeMarks = new Image[entries.Count];
             _nodeCores = new Image[entries.Count];
             _nodeLabels = new Text[entries.Count];
@@ -190,15 +255,36 @@ namespace CinderCourt.View
                     ? new Color(accent.r, accent.g, accent.b, alpha)
                     : new Color(Charcoal.r, Charcoal.g, Charcoal.b, 0.95f);
 
+                // Labels ride their own opacity floor (see LabelAlphaLocked):
+                // the node carries the reveal ladder, the text stays readable.
+                // The frontier's name goes gold so the ring below has a textual
+                // partner — colour alone is never the only cue.
                 _nodeLabels[i].text = node.Label;
-                _nodeLabels[i].color = node.State == CampaignNodeState.Cleared
-                    ? new Color(Ink.r, Ink.g, Ink.b, 1f)
-                    : new Color(Ink.r, Ink.g, Ink.b, alpha);
+                if (i == _frontier)
+                {
+                    _nodeLabels[i].color = Gold;
+                }
+                else
+                {
+                    var labelAlpha = node.State == CampaignNodeState.Cleared ? 1f
+                        : node.State == CampaignNodeState.Unlocked ? LabelAlphaUnlocked
+                        : LabelAlphaLocked;
+                    _nodeLabels[i].color = new Color(Ink.r, Ink.g, Ink.b, labelAlpha);
+                }
                 if (_nodeEpithets != null)
                     _nodeEpithets[i].text = node.Epithet;
 
                 // Reset any pulse the previous frontier left behind.
                 _nodeRects[i].sizeDelta = new Vector2(_nodeBaseSize[i], _nodeBaseSize[i]);
+            }
+
+            if (_frontierRing != null)
+            {
+                var hasFrontier = _frontier >= 0 && _frontier < _nodeCentres.Length;
+                if (_frontierRing.gameObject.activeSelf != hasFrontier)
+                    _frontierRing.gameObject.SetActive(hasFrontier);
+                if (hasFrontier)
+                    _frontierRingRect.anchoredPosition = _nodeCentres[_frontier];
             }
 
             var links = CampaignMapLayout.BuildLinks(in data);

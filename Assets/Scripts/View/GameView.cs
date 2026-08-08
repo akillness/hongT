@@ -117,6 +117,31 @@ namespace CinderCourt.View
         // 60 Hz and the catalog lookup is a linear id scan.
         string _roomObjective = string.Empty;
 
+        // --- loot acquisition reconciliation ---------------------------------
+        // Naming WHAT the player just picked up has to happen view-side.
+        // SimEvents.PickupCollected is a bare flag with no kind and no count, and
+        // IDungeonProgressionSnapshot.LastLootGrade is the grade of the last
+        // DROP, not of the collected item — CinderSim.cs:3254 writes it inside
+        // SpawnPickup, so an Epic that dropped a second before a Basic was swept
+        // up would paint the Basic gold. The sim is frozen, so the honest reading
+        // is a per-tick diff of the published pickup list by Id: an id that
+        // vanished was either collected (magnet) or expired, and those are the
+        // only two removal paths in CinderSim.UpdatePickups.
+        //
+        // Arrays, not a List of structs: the pickup array is capped at
+        // SimConfig.EnemyCap by the sim itself, so this allocates once and never
+        // again — the diff runs every tick at 60 Hz.
+        readonly int[] _pickupTrackIds = new int[SimConfig.EnemyCap];
+        readonly PickupKind[] _pickupTrackKinds = new PickupKind[SimConfig.EnemyCap];
+        readonly LootGrade[] _pickupTrackGrades = new LootGrade[SimConfig.EnemyCap];
+        readonly float[] _pickupTrackLives = new float[SimConfig.EnemyCap];
+        readonly float[] _pickupTrackX = new float[SimConfig.EnemyCap];
+        readonly float[] _pickupTrackY = new float[SimConfig.EnemyCap];
+        int _pickupTrackCount;
+        /// <summary>Slack on the magnet radius for the ambiguous case only. One
+        /// tick of player travel at the warden's 218 u/s is 3.6 u; 8 u covers the
+        /// swiftness-boosted ceiling without reaching a neighbouring drop.</summary>
+        const float PickupCollectSlack = 8f;
 
         // --- presentation state (presentation-impact-spec #1/#3/#6) ----------
         // Hit-stop / slow-mo drive Time.timeScale ONLY. Determinism-safe: the
@@ -342,6 +367,9 @@ namespace CinderCourt.View
             _deathNumberPunchTimer = 0f;
             _logicalStageId = string.Empty;
             _roomObjective = string.Empty;
+            // Drop the pickup snapshot: the next run's field starts empty, and a
+            // carried-over track would announce a phantom collection on tick 1.
+            _pickupTrackCount = 0;
 
             Time.timeScale = 1f;
         }
@@ -443,6 +471,10 @@ namespace CinderCourt.View
         void DispatchEvents()
         {
             var events = _sim.Events;
+            // Runs BEFORE the no-events early out: a pickup that timed out is
+            // removed silently, and a stale track would be misread as a
+            // collection on whatever tick next raises a flag.
+            ReconcilePickups(events);
             if (events == SimEvents.None) return;
             if (Audio != null) Audio.OnEvents(events);
             if (Vfx != null) Vfx.OnEvents(events, _sim);
@@ -549,6 +581,79 @@ namespace CinderCourt.View
                 _digestWritten = false;
 
             OnRunEvents?.Invoke(events, _sim);
+        }
+
+        /// <summary>Per-tick pickup-list diff: raises one loot toast and one
+        /// graded cue for every item that left the field by being collected, then
+        /// re-snapshots the field.
+        ///
+        /// A vanished id was collected unless it could have run out of life this
+        /// tick, which is decidable from the life the LAST tick published: only
+        /// a track already inside one fixed step of zero is ambiguous, and that
+        /// one is settled by distance, since CinderSim never moves a pickup —
+        /// its magnet is a radius test, not an attraction.</summary>
+        void ReconcilePickups(SimEvents events)
+        {
+            var live = _sim.Pickups;
+            var grades = _sim.PickupGrades;
+            var announced = 0;
+            var equipAnnounced = false;
+
+            for (var i = 0; i < _pickupTrackCount; i++)
+            {
+                var id = _pickupTrackIds[i];
+                var stillOnField = false;
+                for (var j = 0; j < live.Count; j++)
+                    if (live[j].Id == id) { stillOnField = true; break; }
+                if (stillOnField) continue;
+                if (!WasCollected(i)) continue;   // lifetime ran out, nobody picked it up
+
+                var kind = _pickupTrackKinds[i];
+                var grade = _pickupTrackGrades[i];
+                if (kind == PickupKind.EquipShard) equipAnnounced = true;
+                if (Hud != null) Hud.PushLootToast(LootToastQueue.KindOf(kind), grade);
+                if (Audio != null) Audio.PlayLootCue(grade);
+                announced += 1;
+            }
+
+            // An equipment rank can also be granted without a shard on the ground
+            // (boss reward). Only then does EquipDropped own its own toast —
+            // otherwise the shard pickup above already announced it.
+            if (!equipAnnounced && (events & SimEvents.EquipDropped) != 0)
+            {
+                if (Hud != null) Hud.PushLootToast(LootToastKind.Equip, LootGrade.Fine);
+                if (Audio != null) Audio.PlayLootCue(LootGrade.Fine);
+                announced += 1;
+            }
+
+            // One whoosh per tick, not per item: a magnet sweep through four
+            // shards is one arrival, and four stacked whooshes read as a glitch.
+            if (announced > 0 && Audio != null) Audio.PlayToastCue();
+
+            _pickupTrackCount = live.Count < _pickupTrackIds.Length
+                ? live.Count : _pickupTrackIds.Length;
+            for (var i = 0; i < _pickupTrackCount; i++)
+            {
+                var pickup = live[i];
+                _pickupTrackIds[i] = pickup.Id;
+                _pickupTrackKinds[i] = pickup.Kind;
+                _pickupTrackGrades[i] = grades != null && i < grades.Count
+                    ? grades[i] : LootGrade.Basic;
+                _pickupTrackLives[i] = pickup.Life;
+                _pickupTrackX[i] = pickup.X;
+                _pickupTrackY[i] = pickup.Y;
+            }
+        }
+
+        bool WasCollected(int track)
+        {
+            // Plenty of life left one tick ago: expiry was impossible, so the
+            // only way it left the field is the magnet.
+            if (_pickupTrackLives[track] > SimConfig.FixedStep) return true;
+            var deltaX = _sim.Player.X - _pickupTrackX[track];
+            var deltaY = (_sim.Player.Y - _pickupTrackY[track]) * SimConfig.IsoY;
+            var reach = SimConfig.PickupMagnetRadius + PickupCollectSlack;
+            return deltaX * deltaX + deltaY * deltaY <= reach * reach;
         }
 
         void SyncViews()

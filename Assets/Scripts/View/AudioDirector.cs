@@ -39,6 +39,10 @@ namespace CinderCourt.View
         AudioClip _strike, _hit, _kill, _nova, _ward, _pickup, _wave, _gameover, _lore;
         AudioClip _bgmLegacy;
         AudioClip _click, _footstep;
+        // Graded loot cues + the toast whoosh. All three are optional: a build
+        // without them falls back to cue-pickup (grades) or stays silent (toast),
+        // which is the same null-safe contract PlayClick/PlayFootstep keep.
+        AudioClip _lootFine, _lootEpic, _toast;
         readonly Dictionary<string, AudioClip> _bgmByContext =
             new Dictionary<string, AudioClip>(4);
         bool _muted;
@@ -65,6 +69,9 @@ namespace CinderCourt.View
             _lore = Resources.Load<AudioClip>("Audio/cue-lore");
             _click = Resources.Load<AudioClip>("Audio/cue-click");
             _footstep = Resources.Load<AudioClip>("Audio/cue-footstep");
+            _lootFine = Resources.Load<AudioClip>("Audio/cue-loot-fine");
+            _lootEpic = Resources.Load<AudioClip>("Audio/cue-loot-epic");
+            _toast = Resources.Load<AudioClip>("Audio/cue-toast");
 
             // W12 (seed §2, 2026-08-08): per-context BGM tracks generated via
             // the ElevenLabs Music API (Audio/bgm-{intro,lobby,loading,stage}).
@@ -101,6 +108,30 @@ namespace CinderCourt.View
         /// <summary>W12: movement footstep tick. The caller owns the cadence
         /// (view-side distance accumulator); this just voices it.</summary>
         public void PlayFootstep() => Play(_footstep, 0.45f);
+
+        /// <summary>Graded acquisition cue for ONE collected pickup.
+        ///
+        /// Owned by the caller, not by <see cref="OnEvents"/>: SimEvents carries a
+        /// bare PickupCollected flag with no grade and no count, so a frame that
+        /// swept up three drops raised one flag. GameView diffs the published
+        /// pickup list and calls this once per pickup with the grade that pickup
+        /// actually carried, which is why PickupCollected/EquipDropped no longer
+        /// voice themselves in OnEvents — that would double-play.
+        ///
+        /// Missing grade cues fall back to cue-pickup, so a build without the
+        /// generated assets keeps the acquisition audible at Basic.</summary>
+        public void PlayLootCue(LootGrade grade)
+        {
+            var clip = grade == LootGrade.Epic ? _lootEpic
+                     : grade == LootGrade.Fine ? _lootFine
+                     : null;
+            Play(clip != null ? clip : _pickup);
+        }
+
+        /// <summary>The toast's own arrival whoosh. Deliberately quiet: it lands
+        /// on the same frame as PlayLootCue and must sit under it, never mask it.
+        /// Silent until the cue asset ships.</summary>
+        public void PlayToastCue() => Play(_toast, 0.45f);
 
         /// <summary>W12: swap the looping BGM bed for a context ("intro",
         /// "lobby", "loading", "stage"). Loads Audio/bgm-{context} once and
@@ -174,7 +205,10 @@ namespace CinderCourt.View
             if ((events & SimEvents.EnemyKilled) != 0) Play(_kill);
             if ((events & SimEvents.NovaCast) != 0) Play(_nova);
             if ((events & SimEvents.WardCast) != 0) Play(_ward);
-            if ((events & SimEvents.PickupCollected) != 0) Play(_pickup);
+            // PickupCollected is NOT voiced here: the flag carries no grade and
+            // no count, so it cannot choose between cue-pickup/fine/epic. GameView
+            // resolves both from the published pickup list and calls PlayLootCue
+            // once per collected item.
             if ((events & SimEvents.WaveStarted) != 0)
             {
                 Play(_wave);
@@ -184,7 +218,9 @@ namespace CinderCourt.View
             // Campaign events reuse existing cues (no extra generation needed):
             if ((events & SimEvents.HazardPulse) != 0) Play(_hit, 0.6f);
             if ((events & SimEvents.AltarBlessing) != 0) Play(_ward, 0.7f);
-            if ((events & SimEvents.EquipDropped) != 0) Play(_pickup, 0.8f);
+            // EquipDropped likewise routes through PlayLootCue (a shard pickup
+            // raises PickupCollected AND EquipDropped in the same tick — voicing
+            // both here played cue-pickup twice for one item).
             if ((events & SimEvents.StageCleared) != 0)
             {
                 Play(_wave);          // triumphant horn
