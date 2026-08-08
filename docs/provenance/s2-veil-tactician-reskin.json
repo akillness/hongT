@@ -1,0 +1,43 @@
+{
+  "lane": "asset-lane2 (W6 boss diversification, carryover task #10, deep-interview-seed-ui-vfx-flow.md D-record scope)",
+  "manifestCheck": {
+    "source": "/Users/jangyoung/orca/Abyssal-Surge/assets/defense-asset-manifest.json (read-only, not modified)",
+    "checkedAt": "2026-08-08",
+    "result": "assets/mesh/boss/s2-veil-tactician/** has 23 rows; only assets/mesh/boss/s2-veil-tactician/glb/base_basic_pbr.glb is disposition:retain, runtimeReference:true. All fbx/obj/textureBasicPack/*.raw.png siblings are disposition:delete, runtimeReference:false and were not used."
+  },
+  "donorRigDeviation": {
+    "problem": "No assets/motion/ingame/characters/s2-veil-tactician/ entry exists in Abyssal-Surge -- confirmed via `find assets/motion -iname '*s2-veil-tactician*'` (empty). No rigged donor armature exists for this character id.",
+    "resolution": "Used assets/motion/ingame/characters/shadow-commander-boss/model.glb as the --glb donor armature (shared def-humanoid-v1 skeleton), with the retained s2-veil-tactician mesh swapped in via --mesh-glb. Same substitution as s1-cinder-warden and s3-gate-sovereign, for consistency across the trio.",
+    "rejectedAlternative": "guard/model.glb tried first, failed: armFit 0.35 (<0.7 fatal gate), same anomalous guard skeleton span:height ratio issue documented for s1-cinder-warden. shadow-commander-boss donor produced armFit 0.76."
+  },
+  "tool": "tools/blender/reskin_character.py",
+  "command": "/Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python-exit-code 1 -P tools/blender/reskin_character.py -- --glb /Users/jangyoung/orca/Abyssal-Surge/assets/motion/ingame/characters/shadow-commander-boss/model.glb --mesh-glb /Users/jangyoung/orca/Abyssal-Surge/assets/mesh/boss/s2-veil-tactician/glb/base_basic_pbr.glb --out Assets/Art/Characters/s2-veil-tactician.fbx --report _workspace/current/engineering/reskin/s2-veil-tactician.json --max-tris 25000",
+  "report": "_workspace/current/engineering/reskin/s2-veil-tactician.json",
+  "output": "Assets/Art/Characters/s2-veil-tactician.fbx",
+  "verification": {
+    "finalTriCount": 18104,
+    "sourceTriCount": 18108,
+    "triBudget": 25000,
+    "decimated": false,
+    "armFit": 0.7567407678347662,
+    "heatOrphans": 0,
+    "orphansRigidResidual": 0,
+    "nonNormalizedVertices": 0,
+    "removedBones": ["DEF-pelvis.L", "DEF-pelvis.R"],
+    "bones": 22,
+    "embeddedFbxTextures": "3 textures, all downscaled to 1024x1024 by the reskin script's MAX_TEX cap before FBX embed (diffuse, metallic-roughness, normal)"
+  },
+  "extractedTextures": {
+    "method": "Extracted texture_diffuse (image index 1) and texture_normal (image index 0) directly from the retained GLB's binary bufferViews (not from the delete-disposition textureBasicPack/*.png siblings, and not from the FBX-embedded 1024px copies) -- matches the resolution convention already used by shadow-commander-boss-textures/ and broken-court-monarch-boss-textures/.",
+    "files": [
+      "Assets/Art/Characters/s2-veil-tactician-textures/texture_diffuse_001.png (2048x2048)",
+      "Assets/Art/Characters/s2-veil-tactician-textures/texture_normal_001.png (2048x2048)"
+    ],
+    "importerCap": "Both .png.meta files set platformSettings maxTextureSize:1024 for DefaultTexturePlatform and WebGL (template: broken-court-monarch-boss-textures/*.meta)."
+  },
+  "followUp": [
+    "Unity Editor import not performed (project lock -- batchmode-only automation per CLAUDE.md SS1). s2-veil-tactician.fbx has no .meta yet, matching the human-command-boss precedent.",
+    "After import: create Assets/Resources/Characters/s2-veil-tactician.prefab (Humanoid avatar) and add \"s2-veil-tactician\" to CharacterRoster.Ids -- out of scope for this asset pass, owned by CharacterImportPipeline.",
+    "Donor-rig substitution (shadow-commander-boss skeleton) should be confirmed by design/orchestrator -- see s1-cinder-warden-reskin.json for the same note."
+  ]
+}
