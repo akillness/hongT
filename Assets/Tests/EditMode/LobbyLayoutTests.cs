@@ -108,25 +108,74 @@ namespace CinderCourt.Tests
             var report = new StringBuilder();
             var undersized = new List<string>();
             var measured = 0;
-            foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+
+            // AMENDMENT #8 — sweep every fold state, not just the default one.
+            //
+            // The accordion deactivates the folded groups' cards, and this audit
+            // only measures active buttons. Left as a single-state sweep it
+            // silently STOPPED measuring the tier row and all five 수련 buttons:
+            // 26 audited controls became 13, and a size regression inside a
+            // folded group would have passed unnoticed. Folding is a UI win and
+            // an audit hole at the same time, and the hole is closed here by
+            // opening each group in turn and taking the union.
+            //
+            // The union is what the frozen table below compares against, so the
+            // table means "every control the lobby can put on screen", which is
+            // strictly stronger than what it meant before this cycle.
+            //
+            // Dedup by INSTANCE, not by path. The first draft of this sweep
+            // keyed on Path(transform) and silently lost controls: every card
+            // in a group is a "Panel" under a "Panel", so three 강하 buttons
+            // share one path string and two of them vanished from the audit.
+            // A dedup key that is not unique per object turns a widened audit
+            // into a narrowed one — which is the exact failure this sweep was
+            // added to fix, reintroduced one layer down.
+            var seen = new HashSet<Button>();
+            foreach (var group in FoldHeaders(canvas))
             {
-                if (!button.gameObject.activeInHierarchy) continue;
-                measured += 1;
-                var world = WorldRect(button.GetComponent<RectTransform>());
-                var w = world.width * SpecCssPerUnit;
-                var h = world.height * SpecCssPerUnit;
-                Assert.That(world.width > 0f && world.height > 0f, Is.True,
-                    $"degenerate rect (layout did not resolve): {Path(button.transform)}");
-                if (w >= MinCssPx && h >= MinCssPx) continue;
-                undersized.Add(LabelOf(button));
-                report.AppendLine($"  {LabelOf(button),-6} {w,5:F1} x {h,5:F1} CSS px   {Path(button.transform)}");
+                group.onClick.Invoke();
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(canvas.GetComponent<RectTransform>());
+
+                foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+                {
+                    if (!button.gameObject.activeInHierarchy) continue;
+                    // Union across states: a control visible in two fold states
+                    // is one control, not two.
+                    if (!seen.Add(button)) continue;
+                    var path = Path(button.transform);
+                    measured += 1;
+                    var world = WorldRect(button.GetComponent<RectTransform>());
+                    var w = world.width * SpecCssPerUnit;
+                    var h = world.height * SpecCssPerUnit;
+                    Assert.That(world.width > 0f && world.height > 0f, Is.True,
+                        $"degenerate rect (layout did not resolve): {path}");
+                    if (w >= MinCssPx && h >= MinCssPx) continue;
+                    undersized.Add(LabelOf(button));
+                    report.AppendLine($"  {LabelOf(button),-18} {w,5:F1} x {h,5:F1} CSS px   {path}");
+                }
             }
             TestContext.WriteLine($"[lobby touch-floor audit @390x844 portrait, "
-                + $"{SpecCssPerUnit} CSS px/u, floor {MinCssPx}]\n" + report);
+                + $"{SpecCssPerUnit} CSS px/u, floor {MinCssPx}, union over "
+                + $"{ProgressionGuide.GroupCount} fold states]\n" + report);
 
-            // Frozen debt, re-measured 2026-08-06 after v1.6 added the training
-            // ground (9 stage 강하 · 1 revealed 서약 · 3 tier · 5 수련 · 4 tabs ·
-            // 3 stat "+" · 재훈련).
+            // KNOWN, DELIBERATELY UNCLOSED: the SANCTUM tabs hide controls the
+            // same way the folds do, and this sweep does not cycle them. Only
+            // the selected tab's contents are ever measured — today that is
+            // 성장, which is why exactly three stat "+" appear below and the
+            // equip/legion/sigil rows appear not at all.
+            //
+            // Not closed here on purpose. Cycling the tabs would pull ~20
+            // controls this cycle never touched into the frozen table, and
+            // several of them (the sigil face pairs at 68 x 30 u) will land
+            // undersized — registering that much unrelated debt inside a
+            // navigation cycle would make the next diff unreadable about which
+            // change caused what. Measured and recorded, not silently ignored:
+            // it belongs to the same designer+pm touch-floor item as the rest.
+
+            // Frozen debt, re-measured 2026-08-07 after AMENDMENT #8 added the
+            // accordion (9 stage 강하 · 1 revealed 서약 · 3 tier · 5 수련 ·
+            // 4 tabs · 3 stat "+" · 재훈련 · 4 fold headers).
             //
             // The tab strip MOVED and the movement is an improvement: re-dividing
             // the same 400 u panel into 4 x 91 u took tab WIDTH from 58.6 to 44.4
@@ -134,18 +183,27 @@ namespace CinderCourt.Tests
             // table because their 44 u HEIGHT is still 21.5 CSS px — the debt this
             // ratchet exists to track, unchanged and still a designer+pm item.
             //
-            // v1.6 joins 8 controls (견습/숙련/판결 + five 수련) and adds NO new
+            // v1.6 joined 8 controls (견습/숙련/판결 + five 수련) and added NO new
             // violation class: every one measures 41.0 x 13.7, the exact size the
-            // 강하 button has carried since cycle 2. The narrowest control in the
-            // lobby is still the stat "+" at 25.4. An earlier draft did create a
+            // 강하 button has carried since cycle 2. An earlier draft did create a
             // new class — three per-card tier buttons at 28.3 x 13.7, fifteen of
             // them — and this test caught it; the fix was a shared tier row, not
             // a wider table (negotiation entry 10).
+            //
+            // v1.7 joins 4 fold headers at 179.6 x 21.5. Height matches the tab
+            // strip's existing class exactly and the width is the WIDEST control
+            // in the lobby, so this is not a new worst on either axis — the
+            // narrowest is still the stat "+" at 25.4 and the shortest is still
+            // 강하/서약 at 13.7. Registered as negotiation entry 12, which also
+            // records why non-folding labels were rejected: they cost no controls
+            // but push content 1058 -> 1258 u and drop visibility 41.0% -> 34.5%.
             var expected = new Dictionary<string, int>
             {
                 { "강하", 9 }, { "서약", 1 }, { "성장", 1 }, { "장비", 1 },
                 { "군단", 1 }, { "각인", 1 }, { "+", 3 }, { "재훈련", 1 },
                 { "견습", 1 }, { "숙련", 1 }, { "판결", 1 }, { "수련", 5 },
+                { "제1부 기록", 1 }, { "제2부 증언", 1 }, { "제3부 집행", 1 },
+                { "훈련장", 1 },
             };
             var actual = new Dictionary<string, int>();
             foreach (var label in undersized)
@@ -158,6 +216,29 @@ namespace CinderCourt.Tests
                 + "give it >= 44 CSS px. A control LEAVING this set is the fix landing — "
                 + "drop it from the frozen table and note the negotiation in "
                 + "_workspace/current/pm/negotiation-record.md. Measured:\n" + report);
+        }
+
+        /// <summary>
+        /// The accordion's fold headers, in group order. Found by hierarchy
+        /// (StageContent/Group{n}/Panel) rather than by label: the header's own
+        /// text is a design decision that may change, while its position in the
+        /// tree is the structure this test is actually about.
+        /// </summary>
+        private static List<Button> FoldHeaders(Canvas canvas)
+        {
+            var headers = new List<Button>();
+            for (var g = 0; g < ProgressionGuide.GroupCount; g++)
+            {
+                var wanted = "Group" + g;
+                foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+                {
+                    var parent = button.transform.parent;
+                    if (parent != null && parent.name == wanted) { headers.Add(button); break; }
+                }
+            }
+            Assert.That(headers.Count, Is.EqualTo(ProgressionGuide.GroupCount),
+                "every accordion group must expose exactly one fold header");
+            return headers;
         }
 
         private Canvas BuildClearedLobby()
