@@ -17,7 +17,8 @@ namespace CinderCourt.Sim
     /// companion and boss phase 2 — again without moving an arena number.
     /// </summary>
     public sealed class CinderSim : ICinderSim, ICampaignSnapshot, IHackSnapshot,
-                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot
+                                    IRunPreparationSnapshot, IGrowthChoiceSnapshot,
+                                    IDerivedStatSnapshot
     {
         // --- spec constants that SimConfig does not expose (docs/SIM_SPEC.md) ---
         private const float EnemyHealthPerWave = 9f;        // 58 + min(92, (wave-1)*9)
@@ -590,6 +591,26 @@ namespace CinderCourt.Sim
         public int GrowthAttack => _growthAttack;
         public int GrowthVitality => _growthVitality;
         public int GrowthSwiftness => _growthSwiftness;
+
+        // --- AMENDMENT #9 codex (IDerivedStatSnapshot, additive) --------------
+        // Nine field reads, no arithmetic. ApplyLevelStats() (:2666) already
+        // wrote every one of them on the live path; the golden digest cannot
+        // move because nothing here participates in a float expression.
+        public float PlayerDamage => _playerDamage;
+        public float PlayerMaxHealth => _playerMaxHealth;
+        public float PlayerSpeed => _playerSpeed;
+        public float LanternRegenPerSecond => _lanternRegen;
+        public float ExtractionBonus => _extractionBonus;
+        public float BaseDamage => _baseDamage;
+        public float BaseMaxHealth => _baseMaxHealth;
+        public float BaseSpeed => _baseSpeed;
+        public float BaseLanternRegen => _baseRegen;
+        // The meta stats folded INTO the base. Without these the codex can
+        // only say "72.8 comes from 72.8" on a fresh run — true, and useless.
+        // The player spent those points; the breakdown owes them the line.
+        public int MetaAttack => _hack ? _hackConfig.MetaStats.Attack : 0;
+        public int MetaVitality => _hack ? _hackConfig.MetaStats.Vitality : 0;
+        public int MetaSwiftness => _hack ? _hackConfig.MetaStats.Swiftness : 0;
         /// <summary>§3: 0..1 charge progress, for the HUD gauge.</summary>
         public float ChargeProgress => _chargeTime <= 0f
             ? 0f
