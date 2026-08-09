@@ -721,8 +721,10 @@ v1.7의 실무 규칙("0/N을 인용할 때는 원인 칸을 같이 적는다")�
 - DRG: Survivor 정식 튜토리얼 부재, 일시정지 중 무기 스탯 — thegamer / steamcommunity / reddit [indexed snippet]
 - Into the Breach · Returnal · 19타이틀 G1 실측 — **designer 레인 귀속**,
   `GuidanceSurvey` IRC 2026-08-07, 전문 `.survey/ingame-guidance/solutions.md` §정지 빈도 정량화
-- 우리 값 — `Assets/Scripts/View/HudView.cs`, `Assets/Scripts/Input/InputAdapter.cs`,
+- 우리 값 — `Assets/Scripts/View/HudView.cs`, `Assets/Scripts/View/InputAdapter.cs`,
   `Assets/Scripts/Sim/SimTypes.cs`, `Assets/Scripts/View/GameDirector.cs` [OBSERVED]
+  <!-- 경로 정정 2026-08-09 (cycle-9 감사): Input/ → View/. 파일은 항상
+       View 어셈블리에 있었다. v1.8 서술의 오타이고 인용 내용은 유효하다. -->
 
 **인용 금지 경고**: G2–G5 벤치마크 값은 개발사 공표값이 아니라 문서화된 UI 구조에서
 유도한 **추정 조작 수·추정 비율**이다. `qa/gate-measurements.md`에 **측정값으로 인용
@@ -949,3 +951,159 @@ cssPerUnit = 390/798.7 = 0.48829, 44 CSS px = **90.1u**.
 
 **감사 총계 갱신**: 겹침 확정 8건(+조건부 2) **+ 터치 하한 미달 4건** = 기존
 테스트가 못 잡는 라이브 결함 **12건**. 전부 §4a 세 구멍에서 나왔다.
+
+---
+
+## v2.0 — 재미 구조 캘리브레이션 (run-id 20260809-dungeon-fun-authorship)
+
+2026-08-09 · game-qa (캘리브레이션 담당) · Stage 1a 조사 산출물.
+
+**레인 분담**: designer 레인(`design/trend-survey/`, `.survey/`)이 "무엇을
+채택할까"(빈도·신규성)를 소유한다. 이 절은 **"얼마가 공정한가 / 무엇으로
+재는가"**만 소유한다. 두 레인은 15타이틀 풀을 공유한다 — cycle-2·3·4 선례와
+동일하게, 빈도표와 수치표가 같은 N 위에서 비교되게 하기 위해서다.
+
+선행 절들과의 관계: cycle-2 절은 **정적 기믹**의 예고/피해 밴드를, cycle-3
+절은 **동적 이벤트**의 공정성을, v1.7 절은 **네비게이션 계측**을 세웠다.
+이 절은 **재미 구조**(결정 밀도·보상 케이던스·문턱)를 잰다. 앞 절들의 밴드는
+**전부 유지**되며, 이 절이 새로 만드는 것은 아래 F1–F7이다.
+
+### Provenance legend (이 절 추가분)
+
+- **[direct page retrieval]** — 공식/위키 페이지 전문 통독.
+- **[stable official substitution]** — 요청 페이지가 캐논 페이지로 리다이렉트.
+- **[indexed snippet]** — 검색 계층이 반환한 발췌. 2차 자료.
+- **[direct spec + 계산]** — 이 저장소 상수로 QA가 직접 계산.
+- **[thin evidence]** — 추정. **게이트 판정문에 측정값으로 인용 금지.**
+
+### 우리 앵커 — 재미 구조 (코드 실측)
+
+| 앵커 | 값 | 출처 |
+|---|---|---|
+| 전투 공간 수 | **1** (전 9스테이지 공유, 중심 768,604 · 반경 520×270) | `SimConfig` [direct spec] |
+| 스폰 결정 규칙 | `(wave*3 + id*3) % 8` — **플레이어 항 없음** | `CinderSim.SpawnPointIndexFor:882-886` [direct spec] |
+| 문턱 결정 수 | **0** | `GameDirector.StartDungeon:456-527` [direct spec] |
+| 레벨업 오퍼 풀 | **3** (제시도 3 → 선택 압력 0.00) | `GrowthChoiceKind` [direct spec + 계산] |
+| 레벨업 오퍼 창 | 5.0초, 만료 시 `None` 자동 | `HackSpec.GrowthOfferSeconds` [direct spec] |
+| 스테이지당 레벨업 | 5–8회 | XP 곡선 × 웨이브 처치 수 [direct spec + 계산, INFERENCE 성분 있음] |
+| 웨이브 간 인터미션 | 2.15초 (129틱) | `SimConfig.WaveIntermission` [direct spec] |
+| 룸 목표 판정 | **없음** — 표시 문자열 전용 | `StageCatalog.RoomObjective` [direct spec] |
+| Ember Rest 오퍼 풀 | 18 (3종×3변형×2크기), 3장 제시 → 압력 0.83 | `CinderSim.BuildPreparationOffer:1022-1031` [direct spec + 계산] |
+
+**Ember Rest가 이미 압력 0.83이라는 사실이 중요하다.** 이 저장소는 좋은
+드래프트를 만들 줄 안다 — 다만 그것을 **스테이지 사이**에 두었고 스테이지
+**안**에는 압력 0짜리를 두었다.
+
+### 이 절이 만든 밴드 (게이트 입력)
+
+| # | 밴드 | 값 | 근거 |
+|---|---|---|---|
+| **F1** | 첫 결정까지 시간 | **문턱 0초** · 인런 **≤45초**, 경성 상한 60초 | 15종 중 어느 것도 ~2분을 넘지 않고 **6종이 t=0 이전에 실질 결정**을 놓는다(StS 맵·ITB 배치·DD 길이/보급·D4 시길·PoE 맵제작·DC 갈림길). 인런 군집은 VS 15–45초 · HoT 15–60초 · Hades ~30–60초 [indexed snippet] |
+| **F2** | 스테이지당 저작 결정 수 | **4–9**, 웨이브당 약 1, **하한 3** | Hades 바이옴당 8–14 · StS 액트당 경로 16 + 보상 10 · 서바이버류 10분당 20–30 [indexed snippet]. 하한 3의 출처가 결정적이다 — Hades **Approval Process**가 선택지를 3→1로 줄이는 것을 **5 Heat의 난이도**로 가격 매긴다 [direct page retrieval]. 개발사가 선택 제거를 처벌로 가격했다 |
+| **F3** | **선택 압력** (신설) | `1 − 제시/풀` — **진행 밴드(초반 ≥0.70 · 중반 ≥0.80 · 후반 ≥0.85)**. 초안 단일 임계 ≥0.75는 `qa/selection-pressure-census.md`가 9/9 반증 | VS 3–4 제시 / 100+ 풀 ≈ 0.97 [direct page retrieval] · HoT 4 제시, **풀이 런 중 증가**(특성 랭크가 해당 레벨 도달 시에만 풀 진입) [stable official substitution] · 우리 Ember Rest 0.83 [direct spec + 계산]. **우리 인런 0.00은 이 분야에 선례가 없다** |
+| **F4** | 보상 이벤트/분 | **1.5–3.0**, 2.0–2.5 가중 | 아레나형·무이동 비교군이 2.0–3.3 (VS 2.0–3.3 · HoT 2.0–2.7 · DMD ~2.0–3.0). 방 이동형은 더 낮다(Hades 1.0–2.5 · DC 0.7–1.2) — **걷는 것 자체가 자극이기 때문**. 우리는 이동이 없으므로 낮은 군집을 쓸 수 없다. 단 ITB ~0.1–0.3이 증명하듯 **매 순간이 결정이면 낮아도 된다** [전부 derived — 인용된 이벤트 수 ÷ 인용된 런 길이] |
+| **F5** | 난이도 티어의 성격 | **규칙 변경 필수. 스탯 전용 티어 금지** | Dead Cells Boss Stem Cell은 **5티어 전부**가 규칙을 바꾼다(보스 초기 페이즈·회복 분수 제거·플라스크 2회·몹 순간이동·Malaise) [direct page retrieval]. StS는 A17/A18에서 **새 무브셋** [direct page retrieval]. Hades 최고가 조건(Extreme Measures 10 Heat)이 **보스 새 기술** [direct page retrieval]. **스탯만 올리는 사다리는 존중받는 비교군에 선례가 없다** |
+| **F6** | 옵트인 격화의 보상 성격 | **빌드 파워 또는 진행 자원. 순수 화폐 금지** | 참여되는 패턴(RoR2 산의 제단 — 중첩, 활성당 +1 아이템, 텔레포터 위에 표시)과 무시되는 패턴(Hades Infernal Trove — 화폐 보상, HP+시간 비용)의 차이가 이 한 축이다 [indexed snippet]. Hades 자신도 8/16/32 Heat 보상이 **장식뿐**이라 위키에 실망이 기록돼 있다 [direct page retrieval] |
+| **F7** | 수행 관문의 실패 처리 | **격하이지 전무 금지** | Hades Infernal Gate: 무피격 시 보상 **증폭**, 실패 시 Red Onion으로 **격하** [direct page retrieval]. 전부-아니면-전무 관문(Erebus 완전 무피격, 실패 시 1 HP 개그 보상)은 **회피된다** [indexed snippet] |
+
+### 기존 밴드와의 충돌 판정 (명시적)
+
+#### C5. 예고 예산 (cycle-2 밴드 5, cycle-3 S4) → **위협 없음. 단 조건부 ✅**
+
+cycle-3이 세운 S4는 구속력 있는 권고였다: **돌발은 예고 기믹 수를 늘리지
+말고 적 밀도/편성/기존 기믹 위상을 바꾼다.** LCM 센서스 여유가 정확히 1이고
+ash-march·cinder-sluice는 예고 점유율이 이미 71–75%이기 때문이다.
+
+cycle-9 설계는 **신규 예고 기믹이 0개**다:
+- 영장(M-A) = 화면. 심 무접촉.
+- 등급(M-B) = 클리어 후 계산. 심 무접촉.
+- 현장 각인(M-C) = **기존 5개 훅의 크기 변조.** 새 해저드 종류 없음.
+
+→ **판정: 예고 예산 무영향.** 단 M-C가 위상을 건드리는 오퍼를 추가하면
+그 순간 S4 재센서스가 발동한다. **현 설계는 크기만 바꾸고 위상은 안 바꾼다 —
+이 제약을 설계 문서에 못 박아야 하고, 어기면 ash-march·cinder-sluice는
+대상에서 제외해야 한다.**
+
+#### C6. 노출 에피소드 누적 상한 (cycle-3 S3, ≤30% max HP) → **재검토 필요 ⚠**
+
+현장 각인이 **적에게 가는 기믹 피해**를 키우는 방향이면 S3와 무관하다.
+그러나 **플레이어가 받는 쪽을 완화하는 오퍼**(집행인 A 계열의 런 한정 축소판)는
+S3의 분모를 바꾼다 — 벽 DoT는 16.67 dmg/s로 기본 100HP 기준 **1.80초에 정확히
+30%**에 도달한다 [direct spec + 계산].
+
+→ **QA 권고: 현장 각인의 방어 계열 오퍼는 S3 노출 곡선을 재계산한 뒤에만
+승인한다.** 크기 상한(designer 제안: 영구 각인의 ≤50%)이 지켜지면 곡선이
+안전 쪽으로만 움직이지만, **그 방향이 자명하다고 넘기지 않는다** — cycle-3이
+"per-hit 규칙을 한 번도 위반하지 않고 실효 상한을 넘긴다"는 구멍을 정확히
+이 자리에서 찾았다.
+
+#### C7. 무정지 자동만료 오퍼 → **우리가 이 분야의 이상값이다 🔴**
+
+확인한 서바이버류 전부가 레벨업에서 **정지한다**: Brotato · Death Must Die ·
+Soulstone Survivors · 20 Minutes Till Dawn · Vampire Survivors
+[indexed snippet]. 만료되어 사라지는 오퍼는 라이브서비스/모바일 문맥에서만
+문서화되며 **주도권 침해·FOMO 레버**로 비판된다 [indexed snippet].
+**출하된 액션 로그라이트 선례는 발견되지 않았다** — 부재 자체가 발견이고,
+로그라이트 사례로는 `thin evidence`다.
+
+단 우리 설계에는 기록된 이유가 있다(`design/input-depth-spec.md` §5 —
+"선택 전까지 심은 계속 돈다") 그리고 AMENDMENT #9(timeScale 0) 계약과 얽힌다.
+
+→ **QA 권고: 이번 사이클에 바꾸지 말고 재라.** 측정 항목 신설:
+**오퍼 수용률** = (1/2/3 입력으로 확정된 오퍼) ÷ (제시된 오퍼). 만료율이
+높으면 그때 정지 여부를 근거로 판단한다. 지금 바꾸면 §4q가 경고한
+"만장일치로 통과한 결정"을 새로 만드는 것이다.
+
+### 측정 요청 — T9 (신규, 이 설계의 선행 조건)
+
+designer 스펙 §8이 밴드 대조에서 **3칸을 미측정으로 열어 두었다.** 그 3칸은
+추정으로 채우면 안 된다(§4r — 임계값보다 그것을 재는 조건을 먼저 명명하라).
+
+| 항목 | 방법 | 왜 지금 필요한가 |
+|---|---|---|
+| 스테이지 길이 (9스테이지 전수) | 배포 빌드 실플레이 또는 헤드리스 심 러너, 웨이브 1 시작 → StageCleared | F1·F4·판결 등급 par 시간의 분모 |
+| 보스 시간 비중 | 보스 스폰 → 사망 구간 ÷ 스테이지 길이 | 밴드 20–35%. **이 분야에서 출판된 적 없는 값**이라 우리 실측이 유일 근거가 된다 |
+| 보상 이벤트/분 | 픽업·레벨업·추출·유물 이벤트 카운트 ÷ 길이 | F4 대조 |
+| **오퍼 수용률** | 제시 대비 1/2/3 입력 비율 | C7 판정의 유일 입력 |
+| **선택 압력 센서스** | 9스테이지 각각의 오퍼 풀 크기 (해저드 필터 적용 후) | F3 — designer가 ≥0.75를 주장하므로 스테이지별로 반증 가능해야 함 |
+
+**par 시간을 designer가 먼저 적지 않은 것은 옳다.** 이 표가 그 값의 출처다.
+
+### 이 절이 인용한 선행 결론 (재조사 안 함)
+
+- cycle-2 밴드 1–7(예고 티어·피해 상한 30%·경고 문법·램프·동시 예고 ≤3·
+  대비·리듀스드모션 패리티) — **전부 유효, 이 설계와 충돌 없음.**
+- cycle-3 S1–S6 — S3·S4가 위 C5·C6에서 조건부로 재확인됨. S5(불가시 게이지
+  금지)는 현장 각인 해시가 **플레이어에게 보이는 값**(레벨·처치·피격)으로만
+  구성되므로 준수한다.
+- v1.7 네비게이션 축 — 영장 화면이 신규 화면이므로 (a) 다음 행동까지 조작 수와
+  (d) 동시 가시율을 **이 화면에도 적용**한다.
+
+### 큐레이션 출처 (이 절 추가분)
+
+- `.survey/dungeon-entry-fun-factors/{triage,context,solutions}.md` — 15타이틀
+  × 30메커니즘 빈도표, 무RNG 교차표, 캘리브레이션 원자료.
+- Hades Wiki *Pact of Punishment* / *Chambers and Encounters* — 16조건 63 Heat,
+  Approval Process 5 Heat, Extreme Measures 10 Heat, Tight Deadline 지역당 9분
+  (랭크당 −2, 하한 5:00), 73방/런, 보스 14/24/36, **문에 보상 표시**,
+  Infernal Gate 증폭/격하 — [direct page retrieval]
+- Dead Cells Wiki *Boss Stem Cells* / *Time·Killstreak·No-Hit Doors* / *Malaise* —
+  5티어 전부 규칙 변경, 시간 문 2/8/15/19:30/26분, 3선택 제단, ~60킬 무피격,
+  무피격 문 레전더리 확정, Malaise 10티어×50점 초당 1.3–0 — [direct page retrieval]
+- Slay the Spire Wiki *Ascension* / *Daily Climb* — 20단 누적, A10 저주,
+  A17/A18 새 무브셋, 데일리 = 고정 시드 + 3수정자 + 리더보드 — [direct page retrieval]
+- Risk of Rain 2 Wiki — 텔레포터 최소 90초 충전(단일 아레나 이벤트의 하한
+  참조점), 약 120m 돔, 스테이지당 난이도 +15% — [direct page retrieval]
+- Vampire Survivors Wiki — 분당 스폰 시간표, 30:00 Reaper 이후 매 분,
+  Arcana 11:00/21:00, 무기/패시브 100+ — [direct page retrieval]
+- Halls of Torment Wiki *Trait* / *Affliction* — 레벨당 4특성, **랭크가 해당
+  레벨 도달 시 풀 진입**, Affliction 1+0.05×stacks — [stable official substitution]
+- Subset Games / GDC 2019 (Ma & Davis) — 완전 정보, 난수는 **설정에만**,
+  Grid Defense는 좌절 방지용 상방 전용 굴림 — [stable official substitution]
+- 인간요인 앵커(단순 반응 200–300ms · subitizing 3–4 · MOT ~4 · 윈드업
+  <300 / 300–600 / 600–1500ms 티어 · 250–330ms 2차 큐) — 검색 색인을 통한
+  요약이며 **원논문 직독 아님** — [indexed snippet]
+- **출판된 적 없는 것**: 풀 어느 타이틀도 텔레그래프 윈드업 밀리초·동시
+  텔레그래프 상한·보스 시간 비중을 공표하지 않는다. 이 셋에 대한 권고는
+  **추론된 목표치이지 관측된 업계 측정치가 아니다** — [thin evidence].
+  게이트 판정문에 측정값으로 인용 금지.
