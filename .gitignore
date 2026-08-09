@@ -172,3 +172,6 @@ llm-wiki/.state/
 .windsurf/
 .zencoder/
 .debug-codex-imagegen/
+# .codex/ predates the skills installer (it is the Codex CLI's own per-repo
+# config) but belongs to the same class: machine-local agent tooling.
+.codex/
