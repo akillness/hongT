@@ -7,7 +7,7 @@
       "label": "Log",
       "source_file": "log.md",
       "id": "log",
-      "community": 4,
+      "community": 1,
       "norm_label": "log"
     },
     {
@@ -18,31 +18,234 @@
       "norm_label": "index"
     },
     {
+      "label": "HongT 4-\ub808\uc778 \ubcd1\ub82c \uad6c\ud604 \ud1b5\ud569\uc5d0\uc11c \uc7ac\uc0ac\uc6a9 \uac00\ub2a5\ud55c \uacb0\ub860 (2026-08-08)",
+      "source_file": "wiki/hongt-parallel-lane-integration-2026-08-08.md",
+      "id": "wiki/hongt-parallel-lane-integration-2026-08-08",
+      "community": 14,
+      "norm_label": "hongt 4-\u1105\u1166\u110b\u1175\u11ab \u1107\u1167\u11bc\u1105\u1167\u11af \u1100\u116e\u1112\u1167\u11ab \u1110\u1169\u11bc\u1112\u1161\u11b8\u110b\u1166\u1109\u1165 \u110c\u1162\u1109\u1161\u110b\u116d\u11bc \u1100\u1161\u1102\u1173\u11bc\u1112\u1161\u11ab \u1100\u1167\u11af\u1105\u1169\u11ab (2026-08-08)"
+    },
+    {
       "label": "[RAW] \ud575\uc564\uc2ac\ub798\uc2dc \uac8c\uc784 \ub514\uc790\uc778 \uc0c1\uc138 \uc124\uacc4 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4)",
       "source_file": "raw/sources/2026-08-07-hackslash-design-guide-reference.md",
       "id": "raw/sources/2026-08-07-hackslash-design-guide-reference",
-      "community": 5,
+      "community": 15,
       "norm_label": "[raw] \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1100\u1166\u110b\u1175\u11b7 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1109\u1161\u11bc\u1109\u1166 \u1109\u1165\u11af\u1100\u1168 \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173)"
     },
     {
       "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
       "source_file": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
       "id": "raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m",
-      "community": 1,
+      "community": 2,
       "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions.md",
+      "id": "raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions.md",
+      "id": "raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
+    },
+    {
+      "label": "docs/nan2026/final/abyssal-lantern_HongT.mp4 \ud574\uc0c1\ub3c4\ud0a4\uc6b0\uace0 \ud488\uc9c8\uc720\uc9c0\ud574\uc918.",
+      "source_file": "raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "id": "raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "community": 10,
+      "norm_label": "docs/nan2026/final/abyssal-lantern_hongt.mp4 \u1112\u1162\u1109\u1161\u11bc\u1103\u1169\u110f\u1175\u110b\u116e\u1100\u1169 \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1172\u110c\u1175\u1112\u1162\u110c\u116f."
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki.md",
+      "id": "raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki",
+      "community": 9,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "\uc791\uc5c5\uc694\uccad\ub0b4\uc6a9\uc744 \ud655\uc778\ud558\uace0 \ubcd1\ub82c\ub85c\uc9c4\ud589\ud574. \ub9ac\uc18c\uc2a4\ub294 \uc0dd\uc131\ud574\uc11c \uc801\uc6a9\ud558\uc790\u3163",
+      "source_file": "raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt.md",
+      "id": "raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt",
+      "community": 6,
+      "norm_label": "\u110c\u1161\u11a8\u110b\u1165\u11b8\u110b\u116d\u110e\u1165\u11bc\u1102\u1162\u110b\u116d\u11bc\u110b\u1173\u11af \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1107\u1167\u11bc\u1105\u1167\u11af\u1105\u1169\u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1162. \u1105\u1175\u1109\u1169\u1109\u1173\u1102\u1173\u11ab \u1109\u1162\u11bc\u1109\u1165\u11bc\u1112\u1162\u1109\u1165 \u110c\u1165\u11a8\u110b\u116d\u11bc\u1112\u1161\u110c\u1161\u1175"
+    },
+    {
+      "label": "\uae43 \ud480\ub2f9\uae30\uace0",
+      "source_file": "raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt.md",
+      "id": "raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt",
+      "community": 13,
+      "norm_label": "\u1100\u1175\u11ba \u1111\u116e\u11af\u1103\u1161\u11bc\u1100\u1175\u1100\u1169"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki.md",
+      "id": "raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "community": 7,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki.md",
+      "id": "raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "community": 8,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "\uba40\ud2f0\uc5d0\uc774\uc804\ud2b8\ub85c \uc791\uc5c5\ud558\uace0 $wai-play \ud488\uc9c8\uac80\uc0ac\ub97c \ud1b5\ud574 prd \uc218\uc900\uc758 \uac8c\uc784\uc73c\ub85c \uc5f0\ucd9c\ub4f1 \ud488\uc9c8\uc62c\ub9ac\uc790.",
+      "source_file": "raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd.md",
+      "id": "raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd",
+      "community": 11,
+      "norm_label": "\u1106\u1165\u11af\u1110\u1175\u110b\u1166\u110b\u1175\u110c\u1165\u11ab\u1110\u1173\u1105\u1169 \u110c\u1161\u11a8\u110b\u1165\u11b8\u1112\u1161\u1100\u1169 $wai-play \u1111\u116e\u11b7\u110c\u1175\u11af\u1100\u1165\u11b7\u1109\u1161\u1105\u1173\u11af \u1110\u1169\u11bc\u1112\u1162 prd \u1109\u116e\u110c\u116e\u11ab\u110b\u1174 \u1100\u1166\u110b\u1175\u11b7\u110b\u1173\u1105\u1169 \u110b\u1167\u11ab\u110e\u116e\u11af\u1103\u1173\u11bc \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1169\u11af\u1105\u1175\u110c\u1161."
+    },
+    {
+      "label": "jeopi \uc9c4\ud589\uc911\uc774\ub358\ub0b4\uc6a9\ud30c\uc545\ud5e4",
+      "source_file": "raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi.md",
+      "id": "raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi",
+      "community": 12,
+      "norm_label": "jeopi \u110c\u1175\u11ab\u1112\u1162\u11bc\u110c\u116e\u11bc\u110b\u1175\u1103\u1165\u11ab\u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1166"
+    },
+    {
+      "label": "pr \ud655\uc778\ud558\uace0 \uba38\uc9c0\ud6c4, \uae30\ud68d\ubb38\uc11c \ub0b4\uc6a9\ubaa8\ub450 \ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr.md",
+      "id": "raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr",
+      "community": 3,
+      "norm_label": "pr \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1106\u1165\u110c\u1175\u1112\u116e, \u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1102\u1162\u110b\u116d\u11bc\u1106\u1169\u1103\u116e \u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "\uae30\ud68d\ubb38\uc11c\ub0b4\uc6a9\uacfc session_0117Z4X2aUcXLymPw11SkrLN \uc9c4\ud589\ud558\ub358 \ub0b4\uc6a9\ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln.md",
+      "id": "raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln",
+      "community": 1,
+      "norm_label": "\u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165\u1102\u1162\u110b\u116d\u11bc\u1100\u116a session_0117z4x2aucxlympw11skrln \u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1161\u1103\u1165\u11ab \u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "# Overview",
+      "source_file": "raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview.md",
+      "id": "raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview",
+      "community": 5,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "# Overview",
+      "source_file": "raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview.md",
+      "id": "raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview",
+      "community": 4,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "pr \ud655\uc778\ud558\uace0 \uba38\uc9c0\ud6c4, \uae30\ud68d\ubb38\uc11c \ub0b4\uc6a9\ubaa8\ub450 \ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "wiki/queries/2026-08-08-142728-pr.md",
+      "id": "wiki/queries/2026-08-08-142728-pr",
+      "community": 3,
+      "norm_label": "pr \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1106\u1165\u110c\u1175\u1112\u116e, \u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1102\u1162\u110b\u116d\u11bc\u1106\u1169\u1103\u116e \u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "jeopi \uc9c4\ud589\uc911\uc774\ub358\ub0b4\uc6a9\ud30c\uc545\ud5e4",
+      "source_file": "wiki/queries/2026-08-09-013419-jeopi.md",
+      "id": "wiki/queries/2026-08-09-013419-jeopi",
+      "community": 12,
+      "norm_label": "jeopi \u110c\u1175\u11ab\u1112\u1162\u11bc\u110c\u116e\u11bc\u110b\u1175\u1103\u1165\u11ab\u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1166"
+    },
+    {
+      "label": "\uc791\uc5c5\uc694\uccad\ub0b4\uc6a9\uc744 \ud655\uc778\ud558\uace0 \ubcd1\ub82c\ub85c\uc9c4\ud589\ud574. \ub9ac\uc18c\uc2a4\ub294 \uc0dd\uc131\ud574\uc11c \uc801\uc6a9\ud558\uc790\u3163",
+      "source_file": "wiki/queries/2026-08-09-014349-prompt.md",
+      "id": "wiki/queries/2026-08-09-014349-prompt",
+      "community": 6,
+      "norm_label": "\u110c\u1161\u11a8\u110b\u1165\u11b8\u110b\u116d\u110e\u1165\u11bc\u1102\u1162\u110b\u116d\u11bc\u110b\u1173\u11af \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1107\u1167\u11bc\u1105\u1167\u11af\u1105\u1169\u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1162. \u1105\u1175\u1109\u1169\u1109\u1173\u1102\u1173\u11ab \u1109\u1162\u11bc\u1109\u1165\u11bc\u1112\u1162\u1109\u1165 \u110c\u1165\u11a8\u110b\u116d\u11bc\u1112\u1161\u110c\u1161\u1175"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki",
+      "community": 7,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "# Overview",
+      "source_file": "wiki/queries/2026-08-08-233224-overview.md",
+      "id": "wiki/queries/2026-08-08-233224-overview",
+      "community": 5,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "\uae43 \ud480\ub2f9\uae30\uace0",
+      "source_file": "wiki/queries/2026-08-09-052956-prompt.md",
+      "id": "wiki/queries/2026-08-09-052956-prompt",
+      "community": 13,
+      "norm_label": "\u1100\u1175\u11ba \u1111\u116e\u11af\u1103\u1161\u11bc\u1100\u1175\u1100\u1169"
+    },
+    {
+      "label": "docs/nan2026/final/abyssal-lantern_HongT.mp4 \ud574\uc0c1\ub3c4\ud0a4\uc6b0\uace0 \ud488\uc9c8\uc720\uc9c0\ud574\uc918.",
+      "source_file": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "id": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "community": 10,
+      "norm_label": "docs/nan2026/final/abyssal-lantern_hongt.mp4 \u1112\u1162\u1109\u1161\u11bc\u1103\u1169\u110f\u1175\u110b\u116e\u1100\u1169 \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1172\u110c\u1175\u1112\u1162\u110c\u116f."
+    },
+    {
+      "label": "\uae30\ud68d\ubb38\uc11c\ub0b4\uc6a9\uacfc session_0117Z4X2aUcXLymPw11SkrLN \uc9c4\ud589\ud558\ub358 \ub0b4\uc6a9\ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln.md",
+      "id": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln",
+      "community": 1,
+      "norm_label": "\u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165\u1102\u1162\u110b\u116d\u11bc\u1100\u116a session_0117z4x2aucxlympw11skrln \u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1161\u1103\u1165\u11ab \u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "wiki/queries/2026-08-07-133230-system-instructions.md",
+      "id": "wiki/queries/2026-08-07-133230-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "wiki/queries/2026-08-07-133343-system-instructions.md",
+      "id": "wiki/queries/2026-08-07-133343-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
     },
     {
       "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
       "source_file": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
       "id": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
-      "community": 1,
+      "community": 2,
       "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "# Overview",
+      "source_file": "wiki/queries/2026-08-08-142733-overview.md",
+      "id": "wiki/queries/2026-08-08-142733-overview",
+      "community": 4,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "\uba40\ud2f0\uc5d0\uc774\uc804\ud2b8\ub85c \uc791\uc5c5\ud558\uace0 $wai-play \ud488\uc9c8\uac80\uc0ac\ub97c \ud1b5\ud574 prd \uc218\uc900\uc758 \uac8c\uc784\uc73c\ub85c \uc5f0\ucd9c\ub4f1 \ud488\uc9c8\uc62c\ub9ac\uc790.",
+      "source_file": "wiki/queries/2026-08-09-052925-wai-play-prd.md",
+      "id": "wiki/queries/2026-08-09-052925-wai-play-prd",
+      "community": 11,
+      "norm_label": "\u1106\u1165\u11af\u1110\u1175\u110b\u1166\u110b\u1175\u110c\u1165\u11ab\u1110\u1173\u1105\u1169 \u110c\u1161\u11a8\u110b\u1165\u11b8\u1112\u1161\u1100\u1169 $wai-play \u1111\u116e\u11b7\u110c\u1175\u11af\u1100\u1165\u11b7\u1109\u1161\u1105\u1173\u11af \u1110\u1169\u11bc\u1112\u1162 prd \u1109\u116e\u110c\u116e\u11ab\u110b\u1174 \u1100\u1166\u110b\u1175\u11b7\u110b\u1173\u1105\u1169 \u110b\u1167\u11ab\u110e\u116e\u11af\u1103\u1173\u11bc \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1169\u11af\u1105\u1175\u110c\u1161."
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki",
+      "community": 9,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki",
+      "community": 8,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
     },
     {
       "label": "HongT \u2014 AMENDMENT #12 \ub358\uc804 \ud658\uacbd: \"\ube48 \ud654\uba74\"\uc758 \uc9c4\uc9dc \uc6d0\uc778\uacfc \ub9c1 \uc544\ud0a4\ud14d\ucc98",
       "source_file": "wiki/concepts/hongt-environment-amendment-12.md",
       "id": "wiki/concepts/hongt-environment-amendment-12",
-      "community": 3,
+      "community": 0,
       "norm_label": "hongt \u2014 amendment #12 \u1103\u1165\u11ab\u110c\u1165\u11ab \u1112\u116a\u11ab\u1100\u1167\u11bc: \"\u1107\u1175\u11ab \u1112\u116a\u1106\u1167\u11ab\"\u110b\u1174 \u110c\u1175\u11ab\u110d\u1161 \u110b\u116f\u11ab\u110b\u1175\u11ab\u1100\u116a \u1105\u1175\u11bc \u110b\u1161\u110f\u1175\u1110\u1166\u11a8\u110e\u1165"
     },
     {
@@ -60,11 +263,11 @@
       "norm_label": "hongt \u2014 amendment #9 momentum gauge: scoping a buff so the frozen contract survives"
     },
     {
-      "label": "\uc9c4\uacf5 \uac8c\uc774\ud2b8\uc640 \uc0c1\uc1c4\ub418\ub294 \uc2a4\ucf00\uc77c \u2014 \uae30\ubbf9 \uc9c0\ud615 \uac00\uad6c\uc5d0\uc11c \ubc30\uc6b4 4\uac00\uc9c0",
+      "label": "\uc9c4\uacf5 \uac8c\uc774\ud2b8\uc640 \uc0c1\uc1c4\ub418\ub294 \uc2a4\ucf00\uc77c \u2014 \uae30\ubbf9 \uc9c0\ud615 \uac00\uad6c\uc5d0\uc11c \ubc30\uc6b4 7\uac00\uc9c0",
       "source_file": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale.md",
       "id": "wiki/concepts/hongt-vacuous-gate-and-cancelled-scale",
-      "community": 3,
-      "norm_label": "\u110c\u1175\u11ab\u1100\u1169\u11bc \u1100\u1166\u110b\u1175\u1110\u1173\u110b\u116a \u1109\u1161\u11bc\u1109\u116b\u1103\u116c\u1102\u1173\u11ab \u1109\u1173\u110f\u1166\u110b\u1175\u11af \u2014 \u1100\u1175\u1106\u1175\u11a8 \u110c\u1175\u1112\u1167\u11bc \u1100\u1161\u1100\u116e\u110b\u1166\u1109\u1165 \u1107\u1162\u110b\u116e\u11ab 4\u1100\u1161\u110c\u1175"
+      "community": 0,
+      "norm_label": "\u110c\u1175\u11ab\u1100\u1169\u11bc \u1100\u1166\u110b\u1175\u1110\u1173\u110b\u116a \u1109\u1161\u11bc\u1109\u116b\u1103\u116c\u1102\u1173\u11ab \u1109\u1173\u110f\u1166\u110b\u1175\u11af \u2014 \u1100\u1175\u1106\u1175\u11a8 \u110c\u1175\u1112\u1167\u11bc \u1100\u1161\u1100\u116e\u110b\u1166\u1109\u1165 \u1107\u1162\u110b\u116e\u11ab 7\u1100\u1161\u110c\u1175"
     },
     {
       "label": "HongT \u2014 AMENDMENT #8 companion signature skills: what the gates had to be",
@@ -77,7 +280,7 @@
       "label": "HongT \u2014 \uacb0\uc815\ub860 \uc2ec \ud14c\uc2a4\ud2b8\uc5d0\uc11c \ubc18\ubcf5 \uc7ac\ud604\ub418\ub294 \"\uc575\ucee4 \uc624\ud504\ubc14\uc774\uc6d0\" \ud568\uc815",
       "source_file": "wiki/concepts/hongt-companion-autonomy-tick-order-trap.md",
       "id": "wiki/concepts/hongt-companion-autonomy-tick-order-trap",
-      "community": 2,
+      "community": 0,
       "norm_label": "hongt \u2014 \u1100\u1167\u11af\u110c\u1165\u11bc\u1105\u1169\u11ab \u1109\u1175\u11b7 \u1110\u1166\u1109\u1173\u1110\u1173\u110b\u1166\u1109\u1165 \u1107\u1161\u11ab\u1107\u1169\u11a8 \u110c\u1162\u1112\u1167\u11ab\u1103\u116c\u1102\u1173\u11ab \"\u110b\u1162\u11bc\u110f\u1165 \u110b\u1169\u1111\u1173\u1107\u1161\u110b\u1175\u110b\u116f\u11ab\" \u1112\u1161\u11b7\u110c\u1165\u11bc"
     },
     {
@@ -88,17 +291,115 @@
       "norm_label": "\u110b\u1169\u1105\u1162 \u1107\u1161\u11bc\u110e\u1175\u1103\u116c\u11ab \u1107\u1173\u1105\u1162\u11ab\u110e\u1175\u1102\u1173\u11ab \"\u110e\u116e\u11bc\u1103\u1169\u11af \u110b\u1165\u11b9\u110b\u1175\" \u1107\u1167\u11bc\u1112\u1161\u11b8\u1103\u116c\u1106\u1167\u11ab\u1109\u1165 \u1100\u1165\u110c\u1175\u11ba\u1106\u1161\u11af\u110b\u1173\u11af \u1103\u1173\u11af\u110b\u1167\u110b\u1169\u11ab\u1103\u1161"
     },
     {
+      "label": "pr \ud655\uc778\ud558\uace0 \uba38\uc9c0\ud6c4, \uae30\ud68d\ubb38\uc11c \ub0b4\uc6a9\ubaa8\ub450 \ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "wiki/sources/2026-08-08-142728-pr.md",
+      "id": "wiki/sources/2026-08-08-142728-pr",
+      "community": 3,
+      "norm_label": "pr \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1106\u1165\u110c\u1175\u1112\u116e, \u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1102\u1162\u110b\u116d\u11bc\u1106\u1169\u1103\u116e \u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "jeopi \uc9c4\ud589\uc911\uc774\ub358\ub0b4\uc6a9\ud30c\uc545\ud5e4",
+      "source_file": "wiki/sources/2026-08-09-013419-jeopi.md",
+      "id": "wiki/sources/2026-08-09-013419-jeopi",
+      "community": 12,
+      "norm_label": "jeopi \u110c\u1175\u11ab\u1112\u1162\u11bc\u110c\u116e\u11bc\u110b\u1175\u1103\u1165\u11ab\u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1166"
+    },
+    {
+      "label": "\uc791\uc5c5\uc694\uccad\ub0b4\uc6a9\uc744 \ud655\uc778\ud558\uace0 \ubcd1\ub82c\ub85c\uc9c4\ud589\ud574. \ub9ac\uc18c\uc2a4\ub294 \uc0dd\uc131\ud574\uc11c \uc801\uc6a9\ud558\uc790\u3163",
+      "source_file": "wiki/sources/2026-08-09-014349-prompt.md",
+      "id": "wiki/sources/2026-08-09-014349-prompt",
+      "community": 6,
+      "norm_label": "\u110c\u1161\u11a8\u110b\u1165\u11b8\u110b\u116d\u110e\u1165\u11bc\u1102\u1162\u110b\u116d\u11bc\u110b\u1173\u11af \u1112\u116a\u11a8\u110b\u1175\u11ab\u1112\u1161\u1100\u1169 \u1107\u1167\u11bc\u1105\u1167\u11af\u1105\u1169\u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1162. \u1105\u1175\u1109\u1169\u1109\u1173\u1102\u1173\u11ab \u1109\u1162\u11bc\u1109\u1165\u11bc\u1112\u1162\u1109\u1165 \u110c\u1165\u11a8\u110b\u116d\u11bc\u1112\u1161\u110c\u1161\u1175"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki",
+      "community": 7,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "# Overview",
+      "source_file": "wiki/sources/2026-08-08-233224-overview.md",
+      "id": "wiki/sources/2026-08-08-233224-overview",
+      "community": 5,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "\uae43 \ud480\ub2f9\uae30\uace0",
+      "source_file": "wiki/sources/2026-08-09-052956-prompt.md",
+      "id": "wiki/sources/2026-08-09-052956-prompt",
+      "community": 13,
+      "norm_label": "\u1100\u1175\u11ba \u1111\u116e\u11af\u1103\u1161\u11bc\u1100\u1175\u1100\u1169"
+    },
+    {
+      "label": "docs/nan2026/final/abyssal-lantern_HongT.mp4 \ud574\uc0c1\ub3c4\ud0a4\uc6b0\uace0 \ud488\uc9c8\uc720\uc9c0\ud574\uc918.",
+      "source_file": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "id": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "community": 10,
+      "norm_label": "docs/nan2026/final/abyssal-lantern_hongt.mp4 \u1112\u1162\u1109\u1161\u11bc\u1103\u1169\u110f\u1175\u110b\u116e\u1100\u1169 \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1172\u110c\u1175\u1112\u1162\u110c\u116f."
+    },
+    {
+      "label": "\uae30\ud68d\ubb38\uc11c\ub0b4\uc6a9\uacfc session_0117Z4X2aUcXLymPw11SkrLN \uc9c4\ud589\ud558\ub358 \ub0b4\uc6a9\ud30c\uc545\ud574\uc11c \uc54c\ub824\uc918",
+      "source_file": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln.md",
+      "id": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln",
+      "community": 1,
+      "norm_label": "\u1100\u1175\u1112\u116c\u11a8\u1106\u116e\u11ab\u1109\u1165\u1102\u1162\u110b\u116d\u11bc\u1100\u116a session_0117z4x2aucxlympw11skrln \u110c\u1175\u11ab\u1112\u1162\u11bc\u1112\u1161\u1103\u1165\u11ab \u1102\u1162\u110b\u116d\u11bc\u1111\u1161\u110b\u1161\u11a8\u1112\u1162\u1109\u1165 \u110b\u1161\u11af\u1105\u1167\u110c\u116f"
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "wiki/sources/2026-08-07-133230-system-instructions.md",
+      "id": "wiki/sources/2026-08-07-133230-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
+    },
+    {
+      "label": "## System Instructions",
+      "source_file": "wiki/sources/2026-08-07-133343-system-instructions.md",
+      "id": "wiki/sources/2026-08-07-133343-system-instructions",
+      "community": 1,
+      "norm_label": "## system instructions"
+    },
+    {
       "label": "Worktree: /Users/jangyoung/orca/workspaces/HongT/main (Unity project). You own\u2026",
       "source_file": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
       "id": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
-      "community": 1,
+      "community": 2,
       "norm_label": "worktree: /users/jangyoung/orca/workspaces/hongt/main (unity project). you own..."
+    },
+    {
+      "label": "# Overview",
+      "source_file": "wiki/sources/2026-08-08-142733-overview.md",
+      "id": "wiki/sources/2026-08-08-142733-overview",
+      "community": 4,
+      "norm_label": "# overview"
+    },
+    {
+      "label": "\uba40\ud2f0\uc5d0\uc774\uc804\ud2b8\ub85c \uc791\uc5c5\ud558\uace0 $wai-play \ud488\uc9c8\uac80\uc0ac\ub97c \ud1b5\ud574 prd \uc218\uc900\uc758 \uac8c\uc784\uc73c\ub85c \uc5f0\ucd9c\ub4f1 \ud488\uc9c8\uc62c\ub9ac\uc790.",
+      "source_file": "wiki/sources/2026-08-09-052925-wai-play-prd.md",
+      "id": "wiki/sources/2026-08-09-052925-wai-play-prd",
+      "community": 11,
+      "norm_label": "\u1106\u1165\u11af\u1110\u1175\u110b\u1166\u110b\u1175\u110c\u1165\u11ab\u1110\u1173\u1105\u1169 \u110c\u1161\u11a8\u110b\u1165\u11b8\u1112\u1161\u1100\u1169 $wai-play \u1111\u116e\u11b7\u110c\u1175\u11af\u1100\u1165\u11b7\u1109\u1161\u1105\u1173\u11af \u1110\u1169\u11bc\u1112\u1162 prd \u1109\u116e\u110c\u116e\u11ab\u110b\u1174 \u1100\u1166\u110b\u1175\u11b7\u110b\u1173\u1105\u1169 \u110b\u1167\u11ab\u110e\u116e\u11af\u1103\u1173\u11bc \u1111\u116e\u11b7\u110c\u1175\u11af\u110b\u1169\u11af\u1105\u1175\u110c\u1161."
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki",
+      "community": 9,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
+    },
+    {
+      "label": "subagent \uc774\uc6a9\ud574. $game-studio-harness \uaddc\uce59\ubb38\uc11c \ud30c\uc545\ud558\uace0 llm-wiki \uc5c5\ub370\uc774\ud2b8 \ub4f1\uc758 \uaddc \u2502",
+      "source_file": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki.md",
+      "id": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki",
+      "community": 8,
+      "norm_label": "subagent \u110b\u1175\u110b\u116d\u11bc\u1112\u1162. $game-studio-harness \u1100\u1172\u110e\u1175\u11a8\u1106\u116e\u11ab\u1109\u1165 \u1111\u1161\u110b\u1161\u11a8\u1112\u1161\u1100\u1169 llm-wiki \u110b\u1165\u11b8\u1103\u1166\u110b\u1175\u1110\u1173 \u1103\u1173\u11bc\u110b\u1174 \u1100\u1172 \u2502"
     },
     {
       "label": "\uc18c\uc2a4: \ud575\uc564\uc2ac\ub798\uc2dc \ub514\uc790\uc778 \uac00\uc774\ub4dc (\uc678\ubd80 \ub808\ud37c\ub7f0\uc2a4, 2026-08-07)",
       "source_file": "wiki/sources/2026-08-07-hackslash-design-guide-reference.md",
       "id": "wiki/sources/2026-08-07-hackslash-design-guide-reference",
-      "community": 2,
+      "community": 0,
       "norm_label": "\u1109\u1169\u1109\u1173: \u1112\u1162\u11a8\u110b\u1162\u11ab\u1109\u1173\u11af\u1105\u1162\u1109\u1175 \u1103\u1175\u110c\u1161\u110b\u1175\u11ab \u1100\u1161\u110b\u1175\u1103\u1173 (\u110b\u116c\u1107\u116e \u1105\u1166\u1111\u1165\u1105\u1165\u11ab\u1109\u1173, 2026-08-07)"
     },
     {
@@ -109,14 +410,406 @@
       "norm_label": "hongt \u2014 \u1106\u1167\u11bc\u1105\u1167\u11bc \u110b\u1166\u110b\u1175\u110c\u1165\u11ab\u1110\u1173 (\u1110\u1166\u11a8\u1109\u1173\u1110\u1173 \u110f\u1165\u1106\u1162\u11ab\u1103\u1173 \u2192 \u1109\u116e\u11ab\u110e\u1161 \u1109\u1175\u11af\u1112\u1162\u11bc)"
     },
     {
+      "label": "HongT WebGL shell centering fix (2026-08-09)",
+      "source_file": "wiki/reports/2026-08-09-hongt-webgl-shell-centering.md",
+      "id": "wiki/reports/2026-08-09-hongt-webgl-shell-centering",
+      "community": 16,
+      "norm_label": "hongt webgl shell centering fix (2026-08-09)"
+    },
+    {
       "label": "\uae30\ud68d-\uad6c\ud604 \ub300\uc870 \uac10\uc0ac \uc885\ud569 (2026-08-07)",
       "source_file": "wiki/reports/2026-08-07-spec-vs-impl-audit.md",
       "id": "wiki/reports/2026-08-07-spec-vs-impl-audit",
-      "community": 2,
+      "community": 0,
       "norm_label": "\u1100\u1175\u1112\u116c\u11a8-\u1100\u116e\u1112\u1167\u11ab \u1103\u1162\u110c\u1169 \u1100\u1161\u11b7\u1109\u1161 \u110c\u1169\u11bc\u1112\u1161\u11b8 (2026-08-07)"
+    },
+    {
+      "label": "HongT NAN video sidecar repair (2026-08-09)",
+      "source_file": "wiki/reports/2026-08-09-hongt-nan-video-sidecar-repair.md",
+      "id": "wiki/reports/2026-08-09-hongt-nan-video-sidecar-repair",
+      "community": 0,
+      "norm_label": "hongt nan video sidecar repair (2026-08-09)"
     }
   ],
   "links": [
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/sources/2026-08-09-052956-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "log.md",
+      "source": "log",
+      "target": "wiki/queries/2026-08-09-052956-prompt"
+    },
     {
       "relation": "links_to",
       "weight": 1.0,
@@ -214,7 +907,268 @@
       "confidence_score": 1.0,
       "source_file": "index.md",
       "source": "index",
+      "target": "wiki/reports/2026-08-09-hongt-nan-video-sidecar-repair"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
       "target": "wiki/reports/2026-08-07-spec-vs-impl-audit"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/sources/2026-08-09-052956-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "index.md",
+      "source": "index",
+      "target": "wiki/queries/2026-08-09-052956-prompt"
     },
     {
       "relation": "links_to",
@@ -230,9 +1184,387 @@
       "weight": 1.0,
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-07-133230-system-instructions.md",
+      "source": "raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions",
+      "target": "wiki/queries/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-07-133230-system-instructions.md",
+      "source": "raw/sources/prompts/2026/08/07/133230-019fdc6c-aa8-system-instructions",
+      "target": "wiki/sources/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-07-133343-system-instructions.md",
+      "source": "raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions",
+      "target": "wiki/queries/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-07-133343-system-instructions.md",
+      "source": "raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions",
+      "target": "wiki/sources/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "source": "raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "target": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "source": "raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "target": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-014349-prompt.md",
+      "source": "raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt",
+      "target": "wiki/queries/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-014349-prompt.md",
+      "source": "raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt",
+      "target": "wiki/sources/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-052956-prompt.md",
+      "source": "raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt",
+      "target": "wiki/queries/2026-08-09-052956-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-052956-prompt.md",
+      "source": "raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt",
+      "target": "wiki/sources/2026-08-09-052956-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki.md",
+      "source": "raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-052925-wai-play-prd.md",
+      "source": "raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd",
+      "target": "wiki/queries/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-052925-wai-play-prd.md",
+      "source": "raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd",
+      "target": "wiki/sources/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-09-013419-jeopi.md",
+      "source": "raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi",
+      "target": "wiki/queries/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-013419-jeopi.md",
+      "source": "raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi",
+      "target": "wiki/sources/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-08-142728-pr.md",
+      "source": "raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr",
+      "target": "wiki/queries/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-142728-pr.md",
+      "source": "raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr",
+      "target": "wiki/sources/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln.md",
+      "source": "raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln",
+      "target": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln.md",
+      "source": "raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln",
+      "target": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-08-233224-overview.md",
+      "source": "raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview",
+      "target": "wiki/queries/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-233224-overview.md",
+      "source": "raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview",
+      "target": "wiki/sources/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/queries/2026-08-08-142733-overview.md",
+      "source": "raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview",
+      "target": "wiki/queries/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-142733-overview.md",
+      "source": "raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview",
+      "target": "wiki/sources/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-142728-pr.md",
+      "source": "wiki/queries/2026-08-08-142728-pr",
+      "target": "wiki/sources/2026-08-08-142728-pr"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-013419-jeopi.md",
+      "source": "wiki/queries/2026-08-09-013419-jeopi",
+      "target": "wiki/sources/2026-08-09-013419-jeopi"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-014349-prompt.md",
+      "source": "wiki/queries/2026-08-09-014349-prompt",
+      "target": "wiki/sources/2026-08-09-014349-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md",
+      "source": "wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-233224-overview.md",
+      "source": "wiki/queries/2026-08-08-233224-overview",
+      "target": "wiki/sources/2026-08-08-233224-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-052956-prompt.md",
+      "source": "wiki/queries/2026-08-09-052956-prompt",
+      "target": "wiki/sources/2026-08-09-052956-prompt"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md",
+      "source": "wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4",
+      "target": "wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln.md",
+      "source": "wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln",
+      "target": "wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-07-133230-system-instructions.md",
+      "source": "wiki/queries/2026-08-07-133230-system-instructions",
+      "target": "wiki/sources/2026-08-07-133230-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-07-133343-system-instructions.md",
+      "source": "wiki/queries/2026-08-07-133343-system-instructions",
+      "target": "wiki/sources/2026-08-07-133343-system-instructions"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md",
       "source": "wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m",
       "target": "wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-08-142733-overview.md",
+      "source": "wiki/queries/2026-08-08-142733-overview",
+      "target": "wiki/sources/2026-08-08-142733-overview"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-052925-wai-play-prd.md",
+      "source": "wiki/queries/2026-08-09-052925-wai-play-prd",
+      "target": "wiki/sources/2026-08-09-052925-wai-play-prd"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki.md",
+      "source": "wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki"
+    },
+    {
+      "relation": "links_to",
+      "weight": 1.0,
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki.md",
+      "source": "wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki",
+      "target": "wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki"
     },
     {
       "relation": "links_to",
@@ -272,5 +1604,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "4038040e70f09e41d217b27191dc3d79b49e7831"
+  "built_at_commit": "ef1e3ccdea94c688ca6ac221243428e37728ff6a"
 }

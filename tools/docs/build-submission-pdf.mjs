@@ -94,7 +94,7 @@ function build({ id, file }) {
     "-o", out,
     "--pdf-engine=xelatex",
     "--from=markdown+yaml_metadata_block+pipe_tables+backtick_code_blocks+implicit_figures",
-    "--resource-path", BUILD_DIR,
+    "--resource-path", [BUILD_DIR, SRC_DIR].join(path.delimiter),
   ];
   if (fs.existsSync(header)) args.push("-H", header);
   args.push(

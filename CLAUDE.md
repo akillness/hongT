@@ -56,7 +56,24 @@ relic +250 점수, 수명 12 s, 자력 78. 아이소 거리 `hypot(dx, dy*1.42)`
 | 2D 스프라이트/시트 | perfectpixel | `ppgen -provider god-tibo-imagen -desc "..." -json` |
 | 3D 리스킨/애니메이션 | Blender 5.x headless | `blender -b -P tools/blender/<script>.py -- ...` |
 | SFX | ElevenLabs sound-generation API | `python3 tools/audio/gen_sfx.py` (키: env `ELEVENLABS_API_KEY`, 커밋 금지) |
+| BGM | ElevenLabs Music API | `python3 tools/audio/gen_bgm.py` (같은 키) |
+| **VO(스토리 내레이션)** | **Higgsfield `inworld_text_to_speech`** | `python3 tools/audio/gen_voice.py --all` (키: `higgsfield auth login`) |
+| **연출 스틸/시네마틱 프레임** | **Higgsfield `nano_banana_flash`** | `higgsfield generate create nano_banana_flash --prompt "..." --image <ref-id>` → ffmpeg 조립 |
 
+**2026-08-09 개정.** 두 행이 추가됐고 이유가 각각 다르다.
+
+- **VO는 지시 변경**이다. 2026-08-04 지시는 "SFX + BGM만, 음성 내레이션 금지"였고,
+  2026-08-09 사용자가 *"연출용 영상, 음성, 사운드등도 추가해"*로 개정했다. 개정 범위는
+  **스토리 내레이션 한정**이다 — cue-* 효과음 프롬프트는 여전히 vocals를 금지한다.
+  효과음에 목소리를 구워 넣으면 따로 음소거·더킹·번역할 수 없기 때문이다.
+- **연출 스틸이 god-tibo-imagen이 아닌 이유는 능력 차이**다. `gti`의 codex-cli
+  프로바이더는 **이미지 입력을 거부**한다(`docs/provenance/intro-video.json`
+  frames.provider_findings). 그래서 인트로 릴 beat 6은 텍스트 STYLE 접미사만으로
+  일관성을 유지하려다 피사체가 과일처럼 읽혀 컷됐다. nano_banana_flash는 참조
+  이미지를 받으므로 같은 beat가 한 번에 통과했다. **참조가 필요 없는 신규 컨셉은
+  계속 gti를 쓴다** — 이 행은 gti를 대체하지 않는다.
+- ElevenLabs 키는 **2026-08-09 기준 HTTP 401**이다. SFX/BGM 파이프라인은 키가
+  갱신될 때까지 실행 불가이며, VO가 Higgsfield로 간 직접적 이유이기도 하다.
 - 캐릭터 스키닝 계약: 소스 메시(Abyssal-Surge 모션 라이브러리)를
   **mixamo 표준 휴머노이드 스켈레톤에 자동 웨이트로 재바인딩**하고 FBX로
   내보낸 뒤 Unity Humanoid 아바타로 리타겟한다. 원작의 절차적 영역분할

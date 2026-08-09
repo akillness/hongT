@@ -28,16 +28,17 @@ lang: ko
 
 ## 0.1 기존 산출물에 대한 판단 필요
 
-`docs/nan2026/assets/video/nan2026-cinder-court-unity-play.mp4` (58초)가 이미
-있으나, `tools/video/capture-unity-play.mjs`로 **Playwright가 키 입력을 대신
-넣어** 캡처한 것이다 — `[OBSERVED]` 같은 파일 L99·L115·L169-173
-(`page.keyboard.press` / `page.keyboard.type`).
+`docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4` (55.00초)는
+최종 로컬 WebGL 후보를 실제 Chromium에서 렌더링했지만,
+`tools/video/capture-unity-play.mjs`로 **Playwright가 키 입력을 대신 넣어**
+캡처한 것이다. 동반 JSON은 로컬 빌드 ID `e853ef3b27239fab`, 입력 횟수, SHA-256,
+브라우저 오류를 기록한다.
 
-- `[OBSERVED]` 렌더링은 실제 게임 화면이고 합성·재생성은 없다(스크립트 주석 L5-7).
+- `[OBSERVED]` 렌더링은 실제 게임 화면이고 합성·재생성은 없다(스크립트 주석 L3-8).
 - `[INFERENCE]` 그러나 "AI를 이용한 조작"의 해석 여지가 있다. 자동화 스크립트가
   입력을 넣은 영상을 "실제 플레이"로 볼지는 심사자 재량이다.
 - `[TARGET]` **사람이 직접 손으로 플레이한 테이크로 교체한다.** 이 대본은 그
-  전제로 쓰였다. 기존 영상은 폐기하지 말고 백업으로 남긴다.
+  전제로 쓰였다. 자동화 영상은 기술 검증 증적으로 보존하되 제출하지 않는다.
 
 ---
 

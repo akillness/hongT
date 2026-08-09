@@ -77,6 +77,7 @@ namespace CinderCourt.View
             _hud.OnEmberRestOfferSelected = SelectEmberRestOffer;
             _hud.OnEmberRestDeferred = DeferEmberRest;
             _hud.OnEmberRestContinue = ContinueFromEmberRest;
+            _hud.OnEmberRestReturnHome = ReturnFromEmberRest;
             // Marking happens on DISMISS, never on show: a card the player never
             // read must not be consumed (a run can end with one up).
             _hud.OnGuidanceDismissed = MarkGuidanceSeen;
@@ -127,7 +128,15 @@ namespace CinderCourt.View
         {
             _state = State.Lobby;
             ClearEmberRestRoute();
-            if (_audio != null) _audio.SetBgmContext("lobby");   // W12
+            if (_audio != null)
+            {
+                // §4o: a surface that holds the run comes down when the run
+                // does. EnterLobby is where death, abandon and clear all
+                // converge (the bed swap below proves it), so stopping VO here
+                // covers every exit without a per-path list that can rot.
+                _audio.StopVoice();
+                _audio.SetBgmContext("lobby");   // W12
+            }
             if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
             SetStageTerrain(null);        // back to the base court plate
             ApplyStageDressing(null);
@@ -531,7 +540,15 @@ namespace CinderCourt.View
             if (_audio != null) _audio.SetBgmContext("stage");
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
-                _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
+            {
+                // The watcher's opening is the one story beat that does NOT go
+                // through DispatchStory — it fires here, over the cutscene, so
+                // its VO has to be cued here too or the most 연출-heavy moment
+                // in the run is the only silent one. VO first: its length sets
+                // the bubble hold (see VoiceHold).
+                var hold = VoiceHold(entry.StoryKey, StoryCatalog.StageStart);
+                _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f), hold);
+            }
         }
 
         // Cached per stage id: Resources.Load on a miss is not free, and this
@@ -642,6 +659,11 @@ namespace CinderCourt.View
             _emberRestDecisionMade = false;
             _hud.HideEmberRest();
             StartDungeon(nextStageId, preparation);
+        }
+
+        void ReturnFromEmberRest()
+        {
+            ReturnToLobby();
         }
 
         void ClearEmberRestRoute()
@@ -1074,44 +1096,56 @@ namespace CinderCourt.View
 
         void PersistDungeonClear(ICinderSim sim)
         {
-            if (!StageCatalog.TryGet(_runStageId, out var entry)) return;
-            StageCatalog.MarkCleared(ref _data, in entry, out var firstClear);
+            BankDungeonClear(ref _data, _runStageId, _runWasPact, sim);
+        }
+
+        /// <summary>Single settlement authority shared by the live callback and
+        /// deterministic economy evidence. It mutates only persisted campaign
+        /// data; the simulation snapshot remains read-only.</summary>
+        internal static void BankDungeonClear(
+            ref CampaignData data,
+            string stageId,
+            bool pact,
+            ICinderSim sim)
+        {
+            if (!StageCatalog.TryGet(stageId, out var entry)) return;
+            StageCatalog.MarkCleared(ref data, in entry, out var firstClear);
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
-            _data.Points += firstClear ? 3 : 2;
+            data.Points += firstClear ? 3 : 2;
             // v1.3 M3 (entry 5): pact clear pays sim.Relics × 2 — the ONLY
             // doubled term. First-clear bonus stays single (agreed 비중복);
             // in practice the pact toggle only exists on cleared cards, so a
             // pact run's firstClear is false unless a QA deep link races the
             // toggle — the bonus line below stays independent either way.
-            _data.Relics += _runWasPact ? sim.Relics * PactRelicMultiplier : sim.Relics;
+            data.Relics += pact ? sim.Relics * PactRelicMultiplier : sim.Relics;
             // Cycle-2 first-clear relic bonus (negotiation-record entry 1,
             // signed designer+pm): view-side grant, sim untouched. One-time —
             // gated on firstClear like the companion reward below.
-            if (firstClear) _data.Relics += FirstClearRelicBonus(entry.Id);
+            if (firstClear) data.Relics += FirstClearRelicBonus(entry.Id);
 
             // Equipment ranks earned in-run become the new baseline (§6 path a).
             var campaign = sim as ICampaignSnapshot;
             if (campaign != null)
             {
-                _data.Weapon = Mathf.Max(_data.Weapon, campaign.WeaponRank);
-                _data.Lantern = Mathf.Max(_data.Lantern, campaign.LanternRank);
-                _data.Cloak = Mathf.Max(_data.Cloak, campaign.CloakRank);
+                data.Weapon = Mathf.Max(data.Weapon, campaign.WeaponRank);
+                data.Lantern = Mathf.Max(data.Lantern, campaign.LanternRank);
+                data.Cloak = Mathf.Max(data.Cloak, campaign.CloakRank);
             }
 
             // Only base stages retain their established companion rewards.
             if (firstClear && !string.IsNullOrEmpty(entry.CompanionReward))
             {
-                AddToRoster(entry.CompanionReward);
-                if (_data.ActiveSlots == null || _data.ActiveSlots.Length == 0)
+                AddToRoster(ref data, entry.CompanionReward);
+                if (data.ActiveSlots == null || data.ActiveSlots.Length == 0)
                 {
-                    _data.Active = entry.CompanionReward;
-                    _data.ActiveSlots = new[] { entry.CompanionReward };
+                    data.Active = entry.CompanionReward;
+                    data.ActiveSlots = new[] { entry.CompanionReward };
                 }
 
             }
 
             var hack = sim as IHackSnapshot;
-            if (hack != null) MergeRoster(hack.RosterMask);
+            if (hack != null) MergeRoster(ref data, hack.RosterMask);
         }
 
         /// <summary>
@@ -1133,6 +1167,11 @@ namespace CinderCourt.View
 
         void MergeRoster(int rosterMask)
         {
+            MergeRoster(ref _data, rosterMask);
+        }
+
+        static void MergeRoster(ref CampaignData data, int rosterMask)
+        {
             for (var visual = 0; visual < 4; visual++)
             {
                 if ((rosterMask & (1 << visual)) == 0) continue;
@@ -1143,22 +1182,52 @@ namespace CinderCourt.View
                     (int)EnemyVisual.Possessed => "possessed",
                     _ => "ember-cohort",
                 };
-                AddToRoster(baseId + "-echo");
+                AddToRoster(ref data, baseId + "-echo");
             }
         }
 
         void AddToRoster(string id)
         {
-            var roster = _data.Roster ?? new string[0];
+            AddToRoster(ref _data, id);
+        }
+
+        static void AddToRoster(ref CampaignData data, string id)
+        {
+            var roster = data.Roster ?? new string[0];
             for (var i = 0; i < roster.Length; i++)
                 if (roster[i] == id) return;
             var grown = new string[roster.Length + 1];
             for (var i = 0; i < roster.Length; i++) grown[i] = roster[i];
             grown[roster.Length] = id;
-            _data.Roster = grown;
+            data.Roster = grown;
         }
 
         // ------------------------------------------------------------- story --
+        // VO (2026-08-09 amendment) rides ALONGSIDE the existing text, never
+        // instead of it: every PlayVoice below sits next to the _speech.Show
+        // that already puts the same line on screen, so a build with no VO
+        // assets is exactly the build that shipped yesterday.
+        //
+        // Keys are stage+beat, not beat alone. A generic "bossEntry" clip would
+        // speak one stage's line over another stage's subtitle — the two
+        // sources would contradict each other on screen (§4i). Composing the
+        // key means an unrecorded beat resolves to a missing clip and stays
+        // silent, which is the additive contract, while a recorded one always
+        // matches the text beside it.
+        static string VoiceKey(string storyKey, string beatKind)
+            => storyKey + "-" + beatKind;
+
+        /// <summary>
+        /// Cue a beat's narration and report how long the bubble must stay up.
+        /// SpeechBubbleView's own hold is paced for READING (~17 chars/s); the
+        /// TTS speaks at ~7, so an unadjusted bubble vanishes up to 1.74 s
+        /// before its own voice finishes [MEASURED, docs/provenance/voice.json].
+        /// Returns 0 when nothing plays, which is exactly the value Show treats
+        /// as "use your own formula" — so a build with no VO behaves as before.
+        /// </summary>
+        float VoiceHold(string storyKey, string beatKind)
+            => _audio == null ? 0f : _audio.PlayVoice(VoiceKey(storyKey, beatKind));
+
         void DispatchStory(SimEvents events, ICinderSim sim)
         {
             var storyKey = StageCatalog.TryGet(_runStageId, out var stage)
@@ -1170,7 +1239,9 @@ namespace CinderCourt.View
                 if (StoryCatalog.TryGet(storyKey, StoryCatalog.BossEntry,
                         out var entrySpeaker, out var entryText))
                 {
-                    _speech.Show(entrySpeaker, entryText, bossAnchor);
+                    // VO first: its length decides the bubble's hold.
+                    var hold = VoiceHold(storyKey, StoryCatalog.BossEntry);
+                    _speech.Show(entrySpeaker, entryText, bossAnchor, hold);
                     // §캡처5: speaker-prefixed screen subtitle doubles the boss
                     // beat (bubble stays the in-world grammar).
                     _hud.ShowSpeakerLine(entrySpeaker, entryText);
@@ -1190,14 +1261,18 @@ namespace CinderCourt.View
                     : StoryCatalog.BossPhase2;
                 if (StoryCatalog.TryGet(storyKey, phaseBeat, out var phaseSpeaker, out var phaseText))
                 {
-                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
+                    var hold = VoiceHold(storyKey, phaseBeat);
+                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim), hold);
                     _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
                 }
             }
             if ((events & SimEvents.StageCleared) != 0 &&
                 StoryCatalog.TryGet(storyKey, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
+            {
+                var hold = VoiceHold(storyKey, StoryCatalog.Completion);
                 _speech.Show(doneSpeaker, doneText,
-                    ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 1.6f));
+                    ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 1.6f), hold);
+            }
         }
 
         static Vector3 BossAnchor(ICinderSim sim)

@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "skipped": false,
+  "error": null,
+  "scorer": "EvidenceConfidenceScorer",
+  "version": "2.0",
+  "overall_score": 61,
+  "overall_level": "medium",
+  "confidence_threshold": 60,
+  "evidence_sufficient": true,
+  "problem_count": 1,
+  "high_count": 0,
+  "medium_count": 1,
+  "low_count": 0,
+  "low_confidence_count": 0,
+  "integrity_status": "complete",
+  "summary": "共评估 1 个问题，高可信 0 个，中可信 1 个，低可信 0 个，证据不足 0 个。",
+  "items": [
+    {
+      "problem_id": "quality_technical_quality_input_latency",
+      "evidence_id": "attempt_01_baseline_step_8_27790fc5",
+      "score": 61,
+      "level": "medium",
+      "evidence_sufficient": true,
+      "confidence_threshold": 60,
+      "raw_score": 61,
+      "penalty_score": 0,
+      "factors": {
+        "state_snapshot": {
+          "score": 20,
+          "max_score": 20,
+          "field_count": 22,
+          "available": true
+        },
+        "changed_fields": {
+          "score": 20,
+          "max_score": 20,
+          "changed_count": 4,
+          "available": true
+        },
+        "recording": {
+          "score": 0,
+          "max_score": 20,
+          "mode": "missing",
+          "clip_path": null,
+          "clip_exists": false,
+          "recording_path": null,
+          "recording_exists": false,
+          "recording_url": null,
+          "start_ms": null,
+          "end_ms": null,
+          "valid_time_range": false,
+          "invalid_time_range": false
+        },
+        "screenshot": {
+          "score": 0,
+          "max_score": 10,
+          "mode": "missing",
+          "path": null,
+          "path_exists": false,
+          "url": null
+        },
+        "source": {
+          "score": 11,
+          "max_score": 20,
+          "mode": "evidence_reference",
+          "source_text": "rating_criterion",
+          "direct_api": false,
+          "direct_state": false,
+          "used_fallback": false
+        },
+        "integrity": {
+          "score": 10,
+          "max_score": 10,
+          "status": "complete",
+          "valid": true,
+          "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json",
+          "exists": true
+        }
+      },
+      "strengths": [
+        "存在结构化状态快照。",
+        "检测到关键状态字段变化。",
+        "证据文件完整性状态正常。"
+      ],
+      "risks": [
+        "缺少可用录像证据。",
+        "缺少截图证据。"
+      ],
+      "recommendation": "证据链较完整，可作为自动测评结论。"
+    }
+  ]
+}

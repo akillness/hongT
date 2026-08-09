@@ -21,8 +21,10 @@ Full artifacts: `.survey/dungeon-gimmick-trends/{triage.md,context.md,solutions.
 | Shrinking / encroaching safe zone | — | — | — | — | ✓ | — | ✓(t) | — | — | — | — | 2 | **yes** |
 | Transport rail / mover (minecart) | — | — | — | — | — | — | — | ✓ | ✓ | — | — | 2 | **yes** |
 | Teleporter / portal pair in arena | — | — | — | — | — | — | — | ✓(t) | ✓ | — | — | 2 | **yes** |
-| Conveyor / current / push field | — | — | — | — | — | — | — | ✓(t) | — | — | — | 1 | **yes** |
+| Conveyor / current / push field | — | — | — | — | — | — | — | — | — | — | — | 0 | **yes** |
 | Enemy-empowering aura object (pylon) | — | — | — | — | — | — | ✓(t) | — | — | — | — | 1 | **yes** |
+
+**Cycle-9 provenance correction (accessed 2026-08-08):** The ETG cell for `Conveyor / current / push field` (tide-current family) is corrected from `✓(t)` (thin, indexed-snippet aggregation) to `—` (absent), based on direct-source verification: [Enter the Gungeon — Heavy Boots](https://enterthegungeon.wiki.gg/wiki/Heavy_Boots) documents conveyor belts as continuously moving the player in one direction, and [Enter the Gungeon — Traps](https://enterthegungeon.wiki.gg/wiki/Traps) enumerates the authored hazard catalog without listing conveyor belts. ETG therefore has a continuous one-direction conveyor, not HongT's periodic bidirectional/axis-aligned opposing push lane — the exact mechanic is absent from ETG. Row Count is corrected from `1` to `0`; the `tide-current` candidate frequency below is corrected accordingly. This verifies ETG only and does not establish absence across the other 10 surveyed titles or the genre generally. Superseded value preserved for audit: `1 (ETG(t))`.
 
 Existing Cinder Court trio maps to: ember-vent = periodic eruption (2/11 — actually uncommon in placed form), obsidian-pillar = blocker (10/11, saturated), relic-altar = shrine buff (5/11, common). New signatures must come from the six **yes** rows.
 
@@ -33,7 +35,7 @@ Stage identity = ONE signature spatial/scheduling rule per stage over shared sat
 No surveyed title runs hazards on a fixed, learnable per-arena timeline — everything is RNG-placed, player-relative, or one global timer. A deterministic multi-gimmick hazard rotation (learnable like a boss pattern) is unoccupied design space, and it is exactly what the no-RNG 60Hz sim does natively. Determinism should be marketed as the identity, not treated as a constraint.
 
 ## Ranked Candidates (fit = novelty × sim cost × WebGL cost × fairness)
-1. **Tide-current channels** — scheduled directional push lanes, symmetric, AABB+velocity-add sim, scrolling-UV view. 1/11, G8 pass.
+1. **Tide-current channels** — scheduled directional push lanes, symmetric, AABB+velocity-add sim, scrolling-UV view. 0/11 (corrected cycle-9; ETG direct-source verified absent — see provenance note above; superseded value was 1/11 thin), G8 pass.
 2. **Encroaching ash wall** — wall advances/recedes on fixed timetable, symmetric crush. 2/11, G8 pass.
 3. **Ember-shield pylon** — destructible object granting nearby enemies visible damage reduction; enemy-side mirror of relic-altar; zero motion, cheapest. 1/11 (t), G8 pass.
 4. **Resonant strike pillar** — hit → radial shockwave damaging enemies, deterministic cooldown. Placed-emitter form ≈1/11; needs G8 ruling that scoring is placed-form, not strike-prop family (4/11).

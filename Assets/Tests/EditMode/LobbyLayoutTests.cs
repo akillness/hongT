@@ -1129,7 +1129,7 @@ namespace CinderCourt.Tests
             var expectedLabels = new Dictionary<string, string>
             {
                 { "OpenMapButton", "전체 지도" },
-                { "MetaScreenButton", "정비" },
+                { "SanctumEquipmentButton", "정비" },
             };
 
             // (screen w, screen h, expected E, why).
@@ -1154,7 +1154,7 @@ namespace CinderCourt.Tests
                     + "the panel that selection opens");
 
                 var frame = WorldRect(canvasRect);
-                foreach (var name in new[] { "OpenMapButton", "MetaScreenButton" })
+                foreach (var name in new[] { "OpenMapButton", "SanctumEquipmentButton" })
                 {
                     var button = FindButtonByName(canvas, name);
                     Assert.That(button, Is.Not.Null,

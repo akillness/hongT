@@ -186,9 +186,25 @@ namespace CinderCourt.View
                 0.34f, 0.36f),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
-                new Color(0.45f, 0.78f, 1f),
+                // Cycle-10: was (0.45,0.78,1) — the SAME value echo-throne
+                // carries, and accent is the single input to StageMood, all
+                // four env tints, both light colours and the flipbook theme.
+                // Two adjacent stages sharing it collapsed their whole visual
+                // identity into one look. Jade keeps the well cold (floor
+                // warmth -0.1495 vs the -0.05 Ice threshold, TerrainFlipbook
+                // .ThemeForFloorTint:236-239, so the sheet family is unchanged)
+                // while moving 0.34 in the largest channel away from the
+                // throne — water-green for 증언의 우물, not another cyan hall.
+                new Color(0.22f, 0.76f, 0.66f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
-                    new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
+                    // Follows the accent. This stage was one of the 5/9 whose
+                    // boss tint EQUALS its accent (the other four — cinder-span,
+                    // ember-gallery, echo-throne, and the monarch — differ on
+                    // purpose so the boss reads as a foreign thing entering the
+                    // room). Moving the accent to jade without moving this would
+                    // have quietly changed which camp the well is in and left
+                    // its most prominent actor wearing echo-throne's cyan.
+                    new Color(0.22f, 0.76f, 0.66f), 1.12f, "Veil Tactician"),
                 "witness-well", null,
                 "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라", "쌍 제단",
                 0.46f, 0.68f),
@@ -390,10 +406,73 @@ namespace CinderCourt.View
             new DressingPlacement("terrain-cinder-span-prop-012",    1240f, 945f, 190f, 12f),
         };
 
+        // T-b (RELEASE_NOTES.md:255-260, shipped 2026-08-05) split the fused
+        // abyss-chancel GLB, so the two stages that "await the T-b split" are
+        // no longer blocked — these are their tables.
+        //
+        // Clearance is measured against whatever table the stage ACTUALLY runs
+        // (HazardOverride ?? frozen sim anchor — the same resolution order
+        // StageDressingTests.HazardsFor uses; getting this wrong measures the
+        // right numbers against the wrong stage):
+        //   abyss-chancel: NO override, so the sim's own anchors, read by
+        //                  compiling CinderCourt.Sim standalone (§4w) rather
+        //                  than copying by hand —
+        //                  pillar(640,500)/(900,700)/(768,604) r40
+        //                  + vent(1100,450) r90
+        //   echo-throne:   HAS an override (EchoThroneHazards, this file):
+        //                  altar(768,604) r70 + vent(500,700)/(1030,480) r90
+        //                  + current(768,604) — a TideCurrent carries HalfW/
+        //                  HalfH, not Radius, so the radius+50 test reads 50
+        //                  and it never becomes the binding constraint here.
+        // Every placement below was checked arithmetically before it was
+        // written (§4r — the margin is the gate, the adjective is not):
+        // worst hazard margin beyond radius+50 is +75.2 (chancel
+        // feature-029 ↔ vent) and +111.8 (throne feature-035 ↔ vent);
+        // nearest-neighbour spacing ≥275; quadrants 2/3/2/2 on both.
+        //
+        // Library names are picked from the UNUSED pool (23 features /
+        // 38 props were free) so no stage silhouette is a copy of another's.
+        static readonly DressingPlacement[] AbyssChancelDressing =
+        {
+            // Ecclesiastical read: nave colonnade across the top, side-chapel
+            // buttresses on both flanks, low reliquary clutter at the apse.
+            // Cooler and more ordered than the ember stages — the chancel is
+            // architecture that survived, not rubble.
+            new DressingPlacement("terrain-cinder-span-feature-027",  430f, 235f,   0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-028",  768f, 200f,   0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-029", 1090f, 235f,   0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-030",  185f, 470f,  90f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-031",  180f, 745f,  90f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-032", 1360f, 460f, -90f, 16f),
+            new DressingPlacement("terrain-cinder-span-prop-005",     560f, 950f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-006",     980f, 955f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-007",    1330f, 800f, 200f, 13f),
+        };
+
+        static readonly DressingPlacement[] EchoThroneDressing =
+        {
+            // Boss-tier plate: FEWER, BIGGER masses. terrain-echo-throne is an
+            // apron plus five slabs (17 KB) — the emptiest ground in the game
+            // and the one four stages stand on — so its dressing has to carry
+            // the whole silhouette. Scales run 20-24 against 11-22 elsewhere:
+            // monumental, symmetric, austere. The throne mass anchors dead
+            // centre-north; paired sentinels march down both flanks.
+            new DressingPlacement("terrain-cinder-span-feature-033",  768f, 175f, 180f, 24f),
+            new DressingPlacement("terrain-cinder-span-feature-034",  480f, 230f,   0f, 21f),
+            new DressingPlacement("terrain-cinder-span-feature-035", 1060f, 230f,   0f, 21f),
+            new DressingPlacement("terrain-cinder-span-feature-036",  165f, 520f,  90f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-037", 1375f, 520f, -90f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-038",  170f, 800f,  90f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-039", 1370f, 800f, -90f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-015",     620f, 965f, 180f, 14f),
+            new DressingPlacement("terrain-cinder-span-prop-016",     915f, 965f, 180f, 14f),
+        };
+
         /// <summary>
-        /// Dressing table for a logical stage; null when the stage's own terrain
-        /// prefab already carries its authored dressing (cinder-span) or none is
-        /// defined yet (abyss-chancel/echo-throne await the T-b split).
+        /// Dressing table for a logical stage; null only when the stage's own
+        /// terrain prefab already carries its authored dressing (cinder-span).
+        /// Every other stage now has a table — abyss-chancel and echo-throne
+        /// were the last two holes and were filled once T-b shipped.
         /// </summary>
         public static DressingPlacement[] DressingFor(string stageId)
         {
@@ -405,6 +484,8 @@ namespace CinderCourt.View
                 case "cinder-sluice": return CinderSluiceDressing;
                 case "ember-bastion": return EmberBastionDressing;
                 case "ash-march": return AshMarchDressing;
+                case "abyss-chancel": return AbyssChancelDressing;
+                case "echo-throne": return EchoThroneDressing;
                 default: return null;
             }
         }

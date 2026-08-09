@@ -10,9 +10,9 @@ members: 3
 **Members:** 3 nodes
 
 ## Members
-- [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - wiki/concepts/hongt-companion-autonomy-tick-order-trap.md
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - wiki/reports/2026-08-07-spec-vs-impl-audit.md
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - wiki/sources/2026-08-07-hackslash-design-guide-reference.md
+- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…]] - raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md
+- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_1]] - wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md
+- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_2]] - wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -22,10 +22,7 @@ SORT file.name ASC
 ```
 
 ## Connections to other communities
-- 3 edges to [[_COMMUNITY_Community 0]]
-- 1 edge to [[_COMMUNITY_Community 3]]
+- 1 edge to [[_COMMUNITY_Community 0]]
 
 ## Top bridge nodes
-- [[HongT — 결정론 심 테스트에서 반복 재현되는 앵커 오프바이원 함정]] - degree 3, connects to 2 communities
-- [[기획-구현 대조 감사 종합 (2026-08-07)]] - degree 3, connects to 1 community
-- [[소스 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07)]] - degree 2, connects to 1 community
+- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_2]] - degree 2, connects to 1 community

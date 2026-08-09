@@ -7,16 +7,16 @@ lang: ko
 
 # 1. 팀 구성
 
-팀명은 **HongT**, 3인 팀입니다. 세 명 모두 **기획과 QA에 공동 참여**한 뒤 구현
-담당을 분리했습니다. 이 팀에서 **"구성"은 곧 "구현"**입니다 — 아트·UI·VFX·UX·연출
-담당은 기획서만 쓴 것이 아니라 Unity 프로젝트의 실제 코드·프리팹·머티리얼을
-직접 구현했습니다.
+팀명은 **Hong팀**이며, 정장영·이석민·정우영으로 구성된 3인 팀입니다. 세 명 모두
+기획과 QA를 공동 수행했고, 구현 담당은 다음과 같이 분리했습니다. 정장영은
+아트 리소스·UI·VFX·연출 전반을 구현했으며, 이석민은 UI·VFX·UX 구현을
+담당했습니다. 정우영은 기획과 QA를 담당했습니다.
 
 | 이름 | 담당 역할 |
 |---|---|
-| **정장영** | 기획 · QA (공통) · 아트 리소스 / UI / VFX / 연출 전체 구현 |
-| **이석민** | 기획 · QA (공통) · UI / VFX / UX 구현 |
-| **정우영** | 기획 · QA |
+| **정장영** | 기획·QA 공통 · 아트 리소스·UI·VFX·연출 전체 구현 |
+| **이석민** | 기획·QA 공통 · UI·VFX·UX 구현 |
+| **정우영** | 기획·QA 공통 |
 
 ---
 
@@ -39,7 +39,7 @@ lang: ko
   자동 실행해 캐릭터 3D 모델의 뼈대와 움직임을 다시 입힘(근거
   `docs/provenance/lantern-reaver-reskin.json`, `docs/character-asset-pipeline.md`)
 - 지형 구현 — 원작 지형 3D 파일을 Blender로 변환한 뒤 게임 엔진 재질로 다시 칠해
-  6단계 스테이지가 공유하는 바닥·소품 조각(`Assets/Resources/Terrain/`) 구성
+  9단계 스테이지가 공유하는 바닥·소품 조각(`Assets/Resources/Terrain/`) 구성
 - 색상 규칙 수립: 배경 지우기용 키 색과 겹치지 않도록 마젠타(자홍) 계열을 전면
   금지하고, 아군은 시안(청록)으로 적과 색을 분리해 난전에서 즉시 구분되게 함
 - 생성한 자산의 출처(프롬프트·모델·해시)를 `docs/provenance/`에 기록
@@ -86,7 +86,7 @@ lang: ko
   효과가 실제 게임 상태와 어긋나지 않게 구현·검증
 
 
-## 2.3 정우영 — 기획 / QA
+## 2.3 정우영 — 기획·QA(공통)
 
 **기획**
 
@@ -103,8 +103,7 @@ lang: ko
   (`HudLayoutTests.cs`), 웹 빌드 텍스처 용량 제한(`WebGlTextureCapTests.cs`)
 - 규칙 준수 검증: 화면·소리·효과 담당 코드가 게임의 핵심 계산 결과를 몰래 바꾸지
   않는지 확인(게임이 항상 똑같이 재생되도록 하는 안전장치)
-- 플레이 영상 점검 — `tools/video/capture-unity-play.mjs`로 실제 플레이를 녹화하며
-  일반 공격·스킬 단축키·텍스트 명령 세 가지 입력이 모두 동작하는지 확인
+- 플레이 영상 점검 — 공개 YouTube 제출본의 실제 게임 화면과 링크 접근성을 확인
 - 배포 점검: GitHub Pages에 올라가는 파일이 저장소에 커밋된 것만으로 만들어지는지 확인
 
 
@@ -129,7 +128,7 @@ lang: ko
 | `_workspace/current/design/` | 3인 공동 | 기획·수치·서사 결정 |
 | `_workspace/current/engineering/` | 정장영 | 구현·자산 파이프라인 |
 | `_workspace/current/ui/` | 이석민 | UI·UX 사양 및 근거 |
-| `_workspace/current/qa/` | 이석민 · 정우영 | 검증 결과 |
+| `_workspace/current/qa/` | 3인 공동 | 검증 결과 |
 | `_workspace/current/production/` | 정우영 | 태스크 매니페스트 · 게이트 상태 |
 
 **잘못된 레인에 놓인 파일은 사소한 실수가 아니라 결함으로 취급**합니다. 증거의
@@ -187,4 +186,3 @@ git log --format='%an %s' | sort | uniq -c   # 작성자별 커밋 수
 
 - 저장소: <https://github.com/akillness/hongT>
 - 배포: <https://akillness.github.io/hongT/>
-- 심사 계정 초대 필요 시: `dl_gameai_reviewer@nhn.com`

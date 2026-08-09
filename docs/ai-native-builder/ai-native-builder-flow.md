@@ -130,8 +130,8 @@ AI 산출물의 가장 흔한 실패 모드(그럴듯한 요약 · 미검증 주
 | 게이트 | 도구 | 검증 내용 |
 |---|---|---|
 | EditMode | Unity batchmode `-executeMethod` | 502/502 통과 · 실패 0 · 결정론 · 웨이브 산술 · 보스 HP |
-| 브라우저 계약 | Playwright + CDP 실입력 | 자산 로드 · 상태 전이 · 레이아웃 무오버플로 · 입력 3경로 · 오류 0 |
-| 진정성 캡처 | `capture-unity-play.mjs` | 실제 Chromium → 실제 게임 → CDP 키 입력 → 실프레임 인코딩 (합성 없음) |
+| 브라우저 계약 | Playwright + 자동화 CDP 입력 | 자산 로드 · 상태 전이 · 레이아웃 무오버플로 · 입력 3경로 · 오류 0 |
+| 기술 검증 캡처 | `capture-unity-play.mjs` | 실제 Chromium 렌더 프레임 + 자동화 입력(합성 없음); 제출본은 사람 직접 조작으로 별도 촬영 |
 
 **대표적 실패 격리 사례** (AI가 잡아낸 치명적 결함): HUD가 `Q Ember Nova`를
 광고하지만 45초 자동 플레이에서 Q 입력 82회에 기름 소모 0 → `handleKeyDown`에

@@ -1,0 +1,110 @@
+{
+  "asset": "environment albedo re-seam",
+  "date": "2026-08-09",
+  "why": "Four of the 18 shipped maps had an edge mismatch ~3x the rest of their own set, and EnvironmentBuilder tiles at 1 tile = 1.28 world units, so the seam repeats across every wall.",
+  "metric": "mean per-channel delta between opposing edges of a 256px sample; max(left-right, top-bottom). The 14 healthy maps measure 4.3-11.2.",
+  "tool": "Higgsfield CLI, model nano_banana_flash",
+  "whyNotGti": "god-tibo-imagen/codex-cli ignores --size (returns ~1254px against a 1024 ceiling) and rejects image input, so 'regenerate this one but wrap the edges' is not expressible on that path.",
+  "promptSource": "tools/gen_env_textures.sh STAGES table, read at runtime",
+  "acceptanceRule": "a regeneration is only kept when it measures STRICTLY better than the texture it replaces; otherwise the original stays",
+  "outputs": [
+    {
+      "texture": "ember-gallery-stone",
+      "jobId": "b099a250-98b8-4845-a009-d9b6dd35961b",
+      "accepted": false,
+      "seamBefore": 26.9,
+      "seamAfter": 28.2
+    },
+    {
+      "texture": "abyss-chancel-stone",
+      "jobId": "effa4eec-243e-4893-ad96-87cacfa334d4",
+      "accepted": false,
+      "seamBefore": 22.5,
+      "seamAfter": 26.3
+    },
+    {
+      "texture": "ash-verdict-floor",
+      "jobId": "8ca10dd7-27a0-48e6-b73c-2e6bb1b7d2ec",
+      "accepted": false,
+      "seamBefore": 20.1,
+      "seamAfter": 21.8
+    },
+    {
+      "texture": "cinder-sluice-floor",
+      "jobId": "338a12b1-0579-4d11-a77a-0719f25e5469",
+      "accepted": true,
+      "seamBefore": 19.8,
+      "seamAfter": 14.7,
+      "bytes": 3584915
+    },
+    {
+      "texture": "abyss-chancel-stone",
+      "method": "offset-and-heal",
+      "accepted": false,
+      "seamBefore": 22.5,
+      "seamAfter": 23.3
+    },
+    {
+      "texture": "ash-verdict-floor",
+      "method": "offset-and-heal",
+      "accepted": true,
+      "seamBefore": 20.1,
+      "seamAfter": 19.1,
+      "bytes": 4095879
+    },
+    {
+      "texture": "ember-gallery-stone",
+      "method": "offset-and-heal",
+      "accepted": true,
+      "seamBefore": 26.9,
+      "seamAfter": 9.3,
+      "bytes": 3493167
+    },
+    {
+      "texture": "abyss-chancel-stone",
+      "method": "deramp",
+      "accepted": true,
+      "seamBefore": 22.5,
+      "seamAfter": 20.9,
+      "bytes": 3420493,
+      "tried": [
+        "deramp",
+        "offset-and-heal",
+        "deramp+offset"
+      ]
+    },
+    {
+      "texture": "ash-verdict-floor",
+      "method": "deramp",
+      "accepted": true,
+      "seamBefore": 19.1,
+      "seamAfter": 17.7,
+      "bytes": 4097126,
+      "tried": [
+        "deramp",
+        "offset-and-heal",
+        "deramp+offset"
+      ]
+    },
+    {
+      "texture": "abyss-chancel-stone",
+      "method": "wrapblend",
+      "accepted": true,
+      "seamBefore": 20.9,
+      "seamAfter": 0.5,
+      "bytes": 3363860,
+      "tried": [
+        "deramp",
+        "offset-and-heal",
+        "wrapblend",
+        "deramp+offset"
+      ]
+    }
+  ],
+  "deterministicPass": {
+    "tool": "tools/seamless_env_textures.py",
+    "method": "offset-by-half then cosine cross-fade the resulting centre cross; every output pixel is a blend of two real source pixels, so no detail is invented and reruns are identical",
+    "whyNotAnImageModel": "Both generators were ASKED for seamless tiling. god-tibo-imagen produced the 4 outliers; nano_banana_flash, given an explicit wrap instruction, improved 1 of 4 and made 3 worse. A tiling seam is geometric, not stylistic.",
+    "acceptanceRule": "kept only when it measures strictly better"
+  }
+}

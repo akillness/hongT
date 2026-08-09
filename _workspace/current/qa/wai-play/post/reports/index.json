@@ -1,0 +1,53 @@
+{
+  "repository": "ReportRepository",
+  "version": "3.0",
+  "updated_at": "2026-08-09T06:28:51.139442+00:00",
+  "count": 1,
+  "confidence_threshold": 60,
+  "records": [
+    {
+      "session_id": "evidence_6b81e3be2467",
+      "title": "Cinder Court",
+      "game_type": "survivor_like",
+      "url": "http://127.0.0.1:8766/?mode=arena&intro=off",
+      "score": null,
+      "five_star": null,
+      "rating_confidence": "unknown",
+      "evidence_quality_score": 65,
+      "evidence_quality_level": "medium",
+      "confidence_score": 61,
+      "confidence_level": "medium",
+      "confidence_threshold": 60,
+      "evidence_sufficient": true,
+      "low_confidence_count": 0,
+      "problem_count": 1,
+      "screenshot_count": 8,
+      "recording_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/gameplay.webm",
+      "recording_exists": true,
+      "integrity_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json",
+      "integrity_exists": true,
+      "integrity_status": "complete",
+      "integrity_valid": true,
+      "integrity_algorithm": "sha256",
+      "integrity_summary": {
+        "total_count": 15,
+        "existing_count": 15,
+        "hashed_count": 15,
+        "missing_count": 0,
+        "error_count": 0
+      },
+      "output_dir": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467",
+      "files": {
+        "result_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/result.json",
+        "evidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/evidence_report.json",
+        "problem_cards_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/problem_cards.json",
+        "confidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/confidence_report.json",
+        "markdown_report": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/report.md",
+        "manifest_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/manifest.json",
+        "integrity_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json"
+      },
+      "exported_at": "2026-08-09T15:28:51.127669+09:00",
+      "status": "complete"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 //   1. per-stage generated gimmick textures  → StageTextures_*
 //   2. dungeon camera follows the player     → Follow_*
 //   3. dungeon reads bigger                  → WorldScale_*
-//   4. actors shrink to 0.8, mood lighting   → ActorScale_*, Mood_*, Flicker_*
+//   4. actors restore authored scale, mood lighting → ActorScale_*, Mood_*, Flicker_*
 //
 // EditMode only: construct → inspect → DestroyImmediate. No play mode, no
 // rendering. RenderSettings is global, so the mood fixture snapshots and
@@ -160,7 +160,7 @@ namespace CinderCourt.Tests
         // -------------------------------------------------- 4. actor scale ---
 
         [Test]
-        public void ActorScale_GlobalShrinkIsAppliedOnTopOfTheAuthoredBaseScale()
+        public void ActorScale_AuthoredScaleRestoresCombatReadability()
         {
             var view = ActorView.Create(null, Color.white, 1f);
             try
@@ -175,16 +175,16 @@ namespace CinderCourt.Tests
                 {
                     Assert.That((float)field.GetValue(boss),
                         Is.EqualTo(1.6f * ActorView.GlobalScale).Within(1e-5f),
-                        "the shrink must be proportional, not a replacement");
+                        "the global actor scale must be proportional, not a replacement");
                     // Relative silhouettes are the gameplay contract: a boss must
-                    // still read 1.6x its minions after the shrink.
+                    // still read 1.6x its minions at authored scale.
                     Assert.That((float)field.GetValue(boss) / (float)field.GetValue(view),
                         Is.EqualTo(1.6f).Within(1e-5f));
                 }
                 finally { Object.DestroyImmediate(boss.gameObject); }
 
-                Assert.That(ActorView.GlobalScale, Is.EqualTo(0.8f).Within(1e-6f),
-                    "requested actor shrink is 0.8x");
+                Assert.That(ActorView.GlobalScale, Is.EqualTo(1.00f).Within(1e-6f),
+                    "authored actor scale restores board-scale combat readability");
             }
             finally { Object.DestroyImmediate(view.gameObject); }
         }

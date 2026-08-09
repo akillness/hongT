@@ -116,7 +116,7 @@ git shortlog -sne --all
   만들어지도록 하는 배포 스크립트
 - `tools/video/capture-unity-play.mjs`, `tools/video/brand/` — 플레이 캡처와
   브랜드 범퍼(Remotion)
-- `tools/docs/build-nan2026-pdf.mjs` — 제출 문서 PDF 변환 파이프라인
+- `tools/docs/build-submission-pdf.mjs` — 제출 문서 PDF 변환 파이프라인
 
 ## 2.2 이석민 — 로비 · 메타 진행 / 던전 확장
 

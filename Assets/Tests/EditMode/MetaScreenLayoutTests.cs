@@ -1,18 +1,9 @@
-// Portrait layout contract for the meta screen (W7/W8 tabbed lobby overlay).
+// Layout and ownership contract for the Map/Controls lobby overlay.
 //
-// HANDOFF NOTE — these tests FAIL on the code that introduced MetaScreenView
-// (6379b1a). They were written by the environment lane, not the UI lane, to
-// hand over two portrait defects as a reproducible artifact instead of a
-// screenshot. Nothing in MetaScreenView.cs was touched.
-//
-// Why nothing caught this: HudLayoutTests and LobbyLayoutTests both pin their
-// portrait canvas at 799 u, which is correct for THEM because HudView (L395)
-// and LobbyView (L669) drop matchWidthOrHeight to 0.35 in portrait.
-// MetaScreenView pins 0.5 (L127) and never syncs on orientation — its Update
-// (L214) only ticks the map — so its real portrait canvas is 653 u. A test
-// reusing the 799 constant would place the close button at 687 u, clear of the
-// tab row, and pass on the bug. So the width here is DERIVED from the scaler
-// the view actually installs.
+// The portrait canvas width is derived from the scaler installed by the view,
+// never copied from another screen. CanvasScaler uses logarithmic interpolation,
+// so a literal copied from LobbyView can make overlap checks pass against a
+// viewport the meta screen never renders.
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
@@ -55,6 +46,10 @@ namespace CinderCourt.Tests
         /// is screenWidth / scale. Reading match off the live component means
         /// this tracks a future orientation fix instead of going stale.
         /// </summary>
+        static Font TestFont()
+            => Resources.Load<Font>("Fonts/HudKorean")
+               ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
         static float EffectiveWidth(CanvasScaler scaler, int width, int height)
         {
             var refRes = scaler.referenceResolution;
@@ -86,11 +81,10 @@ namespace CinderCourt.Tests
             // would leave an empty canvas and a vacuously passing test. The
             // font matters too - a null Font degenerates every Text rect, i.e.
             // exactly the geometry being measured (LobbyView L215-217 grammar).
-            var font = Resources.Load<Font>("Fonts/HudKorean")
-                       ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = TestFont();
             var data = CampaignStore.Load();
             _meta.Build(font, in data);
-            _meta.Show(in data, MetaScreenView.TabEquip);
+            _meta.Show(in data, MetaScreenView.TabMap);
 
             // Orientation is pushed in, never read from Screen: EditMode cannot
             // resize the editor window, so a test that trusted Screen.width
@@ -126,6 +120,61 @@ namespace CinderCourt.Tests
                     (RectTransform)button.transform));
             }
             return found;
+        }
+
+        [Test]
+        public void PublicTabs_AreExactlyMapAndControls_WithMapAsTheOpenDefault()
+        {
+            var data = CampaignStore.Load();
+            _meta.Build(TestFont(), in data);
+
+            Assert.That(MetaScreenView.TabMap, Is.Zero);
+            Assert.That(MetaScreenView.TabControls, Is.EqualTo(1));
+            Assert.That(MetaScreenView.TabCount, Is.EqualTo(2));
+            Assert.That(_meta.ActiveTab, Is.EqualTo(MetaScreenView.TabMap),
+                "Build must leave the Map surface selected");
+
+            var canvas = _host.GetComponentInChildren<Canvas>(true);
+            Assert.That(canvas, Is.Not.Null, "meta screen built no canvas");
+            var tabs = new List<string>();
+            foreach (var (label, _) in InteractiveRects(canvas))
+            {
+                if (label == "지도" || label == "조작" || label == "장비" || label == "각인")
+                    tabs.Add(label);
+            }
+            Assert.That(tabs, Is.EquivalentTo(new[] { "지도", "조작" }),
+                "Meta owns only the Map and Controls destinations");
+
+            _meta.Show(in data, MetaScreenView.TabControls);
+            Assert.That(_meta.ActiveTab, Is.EqualTo(MetaScreenView.TabControls),
+                "the Controls deep link must remain reachable");
+            _meta.Hide();
+            _meta.Show(in data);
+            Assert.That(_meta.ActiveTab, Is.EqualTo(MetaScreenView.TabMap),
+                "opening without a deep link must fall back to Map, not the last tab");
+        }
+
+        [Test]
+        public void RepeatedBuild_ReplacesThePreviousMetaCanvasAndRoot()
+        {
+            var data = CampaignStore.Load();
+            var font = TestFont();
+
+            _meta.Build(font, in data);
+            _meta.Build(font, in data);
+
+            var canvases = _host.GetComponentsInChildren<Canvas>(true);
+            Assert.That(canvases, Has.Length.EqualTo(1),
+                "rebuilding must replace, not stack, the previous Meta canvas");
+
+            var roots = 0;
+            for (var i = 0; i < _host.transform.childCount; i++)
+            {
+                var child = _host.transform.GetChild(i);
+                if (child.name == "MetaScreen") roots++;
+            }
+            Assert.That(roots, Is.EqualTo(1),
+                "rebuilding must leave one MetaScreen root under its owner");
         }
 
         /// <summary>
@@ -187,17 +236,15 @@ namespace CinderCourt.Tests
             }
             Assert.That(readouts, Is.Not.Empty, "currency readouts not found");
 
-            // Check EVERY tab, not a guessed one. The readouts are top-right
-            // anchored and the tabs run from the left, so which pair collides
-            // depends on the effective width - naming one tab up front sends
-            // the reader to rects that never touch.
+            // Check EVERY tab rather than guessing which tab is nearest the
+            // right-anchored readouts.
             var tabs = new List<(string label, RectTransform rect)>();
             foreach (var (label, rect) in InteractiveRects(canvas))
             {
-                if (label == "장비" || label == "각인" || label == "지도" || label == "조작")
+                if (label == "지도" || label == "조작")
                     tabs.Add((label, rect));
             }
-            Assert.That(tabs.Count, Is.EqualTo(4), "expected four tabs");
+            Assert.That(tabs.Count, Is.EqualTo(2), "expected Map and Controls tabs");
 
             var collisions = new List<string>();
             var report = new System.Text.StringBuilder();
@@ -231,17 +278,9 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
-        /// The wide layout is the one nobody is complaining about, which is
-        /// exactly why it needs a gate. Both portrait cases above are
-        /// [Explicit] and therefore invisible to the shared run, so a portrait
-        /// reflow could wreck desktop and the suite would stay green. This test
-        /// is NOT Explicit: it is the tripwire that makes the reflow honest.
-        ///
-        /// Derived, not guessed: at 1280x800 the effective width is ~1214 u and
-        /// the single row needs ~1026 u (tabs end at 572, the currency+close
-        /// cluster occupies the last 454), so wide has ~188 u of slack. If a
-        /// reflow starts applying its portrait rules here, that slack vanishes
-        /// and this fails first.
+        /// The wide layout is a regression gate for the portrait reflow: a
+        /// phone fix must not make any of the top-bar controls overlap at the
+        /// landscape viewport.
         /// </summary>
         [Test]
         public void Landscape_NothingStacksOnTheTabRow()
@@ -260,8 +299,7 @@ namespace CinderCourt.Tests
             var bar = new List<(string label, RectTransform rect)>();
             foreach (var (label, rect) in InteractiveRects(canvas))
             {
-                if (label == "장비" || label == "각인" || label == "지도"
-                    || label == "조작" || label == "닫기")
+                if (label == "지도" || label == "조작" || label == "닫기")
                     bar.Add((label, rect));
             }
             foreach (var text in canvas.GetComponentsInChildren<Text>(true))
@@ -269,8 +307,8 @@ namespace CinderCourt.Tests
                 if (text.text.StartsWith("유물") || text.text.StartsWith("포인트"))
                     bar.Add((text.text, text.rectTransform));
             }
-            Assert.That(bar.Count, Is.EqualTo(7),
-                "expected 4 tabs + 닫기 + 유물 + 포인트 on the bar, found "
+            Assert.That(bar.Count, Is.EqualTo(5),
+                "expected 2 tabs + 닫기 + 유물 + 포인트 on the bar, found "
                 + string.Join(", ", bar.ConvertAll(e => e.label)));
 
             var collisions = new List<string>();
@@ -295,8 +333,8 @@ namespace CinderCourt.Tests
                 + $"{effectiveWidth:F0} u] compared {compared} pair(s), "
                 + $"{collisions.Count} collision(s)");
 
-            Assert.That(compared, Is.EqualTo(21),
-                "7 rects must yield 21 pairs - a lower count means rects went "
+            Assert.That(compared, Is.EqualTo(10),
+                "5 rects must yield 10 pairs - a lower count means rects went "
                 + "missing and the guard stopped guarding");
             Assert.That(collisions, Is.Empty,
                 "the wide tab bar must stay a single clean row:\n  "

@@ -14,6 +14,13 @@ namespace CinderCourt.View
     // this splits one class across two files, it does not open it to subclasses.
     public sealed partial class HudView : MonoBehaviour
     {
+        // Full-screen danger feedback must warn without hiding the small arena
+        // silhouettes that the player needs to read while under pressure.
+        internal const float DamageVignetteHitAlpha = 0.36f;
+        internal const float LowHealthVignetteBaseAlpha = 0.12f;
+        internal const float LowHealthVignettePulseAlpha = 0.06f;
+        internal const float LowHealthVignettePulseAngularSpeed = 7f;
+
         static readonly string[] LoreBeats =
         {
             "잿불 법정은 군단이 그 기름을 용광로로 바꾸기 전까지 성유물고였다.",
@@ -83,11 +90,14 @@ namespace CinderCourt.View
         public System.Func<int, bool> OnEmberRestOfferSelected;
         public System.Func<bool> OnEmberRestDeferred;
         public System.Action OnEmberRestContinue;
-
+        /// <summary>Dedicated Ember Rest callback for "성소 귀환".</summary>
+        public System.Action OnEmberRestReturnHome;
 
         int _lastHealth = -1, _lastCharge = -1, _lastWave = -1, _lastScore = -1,
             _lastRelics = -1, _lastEnemies = -1;
         float _loreTimer;
+
+
 
         // --- mobile layout (mobile-layout spec #1-#7, #10, #14) ---------------
         // Tier grades the EFFECTIVE canvas width (Screen.width / scaleFactor).
@@ -216,9 +226,7 @@ namespace CinderCourt.View
         {
             // Subset OTF (NanumBarunGothic, OFL) — LegacyRuntime.ttf has no
             // Hangul glyphs and WebGL has no OS font fallback.
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
 
             var canvasObject = new GameObject("HUD");
             canvasObject.transform.SetParent(transform, false);
@@ -882,6 +890,12 @@ namespace CinderCourt.View
         /// </summary>
         public System.Action OnReturnHome;
 
+        void ReturnFromEmberRest()
+        {
+            if (OnEmberRestReturnHome != null) OnEmberRestReturnHome();
+            else ReturnHome();
+        }
+
         void ReturnHome()
         {
             if (OnReturnHome != null) OnReturnHome();
@@ -1120,11 +1134,14 @@ namespace CinderCourt.View
                 _emberRestOfferCards[i] = card.GetComponent<Image>();
             }
 
+            var returnHome = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(-206, 18), new Vector2(196, 92), "성소 귀환", 17, ReturnFromEmberRest);
+            returnHome.name = "EmberRestReturnHome";
             var defer = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
-                new Vector2(-206, 18), new Vector2(196, 92), "준비 보류", 17, DeferEmberRest);
+                new Vector2(0, 18), new Vector2(196, 92), "준비 보류", 17, DeferEmberRest);
             defer.name = "EmberRestDefer";
             var continueButton = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
-                new Vector2(10, 18), new Vector2(196, 92), "계속", 17, ContinueEmberRest);
+                new Vector2(206, 18), new Vector2(196, 92), "계속", 17, ContinueEmberRest);
             continueButton.name = "EmberRestContinue";
             _emberRestContinueButton = continueButton.GetComponent<Button>();
             _emberRestDecisionText = Label(_emberRestPanel.transform, 0, -236, 620, 40, "", 15,
@@ -1955,9 +1972,7 @@ namespace CinderCourt.View
                 var labelObject = new GameObject("MomentumTier");
                 labelObject.transform.SetParent(_momentumGauge.transform, false);
                 _momentumTierLabel = labelObject.AddComponent<Text>();
-                _momentumTierLabel.font = _font;
-                _momentumTierLabel.fontSize = 13;
-                _momentumTierLabel.alignment = TextAnchor.MiddleCenter;
+                ViewTypography.Configure(_momentumTierLabel, _font, 13, TextAnchor.MiddleCenter);
                 _momentumTierLabel.raycastTarget = false;
                 _momentumTierLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
                 var labelRect = _momentumTierLabel.rectTransform;
@@ -3406,9 +3421,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -3877,7 +3890,7 @@ namespace CinderCourt.View
             {
                 _vignette.enabled = true;
                 _vignette.color = new Color(0.95f, 0.22f, 0.13f,
-                    0.6f * ViewPrefs.MotionScale);
+                    DamageVignetteHitAlpha * ViewPrefs.MotionScale);
             }
         }
 
@@ -3990,7 +4003,7 @@ namespace CinderCourt.View
             // Low-HP vignette: heartbeat pulse under 35 HP, scaled for reduced motion.
             var lowHp = sim.Mode != SimMode.GameOver && sim.Player.Health < 35f;
             var targetAlpha = lowHp
-                ? (0.25f + 0.2f * Mathf.Sin(Time.time * 7f)) * ViewPrefs.MotionScale
+                ? LowHealthVignetteAlpha(Time.time, ViewPrefs.MotionScale)
                 : 0f;
             var current = _vignette.color;
             var alpha = Mathf.MoveTowards(current.a, targetAlpha, Time.deltaTime * 1.6f);
@@ -4073,6 +4086,14 @@ namespace CinderCourt.View
             SyncStageClearCeremony();
             SyncComboPips();
             SyncBossBarMotion();
+        }
+
+        internal static float LowHealthVignetteAlpha(float time, float motionScale)
+        {
+            return (LowHealthVignetteBaseAlpha
+                + LowHealthVignettePulseAlpha
+                * Mathf.Sin(time * LowHealthVignettePulseAngularSpeed))
+                * Mathf.Max(0f, motionScale);
         }
 
         void SetBossIntroState(float slide, float alpha)

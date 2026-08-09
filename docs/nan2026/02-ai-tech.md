@@ -8,14 +8,14 @@ lang: ko
 # 0. 요약
 
 이 게임은 **Unity 6000.5.6f1 / URP / WebGL** 재구현이며, AI는 보조 도구가
-아니라 **제작 파이프라인 그 자체**입니다. 3D 캐릭터 리스킨, 애니메이션 리타겟,
-사운드, UI 아이콘, 지형 리맵, 게임 코드·검증, 제출용 플레이 영상 캡처까지 전부
-AI 에이전트 워크플로 위에서 만들어졌습니다.
+아니라 **제작 파이프라인 그 자체**입니다. 게임 자산과 구현물은 자체 AI 생성·AI
+에이전트 제작 파이프라인으로 제작했고, Unity 빌드에는 팀의 선행 AI 생성 자산을
+재가공해 사용했습니다. 외부 레퍼런스는 아이디어 구상 단계에서만 참고했습니다.
 
-다만 **배포된 게임 런타임에는 기본적으로 AI가 실행되지 않습니다.** GitHub Pages로
-배포된 빌드는 정적 WebGL 페이지이며, 외부 추론 호출·API 키·네트워크 요청이
-없습니다. AI 산출물은 제작 시점에 결정론적 자산·코드·mp3로 고정됩니다. 심사자가
-링크를 열었을 때 유료 API 비용이나 지연이 발생하지 않습니다.
+**배포 게임의 기본 경로에는 AI가 실행되지 않습니다.** GitHub Pages의 정적
+WebGL 빌드는 플레이어가 키를 등록하지 않은 상태에서 외부 추론 호출·API 키·
+네트워크 요청이 없습니다. 제작 AI 산출물은 결정론적 자산·코드·mp3로 고정되어,
+심사자가 링크를 여는 것만으로 유료 API 비용이나 지연이 발생하지 않습니다.
 
 **단 하나의 opt-in 예외**가 동료 명령 콘솔입니다. 기본 경로는 네트워크를 전혀
 쓰지 않는 로컬 키워드 파서이고, 플레이어가 **자신의** Gemini API 키를 런타임에
@@ -27,16 +27,15 @@ AI 에이전트 워크플로 위에서 만들어졌습니다.
 | 모션 | Mixamo 벤치 FBX → Unity Humanoid 리타겟 | 11액션 공유 라이브러리 (`idle move run hit bighit attack critical avoid defence die show`) |
 | 사운드 | **ElevenLabs sound-generation API** | SFX + 로어 앰비언트 + BGM 루프, `Assets/Resources/Audio/*.mp3`, 근거 `docs/provenance/audio.json` |
 | 게임 코드·검증 | 오케스트레이터(Claude) + 위임 레인 | 결정론 심·캠페인·View·애니메이션; EditMode 테스트 `Assets/Tests/EditMode/` |
-| 플레이 영상 | Playwright 녹화 + CDP 실입력 + CompressO 압축 | 배포 빌드 실플레이 58 s, `tools/video/capture-unity-play.mjs` |
 | 동료 명령 콘솔 | 로컬 키워드 파서(기본) + **선택적 Gemini 2.5 Flash Lite** 자유 문장 폴백 | 자연어 명령 → 닫힌 의도 집합 → 결정론 SimInput 래치, `Assets/Tests/EditMode/CompanionCommandParserTests.cs` |
 | UI 아이콘 세트 | god-tibo-imagen + 마젠타 키 매팅 | 스킬·장비·스탯·픽업·앱·버튼 아이콘, `Assets/Resources/Icons/` |
-| 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX → URP Unlit 리맵 | 6단계 캠페인 지형 프리팹, `Assets/Resources/Terrain/` |
+| 스테이지 지형 | 원작 terrain GLB → Blender 헤드리스 FBX → URP Unlit 리맵 | 9단계 캠페인이 공유하는 지형 프리팹, `Assets/Resources/Terrain/` |
 | 시각 오버홀 | Socratic 딥인터뷰 → 스펙 동결 → 레인별 게이트 | 원소 파티클·시전 글로우·URP 블룸/비네트, `VfxDirector.cs`·`PostFxGate.cs` |
-| 브랜드 범퍼 | Remotion 프로그래매틱 렌더 | `assets/video/hongt-brand-bumper.mp4` |
 
-**런타임 무 AI 원칙**은 오디오나 자산 생성 여부가 아니라 **추론 호출 부재**로
-유지됩니다. ElevenLabs SFX·god-tibo 아이콘·Blender 리스킨은 모두 제작 시점 1회
-생성이며 빌드에는 고정된 산출물만 들어갑니다.
+**런타임 AI 비의존 원칙**은 시뮬레이션과 게임 진행이 추론 결과에 의존하지
+않는다는 뜻입니다. ElevenLabs SFX·god-tibo 아이콘·Blender 리스킨은 제작 시점
+1회 생성 후 고정 산출물로 들어갑니다. 선택적 Gemini 분류가 실패해도 Unknown으로
+강등될 뿐 시뮬레이션은 계속됩니다.
 
 ---
 
@@ -61,8 +60,8 @@ write-back할 수 없습니다. 이 경계는 EditMode 테스트(`CinderSimTests
 ![AI 제작 파이프라인](assets/ai-pipeline.svg)
 
 제작 시점에만 동작하는 AI 구간은 (1) 캐릭터 리스킨/리타겟, (2) 사운드 생성,
-(3) UI 아이콘·지형 리맵 이미지 생성, (4) 코드·검증 에이전트 워크플로,
-(5) 플레이 영상 캡처입니다. 산출물은 모두 저장소에 커밋된 결정론적 파일입니다.
+(3) UI 아이콘·지형 리맵 이미지 생성, (4) 코드·검증 에이전트 워크플로입니다.
+산출물은 저장소에 커밋된 결정론적 파일입니다.
 
 ---
 
@@ -70,7 +69,7 @@ write-back할 수 없습니다. 이 경계는 EditMode 테스트(`CinderSimTests
 
 배포 빌드가 실제로 로드하는 생성 이미지는 **UI 아이콘 세트**
 (`Assets/Resources/Icons/` — 앱·장비·픽업·스킬·스탯·버튼)와 **URP 지형 프리팹**
-(`Assets/Resources/Terrain/` — 6단계 캠페인 바닥·소품)입니다.
+(`Assets/Resources/Terrain/` — 9단계 캠페인 바닥·소품)입니다.
 
 ## 2.1 도구와 팔레트 규약
 
@@ -85,7 +84,7 @@ write-back할 수 없습니다. 이 경계는 EditMode 테스트(`CinderSimTests
 ## 2.2 지형 리맵
 
 원작 terrain GLB를 Blender 헤드리스로 FBX 변환한 뒤 URP Unlit 머티리얼로
-리맵해 6단계 캠페인이 공유하는 지형 프리팹으로 만들었습니다
+리맵해 9단계 캠페인이 공유하는 지형 프리팹으로 만들었습니다
 (`terrain-cinder-span.prefab`, `terrain-abyss-chancel.prefab`,
 `terrain-echo-throne.prefab` 등). 지형 파츠 무결성은
 `Assets/Tests/EditMode/TerrainPartsTests.cs`가 검증합니다.
@@ -138,8 +137,8 @@ Animator·SkinnedMeshRenderer와 공격 시 오른손 모션을 검증합니다
 ## 4.2 opt-in 폴백 — Gemini 2.5 Flash Lite
 
 로컬 파서가 Unknown을 반환하고 플레이어가 **자신의** Gemini API 키를 런타임에
-등록한 경우에만("키 <key>" 콘솔 명령 또는 `#gemini=` URL 프래그먼트 — 프래그먼트는
-서버 로그에 남지 않음) 미분류 자유 문장을 **Gemini 2.5 Flash Lite**
+등록한 경우에만(`키 [API 키]` 콘솔 명령 또는 `#gemini=` URL 프래그먼트 —
+프래그먼트는 서버 로그에 남지 않음) 미분류 자유 문장을 **Gemini 2.5 Flash Lite**
 (`models/gemini-2.5-flash-lite:generateContent`)로 분류합니다. 구현은
 `Assets/Scripts/View/GeminiCommandClient.cs`이며, 키는 빌드·저장소에 포함되지
 않고 `KeyVault.Protect`로 난독화되어 PlayerPrefs에만 저장됩니다
@@ -188,81 +187,58 @@ mp3로 고정하고 `Assets/Resources/Audio/`에 커밋했습니다. 생성 근�
 |---|---|
 | `Unity -batchmode -runTests -testPlatform EditMode` | `Assets/Tests/EditMode/` 전체 — 결정론 심, 캠페인 라우트, 명령 파서, 애니메이션 클립, HUD 레이아웃, WebGL 텍스처 상한, 오디오 지터 등 |
 | `-executeMethod CinderCourt.EditorTools.BuildScript.BuildWebGL` | WebGL 빌드 (`BuildScriptWebGlPostprocessTests.cs`가 후처리 검증) |
-| `node tools/video/capture-unity-play.mjs` | 배포 빌드 실입력 플레이 + 실프레임 영상 캡처 (§7) |
 
 에이전트에게 코드를 대신 쓰게 하는 것이 아니라, **사람이 놓치는 것을 측정으로
 잡게** 하는 방식입니다.
 
 ---
 
-# 7. 플레이 영상의 진정성
+# 7. 플레이 영상
 
-대회 규정은 *"AI를 이용한 조작·합성이나 타인 영상의 도용은 불가"*이며
-*"실제 플레이 화면 그대로"*를 요구합니다. 제출 영상은 다음으로 이를 만족합니다.
-
-![플레이 영상 캡처 경로](assets/capture-authenticity.svg)
-
-## 7.1 채택하지 않은 방법
-
-스크린샷을 이어붙이고 가상 커서·줌을 얹는 스크린샷-투-비디오 렌더링 방식은
-사내 도구로 가능했지만 **의도적으로 배제**했습니다. 규정이 금지하는 합성에
-해당하기 때문입니다.
-
-## 7.2 실제 채택한 방법 — `tools/video/capture-unity-play.mjs`
-
-1. 실제 Chromium이 배포 페이지 <https://akillness.github.io/hongT/>를 로드합니다.
-2. 드라이버가 **CDP 입력 도메인**으로 키 입력을 보냅니다. 물리 키보드와 동일한
-   경로이며 게임 상태를 직접 조작하는 코드는 없습니다.
-3. 브라우저가 **실제로 렌더링한 페이지 프레임**을 그대로 녹화합니다.
-   보간·리타이밍·합성·생성이 없습니다.
-4. 후처리는 로딩 스플래시 헤드트림, 30 fps H.264 메자닌, **CompressO**
-   (`compresso_ffmpeg`, crf 28 · slow · faststart) 압축뿐입니다.
-
-## 7.3 영상이 담는 3가지 입력 패턴
-
-영상은 다음을 순서대로 실플레이로 담습니다.
-
-1. **일반 공격** — `Space` 콤보로 근접 코호트를 정리
-2. **스킬 핫키 로테이션** — `Q` Rift Bolt → `E` Grave Pulse → `Shift` Dash →
-   `F` Void Aegis → `R` Ash Nova
-3. **텍스트 커맨드 콘솔** — `Enter`로 콘솔을 열고 수호자 명령(집중공격/방어)과
-   스킬 시전 명령(결계 → Void Aegis, 노바 → Ash Nova)을 입력. 헤드리스
-   Chromium에는 한글 IME가 없어 콘솔 명령은 파서의 문서화된 ASCII 별칭을 쓰지만,
-   화면에 뜨는 피드백 문구는 한국어로 표시됩니다.
-
-출력 사양: H.264 1440×900 30 fps, 58초. 산출물
-`assets/video/nan2026-cinder-court-unity-play.mp4` (**YouTube 업로드 예정**).
+**YouTube**: [abyssal lantern HongT](https://www.youtube.com/watch?v=u2o0DA3Gqcs)  
+YouTube 표시 길이: **1분 20초**
 
 ---
 
-# 8. 외부 에셋 / 오픈소스 출처
+# 8. 외부 에셋 / 오픈소스 출처와 권리
 
-## 8.1 런타임 포함 외부 저작물
+## 8.1 WebGL 빌드에 포함되는 항목
 
-배포 빌드는 외부 폰트·이미지·오디오·JS 라이브러리를 별도로 포함하지 않습니다.
-모든 자산은 본 프로젝트를 위해 생성한 오리지널이며, 근거는 `docs/provenance/`에
-SHA/프롬프트/도구와 함께 기록되어 있습니다.
+| 항목 | 출처 | 라이선스·권리 근거 |
+|---|---|---|
+| Unity 런타임·URP·uGUI·Input System 등 | Unity Technologies | Unity Editor Software Terms·Unity Companion License |
+| 캐릭터 메시 | 팀 자체 콘셉트 → Hyper3D Rodin → Blender 리스킨 | 생성 도구 약관 적용 · 사용 플랜 확인 필요 |
+| 모션 클립 | Adobe Mixamo → Unity Humanoid 리타겟 | Mixamo 이용약관 적용 · FBX 공개 저장소 재배포 범위 확인 필요 |
+| SFX·BGM·앰비언트 | ElevenLabs sound-generation·Music API | 사용 플랜별 상업 이용·출처 표기 조건 확인 필요 |
+| UI 아이콘·지형 텍스처·컷씬 이미지 | god-tibo-imagen·PerfectPixel | 생성 프롬프트·모델·해시를 `docs/provenance/`에 기록 · 백엔드 출력물 약관 확인 필요 |
+| 한글 HUD 폰트 `HudKorean.otf` | 나눔바른고딕OTF 서브셋 | 실제 배포본 라이선스와 서브셋 재배포·이름 변경 조건 확인 필요 |
+| 게임 코드 | 팀 자체 작성·AI 에이전트 협업 | 팀 자체 저작물 |
+
+캐릭터·지형의 기반 자산은 팀의 선행 AI 제작물에서 가져와 Blender와 Unity
+파이프라인으로 재가공했습니다. 배포 WebGL에는 별도 외부 JavaScript
+라이브러리를 포함하지 않습니다.
 
 | 근거 파일 | 대상 |
 |---|---|
 | `docs/provenance/audio.json` | ElevenLabs 생성 SFX/BGM 큐 |
-| `docs/provenance/lantern-reaver-reskin.json` | Blender 리스킨/리타겟 메시 |
-| `docs/provenance/cinder-court-link-preview.json` | 링크 프리뷰 이미지 |
-| `docs/character-asset-pipeline.md` | 캐릭터 재생성 절차 |
+| `docs/provenance/lantern-reaver-reskin.json` | 선행 AI 메시의 Blender 리스킨·리타겟 |
+| `docs/provenance/cinder-court-link-preview.json` | AI 생성 링크 프리뷰 이미지 |
+| `docs/character-asset-pipeline.md` | 캐릭터 자산 재가공·Humanoid 리타겟 절차 |
 
-## 8.2 개발 전용 의존성 (배포물 미포함)
+## 8.2 개발 전용 도구
 
-플레이 영상 캡처용 `playwright`(Apache-2.0)와 CompressO 내장 `ffmpeg`는 개발
-도구이며 GitHub Pages 아티팩트에는 포함되지 않습니다.
+| 도구 | 라이선스 | 용도 |
+|---|---|---|
+| Blender 5.x | GPL(애플리케이션) | 리스킨·지형 변환·프롭 생성 |
+| Unity MCP 에디터 패키지 | Apache-2.0·MIT | 에디터 자동화, WebGL 빌드에서 제외 |
+| fontTools·Pillow·numpy | MIT·MIT-CMU·BSD-3-Clause | 폰트 서브셋·이미지 조립 |
 
-## 8.3 사용한 AI 도구 전체 목록
+## 8.3 제출 전 권리 확인
 
-| 도구 | 제공자 / 모델 | 용도 | 배포물 영향 |
-|---|---|---|---|
-| god-tibo-imagen | private-codex | UI 아이콘·지형 텍스처 생성 | PNG 자산 |
-| PerfectPixel `ppgen` | god-tibo-imagen 어댑터 | 스프라이트/시트 | PNG + 매니페스트 |
-| Blender 5.x headless | 오픈소스 | 리스킨/리타겟 FBX | 캐릭터 메시 |
-| ElevenLabs sound-generation | ElevenLabs | SFX·BGM·앰비언트 | mp3 자산 |
-| Claude 에이전트 워크플로 | Anthropic | 코드·테스트·문서·캡처 하니스 | 소스 코드 |
-| Gemini 2.5 Flash Lite | Google | 동료 콘솔 opt-in 자유 문장 분류 | **런타임 opt-in만**(플레이어 키) |
-| Remotion | 오픈소스 | 브랜드 범퍼 렌더 | 홍보 영상 |
+1. Adobe Mixamo 원본 FBX를 공개 소스 저장소에 포함할 수 있는지 확인
+2. Hyper3D Rodin과 ElevenLabs 사용 계정의 상업 이용·출처 표기 조건 확인
+3. `HudKorean.otf`의 실제 라이선스와 서브셋 재배포·이름 변경 조건 확인
+4. god-tibo-imagen 백엔드의 이미지 출력물 상업 이용 조건 확인
+
+외부 설계 레퍼런스는 *Achilles: Legends Untold*의 전투·UI 질문을 아이디어
+구상 단계에서 분석한 것이며, 픽셀·모델·코드·고유 명칭은 가져오지 않았습니다.

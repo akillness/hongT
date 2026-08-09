@@ -17,6 +17,9 @@ namespace CinderCourt.View
 
         GameObject _wardShell;
         Material _wardMaterial;
+        // Cached, not a string per frame: SyncWard runs every view frame.
+        // Shader.PropertyToID is stable for the process lifetime.
+        static readonly int WardPulseId = Shader.PropertyToID("_PulseAmplitude");
 
         readonly Dictionary<int, Transform> _pickupViews = new Dictionary<int, Transform>(16);
         readonly List<int> _stale = new List<int>(16);
@@ -76,8 +79,25 @@ namespace CinderCourt.View
         // Materials clone the PROVEN unlit transparent seed (MakeUnlit): the
         // URP Particles shader has zero material references in this build and
         // would be variant-stripped on WebGL (pink/opaque) — spec §V3 contract.
-        ParticleSystem _boltSparks, _pulseRipple, _novaDebris, _aegisFlash;
+        ParticleSystem _boltSparks, _pulseRipple, _novaDebris, _aegisFlash, _deathMotes;
         float _pulseNextEmit;   // 0.5 s resonance cadence while the field lives
+        // Death-mote latch. SimEvents.EnemyKilled is a bare flag with no victim
+        // identity, so the emitter has to find the corpse itself — and a value
+        // window on FadeTime is not safe: at 60 Hz a countdown can satisfy
+        // "just died" on two consecutive frames (double burst) or, if the view
+        // batches several sim ticks, on none (silent miss). So we latch on the
+        // enemy ID instead. CinderSim.cs:266 guarantees "indices are reused
+        // while ids from _nextEnemyId never are", which makes the id a stable
+        // key for exactly as long as a run lasts — the same reason the
+        // companion target lock is id-keyed (CinderSim.cs:267).
+        // Restart() resets _nextEnemyId to 1 (CinderSim.cs:924), so ids DO
+        // repeat across runs; ClearTransient wipes this ring or run N+1's first
+        // kills would read as already-emitted and lose their particles.
+        // A ring, not a HashSet: 20 simultaneous enemies (§2) means 32 slots
+        // cover any single frame's kills many times over, with zero allocation.
+        const int DeathLatchSlots = 32;
+        readonly int[] _deathLatch = new int[DeathLatchSlots];
+        int _deathLatchCursor;
         // --- campaign hazards (built once on first SyncHazards call) ---------
         struct HazardView
         {
@@ -237,7 +257,7 @@ namespace CinderCourt.View
             RemovePrimitiveCollider(_wardShell);
             _wardShell.name = "WardShell";
             _wardShell.transform.localScale = Vector3.one * 1.7f;
-            _wardMaterial = ViewWorld.MakeUnlit(new Color(0.45f, 0.85f, 1f, 0.28f), true);
+            _wardMaterial = ViewWorld.MakeWardShell(new Color(0.45f, 0.85f, 1f, 1f));
             _wardShell.GetComponent<Renderer>().sharedMaterial = _wardMaterial;
             _wardShell.SetActive(false);
 
@@ -276,6 +296,20 @@ namespace CinderCourt.View
             _aegisFlash = BuildElementParticles("AegisFlash",
                 new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, -2.0f,
                 gravity: 0f, shapeRadius: 0.55f);
+            // Death motes: the kill is the most FREQUENT reward beat in the
+            // game and, before this, the only effect-less one — ActorView's
+            // shrink+pop (ActorView.cs:865-886) carried it alone. Warm ash
+            // rising off the corpse, not an explosion: the finisher already
+            // owns the loud read (gold ring, 2x, 75 ms hit-stop), so this must
+            // stay quieter than a nova and quieter than a pylon teardown.
+            // Slight upward speed + light gravity = a lift that settles, which
+            // is the opposite arc from _novaDebris (0.9 gravity, 낙하 파편).
+            _deathMotes = BuildElementParticles("DeathMotes",
+                new Color(1f, 0.66f, 0.34f, 0.8f), 0.045f, 0.55f, 1.1f,
+                gravity: 0.22f, shapeRadius: 0.3f);
+
+            for (var i = 0; i < ActiveThreatCueCount; i++)
+                EnsureActiveThreatCue(i);
         }
 
         ParticleSystem BuildElementParticles(
@@ -535,6 +569,33 @@ namespace CinderCourt.View
                     0.28f + 0.06f * tier);
             }
 
+            // Kill motes. Scans for corpses this event batch has not emitted
+            // for yet — see the _deathLatch comment for why identity, not a
+            // FadeTime window, decides "fresh". Bosses are excluded: their
+            // death owns a separate staged beat, and a boss corpse would
+            // re-arm every frame it stays on the field.
+            if ((events & SimEvents.EnemyKilled) != 0 && _deathMotes != null)
+            {
+                var corpses = sim.Enemies;
+                for (var i = 0; i < corpses.Count; i++)
+                {
+                    var corpse = corpses[i];
+                    if (!corpse.Dead || corpse.IsBoss) continue;
+                    if (DeathAlreadyEmitted(corpse.Id)) continue;
+                    LatchDeath(corpse.Id);
+                    // Elites read bigger because they ARE bigger (Scale > 1.2
+                    // is the same elite predicate the corpse marker uses two
+                    // blocks below); the count follows the silhouette so the
+                    // effect never claims more than the kill was worth.
+                    var elite = corpse.Scale > 1.2f;
+                    var count = elite ? 16 : 8;
+                    if (ViewPrefs.ReducedMotion) count /= 2;
+                    _deathMotes.transform.position =
+                        ViewWorld.ToWorld(corpse.X, corpse.Y, 0.45f);
+                    _deathMotes.Emit(count);
+                }
+            }
+
             // Extraction corpse marker (#16): cache the freshest dead elite
             // position. Corpse TTL is sim-owned (10 s) — marker is decoration.
             if ((events & SimEvents.EliteDown) != 0)
@@ -574,6 +635,51 @@ namespace CinderCourt.View
                 }
             }
         }
+
+        // The ring is split into static helpers taking the array explicitly so
+        // EditMode can test the SHIPPED logic instead of a copy of it. A
+        // fixture that re-implements the algorithm proves nothing: break the
+        // real ring and the mirror stays green, which is the §4m trap this
+        // whole latch exists to avoid. InternalsVisibleTo already exposes them
+        // (AssemblyInfo.cs:6) — the same reason AudioDirector.NextPitch is
+        // internal static.
+
+        /// <summary>
+        /// True when this enemy id already got its death motes. Linear scan of
+        /// 32 ints is cheaper than the hash it replaces and, unlike a HashSet,
+        /// allocates nothing on a path that runs inside the kill event.
+        /// </summary>
+        internal static bool DeathAlreadyEmitted(int[] ring, int enemyId)
+        {
+            for (var i = 0; i < ring.Length; i++)
+                if (ring[i] == enemyId) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Record an id in the ring, evicting the oldest. Eviction is safe
+        /// because a corpse leaves the published list well inside 32 kills
+        /// (EnemyFade is 0.34 s, SimTypes.cs:215) — an evicted id cannot come
+        /// back to be double-emitted.
+        /// </summary>
+        internal static void LatchDeath(int[] ring, ref int cursor, int enemyId)
+        {
+            ring[cursor] = enemyId;
+            cursor = (cursor + 1) % ring.Length;
+        }
+
+        /// <summary>Wipe a latch ring — ids restart at 1 every run.</summary>
+        internal static void ClearDeathLatch(int[] ring, ref int cursor)
+        {
+            for (var i = 0; i < ring.Length; i++) ring[i] = 0;
+            cursor = 0;
+        }
+
+        bool DeathAlreadyEmitted(int enemyId)
+            => DeathAlreadyEmitted(_deathLatch, enemyId);
+
+        void LatchDeath(int enemyId)
+            => LatchDeath(_deathLatch, ref _deathLatchCursor, enemyId);
 
         /// <summary>
         /// One-shot pylon destruction: pooled burst + debris, body/aura off,
@@ -1109,6 +1215,8 @@ namespace CinderCourt.View
             for (var i = 0; i < _shards.Length; i++)         // §S1 cracks/eruptions
                 if (_shards[i].Line != null) _shards[i].Line.enabled = false;
             if (_boltStreak != null) _boltStreak.enabled = false;
+            for (var i = 0; i < ActiveThreatCueCount; i++)
+                SetActiveThreatCueEnabled(i, false);
             // §3.6: the idle arrow must not survive into the lobby; reset the
             // idle accumulator too so the next run starts from a clean 0.
             if (_threatArrow != null) _threatArrow.enabled = false;
@@ -1120,6 +1228,11 @@ namespace CinderCourt.View
             if (_pulseRipple != null) _pulseRipple.Clear();
             if (_novaDebris != null) _novaDebris.Clear();
             if (_aegisFlash != null) _aegisFlash.Clear();
+            if (_deathMotes != null) _deathMotes.Clear();
+            // Ids restart at 1 every run (CinderSim.cs:924 Restart). Without
+            // this wipe the next run's first kills would match a stale latch
+            // entry and silently lose their motes.
+            ClearDeathLatch(_deathLatch, ref _deathLatchCursor);
             _pulseNextEmit = 0f;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
@@ -1687,6 +1800,19 @@ namespace CinderCourt.View
         float _playerIdleTime;
         float _prevPlayerX = float.NaN, _prevPlayerY;
         const float ThreatArrowDelay = 0.4f;   // spec §3.6
+        const int ActiveThreatCueCount = 3;    // presentation cap: primary + room threats
+        const float ActiveThreatTieEpsilon = 0.0001f;
+
+        struct ActiveThreatCue
+        {
+            public LineRenderer Line;
+            public Material Material;
+        }
+
+        readonly ActiveThreatCue[] _activeThreatCues = new ActiveThreatCue[ActiveThreatCueCount];
+        readonly int[] _activeThreatIndices = new int[ActiveThreatCueCount];
+        readonly float[] _activeThreatDistancesSq = new float[ActiveThreatCueCount];
+
         public void SyncWard(in PlayerState player)
         {
             // Player world position cache — absorption target for #13 and any
@@ -1697,16 +1823,28 @@ namespace CinderCourt.View
                 _wardShell.SetActive(active);
             if (!active) return;
             _wardShell.transform.position = ViewWorld.ToWorld(player.X, player.Y, 0.85f);
-            // Blink during the last 0.5 s.
-            if (player.WardTime < 0.5f)
+            // Expiry warning. This used to toggle the RENDERER at 10 Hz — a
+            // literal strobe on the effect the player is standing inside, and
+            // one that ignored reduced motion. The fresnel shell carries the
+            // same information as a brightness pulse instead: the shape never
+            // blinks out, it breathes. ViewPrefs.ReducedMotion sets amplitude
+            // 0, which is a steady shell rather than a flashing one.
+            if (_wardMaterial != null && _wardMaterial.HasProperty(WardPulseId))
             {
-                var on = Mathf.FloorToInt(player.WardTime * 10f) % 2 == 0;
-                _wardShell.GetComponent<Renderer>().enabled = on;
+                var expiring = player.WardTime < 0.5f;
+                _wardMaterial.SetFloat(
+                    WardPulseId,
+                    expiring && !ViewPrefs.ReducedMotion ? 0.55f : 0f);
             }
-            else
+            else if (player.WardTime < 0.5f && !ViewPrefs.ReducedMotion)
             {
-                _wardShell.GetComponent<Renderer>().enabled = true;
+                // Seed missing -> flat-alpha fallback, which has no pulse
+                // property; keep the original blink so the warning survives.
+                _wardShell.GetComponent<Renderer>().enabled =
+                    Mathf.FloorToInt(player.WardTime * 10f) % 2 == 0;
+                return;
             }
+            _wardShell.GetComponent<Renderer>().enabled = true;
         }
 
         /// <summary>§3.6 (#9): after 0.4 s of no player movement, point a short
@@ -1776,6 +1914,144 @@ namespace CinderCourt.View
             color.a = 0.7f * ramp * ViewPrefs.MotionScale;
             _threatArrowMaterial.color = color;
             _threatArrow.enabled = true;
+        }
+
+        /// <summary>Court-readability cue: draw ownership for enemies already in
+        /// their committed attack state. This reads existing sim state only; it
+        /// deliberately avoids exposing private group-AI tokens or contact frames.</summary>
+        public void SyncActiveAttackThreats(in PlayerState player, IReadOnlyList<EnemyState> enemies)
+        {
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                _activeThreatIndices[slot] = -1;
+                _activeThreatDistancesSq[slot] = float.MaxValue;
+            }
+
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy.Dead || enemy.Action != ActorAction.Attack) continue;
+
+                var dx = enemy.X - player.X;
+                var dy = (enemy.Y - player.Y) * SimConfig.IsoY;
+                var distSq = dx * dx + dy * dy;
+                InsertActiveThreatCandidate(enemies, i, distSq);
+            }
+
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                var enemyIndex = _activeThreatIndices[slot];
+                if (enemyIndex < 0)
+                {
+                    SetActiveThreatCueEnabled(slot, false);
+                    continue;
+                }
+
+                DrawActiveThreatCue(slot, in player, enemies[enemyIndex]);
+            }
+        }
+
+        void InsertActiveThreatCandidate(
+            IReadOnlyList<EnemyState> enemies, int candidateIndex, float candidateDistSq)
+        {
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                var incumbentIndex = _activeThreatIndices[slot];
+                if (incumbentIndex >= 0
+                    && !IsBetterActiveThreat(
+                        enemies[candidateIndex], candidateDistSq, candidateIndex,
+                        enemies[incumbentIndex], _activeThreatDistancesSq[slot], incumbentIndex))
+                    continue;
+
+                for (var shift = ActiveThreatCueCount - 1; shift > slot; shift--)
+                {
+                    _activeThreatIndices[shift] = _activeThreatIndices[shift - 1];
+                    _activeThreatDistancesSq[shift] = _activeThreatDistancesSq[shift - 1];
+                }
+                _activeThreatIndices[slot] = candidateIndex;
+                _activeThreatDistancesSq[slot] = candidateDistSq;
+                return;
+            }
+        }
+
+        static bool IsBetterActiveThreat(
+            in EnemyState candidate, float candidateDistSq, int candidateIndex,
+            in EnemyState incumbent, float incumbentDistSq, int incumbentIndex)
+        {
+            // Larger ActionTime means the enemy entered Attack earlier and is
+            // closer to contact, so it owns primary salience before distance.
+            if (candidate.ActionTime > incumbent.ActionTime + ActiveThreatTieEpsilon) return true;
+            if (candidate.ActionTime < incumbent.ActionTime - ActiveThreatTieEpsilon) return false;
+            if (candidateDistSq < incumbentDistSq - ActiveThreatTieEpsilon) return true;
+            if (candidateDistSq > incumbentDistSq + ActiveThreatTieEpsilon) return false;
+            return candidateIndex < incumbentIndex;
+        }
+
+        void DrawActiveThreatCue(int slot, in PlayerState player, in EnemyState enemy)
+        {
+            EnsureActiveThreatCue(slot);
+
+            var attacker = ViewWorld.ToWorld(enemy.X, enemy.Y, 0.13f);
+            var target = ViewWorld.ToWorld(player.X, player.Y, 0.13f);
+            var direction = target - attacker;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = new Vector3(enemy.Facing >= 0 ? 1f : -1f, 0f, 0f);
+            else
+                direction.Normalize();
+
+            var perpendicular = new Vector3(-direction.z, 0f, direction.x);
+            var primary = slot == 0;
+            var width = primary ? 0.34f : 0.24f;
+            var reach = primary ? 0.82f : 0.62f;
+            var back = primary ? 0.25f : 0.18f;
+            var basePoint = attacker - direction * back;
+            var apex = attacker + direction * reach;
+
+            var line = _activeThreatCues[slot].Line;
+            line.SetPosition(0, basePoint + perpendicular * width);
+            line.SetPosition(1, apex);
+            line.SetPosition(2, basePoint - perpendicular * width);
+
+            var contactProgress = Mathf.Clamp01(enemy.ActionTime / SimConfig.EnemyContactDelay);
+            var baseAlpha = primary ? 0.86f : 0.48f;
+            var motionPulse = ViewPrefs.ReducedMotion
+                ? 1f
+                : 0.82f + 0.18f * Mathf.Sin((Time.time + slot * 0.17f) * 18f);
+            var color = primary
+                ? new Color(1f, 0.36f, 0.12f, 1f)
+                : new Color(1f, 0.58f, 0.22f, 1f);
+            color.a = baseAlpha * Mathf.Lerp(0.72f, 1f, contactProgress) * motionPulse;
+            _activeThreatCues[slot].Material.color = color;
+
+            line.startWidth = primary ? 0.085f : 0.055f;
+            line.endWidth = primary ? 0.035f : 0.025f;
+            line.enabled = true;
+        }
+
+        void EnsureActiveThreatCue(int slot)
+        {
+            if (_activeThreatCues[slot].Line != null) return;
+
+            var host = new GameObject("ActiveThreatCue" + slot);
+            host.transform.SetParent(transform, false);
+            var line = host.AddComponent<LineRenderer>();
+            line.positionCount = 3;
+            line.useWorldSpace = true;
+            line.loop = false;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var material = ViewWorld.MakeUnlit(new Color(1f, 0.36f, 0.12f, 0.86f), true);
+            line.sharedMaterial = material;
+            line.enabled = false;
+
+            _activeThreatCues[slot].Line = line;
+            _activeThreatCues[slot].Material = material;
+        }
+
+        void SetActiveThreatCueEnabled(int slot, bool enabled)
+        {
+            if (_activeThreatCues[slot].Line != null)
+                _activeThreatCues[slot].Line.enabled = enabled;
         }
 
         // Icon ids by PickupKind (EmberShard, OilFlask, RelicMote, EquipShard).

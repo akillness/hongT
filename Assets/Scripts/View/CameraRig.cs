@@ -29,6 +29,11 @@ namespace CinderCourt.View
         Vector3 _basePosition;
         Quaternion _baseRotation;
         float _shakeTime, _shakeDuration, _shakeAmplitude;
+        // Impact motion is radial-bounded: no public caller may exceed the
+        // strongest authored boss beat, and no shake may linger past 350 ms.
+        internal const float MaxShakeAmplitude = 0.09f;
+        internal const float MaxShakeDuration = 0.35f;
+        const float ShakeDecayPower = 0.65f;
         float _lastAspect;
 
         // ---- W9 cinematic flourish (FOV punch + view roll) -------------------
@@ -150,6 +155,7 @@ namespace CinderCourt.View
         /// </summary>
         public void SetPlayfield(float halfWidth, float halfHeight)
         {
+            if (!IsFinite(halfWidth) || !IsFinite(halfHeight)) return;
             _playfieldHalfWidth = halfWidth < SimConfig.ArenaHalfWidth
                 ? SimConfig.ArenaHalfWidth : halfWidth;
             _playfieldHalfHeight = halfHeight < SimConfig.ArenaHalfHeight
@@ -157,10 +163,18 @@ namespace CinderCourt.View
             // A live follow focus was clamped against the OLD window.
             if (_hasFollowAnchor) _followFocus = ClampFollow(_followAnchor);
         }
-        /// <summary>Exponential-smoothing rate for the follow focus (per second).</summary>
-        internal const float FollowLambda = 4.5f;
+        /// <summary>Follow covers half a displacement in 80 ms.</summary>
+        internal const float FollowLambda = 8.7f;
+        internal const float FollowLookAheadSeconds = 0.09f;
+        internal const float FollowLookAheadMax = 0.45f;
+        internal const float FollowVelocityLambda = 12f;
+        internal const float FollowVelocityHoldSeconds = 0.05f;
+        internal const float FollowVelocityMaxSampleSeconds = 0.05f;
         Vector3 _followAnchor;
         Vector3 _followFocus;
+        Vector3 _followVelocity;
+        float _followSampleAge;
+        float _followIdleAge;
         bool _hasFollowAnchor;
 
         /// <summary>
@@ -169,20 +183,46 @@ namespace CinderCourt.View
         /// </summary>
         public void SetFollowAnchor(Vector3 world)
         {
-            _followAnchor = world;
+            if (!IsFinite(world)) return;
             if (!_hasFollowAnchor)
             {
                 // First anchor of a run must not sweep in from the centre.
                 _hasFollowAnchor = true;
+                _followAnchor = world;
                 _followFocus = ClampFollow(world);
+                _followVelocity = Vector3.zero;
+                _followSampleAge = 0f;
+                _followIdleAge = 0f;
+                return;
             }
+
+            var delta = world - _followAnchor;
+            delta.y = 0f;
+            // A 60 Hz sim is sample-and-held on faster render frames. Repeated
+            // positions are not zero-speed samples: hold the last velocity for
+            // 50 ms, and update only when a new sim position arrives.
+            if (delta.sqrMagnitude > 0.000001f)
+            {
+                var sampleSeconds = Mathf.Clamp(
+                    _followSampleAge, SimConfig.FixedStep,
+                    FollowVelocityMaxSampleSeconds);
+                _followVelocity = SmoothFollowVelocity(
+                    _followVelocity, delta, sampleSeconds);
+                _followSampleAge = 0f;
+                _followIdleAge = 0f;
+            }
+            _followAnchor = world;
         }
 
         /// <summary>Drops the follow anchor (run exit); focus returns to centre.</summary>
         public void ClearFollowAnchor()
         {
             _hasFollowAnchor = false;
+            _followAnchor = ArenaCenter;
             _followFocus = ArenaCenter;
+            _followVelocity = Vector3.zero;
+            _followSampleAge = 0f;
+            _followIdleAge = 0f;
         }
 
         internal static Vector3 ClampFollow(Vector3 world)
@@ -192,6 +232,34 @@ namespace CinderCourt.View
                 Mathf.Clamp(offset.x, -FollowClampX, FollowClampX),
                 0f,
                 Mathf.Clamp(offset.z, -FollowClampZ, FollowClampZ));
+        }
+
+        internal static float DampAlpha(float deltaTime, float lambda)
+            => 1f - Mathf.Exp(-Mathf.Max(0f, deltaTime) * Mathf.Max(0f, lambda));
+
+        static bool IsFinite(float value)
+            => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        static bool IsFinite(Vector3 value)
+            => IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
+
+        internal static Vector3 SmoothFollowVelocity(
+            Vector3 current, Vector3 displacement, float deltaTime)
+        {
+            if (deltaTime <= 0f || !IsFinite(deltaTime)) return current;
+            displacement.y = 0f;
+            var sample = displacement / deltaTime;
+            return Vector3.Lerp(
+                current, sample, DampAlpha(deltaTime, FollowVelocityLambda));
+        }
+
+        /// <summary>Player focus plus a small, radial-bounded velocity lead.</summary>
+        internal static Vector3 FollowTarget(Vector3 anchor, Vector3 velocity)
+        {
+            velocity.y = 0f;
+            var lead = Vector3.ClampMagnitude(
+                velocity * FollowLookAheadSeconds, FollowLookAheadMax);
+            return ClampFollow(anchor + lead);
         }
 
         // Outskirt fog offsets from the live orbit distance. Derived from the
@@ -246,16 +314,16 @@ namespace CinderCourt.View
             }
             _profile = profile;
             _profileTime = 0f;
-            // A stale anchor from the previous run would snap the next dungeon
-            // entry to wherever the last player died.
+            // No positional, FOV or roll impulse may leak across a profile
+            // boundary. Each new profile writes its own authored placement.
+            _shakeTime = 0f;
+            _shakeDuration = 0f;
+            _shakeAmplitude = 0f;
             ClearFollowAnchor();
             _revealT = 0f;
-            _focusTimer = 0f;   // stale boss focus must not survive a run exit
+            _focusTimer = 0f;
             _focusDuration = 1f;
             _focusTarget = Vector3.zero;
-            // A live FOV punch must not survive into the next profile: the
-            // profile switch below rewrites fieldOfView, and a flourish still
-            // running would keep adding its delta to the NEW baseline.
             _flourishTime = 0f;
             _flourishActive = false;
             // The dungeon branch drives RenderSettings fog every frame, and
@@ -349,6 +417,8 @@ namespace CinderCourt.View
         /// </summary>
         public void Flourish(float fovPunch, float rollDegrees, float duration)
         {
+            if (!IsFinite(fovPunch) || !IsFinite(rollDegrees) || !IsFinite(duration))
+                return;
             if (ViewPrefs.ReducedMotion) return;
             var scale = ViewPrefs.MotionScale;
             fovPunch = Mathf.Clamp(fovPunch * scale, -MaxFlourishFov, MaxFlourishFov);
@@ -414,7 +484,7 @@ namespace CinderCourt.View
             // nova (shake 0.06 + fov punch) never stacks into motion sickness.
             var shakeLoad = _shakeTime > 0f
                 ? Mathf.Clamp01(_shakeAmplitude
-                    * Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration))
+                    * ShakeEnvelope(_shakeTime / Mathf.Max(0.0001f, _shakeDuration))
                     / ShakeLoadReference)
                 : 0f;
             var composite = envelope * (1f - 0.5f * shakeLoad);
@@ -428,12 +498,25 @@ namespace CinderCourt.View
         }
 
         void Shake(float duration, float amplitude)
+            => RequestShake(amplitude, duration);
+
+        void RequestShake(float amplitude, float duration)
         {
             if (ViewPrefs.ReducedMotion) return;
-            var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
-            if (scaledAmplitude <= 0f) return;
-            _shakeDuration = duration;
-            _shakeTime = duration;
+            if (!IsFinite(amplitude) || !IsFinite(duration)) return;
+            var scaledAmplitude = Mathf.Clamp(
+                amplitude * ViewPrefs.MotionScale, 0f, MaxShakeAmplitude);
+            var clampedDuration = Mathf.Clamp(duration, 0f, MaxShakeDuration);
+            if (scaledAmplitude <= 0f || clampedDuration <= 0f) return;
+            if (_shakeTime > 0f)
+            {
+                var remaining = Mathf.Clamp01(
+                    _shakeTime / Mathf.Max(0.0001f, _shakeDuration));
+                if (_shakeAmplitude * ShakeEnvelope(remaining) >= scaledAmplitude)
+                    return;
+            }
+            _shakeDuration = clampedDuration;
+            _shakeTime = clampedDuration;
             _shakeAmplitude = scaledAmplitude;
         }
 
@@ -463,6 +546,17 @@ namespace CinderCourt.View
         void LateUpdate()
         {
             if (_camera == null) return;
+            // Preferences can change while an effect is live. Cancel the
+            // position/focus channels immediately; leave flourishActive set so
+            // ApplyFlourish performs its exact baseline restore this frame.
+            if (ViewPrefs.ReducedMotion)
+            {
+                _shakeTime = 0f;
+                _shakeDuration = 0f;
+                _shakeAmplitude = 0f;
+                _focusTimer = 0f;
+                _flourishTime = 0f;
+            }
             _profileTime += Time.deltaTime;
 
             switch (_profile)
@@ -518,31 +612,33 @@ namespace CinderCourt.View
                     ApplyAspect(false);   // portrait: distance-widen, FOV fixed
                     _dungeonDistance = Mathf.Lerp(
                         _dungeonDistance, _dungeonTargetDistance,
-                        1f - Mathf.Exp(-Time.deltaTime * 2.2f));
-                    // Boss-intro focus pull (cycle2 A1): blend orbit focus
-                    // toward the pulse target, then back. View-only.
-                    // Player-follow anchor (2026-10 request): the dungeon
-                    // camera is no longer pinned to the arena centre. The
-                    // anchor is clamped to FollowClampX/Z around the centre so
-                    // the enlarged floor never slides out of frame, then
-                    // critically damped toward so strafing does not jitter.
-                    var desired = ClampFollow(
-                        _hasFollowAnchor ? _followAnchor : ArenaCenter);
+                        DampAlpha(Time.deltaTime, 2.2f));
+                    // Velocity-derived look-ahead is frame-rate independent and
+                    // reaches at most 90 ms forward, capped to 0.45 world units.
+                    var desired = FollowTarget(
+                        _hasFollowAnchor ? _followAnchor : ArenaCenter,
+                        _hasFollowAnchor ? _followVelocity : Vector3.zero);
                     _followFocus = Vector3.Lerp(
                         _followFocus, desired,
-                        1f - Mathf.Exp(-Time.deltaTime * FollowLambda));
+                        DampAlpha(Time.deltaTime, FollowLambda));
+                    _followSampleAge += Time.deltaTime;
+                    _followIdleAge += Time.deltaTime;
+                    if (_followIdleAge > FollowVelocityHoldSeconds)
+                        _followVelocity = Vector3.Lerp(
+                            _followVelocity, Vector3.zero,
+                            DampAlpha(Time.deltaTime, FollowVelocityLambda));
                     var focus = _followFocus;
-                    // Boss-intro focus pull (cycle2 A1): blend orbit focus
-                    // toward the pulse target, then back. View-only.
+                    // Boss-intro focus pull keeps both subjects readable: the
+                    // threat contribution is radial-bounded around the player.
                     if (_focusTimer > 0f)
                     {
                         _focusTimer -= Time.deltaTime;
                         var phase = 1f - Mathf.Clamp01(_focusTimer / _focusDuration);
-                        // ease out to target in first half, ease back in second
                         var blend = phase < 0.5f
                             ? Mathf.SmoothStep(0f, 1f, phase * 2f)
                             : Mathf.SmoothStep(1f, 0f, (phase - 0.5f) * 2f);
-                        focus = Vector3.Lerp(_followFocus, _focusTarget, blend * 0.55f);
+                        focus = Vector3.Lerp(
+                            _followFocus, ThreatFocus(_followFocus, _focusTarget), blend);
                     }
                     PlaceOrbit(55f, _dungeonDistance * _aspectWiden, focus);
                     // Outskirt fog must TRACK the orbit, not sit at a baked
@@ -571,18 +667,31 @@ namespace CinderCourt.View
         }
 
 
+        internal const float ThreatFocusWeight = 0.45f;
+        internal const float MaxThreatFocusOffset = 2.25f;
+        internal const float MaxFocusDuration = 0.65f;
         float _focusTimer, _focusDuration = 1f;
         Vector3 _focusTarget;
 
+        internal static Vector3 ThreatFocus(Vector3 playerFocus, Vector3 threat)
+        {
+            if (!IsFinite(playerFocus) || !IsFinite(threat)) return playerFocus;
+            var delta = threat - playerFocus;
+            delta.y = 0f;
+            return playerFocus + Vector3.ClampMagnitude(
+                delta * ThreatFocusWeight, MaxThreatFocusOffset);
+        }
+
         /// <summary>
         /// Dungeon-only camera focus pull toward a world point (boss intro).
-        /// Blends 55% of the way out and back over <paramref name="duration"/>.
+        /// Keeps the player in the composition and eases fully back.
         /// </summary>
         public void FocusPulse(Vector3 worldTarget, float duration)
         {
-            if (ViewPrefs.ReducedMotion) return;   // A5 accessibility gate
+            if (ViewPrefs.ReducedMotion) return;
+            if (!IsFinite(worldTarget) || !IsFinite(duration)) return;
             _focusTarget = worldTarget;
-            _focusDuration = Mathf.Max(0.2f, duration);
+            _focusDuration = Mathf.Clamp(duration, 0.2f, MaxFocusDuration);
             _focusTimer = _focusDuration;
         }
         void PlaceOrbit(float pitch, float distance, Vector3 focus)
@@ -597,10 +706,13 @@ namespace CinderCourt.View
         {
             if (_shakeTime > 0f)
             {
-                _shakeTime -= Time.deltaTime;
-                var falloff = Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration));
-                var offset = ShakeOffset(falloff);
-                _camera.transform.SetPositionAndRotation(position + offset, rotation);
+                // Sample before consuming time: even a request shorter than one
+                // rendered frame earns one bounded impact sample.
+                var remaining = Mathf.Clamp01(
+                    _shakeTime / Mathf.Max(0.0001f, _shakeDuration));
+                _camera.transform.SetPositionAndRotation(
+                    position + ShakeOffset(remaining), rotation);
+                ConsumeShakeSample();
             }
             else if (_camera.transform.position != position)
             {
@@ -611,16 +723,37 @@ namespace CinderCourt.View
         void ApplyShakeOffset()
         {
             if (_shakeTime <= 0f) return;
-            _shakeTime -= Time.deltaTime;
-            var falloff = Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration));
-            _camera.transform.position += ShakeOffset(falloff);
+            var remaining = Mathf.Clamp01(
+                _shakeTime / Mathf.Max(0.0001f, _shakeDuration));
+            _camera.transform.position += ShakeOffset(remaining);
+            ConsumeShakeSample();
         }
 
-        Vector3 ShakeOffset(float falloff)
-            => new Vector3(
-                Mathf.PerlinNoise(Time.time * 37f, 0.3f) - 0.5f,
-                Mathf.PerlinNoise(0.7f, Time.time * 41f) - 0.5f,
-                0f) * (2f * _shakeAmplitude * falloff);
+        void ConsumeShakeSample()
+        {
+            var frameDelta = Mathf.Max(0f, Time.deltaTime);
+            _shakeTime = _shakeTime <= Mathf.Max(0.000001f, frameDelta)
+                ? 0f
+                : _shakeTime - frameDelta;
+        }
+
+        internal static float ShakeEnvelope(float normalizedRemaining)
+            => Mathf.Pow(Mathf.Clamp01(normalizedRemaining), ShakeDecayPower);
+
+        Vector3 ShakeOffset(float normalizedRemaining)
+        {
+            var x = (Mathf.PerlinNoise(Time.time * 37f, 0.3f) - 0.5f) * 2f;
+            var y = (Mathf.PerlinNoise(0.7f, Time.time * 41f) - 0.5f) * 2f;
+            var sqrMagnitude = x * x + y * y;
+            if (sqrMagnitude > 1f)
+            {
+                var inverseMagnitude = 1f / Mathf.Sqrt(sqrMagnitude);
+                x *= inverseMagnitude;
+                y *= inverseMagnitude;
+            }
+            var amplitude = _shakeAmplitude * ShakeEnvelope(normalizedRemaining);
+            return new Vector3(x * amplitude, y * amplitude, 0f);
+        }
         // --- append-only presentation API (spec #2, JuiceLane) ---------------
         // Extra shake tiers are requested by GameView instead of extending the
         // OnEvents chain above (MobileLane owns aspect/profile code paths).
@@ -628,18 +761,6 @@ namespace CinderCourt.View
         /// <summary>
         /// Request a shake without stomping a stronger one already playing:
         public void Punch(float amplitude, float duration)
-        {
-            if (ViewPrefs.ReducedMotion) return;
-            var scaledAmplitude = amplitude * ViewPrefs.MotionScale;
-            if (scaledAmplitude <= 0f) return;
-            if (_shakeTime > 0f)
-            {
-                var falloff = Mathf.Clamp01(_shakeTime / Mathf.Max(0.0001f, _shakeDuration));
-                if (_shakeAmplitude * falloff >= scaledAmplitude) return;
-            }
-            _shakeDuration = duration;
-            _shakeTime = duration;
-            _shakeAmplitude = scaledAmplitude;
-        }
+            => RequestShake(amplitude, duration);
     }
 }

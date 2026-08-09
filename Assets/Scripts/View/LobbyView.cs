@@ -71,11 +71,7 @@ namespace CinderCourt.View
         /// <summary>Catalog order. Index 0 is deliberately the inert None so the
         /// stored ints are the SigilKind enum values with no remapping.</summary>
         internal static readonly SigilKind[] SigilOrder = ProgressionGuide.SigilOrder;
-        /// <summary>Internal so MetaScreenView can name the same sigils
-        /// (MetaScreenView.cs:452,475) — one copy of the vocabulary, two
-        /// surfaces reading it. The ORDER moved to ProgressionGuide in
-        /// AMENDMENT #8; the NAMES stay here because nothing outside the view
-        /// layer needs them.</summary>
+        /// <summary>View-layer names for the sanctum sigil rows.</summary>
         internal static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
         /// <summary>Which gimmick each sigil binds — the line that tells the
         /// player WHERE it matters, not just what number moves.</summary>
@@ -278,11 +274,10 @@ namespace CinderCourt.View
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
 
-        // W8 campaign minimap + W7 tab meta screen. The minimap occupies the
-        // centre gutter between SANCTUM and SORTIE on desktop; the stacked
-        // (phone) layout has no gutter, so there it hides and the full-screen
-        // 지도 tab of the meta screen is the route instead — a third full-width
-        // card would push the already-tall stacked column further off screen.
+        // W8 campaign minimap + the full-screen map/controls reference surface.
+        // The minimap occupies the centre gutter between SANCTUM and SORTIE on
+        // desktop; the stacked layout has no gutter, so its full-screen map tab
+        // remains the map route there.
         CampaignMapView _map;
         RectTransform _mapPanelRect;
         MetaScreenView _meta;
@@ -331,9 +326,7 @@ namespace CinderCourt.View
         public void Build(CampaignData data, LobbyCallbacks callbacks)
         {
             _callbacks = callbacks;
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
 
             var canvasObject = new GameObject("Lobby");
             canvasObject.transform.SetParent(transform, false);
@@ -406,21 +399,17 @@ namespace CinderCourt.View
             // floor on BOTH axes with margin and neither joins the lobby's
             // debt table (LobbyLayoutTests holds that table exactly).
             //
-            // D-R4: the first one used to be called 지도, inside the panel the
-            // rail's 지도 icon opens. A map button inside the map is a route
-            // that describes itself; "전체 지도" says what it actually is — the
-            // full-screen one, as opposed to the constellation directly above
-            // it. 정비 keeps its word: it opens MetaScreenView's equip tab,
-            // which is a different surface from the sanctum's equip tab (D-6
-            // holds that duplication open with a cycle-9 expiry).
+            // "전체 지도" opens the full-screen map. "정비" returns to the
+            // sanctum's single equipment presentation instead of opening a
+            // duplicate read-only equipment surface.
             var mapButton = TextButton(panel.transform, new Vector2(0, 1),
                 new Vector2(16, -208), new Vector2(196, 96), "전체 지도", 17,
                 () => _meta?.Show(in _lastData, MetaScreenView.TabMap));
             mapButton.name = "OpenMapButton";
             var gearButton = TextButton(panel.transform, new Vector2(0, 1),
                 new Vector2(212, -208), new Vector2(196, 96), "정비", 17,
-                () => _meta?.Show(in _lastData, MetaScreenView.TabEquip));
-            gearButton.name = "MetaScreenButton";
+                OpenSanctumEquipment);
+            gearButton.name = "SanctumEquipmentButton";
         }
 
         // ------------------------------------------------------------- rail --
@@ -597,9 +586,13 @@ namespace CinderCourt.View
             => _railButtons[Mathf.Clamp(index, 0, 2)] == null
                 ? null : (RectTransform)_railButtons[Mathf.Clamp(index, 0, 2)].transform;
 
-        /// <summary>Opens the tab meta screen on its default tab. Public so a
-        /// future deep link (or a QA route) can reach it without a click.</summary>
-        public void OpenMetaScreen() => _meta?.Show(in _lastData, MetaScreenView.TabEquip);
+        /// <summary>Opens the sanctum directly on its equipment tab.</summary>
+        public void OpenMetaScreen() => OpenSanctumEquipment();
+        void OpenSanctumEquipment()
+        {
+            SelectRail(RailSanctum);
+            SelectTab(1);
+        }
 
         /// <summary>Test seam: the word a sortie card is actually showing on its
         /// right edge. "" is the de-duplicated state — the map owns it.</summary>
@@ -2188,9 +2181,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;

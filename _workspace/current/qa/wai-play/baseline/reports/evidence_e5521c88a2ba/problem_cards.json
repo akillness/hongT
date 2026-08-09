@@ -1,0 +1,434 @@
+[
+  {
+    "issue_code": "input_latency",
+    "source": "rating_criterion",
+    "category": "技术稳定性与性能表现",
+    "title": "按下操作后，游戏响应得太慢",
+    "description": "该项当前评分为 1.8/5.0。大多数操作中的较慢响应约为 359 毫秒。这说明生存肉鸽在“按下操作后，游戏响应得太慢”方面存在可复现的不足。",
+    "severity": "minor",
+    "priority": "P2",
+    "recommendation": "建议目标：缩短操作响应时间。具体做法：避免在输入回调里执行大量计算，把画面更新安排到下一帧并及时确认输入已经接收。验收方法：关键操作的较慢响应应低于 150 毫秒。",
+    "score": 1.8,
+    "problem_id": "quality_technical_quality_input_latency",
+    "selected_attempt_number": 1,
+    "selected_attempt_mode": "baseline",
+    "selected_attempt_id": "attempt_01_baseline",
+    "occurrence_attempts": [
+      1
+    ],
+    "occurrence_attempt_count": 1,
+    "occurrence_label": "出现于 1/1 次尝试",
+    "evidence_conclusion": "证据充分",
+    "evidence_sufficient": true,
+    "evidence": {
+      "available": true,
+      "evidence_id": "attempt_01_baseline_step_15_2673601c",
+      "attempt_number": 1,
+      "attempt_mode": "baseline",
+      "attempt_id": "attempt_01_baseline",
+      "step": 15,
+      "related_steps": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "state_snapshot": {
+        "player.hp": 0,
+        "player.max_hp": 100,
+        "player.level": 1,
+        "player.exp": 0,
+        "player.position": {
+          "x": 892.158,
+          "y": 792.366
+        },
+        "enemy_count": 2,
+        "combat.kills": 2,
+        "resources.exp_orbs": 0,
+        "upgrade": {
+          "is_selecting_upgrade": false,
+          "options": []
+        },
+        "boss": {
+          "exists": false,
+          "hp": 0,
+          "max_hp": 0,
+          "phase": 0,
+          "phase_count": 3
+        },
+        "world.elapsed": 21.371,
+        "status": {
+          "done": true,
+          "success": false,
+          "failed": true,
+          "reason": "overrun"
+        },
+        "_available_field_count": 12,
+        "_raw_state_available": true
+      },
+      "changed_fields": [
+        {
+          "field": "player.hp",
+          "before": 2,
+          "after": 0,
+          "change_type": "decreased"
+        },
+        {
+          "field": "player.position",
+          "before": {
+            "x": 889.453,
+            "y": 793.775
+          },
+          "after": {
+            "x": 892.158,
+            "y": 792.366
+          },
+          "change_type": "changed"
+        },
+        {
+          "field": "status",
+          "before": {
+            "done": false,
+            "success": false,
+            "failed": false,
+            "reason": "running"
+          },
+          "after": {
+            "done": true,
+            "success": false,
+            "failed": true,
+            "reason": "overrun"
+          },
+          "change_type": "changed"
+        },
+        {
+          "field": "world.elapsed",
+          "before": 20.873,
+          "after": 21.371,
+          "change_type": "increased"
+        }
+      ],
+      "recording_clip": null,
+      "screenshot": null,
+      "evaluation": {
+        "done": true,
+        "success": false,
+        "failed": true,
+        "score": 450,
+        "reason": "overrun",
+        "api_available": true,
+        "standard_api_available": true,
+        "mode": "standard_api"
+      },
+      "evidence_conclusion": "证据充分",
+      "validation": "ok",
+      "validation_detail": {
+        "ok": true,
+        "error": null,
+        "selected_attempt_number": 1,
+        "cross_attempt_mixing": false
+      }
+    },
+    "evidence_confidence": {
+      "problem_id": "quality_technical_quality_input_latency",
+      "evidence_id": "attempt_01_baseline_step_15_2673601c",
+      "score": 61,
+      "level": "medium",
+      "evidence_sufficient": true,
+      "confidence_threshold": 60,
+      "raw_score": 61,
+      "penalty_score": 0,
+      "factors": {
+        "state_snapshot": {
+          "score": 20,
+          "max_score": 20,
+          "field_count": 22,
+          "available": true
+        },
+        "changed_fields": {
+          "score": 20,
+          "max_score": 20,
+          "changed_count": 4,
+          "available": true
+        },
+        "recording": {
+          "score": 0,
+          "max_score": 20,
+          "mode": "missing",
+          "clip_path": null,
+          "clip_exists": false,
+          "recording_path": null,
+          "recording_exists": false,
+          "recording_url": null,
+          "start_ms": null,
+          "end_ms": null,
+          "valid_time_range": false,
+          "invalid_time_range": false
+        },
+        "screenshot": {
+          "score": 0,
+          "max_score": 10,
+          "mode": "missing",
+          "path": null,
+          "path_exists": false,
+          "url": null
+        },
+        "source": {
+          "score": 11,
+          "max_score": 20,
+          "mode": "evidence_reference",
+          "source_text": "rating_criterion",
+          "direct_api": false,
+          "direct_state": false,
+          "used_fallback": false
+        },
+        "integrity": {
+          "score": 10,
+          "max_score": 10,
+          "status": "complete",
+          "valid": true,
+          "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/integrity.json",
+          "exists": true
+        }
+      },
+      "strengths": [
+        "存在结构化状态快照。",
+        "检测到关键状态字段变化。",
+        "证据文件完整性状态正常。"
+      ],
+      "risks": [
+        "缺少可用录像证据。",
+        "缺少截图证据。"
+      ],
+      "recommendation": "证据链较完整，可作为自动测评结论。"
+    }
+  },
+  {
+    "issue_code": "input_feedback",
+    "source": "rating_criterion",
+    "category": "操作体验与反馈",
+    "title": "按下操作后，画面没有及时反馈",
+    "description": "该项当前评分为 1.8/5.0。这说明生存肉鸽在“按下操作后，画面没有及时反馈”方面存在可复现的不足。",
+    "severity": "minor",
+    "priority": "P2",
+    "recommendation": "建议目标：让玩家知道操作已经生效。具体做法：按下按钮或方向键后立即给出按压、移动、声音或状态提示，不要只修改内部数值。验收方法：抽查 10 次操作，每次都能在 0.15 秒内看到或听到反馈。",
+    "score": 1.8,
+    "problem_id": "quality_feedback_input_feedback",
+    "selected_attempt_number": 1,
+    "selected_attempt_mode": "baseline",
+    "selected_attempt_id": "attempt_01_baseline",
+    "occurrence_attempts": [
+      1
+    ],
+    "occurrence_attempt_count": 1,
+    "occurrence_label": "出现于 1/1 次尝试",
+    "evidence_conclusion": "证据充分",
+    "evidence_sufficient": true,
+    "evidence": {
+      "available": true,
+      "evidence_id": "attempt_01_baseline_step_14_37c3b5dd",
+      "attempt_number": 1,
+      "attempt_mode": "baseline",
+      "attempt_id": "attempt_01_baseline",
+      "step": 14,
+      "related_steps": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "state_snapshot": {
+        "player.hp": 2,
+        "player.max_hp": 100,
+        "player.level": 1,
+        "player.exp": 0,
+        "player.position": {
+          "x": 889.453,
+          "y": 793.775
+        },
+        "enemy_count": 2,
+        "combat.kills": 2,
+        "resources.exp_orbs": 0,
+        "upgrade": {
+          "is_selecting_upgrade": false,
+          "options": []
+        },
+        "boss": {
+          "exists": false,
+          "hp": 0,
+          "max_hp": 0,
+          "phase": 0,
+          "phase_count": 3
+        },
+        "world.elapsed": 20.873,
+        "status": {
+          "done": false,
+          "success": false,
+          "failed": false,
+          "reason": "running"
+        },
+        "_available_field_count": 12,
+        "_raw_state_available": true
+      },
+      "changed_fields": [
+        {
+          "field": "player.hp",
+          "before": 9,
+          "after": 2,
+          "change_type": "decreased"
+        },
+        {
+          "field": "player.position",
+          "before": {
+            "x": 837.151,
+            "y": 821.002
+          },
+          "after": {
+            "x": 889.453,
+            "y": 793.775
+          },
+          "change_type": "changed"
+        },
+        {
+          "field": "world.elapsed",
+          "before": 19.562,
+          "after": 20.873,
+          "change_type": "increased"
+        }
+      ],
+      "recording_clip": {
+        "attempt_number": 1,
+        "attempt_mode": "baseline",
+        "attempt_id": "attempt_01_baseline",
+        "recording_available": true,
+        "recording_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/gameplay.webm",
+        "recording_url": null,
+        "step": 14,
+        "action_start_ms": 40990,
+        "action_end_ms": 41270,
+        "clip_start_ms": 32341,
+        "clip_end_ms": 42770,
+        "clip_duration_ms": 10429,
+        "clip_window_policy": "problem_segment_max_20s",
+        "related_step_count": 7,
+        "clip_exported": true,
+        "clip_exists": true,
+        "clip_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/clips/002_quality_feedback_input_feedback_32341_42770.webm",
+        "clip_error": null,
+        "export_method": "stream_copy_webm"
+      },
+      "screenshot": null,
+      "evaluation": {
+        "done": false,
+        "success": false,
+        "failed": false,
+        "score": 450,
+        "reason": "running",
+        "api_available": true,
+        "standard_api_available": true,
+        "mode": "standard_api"
+      },
+      "evidence_conclusion": "证据充分",
+      "validation": "ok",
+      "validation_detail": {
+        "ok": true,
+        "error": null,
+        "selected_attempt_number": 1,
+        "cross_attempt_mixing": false
+      }
+    },
+    "evidence_confidence": {
+      "problem_id": "quality_feedback_input_feedback",
+      "evidence_id": "attempt_01_baseline_step_14_37c3b5dd",
+      "score": 81,
+      "level": "high",
+      "evidence_sufficient": true,
+      "confidence_threshold": 60,
+      "raw_score": 81,
+      "penalty_score": 0,
+      "factors": {
+        "state_snapshot": {
+          "score": 20,
+          "max_score": 20,
+          "field_count": 22,
+          "available": true
+        },
+        "changed_fields": {
+          "score": 20,
+          "max_score": 20,
+          "changed_count": 3,
+          "available": true
+        },
+        "recording": {
+          "score": 20,
+          "max_score": 20,
+          "mode": "independent_clip",
+          "clip_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/clips/002_quality_feedback_input_feedback_32341_42770.webm",
+          "clip_exists": true,
+          "recording_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/gameplay.webm",
+          "recording_exists": true,
+          "recording_url": null,
+          "start_ms": 32341,
+          "end_ms": 42770,
+          "valid_time_range": true,
+          "invalid_time_range": false
+        },
+        "screenshot": {
+          "score": 0,
+          "max_score": 10,
+          "mode": "missing",
+          "path": null,
+          "path_exists": false,
+          "url": null
+        },
+        "source": {
+          "score": 11,
+          "max_score": 20,
+          "mode": "evidence_reference",
+          "source_text": "rating_criterion",
+          "direct_api": false,
+          "direct_state": false,
+          "used_fallback": false
+        },
+        "integrity": {
+          "score": 10,
+          "max_score": 10,
+          "status": "complete",
+          "valid": true,
+          "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/integrity.json",
+          "exists": true
+        }
+      },
+      "strengths": [
+        "存在结构化状态快照。",
+        "检测到关键状态字段变化。",
+        "存在可读取的独立问题录像片段。",
+        "证据文件完整性状态正常。"
+      ],
+      "risks": [
+        "缺少截图证据。"
+      ],
+      "recommendation": "证据链较完整，可作为自动测评结论。"
+    }
+  }
+]

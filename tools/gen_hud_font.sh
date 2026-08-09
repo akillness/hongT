@@ -35,10 +35,13 @@ open('/tmp/hud-charset.txt', 'w', encoding='utf-8').write(text)
 print(f'{len(text)} glyphs from View assembly')
 EOF
 
+# Preserve the OFL source's CFF stem hints: HudKorean imports as
+# HintedSmooth, and stripping them turns that setting back into unhinted
+# grayscale at the small HUD sizes where Korean counters need it most.
 python3 -m fontTools.subset ~/Library/Fonts/NanumBarunGothic.otf \
   --text-file=/tmp/hud-charset.txt \
   --output-file=Assets/Resources/Fonts/HudKorean.otf \
-  --no-hinting --desubroutinize 2>&1 | grep -v FFTM || true
+  --desubroutinize 2>&1 | grep -v FFTM || true
 
 python3 - <<'EOF'
 from fontTools.ttLib import TTFont

@@ -67,9 +67,34 @@ namespace CinderCourt.EditorTools
         // at 1.2x, and it places the contact frames at 0.17-0.31 s of the pose,
         // inside the sim's own active window (SimConfig.AttackActiveFrom/To =
         // 0.167..0.333 s). Actions with no row here import whole.
+        //
+        // show / cast (2026-08-09). ActorView.cs claimed for months that these
+        // two states were "fitted to this window (CharacterImportPipeline)" —
+        // they were not: no ClipTrims row, no baked state speed, m_Speed 1 in
+        // the controller. Mutant Roaring imported whole (130 f / 5.42 s) into
+        // RoarDuration's 1.1 s, so the boss entrance showed ~20% of a roar and
+        // cut mid-bellow; the cast clip (65 f / 2.71 s) into CastPoseDuration's
+        // 0.30 s showed ~11%. Measured with Assets/Editor/ClipWindowProbe.cs —
+        // the same SampleAnimation rig described above, now checked in:
+        //   Mutant Roaring   peak f21, motion f15-28 -> trim 8..34  = 1.083 s
+        //   2H Magic Attack  peak f27, motion f26-28 -> trim 23..30 = 0.292 s
+        // Both windows CONTAIN the measured motion and land within 17 ms of
+        // their targets, so each plays at speed 1 and simply ends when the
+        // window does. Trimming beats retiming here: a speed fit would have to
+        // reach 4.9x for the roar, past MaxPoseSpeed, and a 5x roar is a chirp.
+        //
+        // Reaction clips were measured too and DELIBERATELY left untrimmed:
+        //   hit     f0-2  preamble  2.2%   bighit f2-3  preamble  5.3%
+        // Both are already tight. Dodging (46.2%) and Body Block (28.3%) do
+        // carry preamble, but they are not squeezed into a fixed pose window —
+        // they play at their authored pace — so trimming them would change
+        // established feel for no measured defect. Listed here so the next
+        // reader knows the omission is a decision, not an oversight.
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
             ("attack", 16, 28),
+            ("show", 8, 34),
+            ("cast", 23, 30),
         };
 
         /// <summary>Index of the first View-only substate — everything below is

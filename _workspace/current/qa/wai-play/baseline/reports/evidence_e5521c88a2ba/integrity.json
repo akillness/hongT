@@ -1,0 +1,270 @@
+{
+  "checker": "EvidenceIntegrityChecker",
+  "version": "1.0",
+  "session_id": "evidence_e5521c88a2ba",
+  "generated_at": "2026-08-09T06:15:59.134222+00:00",
+  "algorithm": "sha256",
+  "status": "complete",
+  "summary": {
+    "total_count": 23,
+    "existing_count": 23,
+    "hashed_count": 23,
+    "missing_count": 0,
+    "error_count": 0
+  },
+  "files": [
+    {
+      "category": "export_file:result_json",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/result.json",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 1510582,
+      "modified_at": "2026-08-09T06:15:59.116222+00:00",
+      "algorithm": "sha256",
+      "digest": "fe8dc2b24564407ff480834a509fce814d0c6a88107b120ed28b90199153b6f2",
+      "error": null
+    },
+    {
+      "category": "export_file:evidence_json",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/evidence_report.json",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 535027,
+      "modified_at": "2026-08-09T06:15:59.118808+00:00",
+      "algorithm": "sha256",
+      "digest": "41d010b52f14f5a57abdb6172c38c2791f374a1c423ac0fcc7de4c4d3d51823f",
+      "error": null
+    },
+    {
+      "category": "export_file:problem_cards_json",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/problem_cards.json",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 12891,
+      "modified_at": "2026-08-09T06:15:59.119262+00:00",
+      "algorithm": "sha256",
+      "digest": "b8474780272e39c66657a1f7fff8a5d00104e532f3add71314b70a83e700af8a",
+      "error": null
+    },
+    {
+      "category": "export_file:confidence_json",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/confidence_report.json",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 5102,
+      "modified_at": "2026-08-09T06:15:59.119518+00:00",
+      "algorithm": "sha256",
+      "digest": "88f5014ed95b180ac9f7c5b21ca5e29eb6e421e9cea5feeb0bafa77679d92c50",
+      "error": null
+    },
+    {
+      "category": "export_file:markdown_report",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/report.md",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 7790,
+      "modified_at": "2026-08-09T06:15:59.119923+00:00",
+      "algorithm": "sha256",
+      "digest": "30c74f6c40bbb25db79814eaecf4813320deb54ee71f1ac674dd08eba9e8f85c",
+      "error": null
+    },
+    {
+      "category": "export_file:manifest_json",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/manifest.json",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 10487,
+      "modified_at": "2026-08-09T06:15:59.120412+00:00",
+      "algorithm": "sha256",
+      "digest": "250bb150b7c9be0010a284b27288283b97df83fae848eaccf67cfbf21d8608b1",
+      "error": null
+    },
+    {
+      "category": "recording",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/gameplay.webm",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 4898601,
+      "modified_at": "2026-08-09T06:15:58.791160+00:00",
+      "algorithm": "sha256",
+      "digest": "a1afac0adda05f14c080bf05279dd1b03b5525413d347ad0f8aeab97fcaed210",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0002_step_0001_action_attack_1786256137968.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 761809,
+      "modified_at": "2026-08-09T06:15:38.643556+00:00",
+      "algorithm": "sha256",
+      "digest": "574d6eab1cdb8c929f92167ecc166d849200030064f8424a829051f1db14700b",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0003_step_0002_action_attack_1786256139970.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 760847,
+      "modified_at": "2026-08-09T06:15:40.523554+00:00",
+      "algorithm": "sha256",
+      "digest": "e03a7170061cc637a7642676f675b89d4c5b4470ad71bef7597d364f1dcc9581",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0004_step_0003_action_move_left_1786256141380.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 758781,
+      "modified_at": "2026-08-09T06:15:41.873189+00:00",
+      "algorithm": "sha256",
+      "digest": "d03ec5a03aa76cc2f6d2b8538148fc4392ef4e81c44a125b5d6387de8e45a993",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0005_step_0004_action_attack_1786256142769.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 750115,
+      "modified_at": "2026-08-09T06:15:43.093813+00:00",
+      "algorithm": "sha256",
+      "digest": "44652301854e18180108a6c84b90407eb68f52623fff638b29a5f5fd807a49a8",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0006_step_0005_action_attack_1786256144146.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 750773,
+      "modified_at": "2026-08-09T06:15:44.617664+00:00",
+      "algorithm": "sha256",
+      "digest": "8d422a0ee0f3e7ba41db96f39eebf11a1e2bd47c0125d113c98548003f5888db",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0007_step_0006_action_move_down_1786256145638.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 748403,
+      "modified_at": "2026-08-09T06:15:45.971860+00:00",
+      "algorithm": "sha256",
+      "digest": "3dc1fc5b28337e88de8c32154f90333680415d25a74f154624e63a55e0de0939",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0008_step_0007_action_attack_1786256147633.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 749394,
+      "modified_at": "2026-08-09T06:15:48.237786+00:00",
+      "algorithm": "sha256",
+      "digest": "0f25827b8c1ca04ef186e6ad1ef9a01b1c9997a51d869d66be975f83638df5ad",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0009_step_0008_action_attack_1786256149098.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 748471,
+      "modified_at": "2026-08-09T06:15:49.451910+00:00",
+      "algorithm": "sha256",
+      "digest": "99c8108449c4d378ea82c469b9bde9688e8a3b9aa583f1b1b39c04b9d45e059c",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0010_step_0009_action_move_down_1786256150259.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 748489,
+      "modified_at": "2026-08-09T06:15:50.633578+00:00",
+      "algorithm": "sha256",
+      "digest": "30cbaafc01ff9e7e4abe6abf99e224c12fe09784ed61853897ba92261d4946cc",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0011_step_0010_action_move_down_1786256151526.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 695981,
+      "modified_at": "2026-08-09T06:15:51.907092+00:00",
+      "algorithm": "sha256",
+      "digest": "1a6020deb8f8db150c1fdeeb48a50ebdddfa512e14ac695c6f6d970eda8bf8c9",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0012_step_0011_action_move_down_1786256152673.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 728820,
+      "modified_at": "2026-08-09T06:15:53.012450+00:00",
+      "algorithm": "sha256",
+      "digest": "72b4d3fe4479f81a2d05aad0f53a7519b034b41a59a20f7242acf9983cdcd466",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0013_step_0012_action_move_right_1786256153886.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 715239,
+      "modified_at": "2026-08-09T06:15:54.219187+00:00",
+      "algorithm": "sha256",
+      "digest": "33d129d88fb5bb1ee7f51b22e363dff612a10e13f370e699e25b8111dd880ce9",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0014_step_0013_action_move_right_1786256155047.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 687977,
+      "modified_at": "2026-08-09T06:15:55.406826+00:00",
+      "algorithm": "sha256",
+      "digest": "1f4d28fb33e2cd4ee8f7915ceb378cdda6482764862a79d1c2c098c3b27646e9",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0015_step_0014_action_move_right_1786256156336.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 720094,
+      "modified_at": "2026-08-09T06:15:56.701946+00:00",
+      "algorithm": "sha256",
+      "digest": "8a881d14d1672f4916921e20eda165ee90efacc1d1dbfa278bf7bdaa09d6009d",
+      "error": null
+    },
+    {
+      "category": "screenshot",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0016_step_0015_action_move_right_1786256157522.png",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 667278,
+      "modified_at": "2026-08-09T06:15:57.879611+00:00",
+      "algorithm": "sha256",
+      "digest": "ef24360406efa04891b1846cffc6a984918b4006a144bc5a2d16259c8b207b24",
+      "error": null
+    },
+    {
+      "category": "problem_clip",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/clips/002_quality_feedback_input_feedback_32341_42770.webm",
+      "exists": true,
+      "is_file": true,
+      "size_bytes": 1668746,
+      "modified_at": "2026-08-09T06:15:59.083088+00:00",
+      "algorithm": "sha256",
+      "digest": "4a33c9480eec9ae6f20338aebd965ecc785750ce81c843a97581dd8949f06f17",
+      "error": null
+    }
+  ]
+}

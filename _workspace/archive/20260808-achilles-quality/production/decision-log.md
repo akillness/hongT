@@ -1,0 +1,403 @@
+# Decision Log — run-id 20260808-lobby-icon-rail
+
+cycle-8 로비 아이콘 레일 설계 회의. 5역할 독립 입장 후 디렉터 중재.
+근거: `.survey/lobby-meta-screens/` (n=13) + 브라우저 실측 + 저장소 코드.
+
+## D-1 — 결함의 실제 크기: 도달 불가가 아니라 **지출 불가**
+
+회의 전 보고는 "SANCTUM 13.5% 가시"였다. PM과 QA가 독립적으로 더 나쁜 사실을
+찾았고 검증됐다 `[OBSERVED]`:
+
+```
+SANCTUM 가시량            75.7u
+TabContent offsetMax.y   -116u   (LobbyView.cs:1654)
+75.7 < 116  ->  탭 콘텐츠 전체가 폴드 아래
+```
+
+보이는 75.7u는 **전부 패널 껍데기**다 — 아이브로(−12..−34)와 탭 스트립
+(−60..−104) 중 15.7u뿐. 성장 +버튼, 장비 5티어 구매, 각인 해금이 **0% 가시**다.
+탭 버튼은 44u 중 15.7u만 노출 → 폰 7.7 CSS px (플로어의 17.4%).
+
+두 번째 경로도 막혔다. `MetaScreenView`는 MAP의 '정비' 버튼으로만 열리는데
+MAP은 0%이고, 열려도 읽기 전용이다 — `MetaScreenView.cs:500`이 직접 말한다:
+*"수치는 시뮬레이션이 실제로 쓰는 값이다. 구매•강화는 로비 성소 정비 탭에서
+한다."*
+
+**결론: 배포 빌드에 영구 강화 경제가 있고 지출 UI 도달률은 0%다.** 상단바
+유물 카운터는 100% 가시(`LobbyView.cs:1054`) — 잔고는 늘 보이고 문은 없다.
+
+## D-2 — 레일 원안 채택, 티어 삭제
+
+디렉터 판정. 레일이 1604u 열을 제거한다. 최장 패널 620u vs 배포 가용 711.7u
+= 여유 91.7u. 도달률 13.5%/0% → 선택 시 100%.
+
+루트 ScrollRect 대안 기각: 1604u를 남긴 채 방문마다 820u 스크롤을 요구하고,
+4/13 소수파(다중 패널 동시)를 고착시키며, 레일이 들어오면 삭제될 코드다.
+
+에디터 16:9(여유 28.0u)는 **출하 타깃에서 제외**. E=1176 고정이라 이 티어를
+보는 플레이어는 0%다.
+
+## D-3 — AC-13: `E_w < 900` 기각. 만장일치.
+
+네 역할이 독립적으로 거부했다. 디렉터의 근거가 가장 강하다 — **미측정이라서가
+아니라 도출로 틀렸다** `[OBSERVED]`:
+
+잠긴 티어에서 캔버스 CSS 폭 500~1280 사이 px/u가 0.426~1.088로 **2.56배**
+변하는데 E_w는 1176에 고정된다. **E_w는 터치 판정의 변수가 될 수 없다.**
+
+`touchFriendly=false`의 강하 액션은 84×28u:
+
+| 조건 | px/u | 28u | 44 플로어 |
+|---|---|---|---|
+| 배포 1280 CSS | 1.088 | 30.5px | **69%** |
+| iPad 1024 CSS | 0.871 | 24.4px | 55% |
+| 501 CSS | 0.426 | 11.9px | 27% |
+
+어떤 출하 구성에서도 플로어를 못 넘는다. 강하는 준비/확정을 종결하는 확정
+버튼이다(디자이너).
+
+**확정: `_stacked`는 삭제, `_touchLayout`은 `true` 상수로 고정.** 현행 배포
+동작 100% 보존, 92×92u = 100.1 CSS px 유지. 비용 1줄.
+
+## D-4 — 아이콘 103.3u (스펙의 90.2u 기각)
+
+QA가 90.2u를 거부했다(마진 0.03px). 재계산 결과 **90.2u도 92u도 미달**이다:
+
+| 변 | 최악 실척(501 CSS, 0.426) | 판정 |
+|---|---|---|
+| 90.2u | 38.4px | FAIL |
+| 92.0u | 39.2px | FAIL |
+| **103.3u** | **44.0px** | **PASS** |
+
+원인: 하네스 상수 0.488 css/u는 폰 fill 밴드의 값이고, **레터박스 501 CSS의
+0.426이 진짜 최악**이다. 터치 플로어 90.2u는 13.1u 과소평가였다.
+
+확정 기하:
+```
+아이콘 103.3u 정사각, 간격 12u, x=[16, 119.3]
+  성소  y = [ -72.0, -175.3]
+  출정  y = [-187.3, -290.6]
+  지도  y = [-302.6, -405.9]
+레일 총고 333.9u (가용 711.7u)
+패널 x = 131.3;  MAP 424 우측 끝 555.3 < 1176
+SORTIE 선택 시 배경 653u 노출
+```
+
+## D-5 — 라벨: 정보 → **성소** (G1)
+
+디자이너 판정. 패널 한국어 라벨 셋 다 세계관 단어다 —
+`Eyebrow("SORTIE","출정")`, `Eyebrow("CAMPAIGN","심연 지도")`,
+`Eyebrow("SANCTUM","성소 정비")`. 세계관 밖 단어는 "정보" 하나뿐이고, 그것이
+여는 패널 제목이 "성소 정비"다. 원안대로면 라벨 불일치를 새로 만든다. 비용 0.
+
+## D-6 — 중복 구현: 이번 사이클 무접촉, cycle-9 만료
+
+`LobbyView.BuildEquipTab/BuildSigilTab` vs `MetaScreenView.BuildEquipTab/
+BuildSigilTab`. 조사 13종 중 2중 구현 **0곳** — 장르 관행이 아니라 우리 고유
+부채다.
+
+이번 제약이 순수 뷰 개정이므로 병합은 범위 밖. 남는 비용: 장비·각인 변경마다
+2회 적용 아니면 드리프트, G1 감사면 2배. 프로그래머 판정 — "터지는 순간은
+밸런스 변경(T0-T5 수치)이 한쪽에만 반영될 때다."
+
+**만료: cycle-9에 생존자 1개 지명.** 그때까지 장비·각인 편집은 쌍 편집 +
+이 로그 기록 의무.
+
+## D-7 — 중재: 디자이너 ↔ PM (노출 vs 클릭)
+
+디자이너는 SANCTUM 상시 노출 13.5%→0%를 배지로 보완하자 하고, PM은 그것을
+지출 유인 후퇴로 읽었다. 둘 다 수치상 사실이다.
+
+**중재 기준(디렉터): 수동 노출 픽셀이 아니라 클릭 수.**
+- 모든 메타 면은 기본 상태에서 **≤1 클릭**
+- 통화 행은 **0 클릭** — 상단바는 라디오 그룹 밖, 이미 전폭 상시
+- 허브 체류 상한 **총 플레이타임 10%** (Hades 5–10% 대역)
+- 출정 경로에 클릭을 1회라도 더하는 제안은 그 근거만으로 거부
+
+채택: 기본값 **출정** 유지 + 성소 아이콘에 **미소비 유물 배지**(디자이너 조건,
+PM 권고와 합치). 배지는 수량·가격·구매 문구 금지(negotiation entry 10·11 서명
+유지) — 문이 열려 있다는 사실만 말한다.
+
+## D-8 — 레일 3개 동결 (Altar of Hope 방지)
+
+디자이너 제약. DD2는 "진행 부재" 불만에 화면을 더해 답하고 "그라인드페스트"를
+얻었다. 우리 축소판: v1.5가 각인을 4번째 탭으로 넣어 같은 400u를 4×91u로
+재분할했다 — 공간을 늘리지 않고 시스템을 늘렸다.
+
+**레일은 3개에서 동결.** 감압(1단계) 복원을 4번째 아이콘(정산/도감)으로 푸는
+안은 금지. 기존 두 면(상단바 56u, 디오라마) 안에서만 해결한다.
+
+## D-9 — 게이트 판정 정정
+
+QA·PM이 "G5 무변경" 보고에 이의를 냈고 **인용한다**.
+
+지출 도달률이 0% → 100%로 바뀐다. `steady.parity_sessions_band [10,20]`은 T5
+도달 세션 수인데 도달 불가면 실측값은 ∞ — 밴드 위반이 아니라 **밴드 정의
+붕괴**다. 밴드 숫자는 안 건드리되 **분모인 도달성이 바뀌므로 재측정 사유**다.
+
+| 게이트 | 판정 |
+|---|---|
+| G4 | 주 대상. 현재 측정 불가(MAP 0%) → 증거 부재 = FAIL |
+| G6 | 실패할 수 없는 테스트가 있는 것 자체가 릴리스 준비 결함 |
+| G1 | 라벨 3종 + 개명 1종 감사 |
+| **G5** | **재측정** — 도달률 0→100은 분모 변경 (이월 취소) |
+| G7 | 기준선 폐기 후 레일 이후 재설정 (QA 약이의 인용) |
+| G2·G3·G8 | 이월. 단 G3 ≥5종 아키타입 회전은 레일에도 적용 |
+
+## D-10 — 기존 테스트가 통과한 이유: 누락이 아니라 기록된 결정
+
+`LobbyLayoutTests.cs:316-320` 원문:
+
+> *"Deliberately NOT asserted: whether the stacked column FITS. A landscape
+> window that stacks (E ~ 1000) puts a 1604 u column against a ~920 u canvas,
+> so the map lands off the bottom. That is a containment and scrolling
+> question, not an overlap one, and folding it in would give one test two
+> failure meanings. Measured and reported, not silently ignored."*
+
+원칙(테스트 하나에 의미 하나)은 옳았다. **두 번째 테스트를 쓰지 않은 것이
+결함이다.** 겹침 스윕 16개 케이스가 전부 폭 인덱스이고 y축 표본이 0개다.
+
+QA가 같은 계열 눈먼 곳 3개를 추가 신고:
+1. 터치 부채표가 E=799 한 점만 잰다. **배포 E=1176 터치 표는 존재한 적이 없다.**
+2. `CampaignMapActions_AreReachableAndClearTheTouchFloor` — MAP 가시율 0%인데
+   초록이다. `interactable`과 rect 크기만 본다. **이름이 거짓말한다.**
+3. `MetaScreenView`는 match 0.5, 로비는 0.35 — 두 캔버스가 다른 기하인데
+   장비·각인이 양쪽에 중복.
+
+신규 불변조건: 선택 패널 world rect가 캔버스 rect에 4변 완전 포함(epsilon 1u),
+3패널 × 폰/레터박스/에디터 = 9케이스, **겹침 테스트와 별 파일**로.
+`SideBySideFloor`를 읽는 코드 경로가 0개임을 구조적으로 고정.
+
+QA 거부 인용: **담김 불변조건과 AC-13을 한 변경으로 묶지 않는다.** 묶으면 담김
+테스트는 초록으로 통과하면서 강하가 30.5 CSS px로 떨어진다 — 정확히 5/5가
+통과한 그 방식으로.
+
+## D-11 — 중재: D-3 ↔ D-4 터치 플로어 기준 불일치 `[OBSERVED]`
+
+구현 착수 전 디렉터 재검증에서 **회의 내부 모순**이 발견됐다. 같은 사이클,
+같은 버튼 계열에 두 개의 다른 플로어가 쓰였다.
+
+| 결정 | 대상 | 인용한 실척 | 판정 |
+|---|---|---|---|
+| D-3 | 강하 액션 92u **유지** | 1280 CSS (1.088 px/u) → 100.1px | PASS |
+| D-4 | 레일 아이콘 92u **기각** | 501 CSS (0.426 px/u) → 39.2px | FAIL |
+
+같은 92u가 한 회의에서 PASS이자 FAIL이다. 최선 실척으로 재고, 최악 실척으로
+신규를 잰 것이다.
+
+### D-4의 근거는 틀렸다 (결론은 살아남는다)
+
+D-4는 "레터박스 501 CSS의 0.426이 진짜 최악"이라 적었다. **아니다.** 템플릿은
+두 개의 밴드를 만든다 (`build-webgl/index.html:18-20`, `:25-32`):
+
+```
+밴드 A  CSS ≥ 501   aspect-locked 1280:853   최악 0.4260 (501 CSS)
+밴드 B  CSS ≤ 500   fill, aspect auto        최악 0.3598 (280x653)
+```
+
+밴드 B 실측 — D-4가 존재를 계산에 넣지 않은 구간:
+
+| 뷰포트 | px/u | 44px 소요 | 103.3u 실측 |
+|---|---|---|---|
+| Galaxy Fold 커버 280×653 | 0.3598 | 122.3u | 37.2px FAIL |
+| iPhone SE 320×568 | 0.3738 | 117.7u | 38.6px FAIL |
+| iPhone SE2 375×667 | 0.4383 | 100.4u | 45.3px PASS |
+| iPhone 12/13/14 390×844 | 0.4883 | 90.1u | 50.4px PASS |
+| 레터박스 501 | 0.4261 | 103.3u | 44.0px PASS |
+
+**103.3u는 D-4가 주장한 "모든 구성 PASS"를 달성하지 못한다.** 320·280에서
+미달이다. 우연히 맞은 숫자를 틀린 이유로 방어한 것이다.
+
+### 중재: 지원 플로어를 명명한다
+
+근본 결함은 아이콘 크기가 아니라 **지원 하한이 문서 어디에도 없다는 것**이다.
+하한이 없으면 모든 결정이 자기 편한 실척을 고를 수 있고, D-3과 D-4가 정확히
+그렇게 했다. 임의 뷰포트가 아니라 실제 기기로 고정한다.
+
+**확정: 지원 플로어 = 375×667 CSS (iPhone SE2 — 현행 주류 최소 폰).**
+
+- 320(SE 1세대)·280(Fold 커버)는 **명시적 범위 밖**. 근거: 그 폭에서 SORTIE
+  392u만 화면의 33%를 먹는다. 아이콘을 키워도 게임이 성립하지 않는 티어다.
+- 플로어를 넘겼다고 주장하지 않고 **측정해서 부채로 적는다** (아래 표).
+
+### 확정 및 이월 부채
+
+| 항목 | 크기 | 375 플로어 | 320 (범위 밖) | 판정 |
+|---|---|---|---|---|
+| 레일 아이콘 (신규) | 103.3u | 45.3px | 38.6px | **채택** — D-4 숫자 유지, 근거 교체 |
+| 강하 액션 (D-3 유지) | 92u | 40.3px | 34.4px | **이월 부채** — 375에서도 3.7px 미달 |
+
+강하 92u는 이번 사이클 **비목표**(SORTIE 무접촉)라 건드리지 않는다. 단
+D-3이 "100.1px PASS"로 적은 것은 최선 실척 인용이므로 **정정한다**: 지원
+플로어 375에서 40.3px, 미달 3.7px. **만료: cycle-9.**
+
+### 왜 아이콘을 117.7u로 올리지 않는가
+
+320까지 덮으려면 117.7u다. 기각 사유는 계산이 아니라 위계다 — 내비게이션
+크롬이 확정 버튼(92u)보다 28% 커진다. 범위 밖 티어를 위해 모든 지원 티어의
+시각 위계를 뒤집는 거래다. 103.3u는 이미 92u보다 12% 크고, 그것이 "주 목적지
+3개"에 허용되는 상한이다.
+
+### 이 중재가 매니페스트에 미치는 영향
+
+`task-manifest.md`가 D-1~D-10보다 낡았다 (90.2u·"정보"·AC-13 미측정 상태로
+정지). 회의 결과로 갱신한다. 확정 기하는 D-4 표 + 이 항목의 근거를 쓴다.
+
+## D-12 — 사용자 지시: 재클릭 닫기 + 닫힌 기본값. D-R2·AC-5·D-7 반전.
+
+사이클 마감 후 사용자 지시 4건, 반복(iteration)으로 도착했다:
+
+> 1. "닫기 버튼도 있었으면 좋겠어."
+> 2. "처음 들어갔을 땐 항상 창이 닫아져 있어야 돼."
+> 3. "닫기가 아이콘이 아니고 활성화 오른쪽 위에 닫기 창… 활성화된 아이콘
+>    눌렀을 때 닫을 수 있게 둘 다"
+> 4. "X는 그럼 하지 말고 재클릭시 닫기로 변경… 닫기 아이콘 제거"
+
+**최종 형태: 닫기 컨트롤 없음. 활성 레일 아이콘 재클릭 = 닫기.**
+
+### 기각된 두 형태와 각각의 실측
+
+| 형태 | 크기 | 375 플로어 | 기각 사유 |
+|---|---|---|---|
+| 레일 하단 닫기 타일 | 103.3u | 45.3px PASS | 목적지 목록에 목적지 아닌 타일 — 눌러보기 전엔 구분 불가 (사용자) |
+| 패널 우상단 X | 56u | **24.5px FAIL** | 플로어 미달. 통과시키려면 103.3u = 성소 폭의 1/4을 헤더에 (사용자·측정 합치) |
+| **재클릭** | **103.3u** | **45.3px PASS** | **채택** |
+
+3번 지시는 X와 재클릭을 **둘 다** 요구했다. 구현 중 X가 24.5px로 측정됐고 —
+§4d 기준으로 신규 미달 컨트롤은 결함이다 — 4번 지시가 X를 제거해 그 부채를
+만들지 않고 닫혔다. **사용자 반복이 측정과 같은 결론에 도달했다.**
+
+재클릭의 이점은 크기만이 아니다: 신규 컨트롤 0개, 신규 부채 행 0개, 화면에
+새로 볼 것 0개. 로비는 이 변경을 시작할 때와 **같은 세 타일**로 끝난다.
+
+세 결정을 뒤집는다. 뒤집는 것 자체가 문제가 아니라, **무엇이 무너지는지 적지
+않고 뒤집는 것**이 문제다. 아래가 그 목록이다.
+
+### 무너지는 것 1 — D-R2 "항상 정확히 1개"
+
+인터뷰 R2가 라디오를 고른 이유는 취향이 아니라 **테스트 가능성**이었다:
+"항상 정확히 1개"는 falsifiable하고, 0패널을 허용하면 담김 테스트가 자명하게
+참이 된다. 빈 로비는 어떤 뷰포트에서도 완벽하게 담긴다.
+
+`LobbyContainmentTests`가 그 위에 서 있다. 그 파일의 테스트 2는 0패널을
+**세 개의 문**(토글·미클램프 인덱스·Hide 재작성)으로 나눠 각각 막는다.
+
+**대응**: 불변조건을 `exactly one` → **`at most one`**으로 바꾼다. 담김
+테스트는 각 패널을 **명시적으로 연 뒤** 재므로 여전히 18케이스를 측정하고,
+측정 횟수 단언이 "아무것도 안 쟀다"를 계속 막는다. 0패널은 별도 케이스로
+명시 검사한다 — 허용된 상태이지 검사 면제 상태가 아니다.
+
+세 문 중 둘(미클램프 인덱스, Hide 재작성)은 **여전히 막는다.** 0패널은 이제
+명시적 `CloseRailPanel()` 호출로만 도달 가능하다. 사고로 blank되는 것과
+의도적으로 닫는 것은 다른 상태다.
+
+### 무너지는 것 2 — AC-5 "기본값 출정"
+
+AC-5의 근거: *"배포 빌드에서 지금 유일하게 100% 보이는 패널이므로, 기본값을
+바꾸면 없던 회귀를 만든다."*
+
+**그 근거는 이번 사이클이 소멸시켰다.** 세 패널 전부 100%가 됐으므로 "유일하게
+보이는 패널"이 존재하지 않는다. AC-5는 결함 상태를 전제한 조건부 결정이었고
+결함이 사라지면서 전제도 사라졌다. 반전 비용 0.
+
+### 무너지는 것 3 — D-7 클릭 기준 (이건 진짜 비용이다)
+
+D-7 중재가 세운 기준:
+
+> 모든 메타 면은 기본 상태에서 ≤1 클릭 / **출정 경로에 클릭을 1회라도 더하는
+> 제안은 그 근거만으로 거부**
+
+닫힌 기본값은 **출정 경로에 정확히 1클릭을 더한다.** 로비 진입 → 출정 클릭 →
+강하. 게임에서 가장 많이 지나는 경로이고, D-7은 이 거래를 명시적으로 금지했다.
+
+**사용자 지시가 D-7 기준보다 상위다.** 다만 D-7을 조용히 무시하지 않고
+개정한다:
+
+```
+개정 전  출정 경로 0 클릭, 메타 면 ≤1 클릭
+개정 후  출정 경로 1 클릭, 메타 면 ≤1 클릭, 디오라마 0 클릭
+```
+
+거래된 것: 출정 1클릭 ↔ 진입 시 디오라마 전체 노출. 이 사이클이 653u를
+열었고 브라우저 실측에서 워든과 보스가 그 안에 보인다 — 닫힌 기본값은 그것을
+**첫 화면**으로 만든다. 로비의 연출이 UI 뒤가 아니라 앞에 온다.
+
+**cycle-9 측정 의무**: 출정 1클릭이 실제 이탈로 이어지는지. D-7의 허브 체류
+상한(총 플레이타임 10%)이 여전히 유효한지 재확인.
+
+### 확정 기하 — 변경 없음
+
+```
+레일 아이콘 3개  y = [−72.0, −405.9]   103.3u 정사각, 간격 12u
+레일 총고        333.9u
+```
+
+**기하가 한 줄도 바뀌지 않는다.** 재클릭은 기존 히트박스에 의미를 하나 더
+얹을 뿐 픽셀을 쓰지 않는다. 담김·터치 플로어·티어 적합 측정 전부 그대로
+유효하다 — 이 사이클에서 재측정이 필요 없는 유일한 변경이다.
+
+### D-8과 충돌하지 않는다
+
+D-8은 레일을 **목적지 3개**로 동결했다. 재클릭은 4번째 화면도, 4번째 타일도
+추가하지 않는다 — 기존 3개 중 0개를 선택하는 상태다. Altar of Hope 실패
+모드(시스템 추가로 공간 문제에 답하기)에 해당하지 않는다.
+
+기각된 두 형태는 둘 다 D-8에 압력을 줬다. 레일 하단 타일은 4번째 타일이므로
+직접 충돌했고(`Rail_CarriesExactlyThreeDestinations`를 회피하려면 이름을
+`"Rail"` 밖으로 빼야 했다 — 테스트를 피해 가는 이름 짓기는 그 자체로 신호다),
+패널 X는 D-8은 피하되 §4d 신규 미달 컨트롤 금지에 걸렸다.
+
+**재클릭은 두 규칙 어디에도 압력을 주지 않는다.** 세 형태 중 유일하다.
+
+---
+
+# Active five-cycle audit decisions — run-id `20260808-achilles-quality`
+
+Recorded: `2026-08-08`  
+Public beat: **NAN 2026 final submission**
+
+These entries append to the cycle-8 lobby history above. They do not rewrite D-1–D-12 and award no gate `PASS`.
+
+## D-A1 — Cycle 9 remains Stage-2 FIX
+
+`[OBSERVED]` The cycle-9 G8 synthetic blind panel scored `[3,3,4,3,4]`, median `3/5`, below the required `4/5`; frequency provenance remains unverified and the qualifying human session is absent (`qa/gate-measurements.md:180-221`, `qa/cycle9-g8-ballots.md:1-29`).
+
+`[OBSERVED]` G5 parity/comeback/paid-path evidence, current G2/G3/G7 matrices, the open-S1 count, and the director Stage-2 review are absent. Therefore cycle 9 remains `FIX`; Stage 3 and cycle close are unauthorized.
+
+## D-A2 — Lobby is the observed equipment/sigil survivor
+
+`[OBSERVED]` `LobbyView` owns the reachable equipment/sigil mutation surface. The Meta equipment/sigil builders were removed, the map maintenance route opens Sanctum equipment, and the post-cutover EditMode artifact reports `811/811`, failures `0` (`Assets/Scripts/View/LobbyView.cs:591-599,1878-1884`; `engineering/unity-logs/test-results-cycle9-postcutover.xml:2,4226-4230,4553-4554`).
+
+`[DECISION]` C9-004 is `observed-complete`. This closes only the named artifact task; it does not repair G5 evidence or award G1/G5/G6.
+
+## D-A3 — Cycles 10–13 are prework, not entered cycles
+
+`[OBSERVED]` The roadmap requires a director Stage-2 `PASS` before cycle 9 can advance. No cycle-9 Stage-2/Stage-3 current gate review exists.
+
+`[DECISION]` Cycle-10 action specifications, cycle-11 G5/test definitions, cycle-12 presentation/resource specifications, and cycle-13 document/video outputs are retained as useful prework. They are labeled `not-validly-entered` and cannot be cited as cycle completion or gate evidence.
+
+## D-A4 — NAN draft synchronization is not final recertification
+
+`[OBSERVED]` The current NAN Markdown stale-count/stage audit, local-link audit, rendered-page inspection, and PDF generation are recorded in `production/docs-verification.md`. The same artifact states final-candidate recertification remains pending.
+
+`[OBSERVED]` `docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4` is bound to local WebGL build identity `e853ef3b27239fab` and has retained metadata plus shot coverage: H.264, `1440×900`, `30 fps`, `55.0000 s`, SHA-256 `d991f0664afa1ca48582afc37120d943d0d27f0f44c41bf55aec3d23c0cc0366`, 0 page errors, 56 melee attacks, and 46 skill/command activations (`engineering/tech-verification/video-candidate.md`). A separate Playwriter+CompressO technical review is retained at `docs/nan2026/assets/video/nan2026-cinder-court-cycle13-playwriter-compresso.mp4`: H.264 `1920×1200` 30 fps plus AAC-LC 48 kHz stereo, 37.0667 s video / 36.9580 s audio, mean -13.3 dB, max 0.0 dB.
+
+`[DECISION]` C13-002 is complete for the current draft. C13-012 closes its current local-build metadata, shot-coverage, and observed audible-playback gaps but remains partial because cycle 13 was not validly entered and build `e853ef3b27239fab` has no final-candidate or deployed authority. C13-013 remains partial. None satisfies final G1/G4/G6.
+
+## D-A5 — Freeze scope; keep human actions explicit
+
+`[DECISION]` Candidate scope is frozen. New concepts are rejected unless a measured release blocker and signed gate path require them. This is prework under a not-validly-entered cycle 13, not a Stage-1 `PASS`.
+
+`[OBSERVED]` No public YouTube URL or NAN application receipt exists. C13-015 and C13-016 remain `blocked-human`; final closure remains `FAIL / blocked-human`.
+
+## D-A6 — User-authorized bounded cycle-9 evidence collection
+
+Recorded: `2026-08-08`
+
+`[OBSERVED]` The user explicitly instructed the studio to continue after the cycle-9 `FIX` state, while preserving truthful gate reporting and requiring concrete next actions.
+
+`[DECISION]` This instruction overrides only C9-001's task-order sentence for bounded cycle-9 evidence work. QA may now collect C9-002, C9-003, and C9-005 technical evidence while a qualifying human G8 session is scheduled. It does not waive G8, convert the synthetic `3/5` panel into human evidence, authorize C9-006/C9-007 retuning before measurements, enter Stage 3, enter cycle 10, or award any gate `PASS`.
+
+`[TARGET / AGENT-EXECUTABLE]` The next admissible production wave is: materialize the defect register and establish the open-S1 count; audit/synchronize the balance sheet against the frozen runtime constants and all shipped sigil modifiers without changing runtime numbers; run scripted G2/G3 archetype/matchup measurements; run the five named G5 pilots (`pilot_id`) × routes A–E per `pm/reward-bands.md`; preserve candidate/build identity, input-policy provenance, pilot identity, and sigil loadout on every raw row. Later changes remain measurement-triggered and require the existing designer↔PM agreement path.
+
+`[TARGET / BLOCKED-HUMAN]` Schedule but do not synthesize five independent human G8 ballots and ten unprompted voluntary G7 re-entry decisions. One user ballot is one of five G8 ballots; scripted or synthetic agent runs do not qualify as human pilots or voluntary decisions.

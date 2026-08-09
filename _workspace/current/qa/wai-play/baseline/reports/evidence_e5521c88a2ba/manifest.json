@@ -1,0 +1,245 @@
+{
+  "exporter": "MemoryEnabledEvidenceExporter",
+  "exporter_version": "5.0",
+  "session_id": "evidence_e5521c88a2ba",
+  "exported_at": "2026-08-09T15:15:59.120148+09:00",
+  "output_dir": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba",
+  "game": {
+    "title": "Cinder Court",
+    "game_type": "survivor_like",
+    "url": "http://127.0.0.1:8766/?mode=arena&intro=off"
+  },
+  "rating": {
+    "score": null,
+    "five_star": null,
+    "confidence": null
+  },
+  "evidence": {
+    "quality_score": 82,
+    "quality_level": "high",
+    "step_evidence_count": 15,
+    "scenario_evidence_count": 0,
+    "problem_count": 2
+  },
+  "confidence": {
+    "overall_score": 71,
+    "overall_level": "medium",
+    "confidence_threshold": 60,
+    "evidence_sufficient": true,
+    "low_confidence_count": 0
+  },
+  "integrity": {
+    "enabled": true,
+    "status": "complete",
+    "algorithm": "sha256",
+    "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/integrity.json"
+  },
+  "recording_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/gameplay.webm",
+  "recording_exists": true,
+  "screenshot_count": 15,
+  "screenshots": [
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_b292c68ab2",
+      "step": 1,
+      "label": "attempt_01_baseline_step_1",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0002_step_0001_action_attack_1786256137968.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_f29f0ce0c1",
+      "step": 2,
+      "label": "attempt_01_baseline_step_2",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0003_step_0002_action_attack_1786256139970.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_4b613a0284",
+      "step": 3,
+      "label": "attempt_01_baseline_step_3",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0004_step_0003_action_move_left_1786256141380.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_d87aef07fd",
+      "step": 4,
+      "label": "attempt_01_baseline_step_4",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0005_step_0004_action_attack_1786256142769.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_88a9545de4",
+      "step": 5,
+      "label": "attempt_01_baseline_step_5",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0006_step_0005_action_attack_1786256144146.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_dd1dc37168",
+      "step": 6,
+      "label": "attempt_01_baseline_step_6",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0007_step_0006_action_move_down_1786256145638.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_74c08b9b6b",
+      "step": 7,
+      "label": "attempt_01_baseline_step_7",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0008_step_0007_action_attack_1786256147633.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_de67363ecc",
+      "step": 8,
+      "label": "attempt_01_baseline_step_8",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0009_step_0008_action_attack_1786256149098.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_527fef3cc1",
+      "step": 9,
+      "label": "attempt_01_baseline_step_9",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0010_step_0009_action_move_down_1786256150259.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_54ef5eee92",
+      "step": 10,
+      "label": "attempt_01_baseline_step_10",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0011_step_0010_action_move_down_1786256151526.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_d61ad4a543",
+      "step": 11,
+      "label": "attempt_01_baseline_step_11",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0012_step_0011_action_move_down_1786256152673.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_810d8abb35",
+      "step": 12,
+      "label": "attempt_01_baseline_step_12",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0013_step_0012_action_move_right_1786256153886.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_7943e4ff7e",
+      "step": 13,
+      "label": "attempt_01_baseline_step_13",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0014_step_0013_action_move_right_1786256155047.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_eb3d973b03",
+      "step": 14,
+      "label": "attempt_01_baseline_step_14",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0015_step_0014_action_move_right_1786256156336.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_c0c5a3227e",
+      "step": 15,
+      "label": "attempt_01_baseline_step_15",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/evidence/game_test_20260809_151514_c7d6cfdd/screenshots/0016_step_0015_action_move_right_1786256157522.png",
+      "exists": true
+    }
+  ],
+  "clips": {
+    "ffmpeg_available": true,
+    "output_dir": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/clips",
+    "exported_count": 1,
+    "failed_count": 0,
+    "skipped_count": 1,
+    "items": [
+      {
+        "problem_id": "quality_technical_quality_input_latency",
+        "evidence_id": "attempt_01_baseline_step_15_2673601c",
+        "selected_attempt_number": 1,
+        "selected_attempt_mode": "baseline",
+        "occurrence_label": "出现于 1/1 次尝试",
+        "related_steps": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "clip_path": null,
+        "clip_exists": false,
+        "clip_start_ms": null,
+        "clip_end_ms": null,
+        "clip_exported": false,
+        "clip_error": null
+      },
+      {
+        "problem_id": "quality_feedback_input_feedback",
+        "evidence_id": "attempt_01_baseline_step_14_37c3b5dd",
+        "selected_attempt_number": 1,
+        "selected_attempt_mode": "baseline",
+        "occurrence_label": "出现于 1/1 次尝试",
+        "related_steps": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "clip_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/clips/002_quality_feedback_input_feedback_32341_42770.webm",
+        "clip_exists": true,
+        "clip_start_ms": 32341,
+        "clip_end_ms": 42770,
+        "clip_exported": true,
+        "clip_error": null
+      }
+    ]
+  },
+  "files": {
+    "result_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/result.json",
+    "evidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/evidence_report.json",
+    "problem_cards_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/problem_cards.json",
+    "confidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/confidence_report.json",
+    "markdown_report": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/report.md",
+    "manifest_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/manifest.json",
+    "integrity_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/baseline/reports/evidence_e5521c88a2ba/integrity.json"
+  },
+  "export_policy": {
+    "name": "single_best_attempt_per_problem",
+    "problem_fact_source": "aggregated_problem_cards",
+    "all_attempt_raw_evidence_preserved": true,
+    "one_problem_id_once": true,
+    "one_selected_attempt_per_problem": true,
+    "cross_attempt_evidence_mixing": false,
+    "strict_final_report_preserved": true,
+    "ai_raw_report_preserved": true,
+    "attempt_count": 1,
+    "problem_count": 2
+  },
+  "attempts": {
+    "attempt_count": 1,
+    "selected_attempt_number": 1,
+    "completion_success": false,
+    "success_attempt": null
+  },
+  "reports": {
+    "strict_final_report_preserved": true,
+    "ai_raw_report_preserved": true
+  }
+}

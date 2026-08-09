@@ -33,6 +33,40 @@ namespace CinderCourt.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator EmberRest_ReturnHomeButton_IsReachableFromPlayerHud()
+        {
+            var route = new CampaignRoute();
+            try
+            {
+                yield return null; // Let Unity invoke GameView.Start and initialize this route.
+                route.StartCinderSpanThroughLobbyCallback();
+                var cleared = route.Game.Sim as CinderSim;
+                Assert.That(cleared, Is.Not.Null, "the sortie callback must start the cinder-span simulation");
+                ClearCinderSpan(cleared);
+
+                route.Game.OnRunEvents.Invoke(cleared.Events, cleared);
+                var rest = route.Game.EmberRestSnapshot;
+                Assert.That(rest, Is.Not.Null, "a cleared stage with a direct successor must open Ember Rest");
+                Assert.That(rest.EmberRestOpen, Is.True, "the GameDirector callback must open Ember Rest");
+
+                var returnHome = route.HudButtonNamed("EmberRestReturnHome");
+                Assert.That(returnHome, Is.Not.Null, "the Ember Rest panel must expose a 성소 귀환 button");
+                Assert.That(returnHome.gameObject.activeInHierarchy, Is.True,
+                    "the Ember Rest return-home button must be visible to the player");
+                Assert.That(returnHome.interactable, Is.True,
+                    "the Ember Rest return-home button must be click-ready when panel is open");
+                returnHome.onClick.Invoke();
+
+                Assert.That(route.Director.Current, Is.EqualTo(GameDirector.State.Lobby),
+                    "clicking Ember Rest 성소 귀환 must leave the route through lobby");
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
         /// <summary>
         /// Verdict Pact payout contract (meta-fun-pass-spec M3 · negotiation
         /// entry 5, signed designer+pm): an armed pact pays the in-run relic
@@ -679,23 +713,55 @@ namespace CinderCourt.Tests
                     "the first sortie callback must begin cinder-span's frozen Sim stage");
             }
 
-            /// <summary>Exits a finished run the way the player does — the HUD's
-            /// return-home action, which re-enters and refreshes the lobby.</summary>
-            public void ReturnToLobbyThroughHud()
+            /// <summary>Find a HUD button by exact object name.</summary>
+            public Button HudButtonNamed(string name)
             {
-                Assert.That(Hud.OnReturnHome, Is.Not.Null,
-                    "GameDirector must wire the HUD return-home action");
-                Hud.OnReturnHome.Invoke();
-                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Lobby),
-                    "returning home must re-enter the lobby route");
+                return FirstButtonNamed(Hud.gameObject, name);
             }
 
-            /// <summary>Arms the first stage card's 서약 toggle through its real
-            /// button. The toggle is only built-visible on a cleared card, so a
-            /// hidden button here means the reveal contract regressed — which is
-            /// why the rail is opened first rather than asserted around: since
-            /// D-12 a closed lobby hides the toggle for a reason that has
-            /// nothing to do with the clear state this is testing.</summary>
+            /// <summary>Find a Lobby button by exact object name.</summary>
+            private Button FirstButtonNamed(string name)
+            {
+                return FirstButtonNamed(Lobby.gameObject, name);
+            }
+
+            private Button FirstButtonNamed(GameObject root, string name)
+            {
+                foreach (var button in root.GetComponentsInChildren<Button>(true))
+                {
+                    if (string.Equals(button.gameObject.name, name, System.StringComparison.Ordinal))
+                        return button;
+                }
+
+                return null;
+            }
+
+            private Button FirstButtonLabelled(string prefix)
+            {
+                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
+                {
+                    var label = button.GetComponentInChildren<Text>(true);
+                    if (label != null && label.text.StartsWith(prefix, System.StringComparison.Ordinal))
+                        return button;
+                }
+
+                return null;
+            }
+
+            /// <summary>Return from Dungeon to Lobby via the Ember Rest "성소 귀환" HUD button.</summary>
+            public void ReturnToLobbyThroughHud()
+            {
+                var returnHome = HudButtonNamed("EmberRestReturnHome");
+                Assert.That(returnHome, Is.Not.Null, "the Ember Rest panel must expose the 성소 귀환 button");
+                Assert.That(returnHome.gameObject.activeInHierarchy, Is.True,
+                    "the Ember Rest return button must be visible to return to campaign lobby");
+                Assert.That(returnHome.interactable, Is.True,
+                    "the Ember Rest return button must be click-ready once the panel is open");
+                returnHome.onClick.Invoke();
+                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Lobby),
+                    "clicking 성소 귀환 must return the route to lobby");
+            }
+
             public void ArmPactOnFirstStageCard()
             {
                 OpenSortieThroughRail();
@@ -725,24 +791,7 @@ namespace CinderCourt.Tests
                     "the repeat sortie must enter the dungeon route");
             }
 
-            private Button FirstButtonNamed(string name)
-            {
-                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
-                    if (string.Equals(button.gameObject.name, name, System.StringComparison.Ordinal))
-                        return button;
-                return null;
-            }
 
-            private Button FirstButtonLabelled(string prefix)
-            {
-                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
-                {
-                    var label = button.GetComponentInChildren<Text>(true);
-                    if (label != null && label.text.StartsWith(prefix, System.StringComparison.Ordinal))
-                        return button;
-                }
-                return null;
-            }
 
             public void Dispose()
             {

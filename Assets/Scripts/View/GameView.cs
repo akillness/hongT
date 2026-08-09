@@ -782,6 +782,7 @@ namespace CinderCourt.View
             // §3.6 (#9): idle threat hint — arrow appears after 0.4 s of no
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
+            if (Vfx != null) Vfx.SyncActiveAttackThreats(_sim.Player, _sim.Enemies);
             if (Hud != null) Hud.Sync(_sim);
             // AMENDMENT #10: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.

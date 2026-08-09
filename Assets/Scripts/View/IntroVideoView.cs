@@ -285,16 +285,13 @@ namespace CinderCourt.View
 
         Text MakeSkipHint(Transform parent)
         {
-            var font = Resources.Load<Font>("Fonts/HudKorean")
-                       ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var font = ViewTypography.ResolveFont();
 
             var obj = new GameObject("SkipHint");
             obj.transform.SetParent(parent, false);
             var text = obj.AddComponent<Text>();
-            text.font = font;
+            ViewTypography.Configure(text, font, 16, TextAnchor.LowerRight);
             text.text = "아무 키나 눌러 건너뛰기";
-            text.fontSize = 16;
-            text.alignment = TextAnchor.LowerRight;
             text.color = new Color(0.78f, 0.82f, 0.9f, 0.6f);
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;

@@ -1,4 +1,4 @@
-// Campaign minimap model (W8) + the meta screen's grade ladder (W7).
+// Campaign minimap model (W8).
 //
 // The map is a REVEAL surface: its whole job is to say exactly as much as the
 // save has earned and not one word more. That makes the interesting assertions
@@ -148,15 +148,5 @@ namespace CinderCourt.Tests
             Assert.That(line, Does.Contain(StageCatalog.Entries[2].Title));
         }
 
-        [Test]
-        public void GradeLadderCoversEveryEquipmentTier()
-        {
-            // The meta screen grades T0..T5; a short ladder would throw the
-            // first time a player maxed a slot.
-            Assert.That(MetaScreenView.GradeNames.Length,
-                Is.EqualTo(LobbyView.EquipTierNames[0].Length));
-            foreach (var tierNames in LobbyView.EquipTierNames)
-                Assert.That(tierNames.Length, Is.EqualTo(MetaScreenView.GradeNames.Length));
-        }
     }
 }

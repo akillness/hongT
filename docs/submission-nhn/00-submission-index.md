@@ -24,9 +24,9 @@ lang: ko
 |---|---|---|---|---|
 | 1 | 플레이 가능한 빌드 및 소스 코드 | 웹 링크 + GitHub | **완료** | 플레이 <https://akillness.github.io/hongT/> · 소스 <https://github.com/akillness/hongT> |
 | 2 | 플레이 동영상 (30~60초) | YouTube 링크 | **미완료** | **TODO: YouTube 링크.** 촬영 대본 → [`04-play-video-plan.md`](04-play-video-plan.md) |
-| 3 | 게임 소개 및 설명 문서 | PDF | **작성 중** | 원고 `01-game-overview.md` → PDF `pdf/01-game-overview.pdf` (**미생성**) |
-| 4 | AI 활용 기술 문서 | PDF | **작성 중** | 원고 `02-ai-tech.md` → PDF `pdf/02-ai-tech.pdf` (**미생성**) |
-| 5 | 팀원 롤 기술서 | PDF | 원고 **완료** / PDF **미생성** | 원고 [`03-team-roles.md`](03-team-roles.md) → PDF `pdf/03-team-roles.pdf` (**미생성**) |
+| 3 | 게임 소개 및 설명 문서 | PDF | **원고·PDF 동기화 완료** | 원고 `01-game-overview.md` → PDF `pdf/01-game-overview.pdf` |
+| 4 | AI 활용 기술 문서 | PDF | **원고·PDF 동기화 완료** | 원고 `02-ai-tech.md` → PDF `pdf/02-ai-tech.pdf` |
+| 5 | 팀원 롤 기술서 | PDF | **원고·PDF 동기화 완료** | 원고 [`03-team-roles.md`](03-team-roles.md) → PDF `pdf/03-team-roles.pdf` |
 
 ## 1.1 제출물 1 상세
 
@@ -43,21 +43,23 @@ lang: ko
 - 30~60초 분량, 실제 플레이 화면.
 - 촬영 대본과 사전 조건은 [`04-play-video-plan.md`](04-play-video-plan.md)에 있다
   (내부 지시서이며 제출물이 아니다).
-- 참고: `docs/nan2026/assets/video/nan2026-cinder-court-unity-play.mp4` (58초)가
-  이미 존재하나, 자동화 스크립트가 입력을 넣어 캡처한 것이라 "AI를 이용한 조작"
-  해석 위험이 있다. 대본은 **사람이 직접 플레이한 테이크로 교체**하는 것을 전제로
-  쓰였다. 판단과 재촬영이 남아 있다.
+- 기술 검증용 최신 캡처:
+  `docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4`
+  (55.00초, 로컬 WebGL 빌드 ID `e853ef3b27239fab`). 자동화 스크립트가 입력을 넣어
+  캡처했으므로 "AI를 이용한 조작" 해석 위험이 있다. 대본은 **사람이 직접
+  플레이한 테이크로 교체**하는 것을 전제로 썼다. 판단과 재촬영이 남아 있다.
 - 업로드 후 링크를 이 표와 제출물 3 원고의 "플레이 영상 링크" 항목에 반영해야 한다.
 
-## 1.3 제출물 3~5 상세 — PDF 생성이 남아 있다
+## 1.3 제출물 3~5 상세 — PDF 재생성 완료
 
-- 세 원고 모두 `docs/submission-nhn/` 아래 마크다운으로 관리하고, PDF로 변환해
-  제출한다.
-- 변환 도구는 `tools/docs/build-nan2026-pdf.mjs`(pandoc + xelatex + rsvg-convert)다.
-  **다만 현재 이 스크립트의 입출력 경로는 `docs/nan2026`에 하드코딩되어 있다**
-  (`SRC_DIR` / `OUT_DIR`, 같은 파일 L21-24). `docs/submission-nhn/`에서
-  PDF를 뽑으려면 경로를 파라미터화하거나 대상 디렉터리를 바꿔야 한다.
-- `docs/submission-nhn/pdf/` 디렉터리는 아직 존재하지 않는다.
+- 다섯 원고 모두 `docs/submission-nhn/` 아래 마크다운으로 관리한다.
+  제출 대상 `01`~`03`은 PDF로 변환하고, `00`(색인)과 `04`(촬영 지시서)는
+  검토·운영용 PDF로 함께 보존한다.
+- 변환 도구는 `tools/docs/build-submission-pdf.mjs`이며, 기본 실행은 제출 대상
+  `01`~`03`을, `--all`은 `00`~`04` 전부를 `docs/submission-nhn/pdf/`에 재생성한다.
+- 현재 `docs/submission-nhn/pdf/00-submission-index.pdf`부터
+  `04-play-video-plan.pdf`까지 다섯 PDF가 존재한다. 원고 변경 뒤에는 같은
+  스크립트를 다시 실행해 동기화한다.
 
 ---
 
@@ -113,10 +115,8 @@ lang: ko
 1. **플레이 동영상 촬영** — [`04-play-video-plan.md`](04-play-video-plan.md)의
    §3 사전 조건 → §4 샷 리스트 → §7 체크리스트 순으로 진행.
 2. **YouTube 업로드** 후 링크를 §1 표와 제출물 3 원고에 반영.
-3. **제출물 3·4 원고 완료** (다른 레인 진행 중).
-4. **PDF 3종 생성** — `tools/docs/build-nan2026-pdf.mjs`의 경로 조정 후 실행.
-5. **신청서 제출** (개인정보·저작권 동의 포함).
-6. **마감 전 최종 점검** — 배포 링크 실행 확인, 저장소 공개 상태 재확인,
+3. **신청서 제출** (개인정보·저작권 동의 포함).
+4. **마감 전 최종 점검** — 배포 링크 실행 확인, 저장소 공개 상태 재확인,
    YouTube 링크 접근 확인.
 
 ---
@@ -130,4 +130,4 @@ lang: ko
 | `02-ai-tech.md` | 제출물 4 원고 (AI 활용 기술) |
 | [`03-team-roles.md`](03-team-roles.md) | 제출물 5 원고 (팀원 롤 기술서) |
 | [`04-play-video-plan.md`](04-play-video-plan.md) | 제출물 2 촬영 대본 — **내부 지시서, 제출 대상 아님** |
-| `pdf/` | 제출용 PDF 출력 디렉터리 (미생성) |
+| `pdf/` | 제출용 PDF 출력 디렉터리 (`01`~`03` 재생성 완료) |

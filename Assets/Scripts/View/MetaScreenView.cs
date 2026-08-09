@@ -1,20 +1,6 @@
-// Tab meta screen (W7). A full-screen lobby surface: top tab bar, a left
-// category rail, one large detail card in the middle, three stat columns under
-// it, and a key-hint band at the bottom.
-//
-// The layout PRINCIPLE is borrowed from the reference action-RPG meta screen
-// (_workspace/current/intake/reference-ui-ocr.txt s3): tabs on top, the chosen
-// item stated large with its grade directly beneath, and its numbers split into
-// three readable columns instead of one long list. Nothing is copied — the
-// vocabulary, palette and every number here are this game's own.
-//
-// Scope is the LOBBY only (seed decision D6). The combat HUD is untouched: this
-// canvas is built on the lobby object, sorts above it, and can only be opened
-// while the lobby is on screen.
-//
-// Every number shown is read from the sim's own derived-stat properties through
-// a stack HackConfig probe — the same seam LobbyView uses — so the meta screen
-// can never drift into a second, prettier version of the balance contract.
+// Full-screen lobby reference surface for the campaign map and controls.
+// Built on the lobby object so its lifetime stays with the lobby while its
+// canvas sorts above the compact map and other lobby panels.
 using CinderCourt.Sim;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -36,30 +22,10 @@ namespace CinderCourt.View
         static readonly Color InkDim = new Color(0.62f, 0.66f, 0.8f);
         static readonly Color ButtonBack = new Color(0.16f, 0.13f, 0.24f, 0.9f);
 
-        internal const int TabEquip = 0, TabSigil = 1, TabMap = 2, TabControls = 3;
-        internal const int TabCount = 4;
-        static readonly string[] TabNames = { "장비", "각인", "지도", "조작" };
-        static readonly string[] TabKickers = { "EQUIPMENT", "SIGILS", "MAP", "CONTROLS" };
-
-        /// <summary>Rarity ladder for equipment tiers T0..T5. Deliberately a
-        /// SHARED ladder rather than per-slot: the reference screen's one useful
-        /// idea is that a grade word is comparable across item kinds, which the
-        /// existing per-slot narrative names (LobbyView.EquipTierNames) are not.
-        /// Those names still supply the item's own title.</summary>
-        internal static readonly string[] GradeNames =
-            { "평범", "단련", "정예", "희귀", "영웅", "전설" };
-        static readonly Color[] GradeColors =
-        {
-            new Color(0.62f, 0.66f, 0.8f),      // 평범 — dim ink
-            new Color(0.72f, 0.78f, 0.86f),     // 단련
-            new Color(0x2C / 255f, 0xAD / 255f, 0xD6 / 255f),  // 정예 — cyan
-            new Color(0.56f, 0.60f, 1f),        // 희귀
-            new Color(0xDD / 255f, 0xC8 / 255f, 0x69 / 255f),  // 영웅 — gold
-            new Color(0xF3 / 255f, 0x59 / 255f, 0x2C / 255f),  // 전설 — ember
-        };
-
-        static readonly string[] EquipNames = { "무기", "랜턴", "망토" };
-        static readonly string[] EquipRailKickers = { "BLADE", "LANTERN", "CLOAK" };
+        internal const int TabMap = 0, TabControls = 1;
+        internal const int TabCount = 2;
+        static readonly string[] TabNames = { "지도", "조작" };
+        static readonly string[] TabKickers = { "MAP", "CONTROLS" };
 
         /// <summary>Dungeon bindings, transcribed from InputAdapter.ReadKeyboard's
         /// Profile.Dungeon branch. A control screen that guesses is worse than no
@@ -76,35 +42,19 @@ namespace CinderCourt.View
 
         Font _font;
         GameObject _root;
-        CampaignData _data;
         CampaignMapView _map;
         System.Action _onClosed;
 
         GameObject[] _tabContents;
         Image[] _tabPlates;
         Text[] _tabLabels;
-        int _tab = TabEquip;
+        int _tab = TabMap;
 
-        // Equipment tab.
-        Image[] _equipRailPlates;
-        Text[] _equipRailLabels;
-        Text[] _equipRailTiers;
-        int _equipRow;
-        Text _detailTitle, _detailGrade, _detailKicker, _detailNote;
-        Text[] _statColumnTitles;
-        Text[] _statColumnBodies;
-
-        // Sigil tab.
-        Image[] _sigilRailPlates;
-        Text[] _sigilRailLabels;
-        int _sigilRow;
-        Text _sigilTitle, _sigilGrade, _sigilBody;
 
         Text _relicText, _pointText, _hintText;
 
         public bool IsOpen => _root != null && _root.activeSelf;
         internal int ActiveTab => _tab;
-        internal int SelectedEquipRow => _equipRow;
         internal CampaignMapView Map => _map;
 
         CanvasScaler _scaler;
@@ -127,16 +77,13 @@ namespace CinderCourt.View
         /// two-row bar.</summary>
         internal bool LastPortrait { get; private set; }
 
-        /// <summary>Builds the whole screen once, hidden. Called from the lobby
-        /// so the meta screen shares its font and its data snapshot.</summary>
+        /// <summary>Builds the map/controls screen hidden.</summary>
         public void Build(Font font, in CampaignData data, System.Action onClosed = null)
         {
+            DestroyBuiltRoot();
+
             _font = font;
-            _data = data;
             _onClosed = onClosed;
-            // A second Build abandons the previous canvas; without this the
-            // list keeps its destroyed rects and ApplyLayout walks corpses.
-            _contentFrames.Clear();
 
             var canvasObject = new GameObject("MetaScreen");
             canvasObject.transform.SetParent(transform, false);
@@ -173,17 +120,44 @@ namespace CinderCourt.View
             BuildHintBar(root);
 
             _tabContents = new GameObject[TabCount];
-            _tabContents[TabEquip] = BuildEquipTab(root);
-            _tabContents[TabSigil] = BuildSigilTab(root);
             _tabContents[TabMap] = BuildMapTab(root);
             _tabContents[TabControls] = BuildControlsTab(root);
 
-            SelectTab(TabEquip);
+            SelectTab(TabMap);
             Refresh(data);
             _root.SetActive(false);
         }
+        void DestroyBuiltRoot()
+        {
+            var builtRoot = _root;
+            _root = null;
+            _map = null;
+            _tabContents = null;
+            _tabPlates = null;
+            _tab = TabMap;
+            _onClosed = null;
+            _tabLabels = null;
+            _scaler = null;
+            _tabBar = null;
+            _relicText = null;
+            _pointText = null;
+            _hintText = null;
+            _contentFrames.Clear();
+            _lastScreenWidth = 0;
+            _lastScreenHeight = 0;
+            LastEffectiveWidth = 0f;
+            LastPortrait = false;
 
-        public void Show(in CampaignData data) => Show(in data, _tab);
+            if (builtRoot == null) return;
+            builtRoot.SetActive(false);
+            builtRoot.transform.SetParent(null, false);
+            if (Application.isPlaying)
+                Destroy(builtRoot);
+            else
+                DestroyImmediate(builtRoot);
+        }
+
+        public void Show(in CampaignData data) => Show(in data, TabMap);
 
         /// <param name="tab">Which tab to land on. The lobby minimap opens
         /// straight onto <see cref="TabMap"/> — a player who taps a map expects
@@ -206,32 +180,10 @@ namespace CinderCourt.View
         /// <summary>Re-reads one save into every already-built widget.</summary>
         public void Refresh(in CampaignData data)
         {
-            _data = data;
             if (_root == null) return;
 
             _relicText.text = $"유물 {data.Relics}";
             _pointText.text = $"포인트 {data.Points}";
-
-            for (var i = 0; i < EquipNames.Length; i++)
-            {
-                var tier = TierOf(in data, i);
-                _equipRailTiers[i].text = $"T{tier}";
-                _equipRailTiers[i].color = GradeColors[Mathf.Clamp(tier, 0, GradeColors.Length - 1)];
-                var selected = i == _equipRow;
-                _equipRailLabels[i].color = selected ? Gold : InkDim;
-                PlateStateful(_equipRailPlates[i], selected);
-            }
-            RefreshEquipDetail();
-
-            for (var i = 0; i < LobbyView.SigilOrder.Length; i++)
-            {
-                var owned = (data.SigilsOwned & (1 << (int)LobbyView.SigilOrder[i])) != 0;
-                var selected = i == _sigilRow;
-                _sigilRailLabels[i].color = selected ? Gold : owned ? Cyan : InkDim;
-                PlateStateful(_sigilRailPlates[i], selected);
-            }
-            RefreshSigilDetail();
-
             _map?.Refresh(in data);
         }
 
@@ -246,52 +198,25 @@ namespace CinderCourt.View
 
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             if (keyboard == null) return;
-            // Keyboard parity with the pointer path: every control on this screen
-            // is reachable without a mouse, and ESC always gets the player out.
             if (keyboard.escapeKey.wasPressedThisFrame) { Hide(); return; }
             if (keyboard.tabKey.wasPressedThisFrame) SelectTab((_tab + 1) % TabCount);
-            if (keyboard.downArrowKey.wasPressedThisFrame) MoveRow(1);
-            if (keyboard.upArrowKey.wasPressedThisFrame) MoveRow(-1);
         }
 
-        void MoveRow(int delta)
-        {
-            if (_tab == TabEquip)
-                SelectEquipRow(Wrap(_equipRow + delta, EquipNames.Length));
-            else if (_tab == TabSigil)
-                SelectSigilRow(Wrap(_sigilRow + delta, LobbyView.SigilOrder.Length));
-        }
-
-        static int Wrap(int value, int count) => (value % count + count) % count;
 
         void SelectTab(int index)
         {
-            _tab = Mathf.Clamp(index, 0, TabCount - 1);
+            _tab = index >= 0 && index < TabCount ? index : TabMap;
             for (var i = 0; i < TabCount; i++)
             {
                 _tabContents[i].SetActive(i == _tab);
                 PlateStateful(_tabPlates[i], i == _tab);
                 _tabLabels[i].color = i == _tab ? Gold : InkDim;
             }
-            _hintText.text = HintFor(_tab);
+            _hintText.text = "탭 전환 Tab • 닫기 ESC";
         }
 
-        static string HintFor(int tab)
-            => tab == TabEquip || tab == TabSigil
-                ? "탭 전환 Tab • 선택 위•아래 • 닫기 ESC • 구매는 성소 정비에서"
-                : "탭 전환 Tab • 닫기 ESC";
 
-        void SelectEquipRow(int row)
-        {
-            _equipRow = Mathf.Clamp(row, 0, EquipNames.Length - 1);
-            Refresh(_data);
-        }
 
-        void SelectSigilRow(int row)
-        {
-            _sigilRow = Mathf.Clamp(row, 0, LobbyView.SigilOrder.Length - 1);
-            Refresh(_data);
-        }
 
         // ------------------------------------------------------------ tab bar --
         void BuildTabBar(Transform root)
@@ -345,23 +270,9 @@ namespace CinderCourt.View
 
         // ------------------------------------------------- orientation sync --
         /// <summary>Lays the tab bar out for a viewport. Pure function of the
-        /// two arguments — no Screen reads — so EditMode can drive it.
-        ///
-        /// MEASURED, and this is why the fix is a reflow and not a scaler
-        /// tweak. The bar is one row of: tabs 20..572 u, then a right-anchored
-        /// cluster of 유물 + 포인트 + 닫기 occupying the last 454 u. That needs
-        /// ~1026 u. At 390x844 the effective width is 653 u at match 0.5 and
-        /// 799 u at match 0.35 — short either way, so relaxing the match only
-        /// MOVES the collision:
-        ///
-        ///   match 0.5  -> 653 u: 닫기 sits 541..637, over 조작 by 31 u
-        ///   match 0.35 -> 799 u: 닫기 clears, but 유물 lands over 조작 by 39 u
-        ///
-        /// So portrait does both: relax the match for the extra 146 u AND drop
-        /// the currency cluster to a second row, which buys back the 300 u it
-        /// was taking from the first. Landscape keeps the single row — at
-        /// 1214 u it has ~188 u of slack and Landscape_NothingStacksOnTheTabRow
-        /// fails if this starts reflowing there.</summary>
+        /// two arguments — no Screen reads — so EditMode can drive it. Portrait
+        /// moves the currency readouts to a second row so they cannot overlap
+        /// the map and controls tabs.</summary>
         internal void ApplyLayout(int width, int height)
         {
             if (_scaler == null || _tabBar == null) return;
@@ -436,154 +347,9 @@ namespace CinderCourt.View
             return content;
         }
 
-        // ----------------------------------------------------------- equipment --
-        GameObject BuildEquipTab(Transform parent)
-        {
-            var content = TabContent(parent);
 
-            // Left rail: the item categories, the reference's one genuinely
-            // useful structural idea (a stable spine so the detail card is the
-            // only thing that changes when you move).
-            _equipRailPlates = new Image[EquipNames.Length];
-            _equipRailLabels = new Text[EquipNames.Length];
-            _equipRailTiers = new Text[EquipNames.Length];
-            for (var i = 0; i < EquipNames.Length; i++)
-            {
-                var index = i;
-                var button = TextButton(content.transform, new Vector2(0, 1),
-                    new Vector2(24, -24 - i * 76), new Vector2(196, 64), "", 18,
-                    () => SelectEquipRow(index), plated: false);
-                _equipRailPlates[i] = button.GetComponent<Image>();
-                _equipRailLabels[i] = button.GetComponentInChildren<Text>();
-                _equipRailLabels[i].text = EquipNames[i];
-                _equipRailLabels[i].alignment = TextAnchor.MiddleLeft;
-                _equipRailLabels[i].rectTransform.offsetMin = new Vector2(16f, 12f);
 
-                var kicker = Label(button.transform, 16, -42, 120, 14, EquipRailKickers[i], 9,
-                    TextAnchor.MiddleLeft);
-                kicker.color = new Color(Cyan.r, Cyan.g, Cyan.b, 0.7f);
-                _equipRailTiers[i] = Label(button.transform, -16, -20, 60, 24, "T0", 18,
-                    TextAnchor.MiddleRight);
-                AnchorTopRight(_equipRailTiers[i].rectTransform);
-            }
 
-            var detail = Panelled(content.transform, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(244, -24), new Vector2(700, 250), Panel);
-            FullBorder(detail.transform);
-            _detailKicker = Label(detail.transform, 24, -18, 400, 18, "", 10, TextAnchor.MiddleLeft);
-            _detailKicker.color = new Color(Cyan.r, Cyan.g, Cyan.b, 0.8f);
-            _detailTitle = Label(detail.transform, 24, -36, 640, 44, "", 30, TextAnchor.MiddleLeft);
-            _detailTitle.color = Ink;
-            // Grade sits DIRECTLY under the name, the reference screen's clearest
-            // relationship: the word that tells you how good it is never floats
-            // away from the thing it grades.
-            _detailGrade = Label(detail.transform, 24, -82, 400, 26, "", 17, TextAnchor.MiddleLeft);
-            _detailNote = Label(detail.transform, 24, -112, 640, 22, "", 13, TextAnchor.MiddleLeft);
-            _detailNote.color = InkDim;
-
-            // Three stat columns, evenly divided across the detail card.
-            _statColumnTitles = new Text[3];
-            _statColumnBodies = new Text[3];
-            string[] columnTitles = { "피해", "생존", "기름" };
-            for (var c = 0; c < 3; c++)
-            {
-                var x = 24 + c * 226;
-                _statColumnTitles[c] = Label(detail.transform, x, -146, 210, 20,
-                    columnTitles[c], 14, TextAnchor.MiddleLeft);
-                _statColumnTitles[c].color = Gold;
-                _statColumnBodies[c] = Label(detail.transform, x, -168, 210, 72, "", 12,
-                    TextAnchor.UpperLeft);
-                _statColumnBodies[c].color = Ink;
-            }
-
-            var footnote = Label(content.transform, 244, -286, 700, 40,
-                "수치는 시뮬레이션이 실제로 쓰는 값이다. 구매•강화는 로비 성소 정비 탭에서 한다.",
-                12, TextAnchor.UpperLeft);
-            footnote.color = InkDim;
-            return content;
-        }
-
-        void RefreshEquipDetail()
-        {
-            var slot = _equipRow;
-            var tier = TierOf(in _data, slot);
-            var probe = Probe(in _data);
-
-            _detailKicker.text = EquipRailKickers[slot];
-            _detailTitle.text = LobbyView.EquipTierNames[slot][tier];
-            _detailGrade.text = $"{GradeNames[tier]} • T{tier}/T5";
-            _detailGrade.color = GradeColors[Mathf.Clamp(tier, 0, GradeColors.Length - 1)];
-            // Cap and price both from ProgressionGuide — the one place that
-            // owns them. GameDirector.EquipCosts is an alias to this and used to
-            // be the read path; going through it made the meta screen's price
-            // depend on the director's, when neither owns it.
-            _detailNote.text = tier >= ProgressionGuide.EquipCap
-                ? "최고 등급 — 이 슬롯은 더 오를 곳이 없다."
-                : $"다음 등급까지 유물 {ProgressionGuide.EquipCosts[tier]}";
-
-            _statColumnBodies[0].text =
-                $"공격력 {probe.PlayerDamage:F1}\n" +
-                $"무기 등급 보정 +{CampaignSpec.WeaponDamagePerRank * _data.Weapon * 100f:F0}%\n" +
-                $"할당 공격 {_data.Attack}/10";
-            _statColumnBodies[1].text =
-                $"최대 체력 {probe.PlayerMaxHealth:F0}\n" +
-                $"망토 등급 보정 +{CampaignSpec.CloakHealthPerRank * _data.Cloak:F0}\n" +
-                $"이동 {probe.PlayerSpeed:F0}";
-            _statColumnBodies[2].text =
-                $"재생 {probe.LanternRegenPerSecond:F2}/초\n" +
-                $"랜턴 등급 보정 +{CampaignSpec.LanternRegenPerRank * _data.Lantern * 100f:F0}%\n" +
-                $"할당 이속 {_data.Swiftness}/10";
-        }
-
-        // --------------------------------------------------------------- sigils --
-        GameObject BuildSigilTab(Transform parent)
-        {
-            var content = TabContent(parent);
-            _sigilRailPlates = new Image[LobbyView.SigilOrder.Length];
-            _sigilRailLabels = new Text[LobbyView.SigilOrder.Length];
-            for (var i = 0; i < LobbyView.SigilOrder.Length; i++)
-            {
-                var index = i;
-                var button = TextButton(content.transform, new Vector2(0, 1),
-                    new Vector2(24, -24 - i * 60), new Vector2(196, 52), "", 16,
-                    () => SelectSigilRow(index), plated: false);
-                _sigilRailPlates[i] = button.GetComponent<Image>();
-                _sigilRailLabels[i] = button.GetComponentInChildren<Text>();
-                _sigilRailLabels[i].text = LobbyView.SigilNames[i];
-                _sigilRailLabels[i].alignment = TextAnchor.MiddleLeft;
-                _sigilRailLabels[i].rectTransform.offsetMin = new Vector2(16f, 0f);
-            }
-
-            var detail = Panelled(content.transform, new Vector2(0, 1), new Vector2(0, 1),
-                new Vector2(244, -24), new Vector2(700, 250), Panel);
-            FullBorder(detail.transform);
-            _sigilTitle = Label(detail.transform, 24, -24, 640, 44, "", 28, TextAnchor.MiddleLeft);
-            _sigilGrade = Label(detail.transform, 24, -70, 400, 26, "", 16, TextAnchor.MiddleLeft);
-            _sigilBody = Label(detail.transform, 24, -104, 640, 120, "", 13, TextAnchor.UpperLeft);
-            _sigilBody.color = Ink;
-            return content;
-        }
-
-        void RefreshSigilDetail()
-        {
-            var row = _sigilRow;
-            var kind = (int)LobbyView.SigilOrder[row];
-            var owned = (_data.SigilsOwned & (1 << kind)) != 0;
-            var slotted = _data.SigilSlot0 == kind || _data.SigilSlot1 == kind;
-            var face = (_data.SigilFaces & (1 << kind)) != 0 ? 1 : 0;
-
-            _sigilTitle.text = LobbyView.SigilNames[row];
-            _sigilTitle.color = owned ? Ink : InkDim;
-            _sigilGrade.text = slotted ? "장착 중" : owned ? "보유" : $"미보유 • 유물 {LobbyView.SigilCost}";
-            _sigilGrade.color = slotted ? Ember : owned ? Cyan : InkDim;
-            _sigilBody.text =
-                $"기믹 • {LobbyView.SigilGimmicks[row]}\n" +
-                $"{LobbyView.SigilFaceNames[row][0]} • {LobbyView.SigilFaceEffects[row][0]}\n" +
-                $"{LobbyView.SigilFaceNames[row][1]} • {LobbyView.SigilFaceEffects[row][1]}\n" +
-                (owned
-                    ? $"현재 면 • {LobbyView.SigilFaceNames[row][face]}"
-                    : "성소 정비 각인 탭에서 해금한다.");
-        }
 
         // ------------------------------------------------------------------ map --
         GameObject BuildMapTab(Transform parent)
@@ -621,19 +387,6 @@ namespace CinderCourt.View
             return content;
         }
 
-        // ------------------------------------------------------------- helpers --
-        static int TierOf(in CampaignData data, int slot)
-            => slot == 0 ? data.Weapon : slot == 1 ? data.Lantern : data.Cloak;
-
-        /// <summary>Inert probe carrying this save's meta. Identical seam to
-        /// LobbyView.Probe: the derived-stat properties ARE the mirror, so this
-        /// screen composes no formula of its own.</summary>
-        static HackConfig Probe(in CampaignData data)
-            => new HackConfig
-            {
-                MetaStats = MetaStats.Of(data.Attack, data.Vitality, data.Swiftness),
-                EquipTiers = EquipTiers.Of(data.Weapon, data.Lantern, data.Cloak),
-            };
 
         static void PlateStateful(Image image, bool active)
         {
@@ -672,9 +425,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.text = content;
             text.color = Ink;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;

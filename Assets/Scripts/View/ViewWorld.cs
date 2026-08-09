@@ -124,6 +124,44 @@ namespace CinderCourt.View
             return clone;
         }
 
+        static Material _wardSeed;
+        static bool _wardSeedProbed;
+
+        /// <summary>
+        /// Ward shell material: a fresnel rim rather than flat alpha.
+        ///
+        /// The ward is the most-seen effect in the game — a 3 s bubble the
+        /// player stands inside — and it shipped as a default Sphere with
+        /// a = 0.28 everywhere, which is the one thing a curved shell does NOT
+        /// look like. Fresnel makes it near-invisible head-on and bright at the
+        /// silhouette, so the volume reads without fogging the fight.
+        ///
+        /// Same seed-clone contract as MakeParticleAdditive, for the same
+        /// reason: CinderCourt/Vfx/WardFresnel is referenced by exactly one
+        /// asset (Resources/Materials/ward-fresnel-seed), and without that
+        /// reference WebGL variant stripping removes it and the shell renders
+        /// pink. Falls back to the proven flat-alpha look when the seed is
+        /// missing, which is precisely the appearance this replaces — a
+        /// decorative upgrade must never be able to break a build.
+        /// </summary>
+        public static Material MakeWardShell(Color color)
+        {
+            if (!_wardSeedProbed)
+            {
+                _wardSeedProbed = true;
+                _wardSeed = Resources.Load<Material>("Materials/ward-fresnel-seed");
+            }
+            if (_wardSeed == null)
+            {
+                var fallback = color;
+                fallback.a = 0.28f;                 // the pre-fresnel constant
+                return MakeUnlit(fallback, true);
+            }
+            var clone = new Material(_wardSeed);
+            clone.SetColor("_BaseColor", color);
+            return clone;
+        }
+
         static Shader _lit;
 
         /// <summary>

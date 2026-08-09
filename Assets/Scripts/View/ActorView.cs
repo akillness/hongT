@@ -58,11 +58,22 @@ namespace CinderCourt.View
         // registers, short enough that the boss is not a free target — it can
         // still turn and attack the instant its AI decides to.
         //
-        // PUBLIC because the animator's clip retiming reads it: the `show`
-        // state's speed is fitted to this window so the authored clip finishes
-        // inside it instead of being cut mid-roar (CharacterImportPipeline).
+        // PUBLIC because the IMPORT fits the clip to it: CharacterImportPipeline
+        // .ClipTrims trims Mutant Roaring to f8-34 (1.083 s, measured peak f21)
+        // so the roar plays at speed 1 and ENDS as the window closes.
+        //
+        // It did not always work that way. Until 2026-08-09 this comment
+        // claimed the `show` state's SPEED was fitted, and no such fit existed
+        // anywhere — no trim row, no baked m_Speed, no PoseValueForClip entry.
+        // The clip imported whole (5.42 s) into 1.1 s, so the entrance showed
+        // roughly its first fifth and cut mid-bellow. The comment described an
+        // intention; the pipeline never implemented it. (§4i: when a comment
+        // and the code are two sources for one fact, they drift — the fix was
+        // to make the pipeline true, then say what it does.)
         public const float RoarDuration = 1.1f;
-        /// <summary>§M/#4 cast pose window — the `cast` state's fit target.</summary>
+        /// <summary>§M/#4 cast pose window. Same contract as RoarDuration: the
+        /// cast clip is TRIMMED to fit (f23-30 = 0.292 s, measured peak f27),
+        /// not retimed — a speed fit would need ~9x and read as a twitch.</summary>
         public const float CastPoseDuration = 0.30f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
@@ -104,14 +115,16 @@ namespace CinderCourt.View
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
 
         /// <summary>
-        /// Uniform shrink applied to EVERY actor (player, companions, enemies,
-        /// bosses) on top of its authored base scale — the 2026-10 request to
-        /// render every actor at 0.8x. Applied once at Create so per-frame
-        /// scale math (death pop, boss 1.6x) keeps its existing relationships.
+        /// Uniform scale applied to EVERY actor (player, companions, enemies,
+        /// bosses) on top of its authored base scale. Restored to authored size
+        /// after independent visual comparison showed 0.90x did not improve the
+        /// board-scale combat silhouette over baseline. Applied once at Create
+        /// so per-frame scale math (death pop, boss 1.6x) keeps its existing
+        /// relationships.
         /// Actor prefabs are authored in world units, so this is independent of
         /// ViewWorld.Scale (which grew the floor by 25% in the same change).
         /// </summary>
-        public const float GlobalScale = 0.8f;
+        public const float GlobalScale = 1.00f;
 
         public static ActorView Create(GameObject prefab, Color fallbackColor, float baseScale)
         {

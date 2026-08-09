@@ -1,0 +1,46 @@
+{
+  "output": "docs/nan2026/assets/video/nan2026-cinder-court-cycle13-playwriter-compresso.mp4",
+  "runId": "20260808-achilles-quality",
+  "restoredAt": "2026-08-09T02:01:36.225Z",
+  "buildIdentity": "e853ef3b27239fab",
+  "source": "_workspace/archive/20260808-achilles-quality/submission/video/nan2026-cinder-court-cycle13-playwriter.mp4",
+  "captureUrl": "archive-restored from _workspace/archive/20260808-achilles-quality/submission/video/nan2026-cinder-court-cycle13-playwriter.mp4",
+  "compressionTool": "PATH ffmpeg fallback used under compresso skill route (offline H.264/AAC compression)",
+  "bytes": 3655623,
+  "sha256": "904c35b119f6af772383ca75dc195da447f6b92de85903d4d0d3a75bcb5bd07a",
+  "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1200,
+        "r_frame_rate": "30/1",
+        "duration": "37.066667"
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "sample_rate": "48000",
+        "channels": 2,
+        "r_frame_rate": "0/0",
+        "duration": "37.005167"
+      }
+    ],
+    "format": {
+      "duration": "37.067167",
+      "size": "3655623"
+    }
+  },
+  "submissionUse": false,
+  "note": "Playwriter technical review segment compressed offline; not the regulated submission take.",
+  "pageErrors": {
+    "count": null,
+    "reason": "archive-restored artifact; no new browser session was run in this repair step"
+  },
+  "humanUploadRequired": true
+}

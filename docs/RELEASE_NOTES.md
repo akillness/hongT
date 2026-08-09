@@ -1,5 +1,112 @@
 # Release Notes
 
+## 프레젠테이션 사이클 10 — 조용히 실패하던 3건 + 연출 자산 · 2026-08-09
+
+사용자 지시: *"리소스 개선작업진행하자, 특히 vfx와 던전구성, 그리고 매시와
+모션"* → *"연출용 영상, 음성, 사운드등도 추가해"*. Higgsfield CLI를 새로
+프로비저닝해 이미지·TTS 경로를 열었고(§3 표 개정), 그 과정에서 **주장과 구현이
+갈라진 결함 3건**이 드러났다.
+
+### 근본 원인이 같았던 3건 — "성공을 보고하는 실패"
+
+| 무엇이 | 얼마나 조용했나 | 원인 |
+|---|---|---|
+| §V3 파티클 seed가 **한 번도 생성된 적 없음** | 프로젝트 수명 전체. 4개 원소 시스템이 flat-color 폴백으로 돌아 color-over-lifetime이 죽어 있었다 | `Shader.Find("...Particles Unlit")` — 실제 이름은 `Particles/Unlit`(슬래시). null 분기가 `return true`("장식이 빌드를 깨면 안 된다")라 경고만 남고 넘어갔다 |
+| `show`/`cast` 클립 적합이 **주석에만 존재** | 수개월. Mutant Roaring 5.42 s가 1.1 s 창에 통째로 들어가 로어의 ~20%만 재생되고 잘렸다 | ClipTrims 행 없음 · 컨트롤러 `m_Speed: 1` · `PoseValueForClip`에 행 없음 |
+| witness-well과 echo-throne이 **같은 accent** | 두 인접 스테이지의 무드·틴트·조명·플립북이 한 값에 붕괴 | 둘 다 `Color(0.45,0.78,1)` |
+
+공통 구조는 **폴백이 성공을 보고한다**는 것이다. 셋 다 테스트가 통과하고 있었는데,
+틀려서가 아니라 정답과 오답이 같아지는 좌표계에서 재고 있었기 때문이다(§4m의
+4·5번째 사례). 분석: `llm-wiki/wiki/concepts/generator-fallback-that-reports-success.md`.
+
+### VFX
+- **파티클 seed 실체화**: `Assets/Resources/Materials/particle-additive-seed.mat`를
+  URP `Particles/Unlit` **GUID 직접 참조**로 저작해 생성기 의존을 끊었다. 빌드
+  로그가 상시 경고 대신 `[MaterialSeeds] particle-additive-seed ready`를 찍는다.
+  `RuntimeMaterialSeeds`는 `AssetDatabase.LoadAssetAtPath` 우선 + `Shader.Find`
+  폴백으로 고쳤다(배치모드에서 패키지 셰이더가 등록 목록에 없을 수 있다).
+- **소프트글로우 스프라이트**: `tools/gen_fx_sprites.py`가 256² 방사 감쇠를
+  **수식으로** 생성한다(의존성 없음, 재생성 시 바이트 동일). 이미지 모델을 쓰지
+  않은 이유는 이것이 미술이 아니라 수학이기 때문 — 밴딩·비대칭·중심 이탈이 없다.
+- **죽음 파티클**: 킬은 가장 잦은 보상 비트인데 유일하게 이펙트가 없었다.
+  `EnemyKilled`에 id 링 래치로 1회 방출(일반 8 / 엘리트 16, 모션 약함 시 절반).
+  FadeTime 값 창을 쓰지 않은 이유: 60 Hz에서 이중 발화 또는 무발화가 된다.
+- **워드 셸 fresnel 셰이더**(신규 `Assets/Shaders/Vfx-WardFresnel.shader`):
+  화면 체류가 가장 긴 방어 비주얼이 기본 Sphere + 평면 알파 0.28이었다. 프레넬
+  림으로 교체해 정면은 비치고 실루엣이 빛난다. 만료 경고도 **렌더러 10 Hz
+  토글(스트로브)** 에서 셰이더 밝기 펄스로 바꿨고, 진폭은 `player.WardTime <
+  0.5f`(심 상태)로 구동하며 모션 약함에서 0이 된다.
+
+### 던전 구성
+- **빈 드레싱 2표 채움**(abyss-chancel · echo-throne). 코드에 넣기 전 산술 검증:
+  최악 해저드 여유 +75.2, 최근접 이웃 ≥275, 사분면 2/3/2/2.
+  `StageDressingTests.DressedStages`에 등재해 기존 6표와 **같은 무결성 검사**를
+  받는다 — 등재하지 않으면 검사받지 않는 표가 된다.
+- **accent 분리**: witness-well을 옥빛 `(0.22,0.76,0.66)`으로. 플립북 Ice 밴드
+  유지를 실측 확인(floor warmth −0.1495 vs 임계 −0.05). boss tint·시놉시스
+  문서·스테이지 진입 아트까지 따라 옮겼다(5/9가 boss tint == accent 진영이고 이
+  스테이지가 거기 속했다).
+- **스테이지별 무드 표** 9행. 이전에는 key pitch 42/yaw 28·강도 0.55/0.22가 전
+  스테이지 공통이라 accent 색만 달랐다. 조명 추가 없음(§E6 ≤4 point 불변).
+- **환경 텍스처 이음매 수리 4/18 → 0/18**. 1.28 월드유닛마다 타일링되므로 벽
+  전체에 줄이 반복된다. 이미지 모델에 "seamless"를 **지시해도** 1/4만 개선되고
+  3/4는 악화됐다(수용 규칙이 막았다) — 이음매는 양식이 아니라 기하라서
+  `tools/seamless_env_textures.py`가 오프셋·디램프·랩블렌드 3패스를 모두 시도하고
+  **측정상 더 나은 것만** 채택한다.
+
+### 메시 · 모션
+- **show/cast 트림**(실측): `Assets/Editor/ClipWindowProbe.cs`가 휴머노이드 리그
+  위 `SampleAnimation`으로 피크 프레임을 찾는다. show f8–34(1.083 s, 목표 1.1),
+  cast f23–30(0.292 s, 목표 0.30) — 오차 17 ms · 8 ms, speed 1로 자연 재생.
+  리타이밍 대신 트림인 이유: 로어에 4.9배가 필요해 `MaxPoseSpeed` 4를 넘는다.
+- **반응 클립 4종은 측정 후 의도적 미트림**: hit/bighit preamble 2.2%/5.3%로
+  이미 촘촘하고, avoid/defence는 고정 창에 눌리지 않는다. 결정이지 누락이 아니다.
+- **리스킨 드라이버 8 → 12 id**: s1/s2/s3는 스켈레톤 입력이 자기 id가 아니라
+  shadow-commander라 오버라이드를 추가했다(리포트 `input` 필드에서 복원).
+- `Punching.fbx` 삭제(참조 0건, 213 KB LFS), `docs/provenance/motion.json` 신규.
+
+### 연출 영상 · 음성 · 사운드
+- **인트로 릴 beat 6 복구**(6.6 → 7.8 s). 2026-08-06에 "피사체가 과일로 읽힌다"고
+  컷됐던 비트다. 원인은 `gti`의 codex-cli 프로바이더가 **이미지 입력을 거부**해
+  일관성을 텍스트 STYLE 접미사에만 의존한 것이었고, 참조 이미지를 받는
+  `nano_banana_flash`로 한 번에 통과했다. 타이틀 록업은 랜턴 발광부와 겹쳐
+  `h*0.34 → h*0.18`로 이동(서브라인 밝기 56.8 → 28.2 실측).
+- **한국어 VO 8줄**: StoryCatalog 대사를 화자 클래스별 보이스로
+  (감시자 Yoona / 보스 Hyunwoo / 워든 Seojun). 키는 `vo-<stageId>-<beat>` —
+  비트만으로 키를 잡으면 한 스테이지의 음성이 다른 스테이지 자막 위에서 재생된다.
+  전용 AudioSource(피치 지터 금지·풀 미사용), BGM 0.4 더킹, 무스케일 램프,
+  `EnterLobby`에서 정지(§4o). **말풍선 hold를 음성 길이로 덮어쓴다** — hold 공식은
+  읽기 속도(~17자/초) 기준인데 TTS는 ~7자/초라 6/8이 말풍선 소멸 후에도 말했다.
+- **던전킷 9큐**: 그동안 기본 클립의 볼륨 변주("interim contract")였다. 최악은
+  BossPhase2 = `cue-gameover` 0.35 — 보스가 강해지는 순간에 **패배음**이 났다.
+  전 큐가 `PlayOrFallback`으로 기존 매핑을 폴백으로 유지한다.
+- API가 `.mp3` 이름으로 **비압축 PCM WAV**(768 kbps)를 반환해 트랜스코딩했다:
+  3,145,536 → 371,810 B(88.2% 감소). SFX 4개는 peak 0.05–0.18로 들리지 않아
+  정규화(0.62–0.92, 기존 큐대와 정렬).
+
+### 도구 계약 개정(§3)
+VO 행과 연출 스틸 행 추가. **VO는 지시 변경**(2026-08-04 "음성 금지" → 2026-08-09
+개정, 스토리 내레이션 한정 — cue-* 효과음은 여전히 vocals 금지), **연출 스틸은
+능력 차이**(gti는 참조 이미지 불가). ElevenLabs 키가 HTTP 401이라 SFX/BGM
+파이프라인이 실행 불가인 것도 VO가 Higgsfield로 간 직접 원인이다.
+
+### 검증
+- EditMode **870/870**(신규 19건), 컴파일 0 에러, WebGL 81 MB(120 MB 캡 내)
+- 브라우저 스모크: 부트 · 던전 · 전투 · 사망 4경로, 콘솔 에러 0
+- 신규 어서션 4묶음 전부 **GREEN → RED → GREEN 변이 증명**
+
+### 미해결(정직한 이월)
+- **ElevenLabs 키 401** — SFX/BGM 재생성 불가. 키 갱신 필요.
+- **`reskin_all.sh`는 12 id를 알지만 실행 불가** — `~/orca/Abyssal-Surge`가 Unity로
+  재구축되며 `assets/motion`·`assets/mesh`가 사라졌다. 추가한 4개가 아니라
+  **원래 8개도** 미스한다. 출하된 FBX가 기록물이다.
+- **보스 전용 모션** — 12개 메시가 컨트롤러 하나를 공유해 보스가 잡몹처럼 휘두른다.
+  기구는 append-only로 준비돼 있으나 신규 Mixamo 클립이 필요하고 mixamo.com은
+  비대화형 다운로드가 없다(Adobe 세션 필요).
+- **캐릭터 메시 생성은 Higgsfield로 불가** — tripo/meshy 출력은 미리깅이고
+  `CharacterImportPipeline.cs:163`이 humanoid 아바타가 아니면 하드 throw한다.
+  정적 소품은 가능하다.
+
 ## 난이도 4단계 + 적 그룹 협동 AI + 타격감 개편 · 2026-08-08
 
 리뷰 영상 <https://youtu.be/wbDv6nawEeY> (쿼터뷰 액션 RPG 'Achilles: Legends
