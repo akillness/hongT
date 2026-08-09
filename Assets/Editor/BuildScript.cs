@@ -164,9 +164,11 @@ namespace CinderCourt.EditorTools
         ///    recurses on a full-viewport portrait canvas, so the backing
         ///    store is explicitly sized before the loader and after responsive
         ///    viewport, orientation, and fullscreen resizes;
-        ///  - responsive canvas: UA-independent CSS replaces the fixed
-        ///    1280x853 sizing — letterbox preserving 1280:853 (~3:2) down to
-        ///    500px CSS width, full-viewport fill below (phones);
+        ///  - viewport-locked page, block canvas, and explicit 38px footer;
+        ///  - responsive desktop canvas: preserves 1280:853 (~3:2), subtracts
+        ///    the footer from 100vh/100svh, and stays centered in the viewport;
+        ///  - full-viewport fill for narrow or low landscape viewports, with
+        ///    100dvh enhancement and mobile safe-area padding;
         ///  - brand background #050812 (canvas + page).
         /// </summary>
         static void PolishIndexHtml(string outputDir)
@@ -383,10 +385,25 @@ namespace CinderCourt.EditorTools
                 "window.addEventListener(\"resize\", queueUnityBackingStoreSize);",
                 "window.addEventListener(\"orientationchange\", queueUnityBackingStoreSize);",
                 "window.visualViewport.addEventListener(\"resize\", queueUnityBackingStoreSize);",
-                "width: min(1280px, 100vw, calc(100vh * 1280 / 853));",
+                "html, body { width: 100%; height: 100%; overflow: hidden;",
+                "#unity-canvas { display: block;",
+                "#unity-footer { height: 38px; }",
+                "width: min(1280px, 100vw, calc((100vh - 38px) * 1280 / 853));",
+                "@supports (height: 100svh)",
+                "width: min(1280px, 100vw, calc((100svh - 38px) * 1280 / 853));",
                 "aspect-ratio: 1280 / 853;",
+                "@media (max-width: 500px), (max-height: 500px) and (orientation: landscape)",
+                "#unity-container.unity-desktop {\n" +
+                "          left: 0; top: 0; transform: none;\n" +
+                "          position: fixed; width: 100vw; height: 100vh; height: 100dvh;\n" +
+                "          padding: env(safe-area-inset-top) env(safe-area-inset-right)\n" +
+                "                   env(safe-area-inset-bottom) env(safe-area-inset-left);\n" +
+                "          box-sizing: border-box; background: #050812;\n" +
+                "        }",
                 "width: 100%; height: 100%; aspect-ratio: auto;",
-                "touch-action: none;",
+                "#unity-footer { display: none; }",
+                "#unity-container.unity-mobile {",
+                "padding: env(safe-area-inset-top) env(safe-area-inset-right)",
                 "canvas.getBoundingClientRect();",
                 "unityShowBanner(message, \"error\");",
                 "<meta property=\"og:image\" content=\"./cinder-court-link-preview.png\">",
@@ -429,29 +446,36 @@ namespace CinderCourt.EditorTools
             File.Copy(source, destination, true);
         }
 
-        /// <summary>Head block: static viewport meta + responsive canvas CSS.
-        /// Kept verbatim-shared with build-webgl/index.html (patched in-place
-        /// for smoke tests without a rebuild).</summary>
+        /// <summary>Head block: viewport lock, centered desktop canvas/footer,
+        /// full-viewport mobile/low-landscape layout, and safe-area CSS.
+        /// Kept as one idempotently injected block for generated index pages.</summary>
         const string ViewportHeadBlock =
 @"<meta name=""viewport"" content=""width=device-width, initial-scale=1, viewport-fit=cover"">
     <style>
       /* mobile-layout spec #10-#13: brand letterbox + responsive canvas */
-      html, body { background: #050812; }
-      #unity-canvas { background: #050812; touch-action: none; }
-      /* Desktop / wide: letterbox preserving 1280:853 (~3:2), never overflow
-         the viewport (spec #12 — fixes sub-1280 windows + iPadOS desktop UA). */
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #050812; }
+      #unity-canvas { display: block; background: #050812; touch-action: none; }
+      #unity-footer { height: 38px; }
+      /* Desktop / wide: center the canvas and its footer while preserving
+         1280:853 (~3:2) inside the available viewport. */
       #unity-canvas.unity-responsive {
-        width: min(1280px, 100vw, calc(100vh * 1280 / 853));
+        width: min(1280px, 100vw, calc((100vh - 38px) * 1280 / 853));
         height: auto;
         aspect-ratio: 1280 / 853;
       }
-      /* Narrow viewports (~phones reporting desktop UA): fill (spec #13 —
-         3D perspective renders any aspect; camera aspect-widen keeps the
-         arena visible; HUD corner-anchors adapt). */
-      @media (max-width: 500px) {
+      @supports (height: 100svh) {
+        #unity-canvas.unity-responsive {
+          width: min(1280px, 100vw, calc((100svh - 38px) * 1280 / 853));
+        }
+      }
+      /* Phones and low landscape viewports fill the visible screen. */
+      @media (max-width: 500px), (max-height: 500px) and (orientation: landscape) {
         #unity-container.unity-desktop {
           left: 0; top: 0; transform: none;
-          position: fixed; width: 100%; height: 100%;
+          position: fixed; width: 100vw; height: 100vh; height: 100dvh;
+          padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                   env(safe-area-inset-bottom) env(safe-area-inset-left);
+          box-sizing: border-box; background: #050812;
         }
         #unity-canvas.unity-responsive {
           width: 100%; height: 100%; aspect-ratio: auto;
@@ -461,6 +485,7 @@ namespace CinderCourt.EditorTools
       /* Notch safe-area (spec #10): pad the mobile container, not the canvas —
          canvas padding would skew the WebGL pointer mapping. */
       #unity-container.unity-mobile {
+        position: fixed; width: 100vw; height: 100vh; height: 100dvh;
         padding: env(safe-area-inset-top) env(safe-area-inset-right)
                  env(safe-area-inset-bottom) env(safe-area-inset-left);
         box-sizing: border-box; background: #050812;

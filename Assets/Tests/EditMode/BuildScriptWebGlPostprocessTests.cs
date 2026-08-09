@@ -50,10 +50,44 @@ namespace CinderCourt.Tests
             const string resizeListener = "window.addEventListener(\"resize\", queueUnityBackingStoreSize);";
             const string orientationListener = "window.addEventListener(\"orientationchange\", queueUnityBackingStoreSize);";
             const string visualViewportListener = "window.visualViewport.addEventListener(\"resize\", queueUnityBackingStoreSize);";
+            const string viewportLockRule =
+                "html, body { width: 100%; height: 100%; overflow: hidden; background: #050812; }";
+            const string canvasDisplayRule =
+                "#unity-canvas { display: block; background: #050812; touch-action: none; }";
+            const string footerHeightRule = "#unity-footer { height: 38px; }";
             const string desktopCanvasRule =
-                "#unity-canvas.unity-responsive {\n        width: min(1280px, 100vw, calc(100vh * 1280 / 853));\n        height: auto;\n        aspect-ratio: 1280 / 853;";
-            const string portraitCanvasRule =
-                "@media (max-width: 500px) {\n        #unity-container.unity-desktop {\n          left: 0; top: 0; transform: none;\n          position: fixed; width: 100%; height: 100%;\n        }\n        #unity-canvas.unity-responsive {\n          width: 100%; height: 100%; aspect-ratio: auto;";
+                "#unity-canvas.unity-responsive {\n        width: min(1280px, 100vw, calc((100vh - 38px) * 1280 / 853));\n        height: auto;\n        aspect-ratio: 1280 / 853;";
+            const string stableViewportCanvasRule =
+                "@supports (height: 100svh) {\n        #unity-canvas.unity-responsive {\n          width: min(1280px, 100vw, calc((100svh - 38px) * 1280 / 853));";
+            const string fullViewportMediaQuery =
+                "@media (max-width: 500px), (max-height: 500px) and (orientation: landscape) {";
+            const string fullViewportContainerRule =
+                "position: fixed; width: 100vw; height: 100vh; height: 100dvh;";
+            const string fullViewportCanvasRule =
+                "#unity-canvas.unity-responsive {\n          width: 100%; height: 100%; aspect-ratio: auto;";
+            const string hiddenFooterRule = "#unity-footer { display: none; }";
+            const string fullViewportMediaRule =
+                "@media (max-width: 500px), (max-height: 500px) and (orientation: landscape) {\n" +
+                "        #unity-container.unity-desktop {\n" +
+                "          left: 0; top: 0; transform: none;\n" +
+                "          position: fixed; width: 100vw; height: 100vh; height: 100dvh;\n" +
+                "          padding: env(safe-area-inset-top) env(safe-area-inset-right)\n" +
+                "                   env(safe-area-inset-bottom) env(safe-area-inset-left);\n" +
+                "          box-sizing: border-box; background: #050812;\n" +
+                "        }\n" +
+                "        #unity-canvas.unity-responsive {\n" +
+                "          width: 100%; height: 100%; aspect-ratio: auto;\n" +
+                "        }\n" +
+                "        #unity-footer { display: none; }\n" +
+                "      }";
+            const string safeAreaPaddingRule =
+                "padding: env(safe-area-inset-top) env(safe-area-inset-right)";
+            const string unityMobileContainerRule =
+                "#unity-container.unity-mobile {\n" +
+                "        position: fixed; width: 100vw; height: 100vh; height: 100dvh;\n" +
+                "        padding: env(safe-area-inset-top) env(safe-area-inset-right)\n" +
+                "                 env(safe-area-inset-bottom) env(safe-area-inset-left);\n" +
+                "        box-sizing: border-box; background: #050812;";
             const string loadingBarHidden = "document.querySelector(\"#unity-loading-bar\").style.display = \"none\";";
             const string startupErrorBanner = "unityShowBanner(message, \"error\");";
 
@@ -73,10 +107,34 @@ namespace CinderCourt.Tests
                 "visual viewport layout changes must register one resync listener");
             Assert.That(CountOccurrences(html, resizeCall), Is.EqualTo(2),
                 "the backing store must be initialized once before loading and once from the resize queue");
+            Assert.That(html, Does.Contain(viewportLockRule),
+                "the document must stay viewport-sized and non-scrollable or centering can create unequal outer gutters and body overflow");
+            Assert.That(html, Does.Contain(canvasDisplayRule),
+                "the canvas must be block-level or its inline baseline gap can push the 38px footer outside the viewport");
+            Assert.That(html, Does.Contain(footerHeightRule),
+                "the footer height must remain the same 38px reserved by desktop canvas sizing or top and bottom space diverge");
             Assert.That(html, Does.Contain(desktopCanvasRule),
-                "desktop canvas must retain the bounded 3:2 letterbox contract");
-            Assert.That(html, Does.Contain(portraitCanvasRule),
-                "narrow portrait canvas must retain the full-viewport contract");
+                "desktop sizing must preserve 1280:853 while subtracting the footer before fitting height, preventing bottom clipping and asymmetric vertical space");
+            Assert.That(html, Does.Contain(stableViewportCanvasRule),
+                "supporting browsers must fit against stable viewport height with the same footer subtraction so browser chrome cannot reintroduce shell overflow");
+            Assert.That(html, Does.Contain(fullViewportMediaQuery),
+                "short landscape phones must enter the full-viewport layout even when their width exceeds the narrow-phone breakpoint");
+            Assert.That(CountOccurrences(html, fullViewportContainerRule), Is.EqualTo(2),
+                "both desktop-UA fallback and Unity mobile containers need 100vh then 100dvh sizing or one mobile path will leave gaps or crop the canvas");
+            Assert.That(html, Does.Contain(fullViewportCanvasRule),
+                "the mobile canvas must consume its fixed viewport container instead of retaining desktop letterboxing");
+            Assert.That(html, Does.Contain(hiddenFooterRule),
+                "the footer must not consume mobile viewport height or force the full-screen canvas beyond the visible area");
+            Assert.That(html, Does.Contain(fullViewportMediaRule),
+                "the low-landscape breakpoint must bind fixed viewport sizing, a full-size canvas, and footer removal in one cascade block or declarations can silently target the wrong layout");
+            Assert.That(html, Does.Contain(unityMobileContainerRule),
+                "Unity's mobile-UA container must own the dynamic viewport sizing or the non-desktop class can still gap or overflow despite a correct desktop fallback");
+            Assert.That(CountOccurrences(html, safeAreaPaddingRule), Is.EqualTo(2),
+                "both desktop-UA fallback and Unity mobile containers must retain notch insets or one classification path can place gameplay under cutouts");
+            var stableViewportRuleOffset = html.IndexOf(stableViewportCanvasRule, StringComparison.Ordinal);
+            var fullViewportMediaOffset = html.IndexOf(fullViewportMediaQuery, StringComparison.Ordinal);
+            Assert.That(stableViewportRuleOffset, Is.LessThan(fullViewportMediaOffset),
+                "the full-viewport media rule must follow the 100svh desktop override or the later desktop width can override mobile 100% sizing and crop short screens");
             Assert.That(CountOccurrences(html, "touch-action: none;"), Is.EqualTo(1),
                 "the Unity canvas must disable browser touch gestures exactly once after repeated postprocessing");
             Assert.That(html, Does.Match(@"#unity-canvas\s*\{[^}]*touch-action\s*:\s*none\s*;"),
