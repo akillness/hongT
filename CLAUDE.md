@@ -435,8 +435,8 @@ cycle-7에서 아이콘 2개를 추가하려고 `mat_icons.py`를 돌렸더니 *
 - `build-webgl/index.html`은 두 밴드를 만든다. 어느 밴드에서 재는지 밝히지
   않은 px 수치는 무의미하다:
   ```
-  밴드 A  CSS >= 501   aspect-locked 1280:853   최악 0.4261 px/u
-  밴드 B  CSS <= 500   fill                     최악 0.4383 (지원 내)
+  밴드 A  CSS 폭 >= 501 && !((max-height: 500px) and (orientation: landscape))   aspect-locked 1280:853   최악 0.4261 px/u
+  밴드 B  CSS 폭 <= 500 || ((max-height: 500px) and (orientation: landscape))    fill                     최악 0.4383 (지원 내)
   ```
 - **단위(u)가 계약이고 px는 파생이다.** 배포 프레임 1.0884 px/u에서 px 단언은
   `44/1.0884 = 40.4u` 이상만 요구한다 — 92×92 계약이 84×44로 바뀌어도 통과한다.
