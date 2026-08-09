@@ -2455,6 +2455,19 @@ namespace CinderCourt.Sim
             return vertical ? ComboVariant.Spin : ComboVariant.Neutral;
         }
 
+        /// <summary>W1: the dungeon Launcher is aimed from a virtual point behind
+        /// the player. Other finishers retain the player's position as their
+        /// knockback origin, preserving their established behavior.</summary>
+        internal static (float X, float Y) FinisherKnockbackOrigin(
+            ComboVariant variant, float playerX, float playerY, int facing)
+        {
+            return variant == ComboVariant.Launcher
+                ? (playerX - facing * HackSpec.ComboKnockbackDistance, playerY)
+                : (playerX, playerY);
+        }
+
+
+
         /// <summary>
         /// §2.1: a three-hit chain. Each hit owns a swing length and an active window;
         /// re-pressing inside the 0.9 s link window advances the chain, otherwise the
@@ -2647,7 +2660,9 @@ namespace CinderCourt.Sim
                 landed = true;
                 if (finisher)
                 {
-                    Knockback(ref enemy,
+                    var origin = FinisherKnockbackOrigin(
+                        _comboVariant, _player.X, _player.Y, _player.Facing);
+                    KnockbackFrom(ref enemy, origin.X, origin.Y,
                         HackSpec.ComboKnockbackDistance * HackSpec.FinisherKnockbackMul[(int)_comboVariant],
                         HackSpec.ComboKnockbackTime);
                 }

@@ -156,11 +156,9 @@ namespace CinderCourt.Tests
         {
             AssertFrozenDigest(HackConfig.Arena(), 6600, 4, 21, 4, 90f, string.Empty, "arena");
             AssertFrozenDigest(HackConfig.Prologue(), 5500, 3, 18, 6, 73f, "prologue-clear", "prologue");
-            // AMENDMENT #9 moved the health term of this row and nothing else: momentum
-            // multiplies player melee, so the same script kills the same 13 enemies for the
-            // same 3350 but trades differently on the way there. Score/wave/kills/relics are
-            // still the pre-A9 numbers, which is the part that proves nothing else drifted.
-            AssertFrozenDigest(DungeonScalar(null), 3350, 3, 13, 3, 71.5f, string.Empty, "companion-less dungeon");
+            // W1 intentionally moves the dungeon row by aiming Launcher knockback;
+            // arena and prologue remain the frozen cross-mode controls above.
+            AssertFrozenDigest(DungeonScalar(null), 3600, 3, 13, 4, 112f, string.Empty, "companion-less dungeon");
         }
 
         private static void AssertFrozenDigest(

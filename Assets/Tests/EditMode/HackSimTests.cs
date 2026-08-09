@@ -2920,6 +2920,22 @@ namespace CinderCourt.Tests
                 "every variant needs a multiplier or the index throws");
         }
 
+        [TestCase(1, 1, 380f)]
+        [TestCase(-1, 1, 620f)]
+        [TestCase(1, 0, 500f)]
+        [TestCase(1, 2, 500f)]
+        [TestCase(1, 3, 500f)]
+        public void LauncherFinisher_AimsKnockbackFromBehindThePlayer(
+            int facing, int variant, float expectedX)
+        {
+            var origin = CinderSim.FinisherKnockbackOrigin(
+                (CinderSim.ComboVariant)variant, 500f, 300f, facing);
+
+            Assert.That(origin.X, Is.EqualTo(expectedX));
+            Assert.That(origin.Y, Is.EqualTo(300f));
+        }
+
+
         /// <summary>The retreat step must not become a better dash. If it ever
         /// outruns the dodge, the dodge stops being the escape tool.</summary>
         [Test]

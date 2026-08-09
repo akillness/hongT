@@ -154,7 +154,7 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "cinder-span|4350|4|16|3|142|(running)|936.765442|515.586853",
+                "cinder-span|3950|4|15|3|142|(running)|948.149841|546.9919",
                 "abyss-chancel|3150|3|14|1|142|(running)|1151.919|525.907",
             };
             foreach (var expected in rows)
@@ -189,8 +189,8 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "ember-gallery|4350|4|16|3|142|(running)|932.6403|514.9418",
-                "witness-well|4350|4|16|3|142|(running)|932.6403|514.9418",
+                "ember-gallery|4600|4|16|4|142|(running)|934.673157|521.9911",
+                "witness-well|4600|4|16|4|142|(running)|934.673157|521.9911",
                 "echo-throne|2250|3|11|1|136|(running)|1191.14087|728.4469",
                 "ash-verdict|3400|3|14|2|142|(running)|1248.78381|567.032",
                 "ash-march|3850|4|16|1|82|(running)|957.0417|573.282959",
@@ -240,7 +240,7 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "cinder-sluice|2600|3|13|0|136|(running)|963.5111|617.6645",
+                "cinder-sluice|2600|3|13|0|136|(running)|966.1087|624.271851",
                 "ember-bastion|1650|3|9|1|128|(running)|863.109558|632.852051",
             };
             foreach (var expected in rows)
