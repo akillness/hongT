@@ -1,0 +1,75 @@
+{
+  "output": "_workspace/current/qa/motion-swap-smoke/motion-smoke.mp4",
+  "captureUrl": "http://localhost:8765/",
+  "requestedSeconds": 50,
+  "headless": true,
+  "compressionTool": "CompressO compresso_ffmpeg",
+  "captureCompletedAt": "2026-08-10T07:17:08.778Z",
+  "buildIdentity": "61857692bcb54a56",
+  "bytes": 2819589,
+  "sha256": "90e915731f7abddcf142f7ac63b15886e5f5783dc6c6bd8f83b24d2a4988a0f4",
+  "loadOffset": 5.79,
+  "probe": "1440,900,30/1,50.000000",
+  "pageErrors": {
+    "count": 0,
+    "unique": {}
+  },
+  "log": {
+    "beats": [
+      {
+        "t": 3.2,
+        "beat": "sortie-open"
+      },
+      {
+        "t": 5,
+        "beat": "ember-gallery"
+      },
+      {
+        "t": 13.7,
+        "beat": "melee-demo-done"
+      },
+      {
+        "t": 14,
+        "beat": "hotkey:KeyQ"
+      },
+      {
+        "t": 15.3,
+        "beat": "hotkey:KeyE"
+      },
+      {
+        "t": 16.5,
+        "beat": "hotkey:ShiftLeft"
+      },
+      {
+        "t": 17.7,
+        "beat": "hotkey:KeyF"
+      },
+      {
+        "t": 19,
+        "beat": "hotkey:KeyR"
+      },
+      {
+        "t": 19.9,
+        "beat": "skill-demo-done"
+      },
+      {
+        "t": 24.2,
+        "beat": "console:focus"
+      },
+      {
+        "t": 29.6,
+        "beat": "console:defend"
+      },
+      {
+        "t": 35,
+        "beat": "console:shield"
+      },
+      {
+        "t": 41.7,
+        "beat": "console:nova"
+      }
+    ],
+    "attacks": 52,
+    "skills": 38
+  }
+}

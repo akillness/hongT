@@ -40,8 +40,8 @@ ModelImporter:
       name: bighit
       takeName: Scene
       internalID: -623603649343465320
-      firstFrame: 0
-      lastFrame: 20
+      firstFrame: 4
+      lastFrame: 11
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

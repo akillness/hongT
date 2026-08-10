@@ -92,13 +92,15 @@ namespace CinderCourt.EditorTools
         // window does. Trimming beats retiming here: a speed fit would have to
         // reach 4.9x for the roar, past MaxPoseSpeed, and a 5x roar is a chirp.
         //
-        // Reaction clips were measured too and DELIBERATELY left untrimmed:
-        //   hit     f0-2  preamble  2.2%   bighit f2-3  preamble  5.3%
-        // Both are already tight. Dodging (46.2%) and Body Block (28.3%) do
-        // carry preamble, but they are not squeezed into a fixed pose window —
-        // they play at their authored pace — so trimming them would change
-        // established feel for no measured defect. Listed here so the next
-        // reader knows the omission is a decision, not an oversight.
+        // Reaction clips were measured too. hit (f0-2, preamble 2.2%) stays
+        // untrimmed — already tight. The bighit numbers that used to sit here
+        // (f2-3, 5.3%) were measured on Knock Down 1, which the 2026-08-10
+        // weapon-family pass DISPLACED; bighit now carries a measured row
+        // below — see the ClipTrims comment for the current mechanism.
+        // Dodging (46.2%) and Body Block (28.3%) carry preamble but play at
+        // their authored pace, so trimming them would change established feel
+        // for no measured defect. Listed so the next reader knows each
+        // omission is a decision, not an oversight.
         //
         // 2026-08-10. Six combat takes were replaced with generated ones
         // (Higgsfield 3d_rigging; docs/provenance/motion.json):
@@ -144,9 +146,11 @@ namespace CinderCourt.EditorTools
         // Each window is centred on the sim's own active span, so the strike is
         // live while the arm is actually travelling.
         //
-        // defence / bighit stay untrimmed: neither is squeezed into a fixed
-        // pose window (PoseValueForClip returns -1 for them, so pose speed
-        // stays 1), and both play at their authored pace.
+        // defence stays untrimmed: not squeezed into a fixed pose window
+        // (PoseValueForClip returns -1, pose speed stays 1), plays at its
+        // authored pace. bighit USED to sit in this list; the 2026-08-10
+        // take swap gave it a measured row below — a to-death take cannot
+        // represent a survival reaction whole.
         // 2026-08-10, SECOND PASS — the first one picked the wrong FAMILY.
         //
         // attack/attack2/attack3 were swapped to Punch_Combo_1 /
@@ -189,13 +193,28 @@ namespace CinderCourt.EditorTools
             // That the numbers coincide with the old row is coincidence —
             // a stale trim on a swapped take is the trap 1742c10 hit.
             ("show", 8, 34),
-            // bighit is a SURVIVAL reaction but Abdominal Hit Fall plays to
-            // fully dead. Hips-height curve (Blender, mesh-gen manifest):
-            // impact recoil f6-10 (1.18), crumple starts f22 (0.68), ground
-            // f50+ (0.2). 0..20 keeps impact + bend (hips 0.79) and stops
-            // before any floor contact; the bent-over last frame holds as
-            // the stun pose until the sim releases the state.
-            ("bighit", 0, 20),
+            // bighit displays for at most 0.26 s: the state is View-driven
+            // knockback only (ActorView.cs — _knockbackTime's two writers are
+            // BossSlamKnockbackTime 0.26 / ComboKnockbackTime 0.18; the sim
+            // never emits ActorAction.BigHit), and PoseValueForClip returns
+            // -1 so nothing retimes. A trim can therefore choose WHICH ~6
+            // frames of the take are ever seen. Abdominal Hit Fall's most
+            // expressive span is the impact recoil — hips-height curve
+            // (mesh-gen/hips-height.json): rise to 1.18 at f8-10, crumple
+            // from f22, floor f50+. 4..11 shows exactly that recoil and, as
+            // a guard, keeps every floor-contact frame of a to-death take
+            // unreachable even if the knockback window ever grows.
+            ("bighit", 4, 11),
+            // die must fit ENEMY death, not the player's: enemies despawn
+            // after SimConfig.EnemyFade = 0.34 s (8 f) of shrink-fade, so an
+            // untrimmed 4.67 s Shot In The Back showed 7.3% — all standing
+            // preamble, no collapse (the Mutant Roaring defect, worse ratio).
+            // Hips-height curve (mesh-gen/hips-height.json): stand ~1.10 to
+            // f34, collapse f36-70, floor f72+. 62..70 is the final fall
+            // (0.40 -> 0.20), 8 f = 0.333 s <= EnemyFade, so the whole
+            // kneel-to-prone arc lands inside the fade window. The player's
+            // death holds the prone last frame under the GameOver panel.
+            ("die", 62, 70),
             ("cast", 23, 30),
         };
 

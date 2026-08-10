@@ -104,6 +104,58 @@ namespace CinderCourt.Tests
         }
 
         [Test]
+        public void DieClip_TrimFitsTheEnemyFadeWindow()
+        {
+            // Enemies despawn after SimConfig.EnemyFade of shrink-fade —
+            // that is the ONLY window an enemy death animation ever gets.
+            // Untrimmed, Shot In The Back showed 0.34 s of a 4.67 s take:
+            // 7.3%, all standing preamble, no collapse (2026-08-10 review).
+            // Round-trip against the sim constant so the two claims share an
+            // origin (§4i) — delete the die row and this goes red.
+            var seconds = TrimSeconds("die");
+            Assert.That(seconds,
+                Is.LessThanOrEqualTo(SimConfig.EnemyFade + 1f / SourceFps),
+                $"die trim runs {seconds:0.###}s but an enemy only displays "
+                + $"{SimConfig.EnemyFade}s before despawn — the tail is never seen");
+            Assert.That(seconds,
+                Is.GreaterThanOrEqualTo(SimConfig.EnemyFade - 2f / SourceFps),
+                $"die trim runs {seconds:0.###}s — much shorter than the "
+                + $"{SimConfig.EnemyFade}s fade leaves the corpse frozen mid-fall");
+        }
+
+        [Test]
+        public void BigHitClip_TrimStaysInsideTheKnockbackWindow()
+        {
+            // BigHit is View-driven knockback only (the sim never emits it);
+            // _knockbackTime's two writers are BossSlamKnockbackTime and
+            // ComboKnockbackTime, so anything past the longer of the two is
+            // unreachable. The row exists to pick WHICH frames display and to
+            // keep a to-death take's floor contact out of a survival
+            // reaction; this pins the reachable-window claim to the constants.
+            var live = Mathf.Max(
+                HackSpec.BossSlamKnockbackTime, HackSpec.ComboKnockbackTime);
+            var seconds = TrimSeconds("bighit");
+            Assert.That(seconds,
+                Is.LessThanOrEqualTo(live + 1f / SourceFps),
+                $"bighit trim runs {seconds:0.###}s but the state is live for "
+                + $"at most {live}s — frames past that are dead weight that "
+                + "reintroduces the fall of a to-death take");
+        }
+
+        [Test]
+        public void WeaponFamilySwap_FileAssignmentsArePinned()
+        {
+            // 2026-08-10 weapon-family pass. Family is a VISUAL judgement
+            // (rendered-preview triage; mesh-gen/manifest.json) that no probe
+            // arithmetic re-derives, so the outcome is pinned here — revert
+            // any row to its unarmed predecessor and this goes red (§4q).
+            Assert.That(ClipFileFor("idle"), Is.EqualTo("Combat Idle"));
+            Assert.That(ClipFileFor("bighit"), Is.EqualTo("Abdominal Hit Fall"));
+            Assert.That(ClipFileFor("die"), Is.EqualTo("Shot In The Back"));
+            Assert.That(ClipFileFor("show"), Is.EqualTo("Angry Ground Stomp"));
+        }
+
+        [Test]
         public void TrimmedClipsFitWithoutRetiming_SoTheyPlayAtSpeedOne()
         {
             // The alternative fix was a speed fit. It does not survive contact
