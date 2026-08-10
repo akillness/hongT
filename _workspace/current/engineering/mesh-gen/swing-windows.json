@@ -1,0 +1,17 @@
+{
+  "written": "2026-08-10",
+  "method": "Blender headless, right-hand WORLD-space travel summed per N-frame window (scratch best_window.py/curve238.py/probe3.py). hips-relative 프로브(ClipWindowProbe)는 스핀에서 온몸이 돌아 어디서나 높게 나와 창 선택이 무의미해진다(§4m — 정답과 오답이 같아지는 좌표계). 월드 손 이동/발 이동 비가 '칼질인가 발놀림인가'를 가른다.",
+  "defect": "attack2(Axe Spin Attack) 출하 트림 30..37은 손/발 비 1.8 — 스윕 직후 회전 발놀림 구간이었다. 사용자 제보 '다리가 움직이며 이상하게 행동'의 원인. 진짜 칼날 스윕은 20..27(비 5.1).",
+  "measured_windows": {
+    "Charged Slash (242) 22..29": {"hand": 1.092, "foot": 0.105, "ratio": 10.4, "verdict": "keep — 칼질"},
+    "Axe Spin (238) 30..37 [shipped-defect]": {"hand": 0.282, "foot": 0.16, "ratio": 1.8, "verdict": "발놀림 — 폐기"},
+    "Axe Spin (238) 20..27 [fix]": {"hand": 1.69, "foot": 0.333, "ratio": 5.1, "verdict": "진짜 스윕 — attack2 신규 창"},
+    "Weapon Combo 2 (241) 45..55 [shipped]": {"hand": 2.627, "foot": 0.5, "ratio": 5.3, "verdict": "개선 여지"},
+    "Weapon Combo 2 (241) 47..57 [fix]": {"hand": 2.541, "foot": 0.379, "ratio": 6.7, "verdict": "attack3 신규 창"},
+    "Weapon Combo 2 (241) swings": "f23-30(8.8) · f46-53(5.2) · f69-76(10.2) — 한 FBX=한 트림이라 attack2에 별도 창 배정 불가",
+    "Charged Axe Chop (237) 101..108": {"hand": 0.822, "foot": 0.251, "ratio": 3.3, "verdict": "후보였으나 스핀 스윕(5.1)에 밀림"},
+    "Mage Cast (130) 27..34": {"hand": 0.746, "verdict": "cast 트림 — 7f=0.292s=CastPoseDuration"},
+    "Hit Reaction (178)": {"firstMotionFrame": 3, "preamble": 0.075, "verdict": "무트림 — 구 React(2.2%) 선례 내"},
+    "Block Three (140)": {"firstMotionFrame": 10, "preamble": 0.278, "verdict": "무트림 — Body Block 28.3% 무트림 선례 준용, 수치 등재"}
+  }
+}

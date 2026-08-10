@@ -153,6 +153,31 @@ namespace CinderCourt.Tests
             Assert.That(ClipFileFor("bighit"), Is.EqualTo("Abdominal Hit Fall"));
             Assert.That(ClipFileFor("die"), Is.EqualTo("Shot In The Back"));
             Assert.That(ClipFileFor("show"), Is.EqualTo("Angry Ground Stomp"));
+            // second round (130-178 band harvest):
+            Assert.That(ClipFileFor("hit"), Is.EqualTo("Hit Reaction"));
+            Assert.That(ClipFileFor("defence"), Is.EqualTo("Block Three"));
+            Assert.That(ClipFileFor("cast"), Is.EqualTo("Mage Cast"));
+        }
+
+        [Test]
+        public void ComboSwingWindows_AreTheMeasuredBladeSweeps()
+        {
+            // The hips-relative probe is BLIND on a spin: the whole body
+            // rotates, so its "peak motion" landed on post-sweep footwork
+            // and attack2 shipped showing legs instead of the blade
+            // (world hand/foot ratio 1.8 at 30..37 vs 5.1 at 20..27 —
+            // mesh-gen/swing-windows.json). These literals pin the
+            // world-space measurement; move a window and re-measure there
+            // first, or this stays red.
+            var trims = Trims();
+            var attack2 = trims.First(r => r.action == "attack2");
+            Assert.That((attack2.first, attack2.last), Is.EqualTo((20, 27)),
+                "attack2 must show Axe Spin's blade sweep (world-measured "
+                + "20..27), not the footwork the hips-relative probe picked");
+            var attack3 = trims.First(r => r.action == "attack3");
+            Assert.That((attack3.first, attack3.last), Is.EqualTo((47, 57)),
+                "attack3 pins the cleanest-feet swing of Weapon Combo 2 "
+                + "(world-measured 47..57)");
         }
 
         [Test]

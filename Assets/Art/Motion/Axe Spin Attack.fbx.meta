@@ -39,8 +39,8 @@ ModelImporter:
       name: attack2
       takeName: Scene
       internalID: -623603649343465320
-      firstFrame: 30
-      lastFrame: 37
+      firstFrame: 20
+      lastFrame: 27
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

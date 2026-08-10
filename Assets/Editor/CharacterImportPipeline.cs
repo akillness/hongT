@@ -40,23 +40,25 @@ namespace CinderCourt.EditorTools
             // generated takes triaged VISUALLY from rendered previews —
             // action ids are opaque, so the eye does family judgement and the
             // probes do fit judgement. Map: mesh-gen/manifest.json.
-            // hit/move/run stay: no weapon-family candidate harvested yet
-            // (flinch ~170s band unexplored, locomotion band unknown).
+            // move/run stay: no weapon-family locomotion found in any sampled
+            // band (bow-flavored walks only) — sub-100 ids are the remaining
+            // unexplored space. hit/defence/cast joined the family pass on
+            // 2026-08-10 via the 130-178 band harvest (mesh-gen manifest).
             ("idle", "Combat Idle", true),
             ("move", "Walking", true),
             ("run", "Running", true),
-            ("hit", "Standing React Small From Left", false),
+            ("hit", "Hit Reaction", false),
             ("bighit", "Abdominal Hit Fall", false),
             ("attack", "Charged Slash", false),
             ("critical", "Thrust Slash", false),
             ("avoid", "Dodging", false),
-            ("defence", "Shield Push Left", false),
+            ("defence", "Block Three", false),
             ("die", "Shot In The Back", false),
             ("show", "Angry Ground Stomp", false),
             // --- View-only substates (index > ActorAction range) ---
             ("attack2", "Axe Spin Attack", false),                   // #9 combo 2nd
             ("attack3", "Weapon Combo 2", false),                    // #9 combo 3rd
-            ("cast", "Standing 2H Magic Attack 01", false),          // #4 skill cast
+            ("cast", "Mage Cast", false),                            // #4 skill cast
         };
 
         // --- clip trims -------------------------------------------------------
@@ -183,9 +185,18 @@ namespace CinderCourt.EditorTools
         //   attack3  Weapon Combo 2   motion f50-51 peak f51 -> 45..55, 0.99x
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
+            // attack2/attack3 windows RE-MEASURED 2026-08-10 in WORLD space
+            // (mesh-gen/swing-windows.json). The hips-relative probe that
+            // picked the old attack2 row is blind on a spin — the whole body
+            // rotates, so hand-relative-to-hips speed is high everywhere and
+            // the chosen window (30..37) was actually post-sweep FOOTWORK
+            // (world hand/foot ratio 1.8; user-visible as "legs move,
+            // no swing"). The blade sweep of Axe Spin Attack is 20..27
+            // (ratio 5.1). Weapon Combo 2 carries three swings; 47..57 keeps
+            // the biggest with the cleanest feet (6.7 vs 5.3 at 45..55).
             ("attack", 22, 29),
-            ("attack2", 30, 37),
-            ("attack3", 45, 55),
+            ("attack2", 20, 27),
+            ("attack3", 47, 57),
             ("critical", 58, 68),
             // show 8..34 is RE-MEASURED for Angry Ground Stomp (2026-08-10),
             // not inherited from Mutant Roaring: ClipWindowProbe motion
@@ -216,7 +227,9 @@ namespace CinderCourt.EditorTools
             // kneel-to-prone arc lands inside the fade window. The player's
             // death holds the prone last frame under the GameOver panel.
             ("die", 62, 70),
-            ("cast", 23, 30),
+            // cast re-measured for Mage Cast (swing-windows.json): strike
+            // 27..34 = 7 f = 0.292 s = CastPoseDuration fit, speed 1.
+            ("cast", 27, 34),
         };
 
         /// <summary>Index of the first View-only substate — everything below is
