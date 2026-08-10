@@ -1,5 +1,8 @@
 # Index
 
+## Reports
+- [[wiki/hongt-higgsfield-asset-refresh-2026-08-10]] — 힉스필드 자산 리프레시 첫 슬라이스: act1~3=kling 잡 지도, 모션 id 지도 위치, scorch 알파 착시 실측, 아이콘 로더 불일치, Resources 90% 무게 발견, 제거 7건 (2026-08-10)
+
 ## Concepts / Traps
 - [[wiki/concepts/hongt-companion-autonomy-tick-order-trap]] — 결정론 심 테스트 "앵커 오프바이원" 함정 (Amendment #7; 심은 정확, 하네스가 원인)
 - [[wiki/concepts/hongt-companion-signature-skills-amendment-8]] — 동료 시그니처 스킬 (Amendment #8)

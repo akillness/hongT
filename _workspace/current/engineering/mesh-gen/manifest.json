@@ -1,0 +1,46 @@
+{
+  "written": "2026-08-10",
+  "purpose": "Higgsfield 3d_rigging animation_action_id 샘플링 지도 + 2026-08-10 잡 처분 기록. id는 enum 없는 불투명 정수라 이 지도가 유일한 문서다 (CLAUDE.md §3 2026-08-10 개정).",
+  "base_mesh": {
+    "file": "shade-echo.glb",
+    "source_model_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_013208_a03d04c5-ef2c-4c94-8370-1d8f7e9a0feb.glb",
+    "note": "[OBSERVED] 리깅 GLB 기준 302 tris / 22 bones (WebGL ≤25k 계약 내)"
+  },
+  "action_id_map": {
+    "_cycle11_shipped": {
+      "190": "Knock_Down_1 (bighit)",
+      "195": "Right_Upper_Hook_from_Guard (attack2, 이후 교체됨)",
+      "200": "Punch_Combo_1 (attack, 이후 교체됨)",
+      "205": "Punch_Combo_5 (attack3, 이후 교체됨)",
+      "220": "Shield_Push_Left (defence)",
+      "240": "Thrust_Slash (critical)"
+    },
+    "_20260810_sweep": {
+      "230": {"action": "Walk_Backward_with_Bow_Aimed", "seconds": 1.50},
+      "235": {"action": "Forward_Roll_and_Fire", "seconds": 3.37},
+      "236": {"action": "Draw_and_Shoot_Left", "seconds": 5.33},
+      "237": {"action": "Charged_Axe_Chop", "seconds": 7.67},
+      "238": {"action": "Axe_Spin_Attack", "seconds": 2.50, "shipped": "attack2 (1742c10)"},
+      "239": {"action": "Crouch_Pull_and_Throw", "seconds": 5.80},
+      "241": {"action": "Weapon_Combo_2", "seconds": 4.53, "shipped": "attack3 (1742c10)"},
+      "242": {"action": "Charged_Slash", "seconds": 2.23, "shipped": "attack (1742c10)"},
+      "243": {"action": "Idle_3", "seconds": 9.97},
+      "244": {"action": "Idle_4", "seconds": 13.97},
+      "245": {"action": "Idle_5", "seconds": 1.87},
+      "248": {"action": "Idle_8", "seconds": 8.00},
+      "252": {"action": "Idle_12", "seconds": 6.00},
+      "255": {"action": "Angry_Ground_Stomp", "seconds": 1.40},
+      "265": {"action": "Groan_Holding_Stomach_in_Sleep", "seconds": 2.17},
+      "270": {"action": "Toss_and_Turn", "seconds": 17.63}
+    },
+    "bands": "[INFERENCE] 전투 190~242 · 아이들 243~252 · 감정/수면 255~270. 활/투척(230/235/236/239)이 전투 대역에 섞여 있으므로 대역만 믿지 말고 잡 1개로 검증 후 배치할 것."
+  },
+  "video_jobs_20260810": {
+    "disposition": "kling2_6 3편은 cycle-12(74ec491)에서 act1~3으로 이미 출하됨 — 본 디렉터리의 mp4는 원본(1764×1176) 보관본. seedance_2_0_mini(5f9618cb)는 픽셀아트 스타일 이질로 기각.",
+    "act1": "1e12dc12-983f-4b9f-b655-e372c52c71d9 (보라 성당)",
+    "act2": "091bd2d7-c829-4314-99f4-659224a1863a (고딕 홀·낙진)",
+    "act3": "dede82fe-c5bb-4ba2-820a-f58098dab6c7 (재폭풍 성채)",
+    "rejected": "5f9618cb-22e6-47c4-84ba-2c2994ec25b7 (픽셀아트 공성)"
+  },
+  "leftover_value": "미소비 리깅 GLB 13종 로컬 보관(shade-echo-anim*.glb). 유력 후보: 255 Angry_Ground_Stomp → show/도발 대체, 235 Forward_Roll_and_Fire → avoid 대체, 243/245 → 아이들 변주. 소비 시 clip_from_glb.py 경유, Motion 레인과 조율할 것 (2026-08-10 동시 세션이 모션 레인 점유 중이었음)."
+}

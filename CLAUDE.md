@@ -59,6 +59,8 @@ relic +250 점수, 수명 12 s, 자력 78. 아이소 거리 `hypot(dx, dy*1.42)`
 | BGM | ElevenLabs Music API | `python3 tools/audio/gen_bgm.py` (같은 키) |
 | **VO(스토리 내레이션)** | **Higgsfield `inworld_text_to_speech`** | `python3 tools/audio/gen_voice.py --all` (키: `higgsfield auth login`) |
 | **연출 스틸/시네마틱 프레임** | **Higgsfield `nano_banana_flash`** | `higgsfield generate create nano_banana_flash --prompt "..." --image <ref-id>` → ffmpeg 조립 |
+| **시네마틱 클립(인트로·막)** | **Higgsfield `kling2_6`/`seedance_2_0`** | `higgsfield generate create kling2_6 --prompt "..." --start-image <ref> --wait` → ffmpeg 1280×854 재인코딩 → `Assets/StreamingAssets/Video/` |
+| **휴머노이드 모션 클립** | **Higgsfield `3d_rigging`** | `higgsfield generate create 3d_rigging --model_url <glb> --enable_animation true --animation_action_id <id> --wait` → `tools/blender/clip_from_glb.py` → `Assets/Art/Motion/` |
 
 **2026-08-09 개정.** 두 행이 추가됐고 이유가 각각 다르다.
 
@@ -74,6 +76,23 @@ relic +250 점수, 수명 12 s, 자력 78. 아이소 거리 `hypot(dx, dy*1.42)`
   계속 gti를 쓴다** — 이 행은 gti를 대체하지 않는다.
 - ElevenLabs 키는 **2026-08-09 기준 HTTP 401**이다. SFX/BGM 파이프라인은 키가
   갱신될 때까지 실행 불가이며, VO가 Higgsfield로 간 직접적 이유이기도 하다.
+
+**2026-08-10 개정.** 사용자 지시 *"힉스필드 이용해서 3d 리소스, mesh, 모션,
+vfx, 인트로/컷씬 영상 업데이트"*로 두 행이 추가됐다. 둘 다 이미 측정으로
+증명된 경로의 성문화다 — 신규 실험이 아니다.
+
+- **시네마틱 클립**: cycle-12의 막 시네마틱 3편(act1~3)이 kling2_6 산출
+  (1764×1176 5s)을 1280×854로 재인코딩해 출하한 실적이다. 스타일 게이트:
+  픽셀아트 계열(seedance_2_0_mini 테스트, 잡 5f9618cb)은 실사 고딕 톤과
+  충돌해 기각됐다 — 새 클립은 기존 출하 클립을 참조 이미지로 줘라.
+  **캐릭터가 나오는 비트(컨셉·위협)를 환경 온리 클립으로 갈지 마라** —
+  서사가 빠진다.
+- **모션 클립**: cycle-11이 6종 교체로 증명. `animation_action_id`는 enum
+  없는 불투명 정수라 **샘플링 지도**가 유일한 문서다 — 전투 190~260,
+  아이들 243~252 대역. 지도와 잡 이력은
+  `_workspace/current/engineering/mesh-gen/manifest.json` 참조.
+  `clip_from_glb.py`가 테이크 명명·프레임 범위 절단(씬 기본 1-250 함정)을
+  처리한다. 3d_rigging 리그는 리네임 없이 Unity 휴머노이드 15/15 매핑된다.
 - 캐릭터 스키닝 계약: 소스 메시(Abyssal-Surge 모션 라이브러리)를
   **mixamo 표준 휴머노이드 스켈레톤에 자동 웨이트로 재바인딩**하고 FBX로
   내보낸 뒤 Unity Humanoid 아바타로 리타겟한다. 원작의 절차적 영역분할
