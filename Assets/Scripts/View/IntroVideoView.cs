@@ -64,9 +64,12 @@ namespace CinderCourt.View
         bool _playbackObserved;
         // Sequence state. Null when a single clip is playing, which is every
         // path except the boot route.
-        string[] _queue;
+        Beat[] _queue;
         int _queueIndex;
         bool _skipRequested;
+        // Watcher caption under the picture. Built with the surface, hidden
+        // whenever a beat carries no line.
+        Text _narration;
 
         /// <summary>Raised once when the intro leaves the screen (completed or skipped).</summary>
         public System.Action OnFinished;
@@ -98,7 +101,22 @@ namespace CinderCourt.View
         /// there would be cut to its first third while making the load it
         /// masks measurably longer.
         /// </summary>
-        public void Play(string clipRelativePath)
+        public void Play(string clipRelativePath) => Play(clipRelativePath, null);
+
+        /// <summary>
+        /// Plays a clip with an optional narration caption beneath it.
+        ///
+        /// The caption is what makes a generated reel a SCENE rather than
+        /// footage: the watcher narrates every stage opening in second person
+        /// (StoryCatalog.StageStart), and the boot reels were the only story
+        /// beats in the game carrying no voice at all.
+        ///
+        /// Text, not audio. WebGL browsers block autoplay of media WITH an
+        /// audio track until a user gesture, and the boot reel starts before
+        /// any click — a narration track would be dropped by Safari with
+        /// nothing to show for it. A caption always lands.
+        /// </summary>
+        public void Play(string clipRelativePath, string narration)
         {
             EnsureBuilt();
 
@@ -110,6 +128,7 @@ namespace CinderCourt.View
             _group.blocksRaycasts = true;
             _canvas.gameObject.SetActive(true);
             _phase = Phase.Preparing;
+            SetNarration(narration);
 
             if (_player == null)
             {
@@ -121,32 +140,55 @@ namespace CinderCourt.View
             _player.Prepare();
         }
 
+        /// <summary>Shows or clears the caption. Empty hides the row rather
+        /// than leaving a blank strip over the picture.</summary>
+        void SetNarration(string narration)
+        {
+            if (_narration == null) return;
+            var has = !string.IsNullOrEmpty(narration);
+            _narration.text = has ? narration : string.Empty;
+            _narration.gameObject.SetActive(has);
+        }
+
         /// <summary>Absolute URL for any StreamingAssets-relative clip.</summary>
         public static string UrlFor(string clipRelativePath) =>
             System.IO.Path.Combine(Application.streamingAssetsPath, clipRelativePath);
 
-        /// <summary>
-        /// Plays several StreamingAssets clips back to back through the one
-        /// surface, raising <see cref="OnFinished"/> ONCE when the last one
-        /// leaves the screen.
-        ///
-        /// The boot route uses this for brand reel -> concept reel. Firing per
-        /// clip would break the caller's contract (IntroVideoViewTests pins
-        /// exactly-once). A clip that is missing or will not decode ends early
-        /// through the existing timeout/error paths and the next one starts,
-        /// so a broken file costs its own slot and nothing more.
-        /// </summary>
-        public void PlaySequence(params string[] clipRelativePaths)
+        /// <summary>One reel of a boot sequence: the clip and the line the
+        /// watcher speaks over it. A null or empty caption means picture
+        /// only — the brand logo has nothing to narrate.</summary>
+        public readonly struct Beat
         {
-            if (clipRelativePaths == null || clipRelativePaths.Length == 0)
+            public readonly string Clip;
+            public readonly string Narration;
+            public Beat(string clip, string narration = null)
+            {
+                Clip = clip;
+                Narration = narration;
+            }
+        }
+
+        /// <summary>
+        /// Plays several beats back to back through the one surface, raising
+        /// <see cref="OnFinished"/> ONCE when the last one leaves the screen.
+        ///
+        /// Firing per clip would break the caller's contract
+        /// (IntroVideoViewTests pins exactly-once). A clip that is missing or
+        /// will not decode ends early through the existing timeout/error paths
+        /// and the next one starts, so a broken file costs its own slot and
+        /// nothing more.
+        /// </summary>
+        public void PlaySequence(params Beat[] beats)
+        {
+            if (beats == null || beats.Length == 0)
             {
                 Play();
                 return;
             }
-            _queue = clipRelativePaths;
+            _queue = beats;
             _queueIndex = 0;
             _skipRequested = false;
-            Play(_queue[0]);
+            Play(_queue[0].Clip, _queue[0].Narration);
         }
 
         /// <summary>Player-driven skip (any key / tap) — fades out from wherever we are.</summary>
@@ -288,7 +330,7 @@ namespace CinderCourt.View
                 _queue = null;
                 return false;
             }
-            Play(_queue[_queueIndex]);
+            Play(_queue[_queueIndex].Clip, _queue[_queueIndex].Narration);
             return true;
         }
 
@@ -334,6 +376,7 @@ namespace CinderCourt.View
             Stretch(_surface.rectTransform);
 
             _skipHint = MakeSkipHint(canvasObject.transform);
+            _narration = MakeNarration(canvasObject.transform);
 
             _player = canvasObject.AddComponent<VideoPlayer>();
             _player.playOnAwake = false;
@@ -391,6 +434,36 @@ namespace CinderCourt.View
             rect.pivot = new Vector2(1f, 0f);
             rect.anchoredPosition = new Vector2(-28f, 24f);
             rect.sizeDelta = new Vector2(320f, 24f);
+            return text;
+        }
+
+        /// <summary>Watcher caption row, bottom-centre above the skip hint.
+        ///
+        /// Wrapping is ON and the row is wide but shallow: these lines are one
+        /// sentence each, and a caption that silently overflows its rect is the
+        /// same class of defect as the guidance tab that ran 238u past its
+        /// panel (CLAUDE.md §4m) — the string reads correct and only the
+        /// geometry is wrong.</summary>
+        Text MakeNarration(Transform parent)
+        {
+            var font = ViewTypography.ResolveFont();
+
+            var obj = new GameObject("Narration");
+            obj.transform.SetParent(parent, false);
+            var text = obj.AddComponent<Text>();
+            ViewTypography.Configure(text, font, 22, TextAnchor.LowerCenter);
+            text.color = new Color(0.93f, 0.9f, 0.84f, 0.94f);
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 0f);
+            rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.anchoredPosition = new Vector2(0f, 74f);
+            rect.sizeDelta = new Vector2(860f, 64f);
+            obj.SetActive(false);
             return text;
         }
 

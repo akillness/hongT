@@ -886,9 +886,36 @@ namespace CinderCourt.View
             slot.Ring.enabled = true;
         }
 
+        // Radial burn decal, loaded once. `_scorchDecalProbed` separates "not
+        // looked up yet" from "looked up and absent" so a missing asset costs
+        // exactly one Resources.Load for the process, not one per cast.
+        static Texture2D _scorchDecal;
+        static bool _scorchDecalProbed;
+
+        static Texture2D ScorchDecal()
+        {
+            if (_scorchDecalProbed) return _scorchDecal;
+            _scorchDecalProbed = true;
+            _scorchDecal = Resources.Load<Texture2D>("Fx/scorch-decal");
+            return _scorchDecal;
+        }
+
         /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
         /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
-        /// Pool of 4 - nova(8s cd) + pulse(4s cd) can't exceed it in play.</summary>
+        /// Pool of 4 - nova(8s cd) + pulse(4s cd) can't exceed it in play.
+        ///
+        /// The quad carries a radial burn TEXTURE when one is present
+        /// (Resources/Fx/scorch-decal) and stays a flat tinted disc when it is
+        /// not. Same split TerrainFlipbook uses: the texture carries SHAPE —
+        /// concentric burn rings, cracks, a molten core, alpha falling to zero
+        /// before the quad's square corners — and the per-call tint carries
+        /// IDENTITY, ember-brown for the nova and dark green for the pulse
+        /// field. The tint multiplies the texture, so both readings survive.
+        ///
+        /// Absent-asset guard, same shape as SpawnPickupIcon: a null load
+        /// leaves the material untextured and the effect is exactly what it
+        /// was before. Nothing in this file may hard-depend on an asset
+        /// (see the header contract).</summary>
         void SpawnScorch(float simX, float simY, float diameterWorld, Color color, float life)
         {
             ref var slot = ref _scorches[_scorchCursor];
@@ -903,6 +930,12 @@ namespace CinderCourt.View
                 quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                 slot.Quad = quad.transform;
                 slot.Material = ViewWorld.MakeUnlit(color, true);   // transparent seed contract
+                var decal = ScorchDecal();
+                if (decal != null)
+                {
+                    slot.Material.SetTexture("_BaseMap", decal);
+                    slot.Material.mainTexture = decal;
+                }
                 quad.GetComponent<Renderer>().sharedMaterial = slot.Material;
                 quad.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }

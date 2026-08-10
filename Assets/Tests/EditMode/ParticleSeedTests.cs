@@ -133,5 +133,28 @@ namespace CinderCourt.Tests
                 Object.DestroyImmediate(material);
             }
         }
+
+        /// <summary>The AOE scorch decal degrades to a flat tinted disc when
+        /// the texture is absent — deliberately, because VfxDirector may not
+        /// hard-depend on an asset. That guard also means nothing at runtime
+        /// will ever report the texture missing: nova, pulse and pylon
+        /// destruction would all quietly lose their burn shape. This is the
+        /// only place that can say so.</summary>
+        [Test]
+        public void ScorchDecalShips()
+        {
+            var decal = Resources.Load<Texture2D>("Fx/scorch-decal");
+            Assert.That(decal, Is.Not.Null,
+                "Resources/Fx/scorch-decal missing — the scorch silently "
+                + "reverts to a flat disc with no error anywhere");
+            // The quad is square and the fiction is a disc, so the decal's
+            // alpha has to reach zero before the corners or every blast reads
+            // as a tinted box. Checked here because the falloff is baked into
+            // the PNG, not applied by any shader.
+            Assert.That(decal.width, Is.EqualTo(decal.height),
+                "a radial decal on a square quad must be square");
+            Assert.That(decal.width, Is.LessThanOrEqualTo(1024),
+                "CLAUDE.md §1: textures are capped at 1024 for the WebGL build");
+        }
     }
 }

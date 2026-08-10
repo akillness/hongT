@@ -1,0 +1,20 @@
+{
+  "asset": "Assets/Resources/Fx/scorch-decal.png",
+  "date": "2026-08-10",
+  "tool": "Higgsfield CLI nano_banana_flash (1.5 credits), 1024 -> 512 + baked alpha",
+  "consumer": "VfxDirector.SpawnScorch — nova blast, pulse field, pylon destruction",
+  "why": "SpawnScorch drew a flat single-colour quad. It is the ground anchor for the three loudest effects in the game and carried no shape at all. One texture upgrades all three call sites.",
+  "contract": {
+    "shapeVsIdentity": "Same split TerrainFlipbook uses: the TEXTURE carries shape (concentric burn rings, cracks, molten core) and the PER-CALL TINT carries identity (ember-brown 0.35/0.12/0.05 for nova, dark green 0.09/0.22/0.16 for the pulse field). Unlit transparent multiplies, so both readings survive.",
+    "absentAssetGuard": "ScorchDecal() returns null when Resources/Fx/scorch-decal is missing and the material stays untextured — the effect is exactly what it was. VfxDirector's header forbids a hard asset dependency. `_scorchDecalProbed` separates 'not looked up' from 'looked up and absent' so a missing asset costs one Resources.Load for the process, not one per cast.",
+    "ship": "ParticleSeedTests.ScorchDecalShips — a silent absence has no other reporter. Mutation-proved: hiding the png turns it RED."
+  },
+  "alphaRework": {
+    "firstAttempt": "alpha = luminance x radial falloff",
+    "measuredFailure": "the source is mostly dark charred rock, so luminance alpha put the burn area at 0.19 / 0.08 / 0.03 opacity once the dark per-call tint multiplied it. Only the molten core survived; on screen the decal was invisible. MEASURED by sampling the PNG and applying the shipped tint, not by looking at the picture.",
+    "fix": "alpha is COVERAGE, and coverage is radial: solid to 0.62R, easing to 0 by the rim so the quad's square corners can never show. Luminance only MODULATES (floor 0.55, ember veins push toward 1.0) — a scorch mark is not 'absent where dark', it is dark BURN.",
+    "after": "core 0.50, inner 0.46, mid 0.36, rim 0.09, corner 0.00 (post-tint)"
+  },
+  "size": "512x512 RGBA, 781 KB source; WebGL maxTextureSize 512, compressed",
+  "verification": "EditMode 877/877. Browser: nova fired in arena, the burn disc reads as a distinct dark-ember ring inside the nova ring and crack fan."
+}

@@ -136,9 +136,17 @@ namespace CinderCourt.View
                 }
                 else
                 {
-                    _intro.PlaySequence(IntroVideoView.ClipRelativePath,
-                                        IntroVideoView.ConceptClipRelativePath,
-                                        IntroVideoView.ThreatClipRelativePath);
+                    // Watcher voice, second person, one sentence a beat — the
+                    // same grammar as every StoryCatalog.StageStart line. The
+                    // logo carries no caption: there is nothing to narrate over
+                    // a wordmark, and a line there would read as a subtitle for
+                    // the studio name.
+                    _intro.PlaySequence(
+                        new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
+                        new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath,
+                            "등불 하나가 잿불의 법정을 건넙니다. 사슬은 아직 무엇도 놓지 않았습니다."),
+                        new IntroVideoView.Beat(IntroVideoView.ThreatClipRelativePath,
+                            "판결을 내린 자가 아직 그 자리에 서 있습니다. 등불을 들고 마주하세요."));
                     WebGLStorage.SetString(ConceptSeenKey, "1");
                 }
                 if (_audio != null) _audio.SetBgmContext("intro");   // W12

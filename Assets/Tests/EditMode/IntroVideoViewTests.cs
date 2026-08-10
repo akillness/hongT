@@ -166,8 +166,9 @@ namespace CinderCourt.Tests
             var finished = 0;
             _intro.OnFinished = () => finished++;
 
-            _intro.PlaySequence(IntroVideoView.ClipRelativePath,
-                                IntroVideoView.ConceptClipRelativePath);
+            _intro.PlaySequence(
+                new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
+                new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath, "테스트 내레이션"));
             // Each clip times out after PrepareTimeout (4 s) with no decoder,
             // so the pair drains in ~8 s. Step in small increments and record
             // what actually happened rather than guessing a window: the thing
@@ -207,8 +208,9 @@ namespace CinderCourt.Tests
             var finished = 0;
             _intro.OnFinished = () => finished++;
 
-            _intro.PlaySequence(IntroVideoView.ClipRelativePath,
-                                IntroVideoView.ConceptClipRelativePath);
+            _intro.PlaySequence(
+                new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
+                new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath));
             _intro.Skip();
             Drive(SettleSeconds);
 
@@ -225,11 +227,48 @@ namespace CinderCourt.Tests
             var finished = 0;
             _intro.OnFinished = () => finished++;
 
-            _intro.PlaySequence();
+            _intro.PlaySequence(System.Array.Empty<IntroVideoView.Beat>());
             Drive(SettleSeconds);
 
             Assert.That(finished, Is.EqualTo(1));
             Assert.That(_intro.Active, Is.False);
+        }
+
+        /// <summary>A beat's caption is optional and the brand logo has none.
+        /// A sequence must survive both, because a null caption on the first
+        /// beat is exactly what the boot route passes.</summary>
+        [Test]
+        public void BeatsCarryOptionalNarrationAndStillComplete()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+
+            _intro.PlaySequence(
+                new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
+                new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath,
+                                        "등불 하나가 잿불의 법정을 건넙니다."),
+                new IntroVideoView.Beat(IntroVideoView.ThreatClipRelativePath, null));
+            Drive(SettleSeconds * 4f);
+
+            Assert.That(finished, Is.EqualTo(1),
+                "three beats, mixed captions, still exactly one completion");
+            Assert.That(_intro.Active, Is.False);
+        }
+
+        /// <summary>Beat is a value type with the clip first: the boot route
+        /// constructs them positionally and a reordered signature would compile
+        /// while playing the caption as a URL.</summary>
+        [Test]
+        public void BeatKeepsClipFirstAndNarrationOptional()
+        {
+            var picture = new IntroVideoView.Beat("Video/x.mp4");
+            Assert.That(picture.Clip, Is.EqualTo("Video/x.mp4"));
+            Assert.That(picture.Narration, Is.Null,
+                "a beat with no caption must not invent one");
+
+            var spoken = new IntroVideoView.Beat("Video/y.mp4", "한 줄");
+            Assert.That(spoken.Clip, Is.EqualTo("Video/y.mp4"));
+            Assert.That(spoken.Narration, Is.EqualTo("한 줄"));
         }
 
         /// <summary>A missing clip degrades to "no intro" in complete silence
