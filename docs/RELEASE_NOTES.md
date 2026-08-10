@@ -1,5 +1,72 @@
 # Release Notes
 
+## 프레젠테이션 사이클 11 — 전투 모션 6종 교체 + 첫 실행 3비트 인트로 · 2026-08-10
+
+사용자 지시: *"skill, 모션 등 vfx 힉스필드로 전면개선해줘. 모션도 싹다
+바꿔주고"* → *"비디오는 컨셉에 대한 인트로, 컷씬, 네러이션 씬등 생성하고
+추가해야해"*.
+
+### 모션 — 6종 교체
+
+Higgsfield `3d_rigging`이 실제로 Unity 휴머노이드 클립을 만든다. 다만
+`animation_action_id`가 enum 없는 불투명 정수라 20개를 샘플링해 라이브러리를
+지도로 만들었다 — 전투는 **190~260 대역**에 있다.
+
+| 액션 | id | 새 클립 | 대체된 것 |
+|---|---|---|---|
+| attack | 200 | `Punch_Combo_1` | Standing Melee Attack Horizontal |
+| attack2 | 195 | `Right_Upper_Hook_from_Guard` | Hook Punch |
+| attack3 | 205 | `Punch_Combo_5` | Standing Melee Combo Attack Ver. 2 |
+| critical | 240 | `Thrust_Slash` | Illegal Elbow Punch |
+| defence | 220 | `Shield_Push_Left` | Body Block |
+| bighit | 190 | `Knock_Down_1` | Receive Uppercut To The Face |
+
+**측정이 뒤집은 두 가지.** 22개짜리 Mixamo→Unity 리네임 표를 먼저 썼는데,
+`ClipAvatarProbe`로 물어보니 생성 리그가 **리네임 없이 isHuman True 15/15**로
+매핑됐다(기존 14클립도 Mixamo 원본 그대로 통과 중이었다). 표는 죽은 코드라
+지웠다. 루트모션도 벗기지 않는다 — `ReimportClips`가 이미 in-place 투영을
+건다.
+
+**진짜 결함은 씬 범위였다.** 평범한 glb→fbx 변환이 2.23초 액션을 10.38초
+클립으로 뽑았다. Blender 기본 씬 범위 `1-250`이 그대로 export된 것이다.
+키프레임에서 범위를 읽게 고쳤다.
+
+**트림 재측정.** 심이 잡는 포즈는 0.4167s(=클립 24fps 기준 10프레임), 활성
+구간은 0.167~0.333s다. `attack` 13..23, `critical` 58..68 — 둘 다 속도
+1.00x로 활성 구간에 안착. Thrust Slash는 3초 중 86.7%가 윈드업이라 트림
+없이는 4x로 클램프되고도 윈드업만 보인다.
+
+### 드리프트 2건
+
+`ClipWindowProbe`와 `ClipTrimFitTests`가 각자 클립 표 **사본**을 들고 있어서,
+교체 후에도 대체된 클립을 계속 쟀다. 트림 테스트는 구 `attack` 창을
+살아있는 것으로 보고했다. 둘 다 이제 `CharacterImportPipeline.ClipFileAt`을
+읽는다.
+
+### 영상 — 첫 실행 3비트
+
+로고 → 전제(등불 법정) → 위협(보스). `IntroVideoView`가 경로를 받게 하고
+`PlaySequence`를 추가했다: `OnFinished`는 시퀀스 전체에 1회, 스킵은 다음
+클립이 아니라 인트로 전체를 버린다. 재방문자는 localStorage 플래그로 브랜드
+릴만 본다.
+
+**부트가 유일한 자리다.** 스테이지 컷씬은 `_game.Begin` 뒤에 뜨고 보스 비트는
+전투 중이라, 둘 다 5초 오버레이가 곧 **안 보이는 5초의 플레이**다.
+
+### VFX — 두 번 시도, 두 번 되돌림
+
+t2v는 "위에서 본 용암"을 **하늘의 달**로 해석했다(프레임마다 밝은 원반).
+시트 셀을 시드로 준 i2v는 표면에는 붙었지만 프레임 간 변화가 거의 없어
+출하본보다 정지에 가까웠다. **출하 시트가 낫다.**
+`tools/video/fx_sheet_from_video.py`는 계약(4×4, 크로스페이드, `.meta` 보존)을
+담아 남긴다.
+
+### 검증
+
+EditMode **874/874**. 변이 증명 2건: 큐 전진 제거 → 시퀀스 테스트 RED,
+트림 13..23 → 16..28 → 트림 테스트 RED. WebGL 82MB(상한 120). 라이브
+스모크: 컨셉 릴 재생 확인, 시퀀스 완주 후 로비 진입, 콘솔 오류 0.
+
 ## 프레젠테이션 사이클 10 — 조용히 실패하던 3건 + 연출 자산 · 2026-08-09
 
 사용자 지시: *"리소스 개선작업진행하자, 특히 vfx와 던전구성, 그리고 매시와
