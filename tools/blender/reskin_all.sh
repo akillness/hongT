@@ -16,6 +16,15 @@
 # !! work again the moment the motion library is restored (set
 # !! ABYSSAL_SURGE_ROOT to wherever it lands). The shipped FBX files in
 # !! Assets/Art/Characters are the artifacts of record until then.
+# !!
+# !! FOR NEW MESHES, USE tools/blender/reskin_from_fbx.py INSTEAD. It takes its
+# !! skeleton from a shipped Assets/Art/Characters/<id>.fbx, which already
+# !! carries the 22 canonical humanoid bones (the BONE_MAP rename ran on them
+# !! long ago), so it does not need the vanished library at all. PROVEN
+# !! 2026-08-09 end to end: scout mesh onto scout's skeleton -> Unity avatar
+# !! isValid && isHuman, 22/22 bones mapped, 0 heat orphans. It carries a
+# !! height-ratio gate because a 1.51 mismatch silently produces a non-human
+# !! avatar; see that script's header for the measurement.
 #
 # Mesh sources (audited 2026-08-04, _workspace/current/engineering/reskin):
 # - guard, ember-cohort: motion-library model.glb embeds the real authored mesh

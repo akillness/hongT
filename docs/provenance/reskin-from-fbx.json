@@ -1,0 +1,46 @@
+{
+  "asset": "reskin pipeline — FBX-skeleton variant",
+  "date": "2026-08-09",
+  "why": "reskin_all.sh cannot run: ~/orca/Abyssal-Surge was rebuilt as a Unity project and no longer carries assets/motion or assets/mesh, so all 12 ids miss — including the original 8. That was reported as a hard blocker on new character meshes. It is not one.",
+  "keyFinding": "Every shipped Assets/Art/Characters/<id>.fbx ALREADY carries the 22 Unity-canonical humanoid bones — the BONE_MAP rename ran on them when they were first produced. Measured across all 12 reskin reports: 22 bones each, zero required bones missing. So the skeleton was never lost; there are twelve donors sitting in the repo.",
+  "tool": "tools/blender/reskin_from_fbx.py (Blender 5.1.2, headless)",
+  "differsFromGlbScript": [
+    "skeleton comes from --skeleton-fbx (a shipped FBX), not a motion-library GLB",
+    "BONE_MAP is SKIPPED — those bones are already canonical, and running the DEF-* filter over them would delete the whole skeleton",
+    "the canonical set is validated directly, same hard gate",
+    "mesh donor may be FBX or GLB (Higgsfield exports both)"
+  ],
+  "proof": {
+    "method": "Zero-credit end-to-end proof: bind a shipped mesh through the exact path a generated mesh will take, then ask Unity the only question that matters — does CharacterImportPipeline.cs:163's avatar.isHuman gate pass.",
+    "control": "shipped guard.fbx — avatar isValid && isHuman, 22/22 bones mapped",
+    "candidate": "scout mesh onto scout's own skeleton via reskin_from_fbx",
+    "result": "isValid && isHuman, 22/22 bones mapped, 0 heat orphans, 8055 tris",
+    "verdict": "PASS — the FBX-skeleton path produces a Unity-humanoid FBX"
+  },
+  "twoDefectsFoundByTheProof": [
+    {
+      "symptom": "Unity built a VALID but NON-HUMAN avatar; Hips localPos (0, 0, 0.01) vs shipped (0, -0.02, 0.61)",
+      "cause": "export was missing apply_scale_options='FBX_SCALE_ALL'. The 0.01 is the FBX cm/m factor. Inside Blender the two skeletons were byte-identical — same object transform, same bone head_local, same root — so this was invisible until Unity was asked.",
+      "fix": "match every export parameter to reskin_character.py:428-438"
+    },
+    {
+      "symptom": "still non-human after the export fix: 20/22 bones, LeftHand and RightHand refused (both REQUIRED)",
+      "cause": "PROPORTION, not the pipeline. scout's mesh (1.6993) on guard's skeleton (1.1257) needs a 0.6625 height scale; the mesh shrinks while the donor skeleton stays full size and the auto-mapper stops believing the arm chain. Ratio 1.5095.",
+      "notTheCause": "Hand bones outside the mesh bounding box LOOKS like the cause and is not: shipped guard has hand tips at x=1.12 against a mesh span of 0.75 and maps 22/22. Measuring that first is what kept a wrong fix out.",
+      "fix": "MAX_HEIGHT_RATIO = 1.25 gate that fails loudly, with the remedy in the message (pick a closer donor, or generate at the donor's height — meshy_v6 exposes rigging_height_meters)",
+      "gateProven": "ratio 1.510 -> FATAL as designed; ratio 1.0 -> passes"
+    }
+  ],
+  "higgsfieldPath": {
+    "status": "READY, BLOCKED ON CREDITS",
+    "credits": "0.76 remaining; meshy/tripo/hunyuan cost 5-7 per mesh",
+    "procedure": [
+      "1. meshy_v6_text_to_3d with rigging_height_meters set to the donor skeleton's height (guard 1.1257, scout 1.6993 — read from the reskin report or the probe) and target_polycount <= 25000",
+      "2. download the glb",
+      "3. blender -b --factory-startup --python-exit-code 1 -P tools/blender/reskin_from_fbx.py -- --skeleton-fbx Assets/Art/Characters/<donor>.fbx --mesh <generated.glb> --out Assets/Art/Characters/<new-id>.fbx --report _workspace/current/engineering/reskin/<new-id>.json",
+      "4. the height gate rejects a mismatched generation before Unity sees it",
+      "5. CharacterImportPipeline.ImportAll picks it up from the directory glob"
+    ]
+  },
+  "openItem": "Companions still have no dedicated meshes — GameBootstrap reuses enemy prefabs with a cyan/gold tint and the code contract says 'material variants only, no new meshes'. Four ids: ember-cohort-echo, possessed-echo, scout-echo, shade-echo. The pipeline to change that now exists and is proven; only the generation spend is missing."
+}
