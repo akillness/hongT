@@ -42,5 +42,26 @@
     "act3": "dede82fe-c5bb-4ba2-820a-f58098dab6c7 (재폭풍 성채)",
     "rejected": "5f9618cb-22e6-47c4-84ba-2c2994ec25b7 (픽셀아트 공성)"
   },
-  "leftover_value": "미소비 리깅 GLB 13종 로컬 보관(shade-echo-anim*.glb). 유력 후보: 255 Angry_Ground_Stomp → show/도발 대체, 235 Forward_Roll_and_Fire → avoid 대체, 243/245 → 아이들 변주. 소비 시 clip_from_glb.py 경유, Motion 레인과 조율할 것 (2026-08-10 동시 세션이 모션 레인 점유 중이었음)."
+  "leftover_value": "미소비 리깅 GLB 13종 로컬 보관(shade-echo-anim*.glb). 소비 시 clip_from_glb.py 경유.",
+  "visual_triage_20260810": {
+    "method": "Blender headless 3프레임(25/50/75%) 렌더 육안 분류 — 액션 id가 불투명하므로 산술(SwingArcProbe)과 별개로 가족(무장/비무장) 판정은 눈이 한다",
+    "fit": {
+      "252": "Idle_12 — 전투 준비 오픈 스탠스. 무장 idle 1순위 후보",
+      "243": "Idle_3 — 이완 스탠드. idle 변주 후보",
+      "255": "Angry_Ground_Stomp — 스톰프+팔 스윙. show/도발 후보",
+      "237": "Charged_Axe_Chop — 크라우치→오버헤드 대공격. 대형 타격 연출 후보 (7.67s, 강트림 필수)"
+    },
+    "reject": {
+      "236": "활 계열(측면 사격) — 검 캐릭터 부적합",
+      "230/235/239": "활/투척 문맥 — avoid 용도로도 사격 모션이 섞여 위험",
+      "244/245/248": "특성 약하거나 비무장 유휴 — 보류",
+      "265/270": "수면/뒤척임 — die 대용 부적절"
+    },
+    "gap": "hit/bighit/die/move/run의 무기 가족 후보 없음 → id 탐사 배치로 해소 시도"
+  },
+  "sample_batch_20260810b": {
+    "purpose": "무기 가족 피격/사망/이동 후보 탐사 — 미지 대역 10개 id",
+    "jobs": "sample-batch-20260810b.txt (id 180 185 188 210 215 218 225 228 250 260 → 잡ID 매핑)",
+    "harvest": "완료 후 다운로드→인스펙트→프리뷰 렌더→트리아지 반복. 수확 전에는 어떤 id도 배치하지 말 것"
+  }
 }
