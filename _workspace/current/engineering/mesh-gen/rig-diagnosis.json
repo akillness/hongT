@@ -1,0 +1,101 @@
+{
+  "written": "2026-08-10",
+  "question": "생성 모션에서 다리가 구겨지는 원인은 무엇인가",
+  "answer": "리깅 소스가 우리 메시가 아니라 벤더 기본 프록시 바디였다. 프록시의 골격 비율·좌우 대칭이 출하 캐릭터와 다르고, 휴머노이드 리타겟은 그 차이를 흡수하지 못한다.",
+  "method": "Blender headless, 모든 본의 월드 Z를 골격 span(최저 본→최고 본)으로 정규화해 비교 (scratch bonedump.py / rig_compare2.py). 메시 바운드 기준 측정은 클립 FBX에 메시가 없어 0으로 나오므로 무효 — 골격 자체를 좌표계로 삼아야 두 리그가 비교된다(§4m).",
+  "measured_joint_heights_pct_of_skeleton_span": {
+    "_note": "발끝 0% · 최상단 본 100% 기준. 좌/우가 갈라진 항목은 rest pose가 비대칭이라는 뜻이다.",
+    "human-command-boss.fbx (출하 캐릭터 = 리타겟 대상)": {
+      "foot": 5.1,
+      "knee": 28.9,
+      "hipJoint": 54.9,
+      "hipsRoot": 54.9,
+      "spine": 65.4,
+      "arms": 85.8,
+      "neck": 94.1,
+      "head": 100.0,
+      "symmetry": "완전 대칭 (L/R 동일)",
+      "bones": 22,
+      "bindPose": "T"
+    },
+    "Walking.fbx (출하 Mixamo 클립 = 정상 동작 대조군)": {
+      "foot": 8.3,
+      "knee": 27.0,
+      "hipJoint": 46.6,
+      "hipsRoot": 50.5,
+      "spine": 56.4,
+      "arms": 80.4,
+      "neck": 84.0,
+      "head": 88.8,
+      "symmetry": "완전 대칭",
+      "bones": 37,
+      "bindPose": "T"
+    },
+    "Combat Idle.fbx (벤더 프록시 리그 = 결함)": {
+      "foot": [
+        4.8,
+        9.6
+      ],
+      "knee": [
+        35.0,
+        35.8
+      ],
+      "hipJoint": [
+        61.7,
+        61.9
+      ],
+      "hipsRoot": 68.4,
+      "spine02": 80.6,
+      "head": 100.0,
+      "symmetry": "비대칭 — rest pose에서 좌우 발 높이가 4.8pp 차이",
+      "bones": 22,
+      "bindPose": "A"
+    },
+    "player-rig/anim252.glb (우리 메시 재리깅 = 수정본)": {
+      "foot": [
+        4.8,
+        4.9
+      ],
+      "knee": [
+        27.9,
+        28.0
+      ],
+      "hipJoint": 50.7,
+      "hipsRoot": 56.4,
+      "spine02": 64.1,
+      "head": 89.6,
+      "symmetry": "대칭 (0.1pp 이내)",
+      "bones": 24,
+      "bindPose": "T"
+    }
+  },
+  "root_cause": [
+    "무릎이 7pp 높다 — 프록시 35.0% vs 출하 캐릭터 28.9%. 무릎 각도가 존재하지 않는 신체 비율로 계산돼 리타겟 후 다리가 접힌 것처럼 보인다.",
+    "rest pose가 좌우 비대칭이다 — 프록시의 왼발 4.8% / 오른발 9.6%. 바인드 포즈 비대칭은 모든 프레임에 상수 오차로 실려 한쪽 다리만 어긋난다.",
+    "힙 루트가 13.5pp 높다 (68.4% vs 54.9%) — 상체가 압축되고 다리가 과장된 프록시 체형.",
+    "바인드 포즈가 A-pose인데 출하 캐릭터와 정상 동작 클립은 전부 T-pose다."
+  ],
+  "why_it_was_missed": "지금까지의 검증은 전부 '어느 프레임을 보여줄 것인가'(ClipWindowProbe 트림)와 '휴머노이드로 매핑되는가'(isHuman 15/15)만 물었다. 둘 다 통과한다 — 매핑은 성공하고 프레임 선택도 옳다. 아무도 '이 리그의 골격이 대상 메시와 같은 몸인가'를 묻지 않았다. §4m의 재현: 정답과 오답이 같아지는 좌표계에서 재면 통과는 의미가 없다.",
+  "fix": "리깅 소스를 출하 캐릭터 메시로 교체한다. human-command-boss.fbx에서 아마추어·모디파이어를 벗긴 raw 메시를 GLB로 내보내(player-mesh.glb) gh-pages에 호스팅한 뒤 그 URL을 3d_rigging --model_url로 넘긴다. CLI의 upload create는 .glb 확장자를 거부하므로(미디어 타입 미검출) URL 경유가 유일한 경로다.",
+  "fix_verified_by_measurement": "재리깅 결과 무릎 27.9/28.0 (대상 28.9, 오차 1pp) · 발 4.8/4.9 (대상 5.1) · 좌우 대칭 회복 · T-pose 복귀. 프록시 대비 무릎 오차가 7pp → 1pp로 줄었다.",
+  "residual": "힙 루트는 여전히 56.4 vs 54.9 (1.5pp) — 리타겟이 흡수하는 범위. 스파인 본 이름 순서가 위치와 어긋난다(Spine02 64.1 → Spine01 71.9 → Spine 79.6). Unity 자동 매퍼는 이름이 아니라 계층으로 매핑하므로 ClipAvatarProbe의 isHuman·필수본 15/15로 확인할 것.",
+  "second_root_cause_meta_outlives_fbx": {
+    "symptom": "재리깅한 FBX 11종이 Unity에서 클립을 0개 생성. 테스트 4건 RED: 'Charged Slash.fbx has no imported clip' 2건, '손 이동 0.0' 2건.",
+    "false_leads_ruled_out": [
+      "FBX에 애니메이션이 없다 → 아니다. Blender 되읽기 실측: action 'Armature|Scene' 249 fcurves, 24 bones.",
+      "테이크 명명이 깨졌다 → 아니다. takeName은 교체 전후 모두 'Scene'으로 동일(git show 비교).",
+      "메타의 클립 엔트리가 없다 → 아니다. name: attack / firstFrame 22 / lastFrame 29 정상 기록."
+    ],
+    "actual_cause": ".meta가 .fbx보다 오래 산다. 구 프록시 리그로 만들어진 humanDescription(본 매핑 human[]·skeleton[])이 메타에 남아 있고, avatarSetup=CreateFromThisModel은 그것을 버리지 않는다. 새 리그에 없는 이름(Spine1·Head1)으로 휴먼 본을 해석하려다 아바타가 실패하고, 그 결과 클립이 하나도 생성되지 않는다.",
+    "evidence": "ImportAll 로그: \"Transform 'Spine1' for human bone 'Neck' not found\" · \"Transform 'Head1' for human bone 'Head' not found\". 구 리그 본: Spine/Spine1/Spine02/neck/Head. 새 리그 본: Spine/Spine01/Spine02/neck/Head/headfront/head_end.",
+    "fix": "ReimportClips에서 animationType=Human 직후 humanDescription.human/skeleton을 빈 배열로 덮어써 자동 매퍼가 실제 리그를 다시 읽게 한다 (CharacterImportPipeline.cs).",
+    "lesson": "실패가 원인의 모양을 하고 나타나지 않았다 — 아바타가 깨졌다는 신호는 경고 한 줄뿐이었고, 테스트는 '클립이 없다'와 '손이 안 움직인다'로만 보고했다. 자산을 교체할 때는 그 자산을 설명하는 메타도 교체 대상이다."
+  },
+  "third_root_cause_derived_property_is_stale": {
+    "symptom": "메타의 휴먼 매핑을 지웠는데도 클립 0개. ImportAll이 'no animation takes in Combat Idle.fbx'로 중단 — FBX에는 249 fcurve가 실측되는데.",
+    "actual_cause": "importer.defaultClipAnimations는 파일이 아니라 **직전 import 결과**에서 파생된다. 깨진 아바타로 한 번 import된 뒤에는 테이크 목록이 빈 채로 캐시되고, 위에서 설정을 바꿔도 SaveAndReimport 전에는 반영되지 않는다. 그 상태에서 프로퍼티를 읽으면 멀쩡한 파일을 '테이크 없음'이라고 보고한다.",
+    "fix": "설정 적용 직후 SaveAndReimport()를 한 번 돌리고 나서 defaultClipAnimations를 읽는다.",
+    "lesson": "파생 프로퍼티는 소스가 아니라 마지막 계산 결과를 말한다. 소스를 바꾼 뒤 파생값을 읽으면 과거를 읽는 것이다 — §4i의 두 정보원 문제가 같은 객체 안에서 일어난 형태.",
+    "verified": "ImportAll-215716.log: [Import] character 12 · [Import] clip 14, 아바타 경고 0, EXIT=0."
+  }
+}

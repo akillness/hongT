@@ -194,10 +194,23 @@ namespace CinderCourt.EditorTools
             // no swing"). The blade sweep of Axe Spin Attack is 20..27
             // (ratio 5.1). Weapon Combo 2 carries three swings; 47..57 keeps
             // the biggest with the cleanest feet (6.7 vs 5.3 at 45..55).
-            ("attack", 22, 29),
+            // 2026-08-10 THIRD measurement, after re-rigging every generated
+            // take onto the shipped player mesh. Windows are re-derived on the
+            // NEW rig by swept ANGLE about the right shoulder in the hips'
+            // frame (mesh-gen/swing-windows.json) — the quantity SwingArcProbe
+            // and ClipTrimFitTests judge a swing by. Every row moved except
+            // attack2, and the ones that moved were not marginal:
+            //   attack   22..29  91.9 deg  ->  26..33  187.1 deg
+            //   attack2  20..27 160.5 deg  (kept; the 30..37 it replaced
+            //                               sweeps 32.5 deg — the footwork)
+            //   attack3  47..57 176.3 deg  ->  45..55  219.5 deg
+            //   critical 58..68  61.2 deg  ->  31..41  181.6 deg
+            // A window measured on one rig does not survive a rig change:
+            // same frames, different body, different arc.
+            ("attack", 26, 33),
             ("attack2", 20, 27),
-            ("attack3", 47, 57),
-            ("critical", 58, 68),
+            ("attack3", 45, 55),
+            ("critical", 31, 41),
             // show 8..34 is RE-MEASURED for Angry Ground Stomp (2026-08-10),
             // not inherited from Mutant Roaring: ClipWindowProbe motion
             // f22-24 sits inside it and 26 f = 1.083 s fits RoarDuration.
@@ -429,8 +442,30 @@ namespace CinderCourt.EditorTools
                     throw new InvalidOperationException($"missing clip fbx {path}");
                 importer.animationType = ModelImporterAnimationType.Human;
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                // The .meta OUTLIVES the .fbx. Replacing a take with one built
+                // on a different rig leaves the previous avatar's explicit
+                // bone map behind, and CreateFromThisModel does NOT discard it
+                // — Unity keeps resolving human bones against names the new
+                // skeleton does not have ("Transform 'Spine1' for human bone
+                // 'Neck' not found"), fails the avatar, and emits NO clip at
+                // all. MEASURED 2026-08-10: every re-rigged take imported to
+                // zero clips while its FBX carried 249 fcurves, and the four
+                // tests that caught it reported "no imported clip" and "hand
+                // moves 0.0" — never "bad avatar". Clearing both arrays forces
+                // the auto-mapper to read the rig that is actually there.
+                var human = importer.humanDescription;
+                human.human = Array.Empty<HumanBone>();
+                human.skeleton = Array.Empty<SkeletonBone>();
+                importer.humanDescription = human;
                 importer.importAnimation = true;
                 importer.materialImportMode = ModelImporterMaterialImportMode.None;
+                // defaultClipAnimations is DERIVED FROM THE LAST IMPORT, not from
+                // the file on disk. Replacing an FBX while its meta still held a
+                // foreign avatar produced an import with zero takes, and reading
+                // the property here then reported "no animation takes" about a
+                // file that carries 249 fcurves. Settings above only reach the
+                // importer on SaveAndReimport — so reimport first, then ask.
+                importer.SaveAndReimport();
                 var takes = importer.defaultClipAnimations;
                 if (takes.Length == 0)
                     throw new InvalidOperationException($"no animation takes in {path}");

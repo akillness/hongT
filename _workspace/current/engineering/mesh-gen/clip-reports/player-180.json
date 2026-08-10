@@ -1,0 +1,43 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/player-rig/anim180.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Shot In The Back.fbx",
+  "sourceAction": "Shot_in_the_Back_and_Fall",
+  "keyframeRange": [
+    0.8000000715255737,
+    112.79999542236328
+  ],
+  "sceneRange": [
+    0,
+    112
+  ],
+  "seconds": 4.666666666666667,
+  "takeName": "Shot In The Back",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "Spine02",
+    "Spine01",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "neck",
+    "Head",
+    "head_end",
+    "headfront"
+  ],
+  "exported": true,
+  "exportedBytes": 737740
+}

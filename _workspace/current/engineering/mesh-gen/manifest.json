@@ -179,5 +179,26 @@
     },
     "band_note": "130~178 = 캐스트/가드/리로드/피격 리액션 대역. 무기 보행/주행은 여전히 미발견 — 100 미만 대역 후보로 남김",
     "next": "hit←178 · defence←140 · cast←130 스왑은 트림 실측+§4q 핀+§4c 스모크의 정규 사이클로 진행"
+  },
+  "player_mesh_rerig_20260810": {
+    "why": "벤더 프록시 리그가 출하 메시와 다른 몸이라 리타겟 후 다리가 구겨졌다 — rig-diagnosis.json 참조.",
+    "source_mesh": "human-command-boss.fbx의 아마추어·모디파이어를 벗긴 raw 메시 → player-mesh.glb (5.9MB) → gh-pages assets/player-mesh.glb 로 호스팅",
+    "model_url": "https://akillness.github.io/hongT/assets/player-mesh.glb",
+    "height_meters": 1.76,
+    "jobs_action_id_to_job_id": {
+      "252": "28475e3a-a8c0-4ed0-91bd-4458935fa150",
+      "130": "b6a8cc6d-99ad-4768-b6b4-1c94f530601b",
+      "140": "ca738383-d118-4d04-9aa1-94f11407d1d5",
+      "178": "7ab31317-b375-4d59-a3c7-2fd5e02ca956",
+      "180": "082429df-8286-457f-b58a-a8cc34355b97",
+      "188": "978714ee-48cf-4f3c-b9a6-f66d4ad481a4",
+      "238": "c0018834-bbb0-4543-a2a0-93aa3fa50151",
+      "240": "dbaf24ba-c08b-434b-9ee4-d0172d5656ea",
+      "241": "9a8057bc-39ec-465d-afc2-d26a229232cc",
+      "242": "1e13f435-0f0a-4bf6-afd2-7552926cc85c",
+      "255": "5b9b6a40-ab2f-4833-8a67-bede28ba58eb"
+    },
+    "outputs": "player-rig/anim{id}.glb (45MB, 미커밋 — 위 잡ID로 재다운로드 가능). 11종 전부 clip_from_glb.py로 Assets/Art/Motion/에 변환 완료, 본 24개로 검증.",
+    "verified": "무릎 27.9/28.0%(대상 28.9) · 발 대칭 0.1pp · T-pose · EditMode 891/890 · 아바타 경고 0"
   }
 }

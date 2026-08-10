@@ -1,0 +1,43 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/player-rig/anim238.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Axe Spin Attack.fbx",
+  "sourceAction": "Axe_Spin_Attack",
+  "keyframeRange": [
+    0.8000000715255737,
+    60.79999923706055
+  ],
+  "sceneRange": [
+    0,
+    60
+  ],
+  "seconds": 2.5,
+  "takeName": "Axe Spin Attack",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "Spine02",
+    "Spine01",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "neck",
+    "Head",
+    "head_end",
+    "headfront"
+  ],
+  "exported": true,
+  "exportedBytes": 651724
+}

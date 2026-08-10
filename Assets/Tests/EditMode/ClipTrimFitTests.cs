@@ -170,14 +170,25 @@ namespace CinderCourt.Tests
             // world-space measurement; move a window and re-measure there
             // first, or this stays red.
             var trims = Trims();
-            var attack2 = trims.First(r => r.action == "attack2");
-            Assert.That((attack2.first, attack2.last), Is.EqualTo((20, 27)),
-                "attack2 must show Axe Spin's blade sweep (world-measured "
-                + "20..27), not the footwork the hips-relative probe picked");
-            var attack3 = trims.First(r => r.action == "attack3");
-            Assert.That((attack3.first, attack3.last), Is.EqualTo((47, 57)),
-                "attack3 pins the cleanest-feet swing of Weapon Combo 2 "
-                + "(world-measured 47..57)");
+            // Swept angle about the shoulder on the SHIPPED rig, measured
+            // 2026-08-10 (mesh-gen/swing-windows.json). Each literal is the
+            // argmax over its clip; the value beside it is what the window
+            // it replaced swept, so a revert is visibly worse, not arguable.
+            foreach (var (action, window, sweptDeg, replacedDeg) in new[]
+                     {
+                         ("attack",   (26, 33), 187.1f,  91.9f),
+                         ("attack2",  (20, 27), 160.5f,  32.5f),
+                         ("attack3",  (45, 55), 219.5f, 176.3f),
+                         ("critical", (31, 41), 181.6f,  61.2f),
+                     })
+            {
+                var row = trims.First(r => r.action == action);
+                Assert.That((row.first, row.last), Is.EqualTo(window),
+                    $"{action} must show its measured blade sweep "
+                    + $"({sweptDeg:0.#} deg at {window}); the window this "
+                    + $"replaced swept only {replacedDeg:0.#} deg. Windows are "
+                    + "rig-specific — re-measure before moving one");
+            }
         }
 
         [Test]

@@ -1,0 +1,41 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/shade-echo-anim255.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Angry Ground Stomp.fbx",
+  "sourceAction": "Angry_Ground_Stomp",
+  "keyframeRange": [
+    0.8000000715255737,
+    34.39999771118164
+  ],
+  "sceneRange": [
+    0,
+    34
+  ],
+  "seconds": 1.4166666666666667,
+  "takeName": "Angry Ground Stomp",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "neck",
+    "Spine02",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "Head1",
+    "Head"
+  ],
+  "exported": true,
+  "exportedBytes": 259292
+}

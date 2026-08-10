@@ -1,0 +1,41 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/shade-echo-anim178.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Hit Reaction.fbx",
+  "sourceAction": "Hit_Reaction",
+  "keyframeRange": [
+    0.8000000715255737,
+    40.0
+  ],
+  "sceneRange": [
+    0,
+    40
+  ],
+  "seconds": 1.6666666666666667,
+  "takeName": "Hit Reaction",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "neck",
+    "Spine02",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "Head1",
+    "Head"
+  ],
+  "exported": true,
+  "exportedBytes": 269708
+}
