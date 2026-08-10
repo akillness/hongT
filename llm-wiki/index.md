@@ -9,6 +9,7 @@
 - [[wiki/concepts/hongt-lobby-sortie-touch-target-pass]] — 로비 출정 경로 모바일 터치 하한: 카드·행 간격 동반 확장 (2026-08-07)
 - [[wiki/concepts/generator-fallback-that-reports-success]] — 성공을 보고하는 폴백은 자기가 가리는 결함을 영구화한다: 셰이더 이름 오타로 파티클 seed가 수명 내내 미생성, 주석만 존재한 클립 적합, 죽은 메트릭 2회와 미러 테스트 함정 (2026-08-09)
 - [[wiki/concepts/duplicate-table-copies-measure-the-past]] — 계약 표의 사본을 든 프로브/테스트는 자산 교체 후 과거를 측정한다: 트림 테스트가 구 클립 창을 살아있다고 보고, 인용된 측정 기구를 지우면 인용은 주장이 된다 (2026-08-10)
+- [[wiki/concepts/clamped-speed-is-a-silent-truncation]] — 배속 클램프는 조용한 절단: 콤보 2·3타가 4배속 상한에 걸려 43%만 재생, "더 나은 테이크인가"와 "들어맞는가"는 다른 질문. 같은 계열로 런마다 리셋되는 난이도 항은 런을 가로지르는 성장을 상쇄 못 한다 (2026-08-10)
 
 ## Entities
 - [[wiki/entities/hongt-command-agent-sequence-console]] — 명령 에이전트: 텍스트 커맨드 → 순서 있는 시퀀스 → 이벤트 완료마다 다음 단계 (위치순 스캔 · Gate/Ack/Settle · Gemini JSON 계획)
