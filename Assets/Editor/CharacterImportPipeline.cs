@@ -33,17 +33,26 @@ namespace CinderCourt.EditorTools
         // ClipTableTests pins the alignment.
         static readonly (string action, string file, bool loop)[] Clips =
         {
-            ("idle", "Unarmed Idle", true),
+            // 2026-08-10 weapon-family pass (interview-directed): the character
+            // carries a weapon, so unarmed takes read as the wrong FAMILY even
+            // when their arcs measure fine (same root as the boxing-attack
+            // defect fixed at 1742c10). idle/bighit/die/show swapped to
+            // generated takes triaged VISUALLY from rendered previews —
+            // action ids are opaque, so the eye does family judgement and the
+            // probes do fit judgement. Map: mesh-gen/manifest.json.
+            // hit/move/run stay: no weapon-family candidate harvested yet
+            // (flinch ~170s band unexplored, locomotion band unknown).
+            ("idle", "Combat Idle", true),
             ("move", "Walking", true),
             ("run", "Running", true),
             ("hit", "Standing React Small From Left", false),
-            ("bighit", "Knock Down 1", false),
+            ("bighit", "Abdominal Hit Fall", false),
             ("attack", "Charged Slash", false),
             ("critical", "Thrust Slash", false),
             ("avoid", "Dodging", false),
             ("defence", "Shield Push Left", false),
-            ("die", "Dying", false),
-            ("show", "Mutant Roaring", false),
+            ("die", "Shot In The Back", false),
+            ("show", "Angry Ground Stomp", false),
             // --- View-only substates (index > ActorAction range) ---
             ("attack2", "Axe Spin Attack", false),                   // #9 combo 2nd
             ("attack3", "Weapon Combo 2", false),                    // #9 combo 3rd
@@ -174,7 +183,19 @@ namespace CinderCourt.EditorTools
             ("attack2", 30, 37),
             ("attack3", 45, 55),
             ("critical", 58, 68),
+            // show 8..34 is RE-MEASURED for Angry Ground Stomp (2026-08-10),
+            // not inherited from Mutant Roaring: ClipWindowProbe motion
+            // f22-24 sits inside it and 26 f = 1.083 s fits RoarDuration.
+            // That the numbers coincide with the old row is coincidence —
+            // a stale trim on a swapped take is the trap 1742c10 hit.
             ("show", 8, 34),
+            // bighit is a SURVIVAL reaction but Abdominal Hit Fall plays to
+            // fully dead. Hips-height curve (Blender, mesh-gen manifest):
+            // impact recoil f6-10 (1.18), crumple starts f22 (0.68), ground
+            // f50+ (0.2). 0..20 keeps impact + bend (hips 0.79) and stops
+            // before any floor contact; the bent-over last frame holds as
+            // the stun pose until the sim releases the state.
+            ("bighit", 0, 20),
             ("cast", 23, 30),
         };
 

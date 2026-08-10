@@ -1,14 +1,27 @@
 {
-  "measuredAt": "2026-08-09T13:20:28Z",
+  "measuredAt": "2026-08-10T07:10:49Z",
   "rig": "Characters/human-command-boss",
   "method": "AnimationClip.SampleAnimation at 1/60 s onto the humanoid rig, tracking the fastest-moving hand relative to the hips. Peak frame = the readable moment; window = the contiguous span above 45% of peak speed. Frames are reported in the clip's own frame rate.",
   "clips": [
-    {"file": "Mutant Roaring", "frameRate": 24, "lengthSeconds": 5.4167, "frames": 130, "peakFrame": 21, "peakSpeed": 1.9634, "windowFirstFrame": 15, "windowLastFrame": 28, "windowSeconds": 0.5667, "preambleFraction": 0.1169, "speedSpread": 1.8979},
-    {"file": "Standing 2H Magic Attack 01", "frameRate": 24, "lengthSeconds": 2.7083, "frames": 65, "peakFrame": 27, "peakSpeed": 10.4759, "windowFirstFrame": 26, "windowLastFrame": 28, "windowSeconds": 0.1333, "preambleFraction": 0.3938, "speedSpread": 10.2883},
+    {"file": "Combat Idle", "frameRate": 24, "lengthSeconds": 6, "frames": 144, "peakFrame": 18, "peakSpeed": 0.0574, "windowFirstFrame": 14, "windowLastFrame": 25, "windowSeconds": 0.5, "preambleFraction": 0.0944, "speedSpread": 0.0545},
+    {"file": "Walking", "frameRate": 24, "lengthSeconds": 1.375, "frames": 33, "peakFrame": 13, "peakSpeed": 1.7694, "windowFirstFrame": 8, "windowLastFrame": 18, "windowSeconds": 0.4167, "preambleFraction": 0.2545, "speedSpread": 1.4541},
+    {"file": "Running", "frameRate": 24, "lengthSeconds": 1.25, "frames": 30, "peakFrame": 2, "peakSpeed": 0.9382, "windowFirstFrame": 0, "windowLastFrame": 3, "windowSeconds": 0.1167, "preambleFraction": 0.0133, "speedSpread": 0.7949},
     {"file": "Standing React Small From Left", "frameRate": 24, "lengthSeconds": 0.75, "frames": 18, "peakFrame": 2, "peakSpeed": 3.9785, "windowFirstFrame": 0, "windowLastFrame": 2, "windowSeconds": 0.0833, "preambleFraction": 0.0222, "speedSpread": 3.8234},
-    {"file": "Receive Uppercut To The Face", "frameRate": 24, "lengthSeconds": 1.25, "frames": 30, "peakFrame": 2, "peakSpeed": 2.1141, "windowFirstFrame": 2, "windowLastFrame": 3, "windowSeconds": 0.0833, "preambleFraction": 0.0533, "speedSpread": 2.1058},
+    {"file": "Abdominal Hit Fall", "frameRate": 24, "lengthSeconds": 3.5, "frames": 84, "peakFrame": 16, "peakSpeed": 17.7883, "windowFirstFrame": 15, "windowLastFrame": 16, "windowSeconds": 0.0333, "preambleFraction": 0.181, "speedSpread": 17.6157},
+    {"file": "Charged Slash", "frameRate": 24, "lengthSeconds": 0.2917, "frames": 7, "peakFrame": 4, "peakSpeed": 37.1838, "windowFirstFrame": 4, "windowLastFrame": 4, "windowSeconds": 0.0167, "preambleFraction": 0.5143, "speedSpread": 35.7417},
+    {"file": "Thrust Slash", "frameRate": 24, "lengthSeconds": 0.4167, "frames": 10, "peakFrame": 4, "peakSpeed": 37.7491, "windowFirstFrame": 4, "windowLastFrame": 5, "windowSeconds": 0.0333, "preambleFraction": 0.44, "speedSpread": 37.4832},
     {"file": "Dodging", "frameRate": 24, "lengthSeconds": 1.625, "frames": 39, "peakFrame": 21, "peakSpeed": 1.8836, "windowFirstFrame": 18, "windowLastFrame": 25, "windowSeconds": 0.3167, "preambleFraction": 0.4615, "speedSpread": 1.8549},
+    {"file": "Shield Push Left", "frameRate": 24, "lengthSeconds": 2.4167, "frames": 58, "peakFrame": 10, "peakSpeed": 43.1437, "windowFirstFrame": 10, "windowLastFrame": 10, "windowSeconds": 0.0333, "preambleFraction": 0.1655, "speedSpread": 43.0384},
+    {"file": "Shot In The Back", "frameRate": 24, "lengthSeconds": 4.6667, "frames": 112, "peakFrame": 66, "peakSpeed": 3.7973, "windowFirstFrame": 62, "windowLastFrame": 69, "windowSeconds": 0.3333, "preambleFraction": 0.55, "speedSpread": 3.7803},
+    {"file": "Angry Ground Stomp", "frameRate": 24, "lengthSeconds": 1.4167, "frames": 34, "peakFrame": 24, "peakSpeed": 5.1337, "windowFirstFrame": 22, "windowLastFrame": 24, "windowSeconds": 0.1333, "preambleFraction": 0.6353, "speedSpread": 4.9009},
+    {"file": "Axe Spin Attack", "frameRate": 24, "lengthSeconds": 0.2917, "frames": 7, "peakFrame": 4, "peakSpeed": 37.7333, "windowFirstFrame": 3, "windowLastFrame": 4, "windowSeconds": 0.0333, "preambleFraction": 0.4571, "speedSpread": 37.1094},
+    {"file": "Weapon Combo 2", "frameRate": 24, "lengthSeconds": 0.4167, "frames": 10, "peakFrame": 8, "peakSpeed": 20.615, "windowFirstFrame": 7, "windowLastFrame": 8, "windowSeconds": 0.05, "preambleFraction": 0.72, "speedSpread": 19.3776},
+    {"file": "Standing 2H Magic Attack 01", "frameRate": 24, "lengthSeconds": 0.2917, "frames": 7, "peakFrame": 4, "peakSpeed": 10.2738, "windowFirstFrame": 2, "windowLastFrame": 6, "windowSeconds": 0.15, "preambleFraction": 0.3429, "speedSpread": 9.0688},
+    {"file": "Standing Melee Attack Horizontal", "frameRate": 24, "lengthSeconds": 0.5, "frames": 12, "peakFrame": 8, "peakSpeed": 11.069, "windowFirstFrame": 1, "windowLastFrame": 9, "windowSeconds": 0.35, "preambleFraction": 0.0667, "speedSpread": 8.984},
     {"file": "Body Block", "frameRate": 24, "lengthSeconds": 3.4167, "frames": 82, "peakFrame": 28, "peakSpeed": 2.7726, "windowFirstFrame": 23, "windowLastFrame": 29, "windowSeconds": 0.2667, "preambleFraction": 0.2829, "speedSpread": 2.681},
-    {"file": "Standing Melee Attack Horizontal", "frameRate": 24, "lengthSeconds": 0.5, "frames": 12, "peakFrame": 8, "peakSpeed": 11.069, "windowFirstFrame": 1, "windowLastFrame": 9, "windowSeconds": 0.35, "preambleFraction": 0.0667, "speedSpread": 8.984}
+    {"file": "Receive Uppercut To The Face", "frameRate": 24, "lengthSeconds": 1.25, "frames": 30, "peakFrame": 2, "peakSpeed": 2.1141, "windowFirstFrame": 2, "windowLastFrame": 3, "windowSeconds": 0.0833, "preambleFraction": 0.0533, "speedSpread": 2.1058},
+    {"file": "Illegal Elbow Punch", "frameRate": 24, "lengthSeconds": 2.25, "frames": 54, "peakFrame": 14, "peakSpeed": 4.6114, "windowFirstFrame": 12, "windowLastFrame": 16, "windowSeconds": 0.2, "preambleFraction": 0.2222, "speedSpread": 4.5845},
+    {"file": "Hook Punch", "frameRate": 24, "lengthSeconds": 2.1667, "frames": 52, "peakFrame": 23, "peakSpeed": 9.2976, "windowFirstFrame": 20, "windowLastFrame": 25, "windowSeconds": 0.2167, "preambleFraction": 0.3923, "speedSpread": 9.086},
+    {"file": "Standing Melee Combo Attack Ver. 2", "frameRate": 24, "lengthSeconds": 4.2083, "frames": 101, "peakFrame": 60, "peakSpeed": 9.6196, "windowFirstFrame": 58, "windowLastFrame": 65, "windowSeconds": 0.2833, "preambleFraction": 0.5782, "speedSpread": 9.4874}
   ]
 }
