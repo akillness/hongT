@@ -62,6 +62,19 @@
   "sample_batch_20260810b": {
     "purpose": "무기 가족 피격/사망/이동 후보 탐사 — 미지 대역 10개 id",
     "jobs": "sample-batch-20260810b.txt (id 180 185 188 210 215 218 225 228 250 260 → 잡ID 매핑)",
-    "harvest": "완료 후 다운로드→인스펙트→프리뷰 렌더→트리아지 반복. 수확 전에는 어떤 id도 배치하지 말 것"
+    "harvested_20260810": {
+      "180": {"action": "Shot_in_the_Back_and_Fall", "seconds": 4.67, "triage": "FIT — die 1순위: 스탠드→휘청→완전 도복 아크가 깨끗"},
+      "185": {"action": "Shot_and_Slow_Fall_Backward", "seconds": 4.43, "triage": "FIT — die 변주/bighit 후보 (후방 붕괴)"},
+      "188": {"action": "Fall_Dead_from_Abdominal_Injury", "seconds": 3.50, "triage": "FIT — bighit 후보: 복부 클러치 리액션이 전반부"},
+      "210": {"action": "Boxing_Guard_Prep_Straight_Punch", "triage": "REJECT 복싱"},
+      "215": {"action": "High_Kick", "triage": "REJECT 킥"},
+      "218": {"action": "Step_in_High_Kick", "triage": "REJECT 킥"},
+      "225": {"action": "Archery_Shot_1", "triage": "REJECT 활"},
+      "228": {"action": "Walk_Forward_with_Bow_Aimed", "triage": "REJECT 활 보행 (일반 보행 아님)"},
+      "250": {"action": "Idle_10", "seconds": 3.67, "triage": "idle 변주 보류"},
+      "260": {"action": "Push_Forward_and_Stop", "seconds": 2.60, "triage": "defence/스태거 대안 보류"}
+    },
+    "band_map_updated": "사망/리액션 180~188 · 펀치 195~210 · 킥 215~218 · 방패 220 · 활 225~236 · 무기 237~242 · 아이들 243~252 · 스톰프 255 · 푸시 260 · 수면 265~270",
+    "remaining_gaps": "작은 hit(flinch) — 170~179 대역 탐사 후보. 무기 move/run — 대역 미상, 추가 탐사 필요"
   }
 }
