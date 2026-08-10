@@ -201,9 +201,10 @@ namespace CinderCourt.EditorTools
             // frames of the take are ever seen. Abdominal Hit Fall's most
             // expressive span is the impact recoil — hips-height curve
             // (mesh-gen/hips-height.json): rise to 1.18 at f8-10, crumple
-            // from f22, floor f50+. 4..11 shows exactly that recoil and, as
-            // a guard, keeps every floor-contact frame of a to-death take
-            // unreachable even if the knockback window ever grows.
+            // from f22, FIRST floor contact f28 (0.33), final floor f50+.
+            // 4..11 shows exactly that recoil and, as a guard, sits 17
+            // frames clear of the earliest floor contact even if the
+            // knockback window ever grows.
             ("bighit", 4, 11),
             // die must fit ENEMY death, not the player's: enemies despawn
             // after SimConfig.EnemyFade = 0.34 s (8 f) of shrink-fade, so an

@@ -178,5 +178,41 @@
     },
     "guard": "ClipTrimFitTests.SwingClipsDescribeAnArcNotAJab, floor 400 deg/s — just under the Mixamo reference, so a take as weak as the one this project shipped for months still passes and a punch does not. Mutation-proved: reverting attack to Punch Combo 1 turns it RED with the measured number.",
     "credits": "16 library probes x 8 = 128"
+  },
+  "thirdPass_2026_08_10": {
+    "why": "인터뷰 확정(전 계열 무기 가족 통일) 1차분 + 아키텍트 리뷰 수정. 이 블록이 adopted/trims의 idle·bighit·die·show 항목을 대체한다(§4i — 이 파일의 현재 상태 독법은 마지막 패스 블록이 우선).",
+    "adopted": {
+      "idle": {
+        "id": 252,
+        "source": "Idle_12",
+        "file": "Combat Idle",
+        "displaced": "Unarmed Idle"
+      },
+      "bighit": {
+        "id": 188,
+        "source": "Fall_Dead_from_Abdominal_Injury",
+        "file": "Abdominal Hit Fall",
+        "displaced": "Knock Down 1"
+      },
+      "die": {
+        "id": 180,
+        "source": "Shot_in_the_Back_and_Fall",
+        "file": "Shot In The Back",
+        "displaced": "Dying"
+      },
+      "show": {
+        "id": 255,
+        "source": "Angry_Ground_Stomp",
+        "file": "Angry Ground Stomp",
+        "displaced": "Mutant Roaring"
+      }
+    },
+    "trims": {
+      "show": "8..34 재측정(스톰프 모션 f22-24, 1.083s=RoarDuration) — 구 로어 창과 수치 일치는 우연",
+      "bighit": "4..11 — 표시창은 View 노크백 0.18/0.26s뿐이라 트림이 표시 프레임을 고른다. 리코일 피크 f8-10 포함, 사망 테이크의 바닥 접촉 차단. 측정: mesh-gen/hips-height.json",
+      "die": "62..70 — 적 사망 표시창 SimConfig.EnemyFade 0.34s에 무릎→도복 8f=0.333s 정합. 측정: mesh-gen/hips-height.json",
+      "supersedes": "secondPass까지의 trims.untrimmed.bighit 서술과 adopted.bighit(190 Knock_Down_1)은 이 패스로 폐기"
+    },
+    "guards": "ClipTrimFitTests: DieClip_TrimFitsTheEnemyFadeWindow · BigHitClip_TrimStaysInsideTheKnockbackWindow · WeaponFamilySwap_FileAssignmentsArePinned — 변이 증명 3건 RED(test-results-163840.xml) 후 원복(163732.xml 초록)"
   }
 }
