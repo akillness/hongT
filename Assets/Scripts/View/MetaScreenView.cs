@@ -444,7 +444,7 @@ namespace CinderCourt.View
         {
             var buttonObject = Panelled(parent, anchor, anchor, anchored, size, ButtonBack);
             buttonObject.GetComponent<Image>().raycastTarget = true;
-            var plate = plated ? Resources.Load<Sprite>("Icons/ui-button") : null;
+            var plate = plated ? IconSprites.Load("ui-button") : null;
             if (plate != null)
             {
                 var image = buttonObject.GetComponent<Image>();

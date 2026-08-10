@@ -2216,7 +2216,7 @@ namespace CinderCourt.View
             if (_camera == null) _camera = Camera.main;
             if (_pickupIconMaterials[kind] == null)
             {
-                var icon = Resources.Load<Sprite>("Icons/" + PickupIcons[kind]);
+                var icon = IconSprites.Load(PickupIcons[kind]);
                 if (icon == null) return null;
                 // No tint: the icons carry their own palette (ember orange /
                 // amber / cyan / gold) - a multiply tint would shift them.

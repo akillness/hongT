@@ -1223,13 +1223,10 @@ namespace CinderCourt.View
         /// its not-found warning: this sprite is optional by design, so a miss
         /// is not worth a log line every time the HUD builds.
         /// </summary>
-        static Sprite TryLoadOptionalSprite(string iconKey)
-        {
-            var sprite = Resources.Load<Sprite>($"Icons/regenerated/{iconKey}");
-            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/generated/{iconKey}");
-            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/{iconKey}");
-            return sprite;
-        }
+        // Chain lives in IconSprites — this was the only site that walked it
+        // before 2026-08-10, and keeping a private copy here is exactly the
+        // duplicate-table trap (§4i / duplicate-table-copies wiki entry).
+        static Sprite TryLoadOptionalSprite(string iconKey) => IconSprites.Load(iconKey);
 
         void SelectEmberRestOffer(int offerIndex)
         {
@@ -2605,7 +2602,7 @@ namespace CinderCourt.View
                 // fills the square, same as any other icon Image. The
                 // existing per-frame Color tint below keeps dimming/
                 // lighting it exactly as before, now over real art.
-                var pipGem = Resources.Load<Sprite>("Icons/hud-combo-pip-gem");
+                var pipGem = IconSprites.Load("hud-combo-pip-gem");
                 if (pipGem != null) _comboPips[i].sprite = pipGem;
 
             }
@@ -3281,7 +3278,7 @@ namespace CinderCourt.View
         static Image ApplyFrameOverlay(Transform parent, string frameSpriteId)
         {
             if (frameSpriteId == null) return null;
-            var frame = Resources.Load<Sprite>("Icons/" + frameSpriteId);
+            var frame = IconSprites.Load(frameSpriteId);
             if (frame == null) return null;   // missing sprite keeps the flat-color fallback
             var frameObject = new GameObject("Frame");
             frameObject.transform.SetParent(parent, false);
@@ -3445,7 +3442,7 @@ namespace CinderCourt.View
             buttonObject.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             // 9-slice ember plate (release skin). Falls back to the flat fill
             // when the sprite is absent so the HUD never regresses to quads.
-            var plate = Resources.Load<Sprite>("Icons/ui-button");
+            var plate = IconSprites.Load("ui-button");
             if (plate != null)
             {
                 var image = buttonObject.GetComponent<Image>();
@@ -3467,7 +3464,7 @@ namespace CinderCourt.View
             var textInset = 0f;
             if (iconId != null)
             {
-                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                var sprite = IconSprites.Load(iconId);
                 if (sprite != null)   // missing sprite would render a white quad
                 {
                     var square = size.y >= size.x - 1f;   // phone tier is 92x92
@@ -3533,7 +3530,7 @@ namespace CinderCourt.View
             // cooldown overlay (created last, full-stretch) still darkens it.
             if (iconId != null)
             {
-                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                var sprite = IconSprites.Load(iconId);
                 if (sprite != null)   // missing sprite would render a white quad
                 {
                     var iconObject = new GameObject("Icon");
@@ -3718,7 +3715,7 @@ namespace CinderCourt.View
             var spriteObject = new GameObject(iconId);
             spriteObject.transform.SetParent(parent, false);
             var image = spriteObject.AddComponent<Image>();
-            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            var sprite = IconSprites.Load(iconId);
             if (sprite != null)
             {
                 image.sprite = sprite;
@@ -4271,9 +4268,9 @@ namespace CinderCourt.View
         {
             if (frame == null) return;
             if (_skillFrameNormalSprite == null)
-                _skillFrameNormalSprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame");
+                _skillFrameNormalSprite = IconSprites.Load("hud-skill-card-frame");
             if (_skillFrameReadySprite == null)
-                _skillFrameReadySprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame-ready");
+                _skillFrameReadySprite = IconSprites.Load("hud-skill-card-frame-ready");
             var target = ready ? _skillFrameReadySprite : _skillFrameNormalSprite;
             if (target != null && frame.sprite != target) frame.sprite = target;
         }

@@ -461,7 +461,7 @@ namespace CinderCourt.View
                 // Glyph above it. The caption is not decoration: three fantasy
                 // silhouettes at 45 px are recognition, and recognition is not
                 // the same as knowing which one you have not opened yet.
-                var sprite = Resources.Load<Sprite>("Icons/" + RailIconIds[i]);
+                var sprite = IconSprites.Load(RailIconIds[i]);
                 if (sprite != null)   // Image without sprite = white quad
                 {
                     var glyphObject = new GameObject("Glyph");
@@ -1542,7 +1542,7 @@ namespace CinderCourt.View
                 var card = Card(body, -slot * CardPitch, 68);
                 _stageCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
-                var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
+                var glyphSprite = IconSprites.Load(entry.HazardIcon);
                 if (glyphSprite != null)
                 {
                     var glyphObject = new GameObject("HazardGlyph");
@@ -2159,7 +2159,7 @@ namespace CinderCourt.View
         /// <summary>36px sprite at the row's left edge; no-op when missing.</summary>
         void RowIcon(Transform row, string iconId)
         {
-            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            var sprite = IconSprites.Load(iconId);
             if (sprite == null) return;   // Image without sprite = white quad
             var iconObject = new GameObject("Icon");
             iconObject.transform.SetParent(row, false);
@@ -2205,7 +2205,7 @@ namespace CinderCourt.View
             // 9-slice ember plate for stateless action buttons. Stateful groups
             // (tabs, roster) keep the flat fill because Refresh/SelectTab drive
             // Image.color as the state signal - a sprite would multiply-tint.
-            var plate = plated ? Resources.Load<Sprite>("Icons/ui-button") : null;
+            var plate = plated ? IconSprites.Load("ui-button") : null;
             if (plate != null)
             {
                 var image = buttonObject.GetComponent<Image>();
