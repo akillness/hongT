@@ -884,6 +884,71 @@ namespace CinderCourt.Tests
                     $"restored combat touch target cannot receive taps: {Path(target)}");
             }
         }
+        /// <summary>The combat touch controls against the accessibility floor
+        /// (SIM_SPEC_HACKSLASH §9: 버튼 최소 44px).
+        ///
+        /// The lobby got this audit in cycle-9 and grew a frozen debt table
+        /// from it. The COMBAT HUD never did — the test above proves the three
+        /// targets exist, are active and can receive a tap, and stops there.
+        /// "Tappable" and "reachable with a thumb" are different questions, and
+        /// only the first was ever asked.
+        ///
+        /// Measured at the same basis as LobbyLayoutTests so the two audits are
+        /// comparable: 390x844 portrait, 0.488 CSS px per canvas unit. A pass
+        /// here is not a claim about the 375x667 support floor (0.4383) — the
+        /// lobby file registers that gap and this one inherits it.</summary>
+        [Test]
+        public void CombatTouchTargets_ClearThe44CssPxTouchFloor()
+        {
+            const float MinCssPx = 44f;
+            var input = _hudObject.AddComponent<InputAdapter>();
+            _hud.Input = input;
+            ArrangePhone(dungeon: true);
+
+            var targets = new List<RectTransform>();
+            _hud.CollectCombatTouchTargetsForTest(targets);
+            Assert.That(targets, Is.Not.Empty,
+                "no combat touch targets exist, so this audit would measure nothing");
+
+            var report = new System.Text.StringBuilder();
+            var undersized = new List<string>();
+            // Two bands, because the unit size is the contract and px is
+            // downstream of it. 0.488 is this file's basis (390x844 fill);
+            // 0.4383 is the 375x667 iPhone SE2 support floor, which is a
+            // SHIPPING configuration and the tighter of the two. LobbyLayoutTests
+            // registered that band and declined to assert it — re-basing there
+            // moves every row of a frozen debt table at once. This audit is new
+            // and carries no table, so it measures the real floor.
+            var bands = new (float cssPerUnit, string at)[]
+            {
+                (SpecCssPerUnit, "390x844 fill"),
+                (0.4383f, "375x667 support floor"),
+            };
+            foreach (var target in targets)
+            {
+                var rect = WorldRect(target);
+                report.Append($"  {Path(target),-42} {rect.width,6:F1} x {rect.height,6:F1} u");
+                foreach (var (cssPerUnit, at) in bands)
+                {
+                    var wPx = rect.width * cssPerUnit;
+                    var hPx = rect.height * cssPerUnit;
+                    report.Append($"   {wPx,5:F1}x{hPx,5:F1} @{at}");
+                    if (wPx < MinCssPx || hPx < MinCssPx)
+                        undersized.Add($"{Path(target)} {wPx:F1}x{hPx:F1} px @{at}");
+                }
+                report.Append('\n');
+            }
+
+            TestContext.WriteLine($"[combat touch-floor audit, floor {MinCssPx} CSS px, "
+                + $"{targets.Count} controls, {bands.Length} bands]\n{report}");
+
+            Assert.That(undersized, Is.Empty,
+                "combat touch targets under the 44 CSS px floor. These are the "
+                + "controls a player holds for an ENTIRE RUN — unlike the lobby's "
+                + "one-tap actions, an undersized one is felt every second of "
+                + "play. Fix the UNIT size, not the px: px is downstream of the "
+                + "band.\n" + string.Join("\n", undersized) + "\n\nMeasured:\n" + report);
+        }
 
         [Test]
         public void PhoneEmberRest_OffersThreeEffects_WithReplacementWordingAnd44PxActions()

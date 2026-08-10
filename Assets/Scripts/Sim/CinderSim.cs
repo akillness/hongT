@@ -3407,9 +3407,16 @@ namespace CinderCourt.Sim
                 // AMENDMENT #13 §17.2: a mob wave is bought from the point budget
                 // instead of the fixed 3 + floor(wave*1.2) queue. The boss wave keeps
                 // the frozen boss + escort formula — the budget never buys a boss.
+                //
+                // §17.4 (2026-08-10): the budget also carries the CAMPAIGN stage,
+                // because player power compounds across a campaign and a
+                // stage-blind budget made the last stage 0.67x the relative
+                // difficulty of the first. Arena and prologue are not campaigns
+                // and pass 0, which is the pre-existing shape exactly.
+                var stageTerm = _campaign ? _config.StageIndex : 0;
                 if (_progression.AdaptiveWaves && !_pendingBoss)
                 {
-                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand, stageTerm);
                     _waveEliteAllowance = WaveBudgetSpec.EliteAllowanceForBudget(_waveBudget);
                     _pendingSpawns = Math.Min(
                         SimConfig.EnemyCap, WaveBudgetSpec.SpawnCountForBudget(_waveBudget));
@@ -3418,7 +3425,7 @@ namespace CinderCourt.Sim
                 {
                     // Boss wave: the budget is still published (the HUD band readout
                     // must not blank out) but it buys nothing.
-                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand);
+                    _waveBudget = WaveBudgetSpec.EffectiveBudget(waveNumber, _ddaBand, stageTerm);
                     _waveEliteAllowance = 0;
                 }
             }

@@ -3644,13 +3644,26 @@ namespace CinderCourt.View
             // button (later sibling = topmost raycast) wins over the catch
             // surface.
             //
-            // Touch-target floor (spec #6): CSS px per canvas unit equals the
-            // CanvasScaler factor divided by devicePixelRatio, and with
-            // ScaleWithScreenSize that quotient is DPR-invariant — it is the
-            // scale factor of the CSS viewport itself. Worst measured case
-            // (390 CSS width portrait, match 0.35) gives 0.488 CSS px/u, so
-            // 44 CSS pt needs >=90 u: base 180 u (88 px), strike 110 u
-            // (54 px), dash 96 u (47 px) all clear the floor.
+            // Touch-target floor (spec #6 / SIM_SPEC_HACKSLASH §9: 44 CSS px):
+            // CSS px per canvas unit equals the CanvasScaler factor divided by
+            // devicePixelRatio, and with ScaleWithScreenSize that quotient is
+            // DPR-invariant — it is the scale factor of the CSS viewport.
+            //
+            // TWO bands matter, and an earlier version of this comment only
+            // knew the first:
+            //   0.488 px/u   390x844 portrait fill
+            //   0.4383 px/u  375x667, the iPhone SE2 support floor
+            // 44 px needs >= 90 u at 0.488 but >= 100.4 u at 0.4383. MEASURED
+            // 2026-08-10 (HudLayoutTests.CombatTouchTargets_ClearThe44CssPxTouchFloor):
+            //   joystick 260 u -> 126.9 / 114.0 px   clears both
+            //   strike   110 u ->  53.7 /  48.2 px   clears both
+            //   dash      96 u ->  46.8 /  42.1 px   FAILED the support floor
+            // Dash is now 102 u (49.8 / 44.7 px). It grows UPWARD only — the
+            // pivot is (1,0), so the bottom edge stays at y=272 and the 12 u
+            // gap to strike's top (150+110=260) is untouched. Growing the hit
+            // area alone would have been the wrong fix if it had collided:
+            // visual, hit target and pitch move together or not at all
+            // (wiki: hongt-lobby-sortie-touch-target-pass).
             _touchJoystickRoot = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
                 new Vector2(0, 0), new Vector2(260, 260), new Color(0f, 0f, 0f, 0f));
             var catchPanel = _touchJoystickRoot;
@@ -3681,14 +3694,14 @@ namespace CinderCourt.View
             // dash — the SHIFT card sits outside the right-thumb arc. 24 u+
             // gap to strike guards against mis-taps.
             var dash = Panel(root, new Vector2(1, 0), new Vector2(1, 0),
-                new Vector2(-24, 272), new Vector2(96, 96),
+                new Vector2(-24, 272), new Vector2(102, 102),
                 new Color(0.17f, 0.68f, 0.84f, 0.4f));
             dash.GetComponent<Image>().raycastTarget = true;   // TouchHold hit surface
             _dashTouchRect = dash.GetComponent<RectTransform>();
             _dashTouchRect.pivot = new Vector2(1, 0);
             var dashTouch = dash.AddComponent<TouchHold>();
             dashTouch.OnStateChanged = state => { if (state) Input.QueueDash(); };
-            Label(dash.transform, 0, 0, 96, 96, "질주", 18, TextAnchor.MiddleCenter);
+            Label(dash.transform, 0, 0, 102, 102, "질주", 18, TextAnchor.MiddleCenter);
             dash.SetActive(false);   // SyncTouchModeSurfaces enables in dungeon
 
             _touchActive = true;

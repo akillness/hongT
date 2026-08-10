@@ -113,14 +113,36 @@ namespace CinderCourt.EditorTools
         // 3.00 s is windup and the strike is the last 2 frames, so untrimmed it
         // would be clamped to MaxPoseSpeed 4x and still show only the windup.
         //
-        // attack2 / attack3 / defence / bighit stay untrimmed: each has LESS
-        // preamble than the take it replaced (22.3 vs 39.2, 32.6 vs 57.8,
-        // 16.6 vs 28.3, 23.8 vs 5.3 percent) and none is squeezed into a fixed
-        // pose window — bighit is the one that got worse and it is a reaction
-        // that plays at its authored pace.
+        // attack2 / attack3 ALSO need rows, and the claim that they did not was
+        // wrong. It compared PREAMBLE against the takes they replaced (22.3 vs
+        // 39.2, 32.6 vs 57.8 percent) — the right comparison for "is this take
+        // better", the wrong one for "does it fit". Both are combo swings and
+        // ActorView.ResolvePoseSpeed squeezes them into HackSpec.ComboSwing:
+        //   attack2  1.79 s into 0.30 s -> 4.00x (MaxPoseSpeed clamp), 93% shown
+        //   attack3  3.83 s into 0.42 s -> 4.00x clamp,                43% shown
+        // A 4x swing is a twitch, and the clamp means it does not even finish.
+        // The takes they displaced were in the same state (Hook Punch 4.00x,
+        // Standing Melee Combo 4.00x) so this is inherited, not introduced —
+        // it is still wrong. MEASURED 2026-08-10 by ClipWindowProbe.
+        //
+        // Windows are per combo index, not the arena's 0.4167:
+        //   hit 2  ComboSwing[1] 0.30 s = 7 f, active 0.10..0.22 s
+        //     Right Upper Hook motion f10-14 peak f13 -> 8..15,
+        //     motion at 0.083..0.250 s, pose speed 0.97x
+        //   hit 3  ComboSwing[2] 0.42 s = 10 f, active 0.14..0.30 s
+        //     Punch Combo 5 motion f30-34 peak f33 -> 27..37,
+        //     motion at 0.125..0.292 s, pose speed 0.99x
+        // Each window is centred on the sim's own active span, so the strike is
+        // live while the arm is actually travelling.
+        //
+        // defence / bighit stay untrimmed: neither is squeezed into a fixed
+        // pose window (PoseValueForClip returns -1 for them, so pose speed
+        // stays 1), and both play at their authored pace.
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
             ("attack", 13, 23),
+            ("attack2", 8, 15),
+            ("attack3", 27, 37),
             ("critical", 58, 68),
             ("show", 8, 34),
             ("cast", 23, 30),

@@ -1,0 +1,16 @@
+{
+  "asset": "act-boundary cinematics",
+  "date": "2026-08-10",
+  "tool": "Higgsfield kling2_6 image-to-video, seeded with the act's closing stage art",
+  "why": "user request: 3개 스테이지 끝나면 넘어갈때 시네마틱영상 적용",
+  "mapping": {
+    "act1": "cleared abyss-chancel (catalog index 2) -> cinder-court-act1.mp4",
+    "act2": "cleared ash-verdict (index 5) -> cinder-court-act2.mp4",
+    "act3": "cleared ash-march (index 8) -> cinder-court-act3.mp4",
+    "derivation": "(CatalogIndex + 1) % 3 == 0, not a hardcoded id list, so a tenth stage extends the pattern instead of silently never firing"
+  },
+  "placement": "EnterLobby, NOT the StageCleared handler. The victory card is still up when StageCleared fires and the scene is still live; EnterLobby runs after _game.EndRun(). Same 'nothing underneath' test the boot reels had to pass. EnterLobby is also where death and abandon land, which is why the reel is LATCHED by the clear rather than triggered by arrival.",
+  "narration": "watcher voice, second person, one line per act — same grammar as StoryCatalog.StageStart",
+  "size": "733 + 795 + 597 KB, 720p H.264 no audio",
+  "verification": "ActCinematicTests: boundary mapping mutation-proved (case 2 -> case 3 turns ActsEndOnTheThirdSixthAndNinthStage RED)"
+}

@@ -271,6 +271,28 @@ namespace CinderCourt.Tests
             Assert.That(spoken.Narration, Is.EqualTo("한 줄"));
         }
 
+        /// <summary>Act cinematics ship and are distinct. Same argument as the
+        /// boot reels: a missing clip degrades to silence by design, so this is
+        /// the only thing that can report it.</summary>
+        [Test]
+        public void ActCinematicsShipAndAreDistinct()
+        {
+            var acts = new[]
+            {
+                IntroVideoView.Act1ClipRelativePath,
+                IntroVideoView.Act2ClipRelativePath,
+                IntroVideoView.Act3ClipRelativePath,
+            };
+            Assert.That(acts, Is.Unique, "three acts, three reels");
+            foreach (var reel in acts)
+            {
+                var path = System.IO.Path.Combine(Application.streamingAssetsPath, reel);
+                Assert.That(System.IO.File.Exists(path), Is.True, $"missing act reel: {path}");
+                Assert.That(new System.IO.FileInfo(path).Length, Is.GreaterThan(100_000),
+                    $"{reel} is a git-lfs pointer or truncated, not a video");
+            }
+        }
+
         /// <summary>A missing clip degrades to "no intro" in complete silence
         /// by design, so nothing at runtime will ever tell us a story reel
         /// failed to ship. This is the only place that can.</summary>

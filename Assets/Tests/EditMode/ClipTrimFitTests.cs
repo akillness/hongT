@@ -23,6 +23,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using CinderCourt.Sim;
 using CinderCourt.View;
 using NUnit.Framework;
 using UnityEditor;
@@ -181,6 +182,61 @@ namespace CinderCourt.Tests
                 Assert.That(defined.lastFrame, Is.EqualTo(row.last).Within(0.5f),
                     $"{action}: importer lastFrame disagrees with the ClipTrims row");
             }
+        }
+        /// <summary>Every swing the player sees must play at a readable speed.
+        ///
+        /// ActorView.ResolvePoseSpeed squeezes each swing clip into the sim's
+        /// own window (HackSpec.ComboSwing per combo index in a dungeon, the
+        /// fixed 5-frame attack window in the arena) and CLAMPS at
+        /// MaxPoseSpeed 4. The clamp is the trap: it is silent, and a clip that
+        /// needs more than 4x does not merely play fast, it does not finish.
+        ///
+        /// MEASURED 2026-08-10: attack2 was 1.79 s into a 0.30 s window (4.00x,
+        /// 93% shown) and attack3 3.83 s into 0.42 s (4.00x, 43% shown). Both
+        /// read as twitches. The takes they displaced were in the same state,
+        /// so nothing in the suite had ever asked this question.
+        ///
+        /// The ceiling here is 1.5x, not 4x: 4x is where the engine gives up,
+        /// which is far past where a human stops reading the swing.</summary>
+        [Test]
+        public void SwingClipsPlayAtAReadableSpeed()
+        {
+            const float ReadableCeiling = 1.5f;
+            // action -> the sim window that action's pose is held for.
+            var windows = new (string action, float window, string where)[]
+            {
+                ("attack",   HackSpec.ComboSwing[0], "dungeon combo hit 1"),
+                ("attack2",  HackSpec.ComboSwing[1], "dungeon combo hit 2"),
+                ("attack3",  HackSpec.ComboSwing[2], "dungeon combo hit 3"),
+                ("critical", HackSpec.ComboSwing[HackSpec.ComboLength - 1],
+                             "dungeon finisher"),
+            };
+
+            foreach (var (action, window, where) in windows)
+            {
+                var file = ClipFileFor(action);
+                Assert.That(file, Is.Not.Null, $"{action} is not in the clip table");
+                var clip = LoadImportedClip($"{MotionDir}/{file}.fbx");
+                Assert.That(clip, Is.Not.Null, $"{file}.fbx has no imported clip");
+
+                var speed = ActorView.PoseSpeed(clip.length, window);
+                Assert.That(speed, Is.LessThanOrEqualTo(ReadableCeiling),
+                    $"{action} ({file}, {clip.length:F2}s) plays at {speed:F2}x in "
+                    + $"the {where} window of {window:F2}s — trim it in ClipTrims "
+                    + "so the swing reads");
+                Assert.That(speed, Is.GreaterThanOrEqualTo(0.6f),
+                    $"{action} plays at {speed:F2}x — a swing slowed this far "
+                    + "drifts out of its own active frames");
+            }
+        }
+
+        /// <summary>The clip Unity actually built, not the importer's intent.</summary>
+        static AnimationClip LoadImportedClip(string path)
+        {
+            foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                if (asset is AnimationClip c && !c.name.StartsWith("__preview"))
+                    return c;
+            return null;
         }
     }
 }

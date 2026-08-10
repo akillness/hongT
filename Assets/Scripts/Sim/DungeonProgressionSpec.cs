@@ -256,7 +256,45 @@ namespace CinderCourt.Sim
         /// <summary>Permille multiplier the band applies to the budget.</summary>
         public static int BandMultiplierPermille(int band) => BandPermille[ClampBand(band) - BandMin];
 
-        /// <summary>Band-scaled point budget. Integer arithmetic end to end.</summary>
+        // --- §17.4 campaign progression term (2026-08-10 balance pass) ---
+        /// <summary>Permille added to the budget per campaign stage index.
+        ///
+        /// MEASURED, and it corrects a sag the DDA band cannot reach. Player
+        /// power compounds across a campaign (meta stats to 10, equipment to
+        /// rank 5) while the wave budget is stage-blind:
+        ///     fully built player   damage 1.69x, health 2.20x -> 3.72x
+        ///     enemy load s0 -> s8                              -> 2.49x
+        /// so the last stage runs at 0.67x the relative difficulty of the
+        /// first. The campaign gets EASIER as it goes.
+        ///
+        /// The DDA band is not the fix: it multiplies every stage by the same
+        /// 1.25x at its ceiling, which shifts the curve without changing its
+        /// slope (0.67 -> 0.80, still sagging). A per-stage term is the missing
+        /// input.
+        ///
+        /// 90 permille per anchor index. The sim knows the SIM ANCHOR index
+        /// (0..5), not the catalog index (0..8) — catalog pairs share an
+        /// anchor — so the ramp is 1.00 / 1.09 / 1.18 / 1.27 / 1.36 / 1.45 and
+        /// the paired stage inherits its partner's step. That leaves stage 8 at
+        /// 2.49 * 1.45 = 3.61x against a 3.72x player: 0.97 relative, flat
+        /// within the resolution the anchor mapping allows.
+        ///
+        /// Dungeon-only by construction: this whole spec is gated behind
+        /// DungeonProgressionConfig, which zeroes for arena, prologue and the
+        /// classic campaign anchors, so no golden digest can see it.</summary>
+        public const int StageProgressionPermille = 90;
+
+        /// <summary>Budget scaled by the DDA band and the campaign stage.</summary>
+        public static int EffectiveBudget(int wave, int band, int stageIndex)
+        {
+            int stage = stageIndex < 0 ? 0 : stageIndex;
+            int stagePermille = 1000 + stage * StageProgressionPermille;
+            long scaled = (long)BaseBudget(wave) * BandMultiplierPermille(band) / 1000;
+            return (int)(scaled * stagePermille / 1000);
+        }
+
+        /// <summary>Band-scaled budget with no campaign term — the arena and
+        /// prologue shape, kept so existing callers and tests read unchanged.</summary>
         public static int EffectiveBudget(int wave, int band)
         {
             return BaseBudget(wave) * BandMultiplierPermille(band) / 1000;

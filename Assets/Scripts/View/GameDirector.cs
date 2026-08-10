@@ -161,6 +161,41 @@ namespace CinderCourt.View
         }
 
         // ------------------------------------------------------------- lobby --
+        // Act cinematic latched by a clear, played by EnterLobby. Null when the
+        // cleared stage did not end an act.
+        string _pendingActReel;
+        string _pendingActNarration;
+
+        /// <summary>Reel + watcher line for a stage that ENDS an act, null
+        /// otherwise.
+        ///
+        /// The catalog is nine stages in three acts of three, so an act ends at
+        /// CatalogIndex 2, 5 and 8. Derived from the index rather than a list
+        /// of ids: a tenth stage appended to the catalog then simply extends
+        /// the pattern instead of silently never firing.
+        ///
+        /// A first clear is not required. Replaying the last stage of an act
+        /// plays its cinematic again — the alternative is a beat the player
+        /// sees exactly once and cannot revisit, and the reel is skippable.</summary>
+        static (string reel, string narration)? ActBeatFor(string stageId)
+        {
+            if (!StageCatalog.TryGet(stageId, out var entry)) return null;
+            switch (entry.CatalogIndex)
+            {
+                case 2:
+                    return (IntroVideoView.Act1ClipRelativePath,
+                        "첫 세 재판이 끝났습니다. 사슬은 느슨해졌을 뿐, 끊어지지 않았습니다.");
+                case 5:
+                    return (IntroVideoView.Act2ClipRelativePath,
+                        "판결은 당신을 향하지 않았습니다. 더 깊은 곳에서 명령이 이어집니다.");
+                case 8:
+                    return (IntroVideoView.Act3ClipRelativePath,
+                        "행진이 멈췄습니다. 등불은 이제 당신의 손에서 다른 길을 밝힙니다.");
+                default:
+                    return null;
+            }
+        }
+
         void EnterLobby()
         {
             _state = State.Lobby;
@@ -186,6 +221,20 @@ namespace CinderCourt.View
             _rig.SetProfile(CameraRig.Profile.Lobby);
             _input.Mode = InputAdapter.Profile.Arena; // inert while lobby UI is up
             _hud.SetHudVisible(false);
+
+            // Act cinematic, latched by the clear that ended an act. It rides
+            // the same overlay as the boot reels (sorting 520) over a lobby
+            // that has already settled, so a failed or missing clip costs the
+            // beat and nothing else — IntroVideoView finishes immediately and
+            // the player is already where they were going.
+            if (_pendingActReel != null && _intro != null)
+            {
+                var reel = _pendingActReel;
+                var line = _pendingActNarration;
+                _pendingActReel = null;
+                _pendingActNarration = null;
+                _intro.PlaySequence(new IntroVideoView.Beat(reel, line));
+            }
         }
 
         /// <summary>
@@ -932,6 +981,16 @@ namespace CinderCourt.View
                 {
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
+                    // An act ends every third stage. Latch it here — where the
+                    // clear is known — and PLAY it in EnterLobby, which is
+                    // after _game.EndRun() and the one moment on this route
+                    // with no sim running underneath. Playing it now would put
+                    // a five-second overlay over the victory card and a live
+                    // scene, the same reason the boot reels are on the boot
+                    // route and not on a stage entry.
+                    var actBeat = ActBeatFor(_runStageId);
+                    _pendingActReel = actBeat?.reel;
+                    _pendingActNarration = actBeat?.narration;
                 }
                 else if (_state == State.Training)
                 {

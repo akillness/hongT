@@ -40,6 +40,21 @@ namespace CinderCourt.View
         /// cannot see. Boot is the one moment nothing runs underneath.</summary>
         public const string ThreatClipRelativePath = "Video/cinder-court-threat.mp4";
 
+        /// <summary>StreamingAssets-relative act cinematics, played from the
+        /// lobby when a clear ends an act (catalog index 2 / 5 / 8).
+        ///
+        /// Each is that act's CLOSING stage art in motion — the chancel going
+        /// quiet, the verdict settling, the march collapsing — so the beat
+        /// reads as the place the player just left rather than a new one.
+        ///
+        /// Lobby, not the clear itself: the victory card is still up when
+        /// StageCleared fires and the scene is still live. EnterLobby runs
+        /// after _game.EndRun(), which is the same "nothing underneath" test
+        /// the boot reels had to pass.</summary>
+        public const string Act1ClipRelativePath = "Video/cinder-court-act1.mp4";
+        public const string Act2ClipRelativePath = "Video/cinder-court-act2.mp4";
+        public const string Act3ClipRelativePath = "Video/cinder-court-act3.mp4";
+
         const float FadeOutSeconds = 0.6f;
         const float PrepareTimeout = 4f;    // give up if the browser will not decode
         const float PlayStartTimeout = 2f;  // Play() issued but playback never began
