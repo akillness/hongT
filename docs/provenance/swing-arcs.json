@@ -1,0 +1,13 @@
+{
+  "method": "hand angle about the right shoulder, sampled at 1/60 s on the humanoid rig; arcDegrees is the total swept angle, reachDelta the max change in shoulder-to-hand distance. A jab moves along one ray (low arc, high reach); a swing crosses an arc (high arc).",
+  "clips": [
+    {"clip":"Charged Slash","arcDegrees":238.543,"reachDelta":0.0254,"arcPerReach":9378.679},
+    {"clip":"Axe Spin Attack","arcDegrees":347.411,"reachDelta":0.0163,"arcPerReach":21341.800},
+    {"clip":"Weapon Combo 2","arcDegrees":538.483,"reachDelta":0.0784,"arcPerReach":6871.866},
+    {"clip":"Thrust Slash","arcDegrees":321.752,"reachDelta":0.0210,"arcPerReach":15353.800},
+    {"clip":"Standing Melee Attack Horizontal","arcDegrees":212.033,"reachDelta":0.0218,"arcPerReach":9713.531},
+    {"clip":"Hook Punch","arcDegrees":385.265,"reachDelta":0.1767,"arcPerReach":2180.123},
+    {"clip":"Standing Melee Combo Attack Ver. 2","arcDegrees":813.424,"reachDelta":0.0779,"arcPerReach":10447.510},
+    {"clip":"Illegal Elbow Punch","arcDegrees":196.890,"reachDelta":0.0696,"arcPerReach":2827.943}
+  ]
+}

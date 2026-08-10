@@ -230,6 +230,79 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>A swing must SWING: the hand has to cross an arc, not jab
+        /// out and back along one ray.
+        ///
+        /// This exists because linear measurement could not tell the two apart.
+        /// Cycle-11 replaced three weapon takes with boxing punches
+        /// (Punch_Combo_1 / Right_Upper_Hook / Punch_Combo_5) and every test
+        /// stayed green: a punch has real hand speed, real duration, a real
+        /// motion window. The player carries a weapon bound to RightHand
+        /// (ActorView.cs:390-392), so on screen the character jabbed with a
+        /// sword in its fist — reported by the user, invisible to the suite.
+        ///
+        /// MEASURED 2026-08-10 with Assets/Editor/SwingArcProbe.cs, swept angle
+        /// about the shoulder over the TRIMMED clip:
+        ///   punches  136.7 / 67.6 / 106.5 deg   ->  325 / 233 / 254 deg/s
+        ///   weapons  238.5 / 347.4 / 538.5 deg  ->  822 / 1198 / 1282 deg/s
+        ///   the displaced Mixamo reference (Standing Melee Attack Horizontal,
+        ///   trimmed 0.50 s) sweeps 212 deg = 424 deg/s
+        ///
+        /// The floor is 400 deg/s — just under that reference, so a take that
+        /// reads as weakly as the one this project shipped for months still
+        /// passes, and a punch (325 and below) does not.</summary>
+        [Test]
+        public void SwingClipsDescribeAnArcNotAJab()
+        {
+            const float MinDegreesPerSecond = 400f;
+            var arcs = LoadSwingArcs();
+            Assert.That(arcs, Is.Not.Empty,
+                "no swing-arc measurements on disk. Run "
+                + "`bash tools/unity_batch.sh method "
+                + "CinderCourt.EditorTools.SwingArcProbe.Run` — without it this "
+                + "test cannot tell a slash from a jab, which is exactly the "
+                + "gap it was written for");
+
+            foreach (var action in new[] { "attack", "attack2", "attack3", "critical" })
+            {
+                var file = ClipFileFor(action);
+                Assert.That(file, Is.Not.Null, $"{action} is not in the clip table");
+                Assert.That(arcs.ContainsKey(file), Is.True,
+                    $"{action} -> '{file}' has no arc measurement. The take changed "
+                    + "since SwingArcProbe last ran; re-run it before trusting this");
+
+                var clip = LoadImportedClip($"{MotionDir}/{file}.fbx");
+                Assert.That(clip, Is.Not.Null, $"{file}.fbx has no imported clip");
+                Assert.That(clip.length, Is.GreaterThan(0f));
+
+                var perSecond = arcs[file] / clip.length;
+                Assert.That(perSecond, Is.GreaterThanOrEqualTo(MinDegreesPerSecond),
+                    $"{action} ('{file}') sweeps {arcs[file]:F1} deg over "
+                    + $"{clip.length:F2} s = {perSecond:F0} deg/s. A weapon swing "
+                    + "has to cross an arc; this reads as a jab. Check the take "
+                    + "family before the trim — the library's weapon cluster is "
+                    + "ids 237-242, the punches are at 195-205");
+            }
+        }
+
+        /// <summary>Swept-angle measurements from SwingArcProbe, clip -> degrees.
+        /// Empty when the probe has never run.</summary>
+        static System.Collections.Generic.Dictionary<string, float> LoadSwingArcs()
+        {
+            var path = "docs/provenance/swing-arcs.json";
+            var result = new System.Collections.Generic.Dictionary<string, float>();
+            if (!System.IO.File.Exists(path)) return result;
+            // Small fixed shape from our own probe; a regex beats pulling in a
+            // JSON dependency for two fields.
+            var text = System.IO.File.ReadAllText(path);
+            var matches = System.Text.RegularExpressions.Regex.Matches(text,
+                "\\{\"clip\":\"(?<clip>[^\"]+)\",\"arcDegrees\":(?<deg>[-0-9.]+)");
+            foreach (System.Text.RegularExpressions.Match m in matches)
+                result[m.Groups["clip"].Value] = float.Parse(
+                    m.Groups["deg"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            return result;
+        }
+
         /// <summary>The clip Unity actually built, not the importer's intent.</summary>
         static AnimationClip LoadImportedClip(string path)
         {
@@ -240,3 +313,4 @@ namespace CinderCourt.Tests
         }
     }
 }
+

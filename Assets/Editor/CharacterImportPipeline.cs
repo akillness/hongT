@@ -38,15 +38,15 @@ namespace CinderCourt.EditorTools
             ("run", "Running", true),
             ("hit", "Standing React Small From Left", false),
             ("bighit", "Knock Down 1", false),
-            ("attack", "Punch Combo 1", false),
+            ("attack", "Charged Slash", false),
             ("critical", "Thrust Slash", false),
             ("avoid", "Dodging", false),
             ("defence", "Shield Push Left", false),
             ("die", "Dying", false),
             ("show", "Mutant Roaring", false),
             // --- View-only substates (index > ActorAction range) ---
-            ("attack2", "Right Upper Hook", false),                  // #9 combo 2nd
-            ("attack3", "Punch Combo 5", false),                     // #9 combo 3rd
+            ("attack2", "Axe Spin Attack", false),                   // #9 combo 2nd
+            ("attack3", "Weapon Combo 2", false),                    // #9 combo 3rd
             ("cast", "Standing 2H Magic Attack 01", false),          // #4 skill cast
         };
 
@@ -138,11 +138,41 @@ namespace CinderCourt.EditorTools
         // defence / bighit stay untrimmed: neither is squeezed into a fixed
         // pose window (PoseValueForClip returns -1 for them, so pose speed
         // stays 1), and both play at their authored pace.
+        // 2026-08-10, SECOND PASS — the first one picked the wrong FAMILY.
+        //
+        // attack/attack2/attack3 were swapped to Punch_Combo_1 /
+        // Right_Upper_Hook / Punch_Combo_5. Those are boxing takes, and the
+        // player carries a weapon bound to RightHand (ActorView.cs:390-392),
+        // so the character jabbed with a sword in its fist. The user reported
+        // it as "휘두르지 않는다" and they were right.
+        //
+        // Nothing measured caught it because every measurement was LINEAR.
+        // A punch has real hand speed — it just travels out and back along one
+        // ray instead of crossing an arc. Assets/Editor/SwingArcProbe.cs was
+        // written for this: it measures the hand's swept ANGLE about the
+        // shoulder, in the hips' frame so body rotation does not count.
+        //
+        //   peak hand speed      punches 4.67 / 3.54 / 5.74
+        //                        weapons 37.2 / 37.7 / 48.4     (8-10x)
+        //   swept arc, untrimmed punches 136.7 / 67.6 / 106.5 deg
+        //                        weapons 720 / 1007 / 2245 deg
+        //
+        // The library's weapon cluster is ids 237-242 (Charged_Axe_Chop,
+        // Axe_Spin_Attack, Thrust_Slash, Weapon_Combo_2, Charged_Slash) —
+        // narrow, and 40 ids away from the punch cluster at 195-205 where the
+        // first pass sampled. docs/provenance/motion-generated.json carries the
+        // map.
+        //
+        // Re-measured trims. Windows are per combo index (HackSpec.ComboSwing)
+        // and each is centred on the sim's active span:
+        //   attack   Charged Slash    motion f26 peak f26 -> 22..29, 0.97x
+        //   attack2  Axe Spin Attack  motion f33-34 peak f34 -> 30..37, 0.97x
+        //   attack3  Weapon Combo 2   motion f50-51 peak f51 -> 45..55, 0.99x
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
-            ("attack", 13, 23),
-            ("attack2", 8, 15),
-            ("attack3", 27, 37),
+            ("attack", 22, 29),
+            ("attack2", 30, 37),
+            ("attack3", 45, 55),
             ("critical", 58, 68),
             ("show", 8, 34),
             ("cast", 23, 30),

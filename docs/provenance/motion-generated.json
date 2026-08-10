@@ -108,5 +108,75 @@
   },
   "driftFixed": "ClipWindowProbe and ClipTrimFitTests each carried their own copy of the clip table and kept measuring displaced takes after the swap - the trim test read the OLD attack window as live. Both now read CharacterImportPipeline.ClipFileAt so the table is the single source.",
   "verification": "EditMode 874/874. Trim row mutation-proved: 13..23 -> 16..28 turns TrimRowsLandInsideTheirSourceClips RED.",
-  "credits": "6 clips x 8 + 20 library probes x 8 = ~208"
+  "credits": "6 clips x 8 + 20 library probes x 8 = ~208",
+  "secondPass_2026_08_10": {
+    "defect": "The first pass picked the wrong FAMILY. attack/attack2/attack3 were swapped to Punch_Combo_1 / Right_Upper_Hook_from_Guard / Punch_Combo_5 — boxing takes — while the player carries a weapon bound to RightHand (ActorView.cs:390-392). The character jabbed with a sword in its fist. Reported by the user as 휘두르지 않는다.",
+    "whyNothingCaughtIt": "Every measurement was LINEAR. A punch has real hand speed, real duration, a real motion window — it simply travels out and back along one ray instead of crossing an arc. ClipWindowProbe answers WHEN the motion happens; it cannot answer WHAT KIND.",
+    "newInstrument": {
+      "path": "Assets/Editor/SwingArcProbe.cs",
+      "measures": "hand angle swept about the right shoulder, in the hips' frame so body rotation does not count as a swing",
+      "output": "docs/provenance/swing-arcs.json — TRACKED, because ClipTrimFitTests reads it and a measurement a test depends on has to travel with the repo"
+    },
+    "measured": {
+      "peakHandSpeed": {
+        "punches": [
+          4.67,
+          3.54,
+          5.74
+        ],
+        "weapons": [
+          37.18,
+          37.73,
+          20.61
+        ]
+      },
+      "sweptArcTrimmed": {
+        "punches": "136.7 / 67.6 / 106.5 deg -> 325 / 233 / 254 deg/s",
+        "weapons": "238.5 / 347.4 / 538.5 deg -> 822 / 1198 / 1282 deg/s",
+        "displacedMixamoReference": "Standing Melee Attack Horizontal 212 deg over 0.50 s = 424 deg/s"
+      }
+    },
+    "libraryMap": {
+      "weaponCluster": {
+        "237": "Charged_Axe_Chop",
+        "238": "Axe_Spin_Attack",
+        "240": "Thrust_Slash",
+        "241": "Weapon_Combo_2",
+        "242": "Charged_Slash"
+      },
+      "punchCluster": "195-205, where the first pass sampled — 40 ids away"
+    },
+    "adopted": {
+      "attack": {
+        "id": 242,
+        "source": "Charged_Slash",
+        "file": "Charged Slash",
+        "trim": [
+          22,
+          29
+        ]
+      },
+      "attack2": {
+        "id": 238,
+        "source": "Axe_Spin_Attack",
+        "file": "Axe Spin Attack",
+        "trim": [
+          30,
+          37
+        ]
+      },
+      "attack3": {
+        "id": 241,
+        "source": "Weapon_Combo_2",
+        "file": "Weapon Combo 2",
+        "trim": [
+          45,
+          55
+        ]
+      },
+      "critical": "unchanged — Thrust_Slash was already a weapon move"
+    },
+    "guard": "ClipTrimFitTests.SwingClipsDescribeAnArcNotAJab, floor 400 deg/s — just under the Mixamo reference, so a take as weak as the one this project shipped for months still passes and a punch does not. Mutation-proved: reverting attack to Punch Combo 1 turns it RED with the measured number.",
+    "credits": "16 library probes x 8 = 128"
+  }
 }
