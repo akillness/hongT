@@ -156,6 +156,113 @@ namespace CinderCourt.Tests
                 Does.EndWith(IntroVideoView.ClipRelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar)));
         }
 
+        /// <summary>The boot route plays two clips through one surface. The
+        /// caller's contract is exactly-once completion for the whole
+        /// sequence, so a per-clip Finish would double-fire it and hand the
+        /// route back while the second reel was still queued.</summary>
+        [Test]
+        public void SequenceReportsCompletionOnceForAllClips()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+
+            _intro.PlaySequence(IntroVideoView.ClipRelativePath,
+                                IntroVideoView.ConceptClipRelativePath);
+            // Each clip times out after PrepareTimeout (4 s) with no decoder,
+            // so the pair drains in ~8 s. Step in small increments and record
+            // what actually happened rather than guessing a window: the thing
+            // that proves the queue advanced is that the surface stayed up
+            // ACROSS the first clip's completion.
+            var stayedUpAfterFirstFinish = false;
+            var finishedDuringDrive = 0;
+            for (var t = 0f; t < SettleSeconds * 3f; t += 0.25f)
+            {
+                var wasActive = _intro.Active;
+                _intro.Step(0.25f);
+                // Still up, still nothing reported, and at least one clip's
+                // worth of time gone: only possible if a second clip started.
+                if (wasActive && _intro.Active && finished == 0 && t > 5f)
+                    stayedUpAfterFirstFinish = true;
+                finishedDuringDrive = finished;
+            }
+
+            Assert.That(stayedUpAfterFirstFinish, Is.True,
+                "the surface must still be up past the first clip's timeout - "
+                + "this is what proves the queue advanced rather than drained");
+            Assert.That(finishedDuringDrive, Is.EqualTo(1),
+                "a two-clip sequence reports completion exactly once");
+
+            Drive(SettleSeconds);
+
+            Assert.That(_intro.Active, Is.False,
+                "the surface must come down when the sequence drains");
+        }
+
+        /// <summary>Skip means skip the intro, not advance to the next clip:
+        /// a player tapping through the brand reel does not want the concept
+        /// reel to start.</summary>
+        [Test]
+        public void SkipAbandonsTheWholeSequence()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+
+            _intro.PlaySequence(IntroVideoView.ClipRelativePath,
+                                IntroVideoView.ConceptClipRelativePath);
+            _intro.Skip();
+            Drive(SettleSeconds);
+
+            Assert.That(finished, Is.EqualTo(1));
+            Assert.That(_intro.Active, Is.False,
+                "skipping mid-sequence must not leave the second clip playing");
+        }
+
+        /// <summary>An empty or null sequence must still behave like the plain
+        /// boot path rather than stranding the caller with no completion.</summary>
+        [Test]
+        public void EmptySequenceFallsBackToTheBrandReel()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+
+            _intro.PlaySequence();
+            Drive(SettleSeconds);
+
+            Assert.That(finished, Is.EqualTo(1));
+            Assert.That(_intro.Active, Is.False);
+        }
+
+        /// <summary>A missing clip degrades to "no intro" in complete silence
+        /// by design, so nothing at runtime will ever tell us a story reel
+        /// failed to ship. This is the only place that can.</summary>
+        [Test]
+        public void EveryBootReelShipsInStreamingAssets()
+        {
+            var reels = new[]
+            {
+                IntroVideoView.ClipRelativePath,
+                IntroVideoView.ConceptClipRelativePath,
+                IntroVideoView.ThreatClipRelativePath,
+            };
+            Assert.That(reels, Is.Unique,
+                "a sequence that plays one clip three times is not a sequence");
+
+            foreach (var reel in reels)
+            {
+                Assert.That(IntroVideoView.UrlFor(reel),
+                    Does.StartWith(Application.streamingAssetsPath),
+                    "WebGL VideoPlayer can only stream from StreamingAssets");
+                var path = System.IO.Path.Combine(Application.streamingAssetsPath, reel);
+                Assert.That(System.IO.File.Exists(path), Is.True, $"missing reel: {path}");
+                // git-lfs pointers read as present but are ~130 bytes of text
+                // (CLAUDE.md §107). A pointer satisfies File.Exists and then
+                // fails to decode in the browser with no build-time signal.
+                Assert.That(new System.IO.FileInfo(path).Length,
+                    Is.GreaterThan(100_000),
+                    $"{reel} is a git-lfs pointer or truncated, not a video");
+            }
+        }
+
         /// <summary>Regression: the project runs the Input System package, so
         /// any read of the legacy UnityEngine.Input class throws
         /// InvalidOperationException every frame — observed in play mode as a

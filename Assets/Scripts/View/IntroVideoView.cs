@@ -22,6 +22,24 @@ namespace CinderCourt.View
         /// <summary>StreamingAssets-relative path of the brand reel.</summary>
         public const string ClipRelativePath = "Video/cinder-court-intro.mp4";
 
+        /// <summary>StreamingAssets-relative path of the concept reel — the
+        /// game's own key art in motion (lantern-bearer on the span over the
+        /// ember court), generated 2026-08-10. It follows the brand reel on the
+        /// boot route so the first thing a new player sees after the logo is
+        /// the premise, not a menu.</summary>
+        public const string ConceptClipRelativePath = "Video/cinder-court-concept.mp4";
+
+        /// <summary>StreamingAssets-relative path of the threat reel — the boss
+        /// key art in motion, third beat of the first-run sequence.
+        ///
+        /// It lives on the BOOT route on purpose. The two obvious homes were
+        /// the boss-entrance beat and the stage-entry cutscene, and both sit
+        /// over LIVE PLAY: GameDirector calls _game.Begin BEFORE showing the
+        /// stage cutscene, and the boss beat fires mid-fight. Five seconds of
+        /// overlay in either place is five seconds of a running sim the player
+        /// cannot see. Boot is the one moment nothing runs underneath.</summary>
+        public const string ThreatClipRelativePath = "Video/cinder-court-threat.mp4";
+
         const float FadeOutSeconds = 0.6f;
         const float PrepareTimeout = 4f;    // give up if the browser will not decode
         const float PlayStartTimeout = 2f;  // Play() issued but playback never began
@@ -44,6 +62,11 @@ namespace CinderCourt.View
         float _fadeRemaining;
         bool _finishedFired;
         bool _playbackObserved;
+        // Sequence state. Null when a single clip is playing, which is every
+        // path except the boot route.
+        string[] _queue;
+        int _queueIndex;
+        bool _skipRequested;
 
         /// <summary>Raised once when the intro leaves the screen (completed or skipped).</summary>
         public System.Action OnFinished;
@@ -51,15 +74,31 @@ namespace CinderCourt.View
         /// <summary>True while the intro is preparing, playing, or fading out.</summary>
         public bool Active => _phase != Phase.Idle;
 
-        /// <summary>Absolute URL VideoPlayer streams from.</summary>
-        public static string ClipUrl =>
-            System.IO.Path.Combine(Application.streamingAssetsPath, ClipRelativePath);
+        /// <summary>Absolute URL of the boot reel.</summary>
+        public static string ClipUrl => UrlFor(ClipRelativePath);
 
         /// <summary>
         /// Starts the brand intro. Safe to call when the clip is absent — the
         /// view then finishes on the next Step and the caller proceeds.
         /// </summary>
-        public void Play()
+        public void Play() => Play(ClipRelativePath);
+
+        /// <summary>
+        /// Plays any StreamingAssets-relative clip through the same surface.
+        ///
+        /// The boot reel and a story beat need exactly the same machinery —
+        /// url-source streaming (the only WebGL option), a prepare timeout, an
+        /// error handler, and a finish-immediately fallback when the file is
+        /// missing. Rather than a second view that would have to re-earn all
+        /// four, this one takes the path. The caller supplies the clip; every
+        /// failure mode is already the intro's.
+        ///
+        /// Deliberately NOT routed through CutsceneView: that view is the run's
+        /// loading mask (DefaultHold 2.6 s, Image/Sprite surface) and a video
+        /// there would be cut to its first third while making the load it
+        /// masks measurably longer.
+        /// </summary>
+        public void Play(string clipRelativePath)
         {
             EnsureBuilt();
 
@@ -78,14 +117,45 @@ namespace CinderCourt.View
                 return;
             }
 
-            _player.url = ClipUrl;
+            _player.url = UrlFor(clipRelativePath);
             _player.Prepare();
+        }
+
+        /// <summary>Absolute URL for any StreamingAssets-relative clip.</summary>
+        public static string UrlFor(string clipRelativePath) =>
+            System.IO.Path.Combine(Application.streamingAssetsPath, clipRelativePath);
+
+        /// <summary>
+        /// Plays several StreamingAssets clips back to back through the one
+        /// surface, raising <see cref="OnFinished"/> ONCE when the last one
+        /// leaves the screen.
+        ///
+        /// The boot route uses this for brand reel -> concept reel. Firing per
+        /// clip would break the caller's contract (IntroVideoViewTests pins
+        /// exactly-once). A clip that is missing or will not decode ends early
+        /// through the existing timeout/error paths and the next one starts,
+        /// so a broken file costs its own slot and nothing more.
+        /// </summary>
+        public void PlaySequence(params string[] clipRelativePaths)
+        {
+            if (clipRelativePaths == null || clipRelativePaths.Length == 0)
+            {
+                Play();
+                return;
+            }
+            _queue = clipRelativePaths;
+            _queueIndex = 0;
+            _skipRequested = false;
+            Play(_queue[0]);
         }
 
         /// <summary>Player-driven skip (any key / tap) — fades out from wherever we are.</summary>
         public void Skip()
         {
             if (_phase == Phase.Idle || _phase == Phase.FadingOut) return;
+            // Skip means skip the INTRO, not advance to the next clip: a player
+            // who taps through the brand reel does not want the concept reel.
+            _skipRequested = true;
             BeginFadeOut();
         }
 
@@ -197,10 +267,29 @@ namespace CinderCourt.View
 
         void Finish()
         {
+            // Advance BEFORE Hide: Hide deactivates the canvas, and doing that
+            // between two clips of one sequence would blink the surface off
+            // and straight back on. Play() re-arms the per-clip state itself.
+            if (AdvanceQueue()) return;
             Hide();
             if (_finishedFired) return;
             _finishedFired = true;
             OnFinished?.Invoke();
+        }
+
+        /// <summary>Starts the next queued clip; false when the queue is spent
+        /// or the player skipped out of the whole sequence.</summary>
+        bool AdvanceQueue()
+        {
+            if (_queue == null) return false;
+            _queueIndex++;
+            if (_skipRequested || _queueIndex >= _queue.Length)
+            {
+                _queue = null;
+                return false;
+            }
+            Play(_queue[_queueIndex]);
+            return true;
         }
 
         // ------------------------------------------------------------- build --

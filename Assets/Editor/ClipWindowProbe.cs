@@ -34,16 +34,34 @@ namespace CinderCourt.EditorTools
         // player actually watches perform these clips.
         const string RigResource = "Characters/human-command-boss";
 
-        static readonly string[] Targets =
+        /// <summary>Takes no longer in the clip table, kept as controls: a new
+        /// measurement means more read against the performance it displaced
+        /// than in isolation. Drop a row once its comparison is spent.</summary>
+        static readonly string[] DisplacedControls =
         {
-            "Mutant Roaring",                    // show  -> RoarDuration 1.1 s
-            "Standing 2H Magic Attack 01",       // cast  -> CastPoseDuration 0.30 s
-            "Standing React Small From Left",    // hit
-            "Receive Uppercut To The Face",      // bighit
-            "Dodging",                           // avoid
-            "Body Block",                        // defence
-            "Standing Melee Attack Horizontal",  // attack — the KNOWN row, as a control
+            "Standing Melee Attack Horizontal",  // was attack, until 2026-08-10
+            "Body Block",                        // was defence
+            "Receive Uppercut To The Face",      // was bighit
+            "Illegal Elbow Punch",               // was critical
+            "Hook Punch",                        // was attack2
+            "Standing Melee Combo Attack Ver. 2",// was attack3
         };
+
+        /// <summary>Every take the pipeline actually imports, plus the controls.
+        ///
+        /// Read from CharacterImportPipeline rather than copied: this probe
+        /// previously carried its own list and silently kept measuring six
+        /// takes the table had already replaced, which is exactly the drift a
+        /// trim row cannot survive.</summary>
+        static string[] BuildTargets()
+        {
+            var names = new List<string>();
+            for (var i = 0; i < CharacterImportPipeline.ClipCount; i++)
+                names.Add(CharacterImportPipeline.ClipFileAt(i));
+            foreach (var control in DisplacedControls)
+                if (!names.Contains(control)) names.Add(control);
+            return names.ToArray();
+        }
 
         public static void Run()
         {
@@ -91,7 +109,7 @@ namespace CinderCourt.EditorTools
                     return;
                 }
 
-                foreach (var name in Targets)
+                foreach (var name in BuildTargets())
                 {
                     var path = $"{MotionDir}/{name}.fbx";
                     var clip = LoadClip(path);

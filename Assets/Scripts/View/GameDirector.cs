@@ -23,6 +23,12 @@ namespace CinderCourt.View
         CutsceneView _cutscene;
         IntroVideoView _intro;
 
+        /// <summary>localStorage flag: the concept reel has played once on this
+        /// browser. Deliberately not part of CampaignStore — it is a boot-route
+        /// preference, not run progress, and wiping a campaign should not make
+        /// the premise replay.</summary>
+        const string ConceptSeenKey = "abyssal-lantern:cinder-court:concept-seen";
+
 
         State _state = State.Lobby;
         CampaignData _data;
@@ -105,13 +111,36 @@ namespace CinderCourt.View
             var mode = WebGLStorage.QueryParam("mode");
             var stage = WebGLStorage.QueryParam("stage");
 
-            // Brand intro reel replaces the plain engine loading screen. It is a
-            // pure overlay (sorting 520) above the route that boots underneath,
-            // so no state is gated on it. QA deep links and ?intro=off skip it.
+            // Brand reel replaces the plain engine loading screen; on a first
+            // run the concept reel follows it so the premise lands before the
+            // menu does. Both are a pure overlay (sorting 520) above the route
+            // booting underneath, so no state is gated on either, and a skip
+            // abandons the whole sequence rather than advancing a clip.
+            //
+            // The story beats are FIRST RUN ONLY. This route fires on every
+            // boot with an empty mode, and ?intro=off is a QA deep link no
+            // player will find, so unconditional extra clips would tax every
+            // return visit. The flag is written at play time, not on
+            // completion: someone who skips has seen enough, and a reload
+            // mid-reel must not restart the premise.
+            //
+            // Three beats on a first run — logo, premise, threat. Boot is the
+            // only place they can go: every other candidate (stage-entry
+            // cutscene, boss entrance) sits over a sim that has already begun.
             if (_intro != null && string.IsNullOrEmpty(mode)
                 && WebGLStorage.QueryParam("intro") != "off")
             {
-                _intro.Play();
+                if (WebGLStorage.GetString(ConceptSeenKey) == "1")
+                {
+                    _intro.Play();
+                }
+                else
+                {
+                    _intro.PlaySequence(IntroVideoView.ClipRelativePath,
+                                        IntroVideoView.ConceptClipRelativePath,
+                                        IntroVideoView.ThreatClipRelativePath);
+                    WebGLStorage.SetString(ConceptSeenKey, "1");
+                }
                 if (_audio != null) _audio.SetBgmContext("intro");   // W12
             }
 

@@ -124,16 +124,44 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>Source take behind an action, straight out of the shipped
+        /// clip table. Null when the action is not in it.</summary>
+        static string ClipFileFor(string action)
+        {
+            var pipeline = Pipeline();
+            var count = (int)pipeline
+                .GetProperty("ClipCount", BindingFlags.NonPublic | BindingFlags.Static)
+                .GetValue(null);
+            var nameAt = pipeline.GetMethod("ActionNameAt",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            var fileAt = pipeline.GetMethod("ClipFileAt",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(fileAt, Is.Not.Null,
+                "CharacterImportPipeline.ClipFileAt is how this test avoids a "
+                + "second copy of the clip table");
+            for (var i = 0; i < count; i++)
+                if ((string)nameAt.Invoke(null, new object[] { i }) == action)
+                    return (string)fileAt.Invoke(null, new object[] { i });
+            return null;
+        }
+
         [Test]
         public void TrimRowsLandInsideTheirSourceClips()
         {
             // A row that runs past the end of its clip silently imports short.
-            var clipFiles = new (string action, string file)[]
-            {
-                ("attack", "Standing Melee Attack Horizontal"),
-                ("show", "Mutant Roaring"),
-                ("cast", "Standing 2H Magic Attack 01"),
-            };
+            //
+            // The file behind each action is READ FROM THE PIPELINE, never
+            // copied. A hardcoded list here pointed `attack` at "Standing Melee
+            // Attack Horizontal" for one run after the take was replaced, so
+            // the test measured a clip the game no longer loads and reported
+            // the old trim as live [2026-08-10]. Same drift ClipWindowProbe
+            // carried; same fix.
+            var clipFiles = Trims()
+                .Select(row => (row.action, file: ClipFileFor(row.action)))
+                .Where(pair => pair.file != null)
+                .ToArray();
+            Assert.That(clipFiles.Length, Is.EqualTo(Trims().Length),
+                "every trimmed action must name a take in the clip table");
             foreach (var (action, file) in clipFiles)
             {
                 var row = Trims().FirstOrDefault(r => r.action == action);

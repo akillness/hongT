@@ -57,6 +57,12 @@ OUT = Path(arg("--out")).resolve()
 REPORT = Path(arg("--report")).resolve()
 MAX_TRIS = int(arg("--max-tris", "25000"))
 SCALE_MODE = arg("--mesh-scale-mode", "height")
+# Which side moves when mesh and skeleton disagree in size.
+#   "none"     - scale nothing. THE DEFAULT, and it is the only setting
+#                measured to produce a humanoid avatar. See the fit section.
+#   "skeleton" - scale the rig to the mesh (measured: 20/22, hands refused)
+#   "mesh"     - scale the mesh to the rig (measured: 20/22, worse at 14/22)
+FIT_TARGET = arg("--fit-target", "none")
 MAX_TEX = 1024
 
 # The 22 bones every shipped character carries. This is the SAME set BONE_MAP
@@ -156,17 +162,37 @@ meshes = [o for o in incoming if o.type == "MESH"]
 if not meshes:
     fail(f"no mesh in --mesh {MESH_SRC}")
 
-# Strip anything that rode along (the donor mesh file may carry its own rig).
+# Strip anything that rode along (the donor mesh file may carry its own rig)
+# and bake each mesh's world transform into its DATA.
+#
+# Order matters and is why this is not a loop over children. `incoming` comes
+# from a set difference, so its iteration order is arbitrary, and glTF nests
+# (root empty -> node empty -> mesh). Deleting the outer empty first leaves the
+# inner one holding only its LOCAL basis, so the parent's scale disappears
+# without any error. Snapshotting matrix_world BEFORE removing anything makes
+# the result independent of that order.
+#
+# Baking into the data (rather than leaving object-level scale) is the fix for
+# two symptoms chased on 2026-08-09/10:
+#   * a pre-scale multiply missing its target (2.6993 x 0.6295 should be
+#     1.6993; it produced 2.0697) because later steps re-derived from an
+#     object transform that had been written but never applied;
+#   * that same unapplied transform surviving to export, giving Unity a mesh
+#     with bounds around 230 units.
+# Once baked, every measurement below reads real coordinates by construction.
+saved_matrices = {m.name: m.matrix_world.copy() for m in meshes}
 for obj in incoming:
-    if obj.type == "MESH":
-        continue
-    for child in list(obj.children):
-        if child.type == "MESH":
-            matrix = child.matrix_world.copy()
-            child.parent = None
-            child.matrix_world = matrix
-    bpy.data.objects.remove(obj, do_unlink=True)
-meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    if obj.type != "MESH":
+        bpy.data.objects.remove(obj, do_unlink=True)
+for mesh in meshes:
+    mesh.parent = None
+    if mesh.data.users > 1:
+        # transform_apply refuses on multi-user data, and mutating shared data
+        # would move every other user of it.
+        mesh.data = mesh.data.copy()
+    mesh.data.transform(saved_matrices[mesh.name])
+    mesh.matrix_world = mathutils.Matrix.Identity(4)
+bpy.context.view_layer.update()
 
 # Clear any skinning the incoming mesh brought with it — it refers to a
 # skeleton that is no longer in the scene, and heat will rebuild it anyway.
@@ -177,7 +203,31 @@ for mesh in meshes:
     for group in list(mesh.vertex_groups):
         mesh.vertex_groups.remove(group)
 
-# --- 3. fit the mesh to the skeleton -------------------------------------------
+# --- 3. fit the two together ----------------------------------------------------
+# WHICH SIDE MOVES. Measured 2026-08-10 with Assets/Editor/ReskinAvatarProbe.cs
+# against Unity's humanoid auto-mapper, the only judge that counts. All four
+# rows below ran with the import-time transform bake in place, so the bake is
+# held fixed and the scale choice is the only variable:
+#
+#   scout mesh (1.6993) on guard rig (1.1257), NOTHING scaled
+#       -> isHuman True, 22/22                                   <- ships
+#   same pair, mesh scaled DOWN to the rig
+#       -> isHuman False, 20/22, LeftHand + RightHand refused
+#   same pair, rig scaled UP to the mesh
+#       -> isHuman False, 20/22, same two bones
+#   generated mesh (2.6993) on scout rig, mesh scaled down
+#       -> isHuman False, 14/22, hands and the whole lower body
+#
+# So a height DISPARITY is fine and scaling is what breaks the mapper. Two
+# earlier passes bounded at 2.64 and 277 units — a 100x spread, both 22/22 —
+# which says absolute size is irrelevant to the auto-mapper as well. What it
+# will not tolerate is geometry whose rest pose has been re-scaled underneath
+# it after the skeleton was authored.
+#
+# A --normalize-height flag briefly obscured this: it pre-scaled the mesh, and
+# the fit then computed 1.0 from the already-matched heights and overwrote
+# mesh.scale back to 1.0 — undoing the normalize. It passed because nothing
+# ended up scaled, not because normalizing helped. Removed.
 mesh_lo, mesh_hi = world_bounds(meshes)
 skel_h = skel_hi.z - skel_lo.z
 mesh_h = mesh_hi.z - mesh_lo.z
@@ -185,65 +235,76 @@ skel_span = skel_hi.x - skel_lo.x
 mesh_span = mesh_hi.x - mesh_lo.x
 scale_h = skel_h / mesh_h if mesh_h > 1e-6 else 1.0
 scale_span = skel_span / mesh_span if mesh_span > 1e-6 else scale_h
-scale = max(scale_h, scale_span) if SCALE_MODE == "span" else scale_h
+mesh_scale = max(scale_h, scale_span) if SCALE_MODE == "span" else scale_h
+height_ratio = max(scale_h, 1.0 / scale_h) if scale_h > 1e-6 else float("inf")
 report["meshFit"] = {
-    "scaleMode": SCALE_MODE, "scale": scale,
+    "scaleMode": SCALE_MODE, "fitTarget": FIT_TARGET,
     "skeletonHeight": skel_h, "meshHeight": mesh_h,
     "skeletonSpan": skel_span, "meshSpan": mesh_span,
+    "heightRatio": height_ratio,
 }
 
-# Proportion gate. MEASURED 2026-08-09 by the code path below (the numbers are
-# from should-fail.json, not from a scratch probe — an early draft of this
-# comment quoted 0.725 from a throwaway probe that had deleted the armature
-# before measuring, which changes the mesh bound_box):
-#   skeleton (guard)  1.1257
-#   mesh     (scout)  1.6993
-#   height scale      0.6625      ratio 1.5095
-# That bind imported into Unity as a VALID but NON-HUMAN avatar — 20 of 22
-# bones mapped, LeftHand and RightHand refused, both REQUIRED. Nothing errored
-# on the way: heat solved with zero orphans, all 22 bones bound, every vertex
-# weighted. The same mesh on its OWN skeleton (ratio 1.0) mapped 22/22 and came
-# back isHuman, which is what proves the pipeline and isolates the cause.
-#
-# Note what is NOT the cause, because it looks like it: hand bones sitting
-# outside the mesh bounding box is NORMAL here — shipped guard has hand tips at
-# x=1.12 against a mesh span of 0.75 and maps fine. The mismatch that matters
-# is HEIGHT, because scaling the mesh shrinks it while the donor skeleton stays
-# full size, and Unity's auto-mapper stops believing the arm chain.
-#
-# So: fail loudly here rather than produce an avatar the import pipeline
-# rejects three steps later with a less useful message
-# (CharacterImportPipeline.cs:163).
-MAX_HEIGHT_RATIO = 1.25
-height_ratio = max(scale_h, 1.0 / scale_h) if scale_h > 1e-6 else float("inf")
-report["meshFit"]["heightRatio"] = height_ratio
-report["meshFit"]["heightRatioCeiling"] = MAX_HEIGHT_RATIO
-if height_ratio > MAX_HEIGHT_RATIO:
-    fail(
-        f"mesh/skeleton height ratio {height_ratio:.3f} exceeds {MAX_HEIGHT_RATIO} "
-        f"(skeleton {skel_h:.3f} vs mesh {mesh_h:.3f}) — Unity's humanoid "
-        "auto-mapper drops the hand bones at this disparity and the avatar "
-        "imports as non-human. Pick a skeleton donor closer in height, or "
-        "generate the mesh at the donor's height "
-        "(meshy_v6 exposes rigging_height_meters)."
-    )
-
-center = (mesh_lo + mesh_hi) / 2
-for mesh in meshes:
-    mesh.scale = (scale, scale, scale)
+if FIT_TARGET == "none":
+    # Scale NOTHING. Bind the mesh at its authored size to the donor rig at
+    # its authored size — measured to be the only configuration that maps
+    # 22/22 (see the table above).
+    #
+    # But nothing reconciles a size disparity now, so the DONOR CHOICE is the
+    # whole safety margin, and Blender cannot see when it is wrong: the run
+    # that mapped 14/22 reported 0 heat orphans, 22 bones bound, every vertex
+    # weighted. Only Unity said no. So refuse here rather than hand over an
+    # FBX that looks clean and imports non-human.
+    #
+    # The ceiling is where the evidence is, not a round number:
+    #   ratio 1.5095 -> 22/22 isHuman            (scout on guard)
+    #   ratio 1.5885 -> 14/22, lower body gone   (generated on scout)
+    # 1.55 sits between the two measured points. Move it only by measuring
+    # another pair, not by needing a build to pass.
+    MAX_UNSCALED_RATIO = 1.55
+    report["meshFit"]["scale"] = 1.0
+    report["meshFit"]["skeletonScale"] = 1.0
+    report["meshFit"]["unscaledRatioCeiling"] = MAX_UNSCALED_RATIO
+    if height_ratio > MAX_UNSCALED_RATIO:
+        fail(
+            f"mesh/skeleton height ratio {height_ratio:.4f} exceeds "
+            f"{MAX_UNSCALED_RATIO} (skeleton {skel_h:.4f} vs mesh "
+            f"{mesh_h:.4f}). Nothing is scaled at --fit-target none, so the "
+            "donor rig has to already be close to the mesh: at 1.588 Unity "
+            "mapped 14/22 and refused the entire lower body while this "
+            "script reported a clean bind. Pick a taller/shorter donor "
+            "(shipped rigs run 1.13-1.76), or generate the mesh nearer the "
+            "donor's height."
+        )
+elif FIT_TARGET == "skeleton":
+    # Scale the rig to the mesh. The mesh keeps its authored proportions and
+    # every bone lands inside it.
+    skel_scale = 1.0 / mesh_scale if mesh_scale > 1e-6 else 1.0
+    arm.scale = (skel_scale, skel_scale, skel_scale)
     bpy.context.view_layer.update()
-bpy.context.view_layer.update()
-mesh_lo, mesh_hi = world_bounds(meshes)
-center = (mesh_lo + mesh_hi) / 2
-# Centre on the skeleton in XY, and sit both on the same floor in Z: a mesh
-# floating above its own feet makes the leg heat solve nonsense.
+    skel_lo, skel_hi = world_bounds([arm])
+    report["meshFit"]["skeletonScale"] = skel_scale
+    report["meshFit"]["skeletonHeightAfter"] = skel_hi.z - skel_lo.z
+    report["meshFit"]["scale"] = 1.0
+else:
+    for mesh in meshes:
+        mesh.scale = (mesh_scale, mesh_scale, mesh_scale)
+    bpy.context.view_layer.update()
+    mesh_lo, mesh_hi = world_bounds(meshes)
+    report["meshFit"]["scale"] = mesh_scale
+    print("[reskin_from_fbx] advisory: --fit-target mesh shrinks the mesh "
+          "inside the donor's limb lengths; MEASURED to produce a non-human "
+          "avatar at ratio 1.51 and worse at 1.59")
+
+# Centre the SKELETON on the mesh in XY and stand both on the same floor in Z.
+# (The mesh is the fixed reference now, so the offset applies to the rig.)
+mesh_center = (mesh_lo + mesh_hi) / 2
 skel_center = (skel_lo + skel_hi) / 2
-offset = mathutils.Vector((skel_center.x - center.x,
-                           skel_center.y - center.y,
-                           skel_lo.z - mesh_lo.z))
-for mesh in meshes:
-    mesh.location = mesh.location + offset
+arm.location = arm.location + mathutils.Vector((
+    mesh_center.x - skel_center.x,
+    mesh_center.y - skel_center.y,
+    mesh_lo.z - skel_lo.z))
 bpy.context.view_layer.update()
+skel_lo, skel_hi = world_bounds([arm])
 
 # --- 4. join to a single body ---------------------------------------------------
 bpy.ops.object.select_all(action="DESELECT")

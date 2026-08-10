@@ -37,17 +37,17 @@ namespace CinderCourt.EditorTools
             ("move", "Walking", true),
             ("run", "Running", true),
             ("hit", "Standing React Small From Left", false),
-            ("bighit", "Receive Uppercut To The Face", false),
-            ("attack", "Standing Melee Attack Horizontal", false),
-            ("critical", "Illegal Elbow Punch", false),
+            ("bighit", "Knock Down 1", false),
+            ("attack", "Punch Combo 1", false),
+            ("critical", "Thrust Slash", false),
             ("avoid", "Dodging", false),
-            ("defence", "Body Block", false),
+            ("defence", "Shield Push Left", false),
             ("die", "Dying", false),
             ("show", "Mutant Roaring", false),
             // --- View-only substates (index > ActorAction range) ---
-            ("attack2", "Hook Punch", false),                        // #9 combo 2nd
-            ("attack3", "Standing Melee Combo Attack Ver. 2", false), // #9 combo 3rd
-            ("cast", "Standing 2H Magic Attack 01", false),           // #4 skill cast
+            ("attack2", "Right Upper Hook", false),                  // #9 combo 2nd
+            ("attack3", "Punch Combo 5", false),                     // #9 combo 3rd
+            ("cast", "Standing 2H Magic Attack 01", false),          // #4 skill cast
         };
 
         // --- clip trims -------------------------------------------------------
@@ -90,9 +90,38 @@ namespace CinderCourt.EditorTools
         // they play at their authored pace — so trimming them would change
         // established feel for no measured defect. Listed here so the next
         // reader knows the omission is a decision, not an oversight.
+        //
+        // 2026-08-10. Six combat takes were replaced with generated ones
+        // (Higgsfield 3d_rigging; docs/provenance/motion.json):
+        //   attack attack2 attack3 critical defence bighit
+        // attack's old 16..28 row was peak f21-25 of "Standing Melee Attack
+        // Horizontal". Those numbers cut a DIFFERENT swing at arbitrary points
+        // and would have done it silently (a short window always passes the
+        // length guard below), so the row was dropped and re-measured.
+        //
+        // Re-measured with ClipWindowProbe against the new takes. The pose the
+        // sim holds is 5 f @12 fps = 0.4167 s = 10 f at the clips' own 24 fps,
+        // and the damage-active span inside it is 0.167..0.333 s
+        // (SimConfig.AttackActiveFrom/To). Each window below is 10 frames, so
+        // ResolvePoseSpeed lands on 1.00x — no retime — and each places its
+        // measured motion inside the active span:
+        //   attack   Punch Combo 1  motion f17-21 peak f18 -> 13..23,
+        //                           motion at 0.167..0.333 s of the pose
+        //   critical Thrust Slash   motion f62-63 peak f62 -> 58..68,
+        //                           motion at 0.167..0.208 s
+        // Thrust Slash is the reason critical needs a row at all: 86.7% of its
+        // 3.00 s is windup and the strike is the last 2 frames, so untrimmed it
+        // would be clamped to MaxPoseSpeed 4x and still show only the windup.
+        //
+        // attack2 / attack3 / defence / bighit stay untrimmed: each has LESS
+        // preamble than the take it replaced (22.3 vs 39.2, 32.6 vs 57.8,
+        // 16.6 vs 28.3, 23.8 vs 5.3 percent) and none is squeezed into a fixed
+        // pose window — bighit is the one that got worse and it is a reaction
+        // that plays at its authored pace.
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
-            ("attack", 16, 28),
+            ("attack", 13, 23),
+            ("critical", 58, 68),
             ("show", 8, 34),
             ("cast", 23, 30),
         };
@@ -102,6 +131,10 @@ namespace CinderCourt.EditorTools
         internal const int SimActionCount = 11;
         internal static string ActionNameAt(int index) => Clips[index].action;
         internal static int ClipCount => Clips.Length;
+        /// <summary>Source take behind an action. ClipWindowProbe reads this so
+        /// the clip table stays the single source of truth — a probe with its
+        /// own copy of the list measures whatever the table used to say.</summary>
+        internal static string ClipFileAt(int index) => Clips[index].file;
 
         [MenuItem("CinderCourt/Import All Characters And Clips")]
         public static void ImportAll()

@@ -1,0 +1,112 @@
+{
+  "asset": "combat motion clips - generated takes",
+  "date": "2026-08-10",
+  "tool": "Higgsfield CLI 1.1.23, job_type 3d_rigging, --enable-animation",
+  "why": "Six combat takes were Mixamo bench clips carried over from the source project. The user asked for the motion set to be replaced. Higgsfield's 3d_rigging job returns a rigged GLB with a baked action from an indexed library; animation_action_id is an opaque integer with no enum, so the library was mapped by sampling ids and reading back what came out.",
+  "libraryProbe": {
+    "method": "generate 3d_rigging on one uploaded mesh, read the action name out of the returned GLB in Blender (8 credits per probe)",
+    "sampled": {
+      "1": "Walking_Woman",
+      "10": "ForwardRight_Run_Fight",
+      "20": "Walk_Fight_Back",
+      "30": "Casual_Walk",
+      "50": "Phone_Call_Gesture",
+      "60": "Walk_to_Sit",
+      "80": "Pop_Dance_LSA2",
+      "100": "Rightward_Spin",
+      "150": "Hit_Reaction_with_Bow",
+      "170": "Standing_Reload",
+      "190": "Knock_Down_1",
+      "195": "Right_Upper_Hook_from_Guard",
+      "200": "Punch_Combo_1",
+      "205": "Punch_Combo_5",
+      "210": "Boxing_Guard_Prep_Straight_Punch",
+      "220": "Shield_Push_Left",
+      "240": "Thrust_Slash",
+      "260": "Push_Forward_and_Stop",
+      "280": "Female_Crouch_Pick_Throw_Forward",
+      "300": "Sit_Cheer_with_Left_Hand",
+      "320": "bicep_curl"
+    },
+    "finding": "combat clusters around 190-260; 1-100 is locomotion and gesture"
+  },
+  "adopted": {
+    "attack": {
+      "id": 200,
+      "source": "Punch_Combo_1",
+      "file": "Punch Combo 1"
+    },
+    "attack2": {
+      "id": 195,
+      "source": "Right_Upper_Hook_from_Guard",
+      "file": "Right Upper Hook"
+    },
+    "attack3": {
+      "id": 205,
+      "source": "Punch_Combo_5",
+      "file": "Punch Combo 5"
+    },
+    "critical": {
+      "id": 240,
+      "source": "Thrust_Slash",
+      "file": "Thrust Slash"
+    },
+    "defence": {
+      "id": 220,
+      "source": "Shield_Push_Left",
+      "file": "Shield Push Left"
+    },
+    "bighit": {
+      "id": 190,
+      "source": "Knock_Down_1",
+      "file": "Knock Down 1"
+    }
+  },
+  "displaced": {
+    "attack": "Standing Melee Attack Horizontal",
+    "attack2": "Hook Punch",
+    "attack3": "Standing Melee Combo Attack Ver. 2",
+    "critical": "Illegal Elbow Punch",
+    "defence": "Body Block",
+    "bighit": "Receive Uppercut To The Face"
+  },
+  "conversion": {
+    "script": "tools/blender/clip_from_glb.py",
+    "noBoneRename": "MEASURED via Assets/Editor/ClipAvatarProbe.cs: the generated rig is Mixamo-named (LeftUpLeg/LeftForeArm/Spine02/lower-case neck) and Unity's humanoid auto-mapper accepts it untouched - isHuman True, 15/15 required bones, against a shipped Mixamo clip as control. A 22-entry BONE_MAP was written, measured to be dead code, and deleted.",
+    "noRootMotionStrip": "ReimportClips already sets lockRootRotation/lockRootHeightY/lockRootPositionXZ (CharacterImportPipeline.cs:314-319). Stripping in Blender would duplicate Unity's in-place projection and risk disagreeing.",
+    "sceneRangeFix": "A plain glb->fbx convert produced a 10.38 s clip from a 2.23 s action: Blender's DEFAULT scene range 1-250 was exported, not the action. The script now reads first/last keyframe off the fcurves. Not a trim - the 0.8-frame key spacing is a 30 fps source read at 24 fps and is correct."
+  },
+  "trims": {
+    "measuredWith": "Assets/Editor/ClipWindowProbe.cs",
+    "poseWindow": "5 frames @12fps = 0.4167 s = 10 frames at the clips' 24 fps",
+    "activeSpan": "0.167..0.333 s (SimConfig.AttackActiveFrom/To)",
+    "attack": {
+      "motion": "f17-21 peak f18",
+      "row": [
+        13,
+        23
+      ],
+      "lands": "0.167..0.333 s of the pose",
+      "speed": "1.00x"
+    },
+    "critical": {
+      "motion": "f62-63 peak f62",
+      "row": [
+        58,
+        68
+      ],
+      "lands": "0.167..0.208 s",
+      "speed": "1.00x",
+      "note": "86.7% of Thrust Slash is windup; untrimmed it clamps to MaxPoseSpeed 4x and still shows only the windup"
+    },
+    "untrimmed": {
+      "attack2": "preamble 22.3% vs displaced 39.2%",
+      "attack3": "preamble 32.6% vs displaced 57.8%",
+      "defence": "preamble 16.6% vs displaced 28.3%",
+      "bighit": "preamble 23.8% vs displaced 5.3% - worse, but a reaction that plays at its authored pace, not squeezed into a pose window"
+    }
+  },
+  "driftFixed": "ClipWindowProbe and ClipTrimFitTests each carried their own copy of the clip table and kept measuring displaced takes after the swap - the trim test read the OLD attack window as live. Both now read CharacterImportPipeline.ClipFileAt so the table is the single source.",
+  "verification": "EditMode 874/874. Trim row mutation-proved: 13..23 -> 16..28 turns TrimRowsLandInsideTheirSourceClips RED.",
+  "credits": "6 clips x 8 + 20 library probes x 8 = ~208"
+}
