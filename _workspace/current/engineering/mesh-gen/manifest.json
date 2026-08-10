@@ -199,6 +199,7 @@
       "255": "5b9b6a40-ab2f-4833-8a67-bede28ba58eb"
     },
     "outputs": "player-rig/anim{id}.glb (45MB, 미커밋 — 위 잡ID로 재다운로드 가능). 11종 전부 clip_from_glb.py로 Assets/Art/Motion/에 변환 완료, 본 24개로 검증.",
-    "verified": "무릎 27.9/28.0%(대상 28.9) · 발 대칭 0.1pp · T-pose · EditMode 891/890 · 아바타 경고 0"
+    "verified": "무릎 27.9/28.0%(대상 28.9) · 발 대칭 0.1pp · T-pose · EditMode 891/890 · 아바타 경고 0",
+    "reproduce": "tools/blender/mesh_to_glb.py로 raw GLB를 재생성한다(바이너리는 미커밋). gh-pages 호스팅은 **일시적**이며 잡 제출 후 제거했다 — 배포가 어차피 지우고, 배포 스크립트는 그 삭제를 스테이징하지 못해 배포가 실패한다(2026-08-10 실측)."
   }
 }
