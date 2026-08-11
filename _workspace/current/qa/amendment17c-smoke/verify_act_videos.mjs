@@ -1,7 +1,7 @@
 // Browser gate for the three act cinematics.
 //
 // This does not play the files in a stand-alone <video>: it exposes the actual
-// Unity WebGL instance, calls IntroVideoView.Play(path) through SendMessage,
+// Unity WebGL instance, calls IntroVideoView.PlayClip(path) through SendMessage,
 // and records the HTMLVideoElement events created by Unity's VideoPlayer
 // backend. The same script is used against localhost and GitHub Pages.
 import fs from "node:fs";
@@ -190,15 +190,26 @@ for (const act of acts) {
   });
 }
 
+const successfulClipFilenames = new Set(results
+  .filter((result) => result.ok)
+  .map((result) => path.basename(result.clip)));
+const isSuccessfulClipTeardown = (failure) =>
+  failure.error === "net::ERR_ABORTED" &&
+  [...successfulClipFilenames].some((filename) => failure.url.includes(filename));
+const playbackRequestFailures = requestFailures.filter(
+  (failure) => !isSuccessfulClipTeardown(failure));
+const teardownRequestFailures = requestFailures.filter(isSuccessfulClipTeardown);
+
 const report = {
   url: targetUrl.href,
   generatedAt: new Date().toISOString(),
   ok: results.every((result) => result.ok) && pageErrors.length === 0 &&
-    consoleErrors.length === 0 && requestFailures.length === 0,
+    consoleErrors.length === 0 && playbackRequestFailures.length === 0,
   results,
   pageErrors,
   consoleErrors,
-  requestFailures,
+  requestFailures: playbackRequestFailures,
+  teardownRequestFailures,
 };
 fs.writeFileSync(path.join(outDir, "act-video-report.json"),
   JSON.stringify(report, null, 2) + "\n");
