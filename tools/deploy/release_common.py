@@ -509,7 +509,13 @@ def git_tree_for_stage(repo: Path, stage_dir: Path) -> str:
             relative = normalize_relative_path(
                 candidate.relative_to(stage_dir).as_posix(), "staged path"
             )
-            blob = git_output(repo, "hash-object", "-w", "--", str(candidate))
+            # Deployment bytes are already canonical and must be hashed
+            # literally. Repository clean filters (notably Git LFS) would turn
+            # copied MP4/PNG payloads back into pointer blobs and make the
+            # sealed tree differ from what gh-pages actually stages.
+            blob = git_output(
+                repo, "hash-object", "-w", "--no-filters", "--", str(candidate)
+            )
             entries.append((relative, git_mode(candidate), blob))
     entries.sort(key=lambda item: item[0])
     with tempfile.NamedTemporaryFile(prefix="hongt-pages-index-", delete=True) as index:

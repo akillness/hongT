@@ -29,6 +29,7 @@ from release_common import (  # noqa: E402
     WEBGL_RESOURCES,
     canonical_json_bytes,
     clean_status_record,
+    git_tree_for_stage,
     git_output,
     load_json,
     sha256_bytes,
@@ -256,6 +257,33 @@ class ReleasePayloadTests(unittest.TestCase):
             sorted(path.relative_to(stage_one) for path in stage_one.rglob("*") if path.is_file()),
             sorted(path.relative_to(stage_two) for path in stage_two.rglob("*") if path.is_file()),
         )
+
+    def test_stage_tree_hashes_literal_bytes_without_repository_clean_filters(self) -> None:
+        repo = self.root / "filter-repo"
+        repo.mkdir()
+        git(repo, "init", "-q")
+        git(repo, "config", "user.email", "release-tests@example.invalid")
+        git(repo, "config", "user.name", "Release Tests")
+        git(repo, "config", "filter.synthetic.clean", "sh -c 'printf pointer'")
+        git(repo, "config", "filter.synthetic.smudge", "cat")
+        (repo / ".gitattributes").write_text(
+            "*.bin filter=synthetic\n", encoding="utf-8"
+        )
+        git(repo, "add", "--", ".gitattributes")
+        git(repo, "commit", "-q", "-m", "add synthetic clean filter")
+
+        stage = repo / "stage-filtered"
+        stage.mkdir()
+        raw = b"actual deployment bytes\x00\xff"
+        (stage / "payload.bin").write_bytes(raw)
+
+        tree = git_tree_for_stage(repo, stage)
+        stored = subprocess.run(
+            ["git", "-C", str(repo), "cat-file", "blob", f"{tree}:payload.bin"],
+            check=True,
+            stdout=subprocess.PIPE,
+        ).stdout
+        self.assertEqual(stored, raw)
 
     def test_final_payload_budget_includes_the_deployed_manifest(self) -> None:
         fixture = ReleaseFixture(self.root)
