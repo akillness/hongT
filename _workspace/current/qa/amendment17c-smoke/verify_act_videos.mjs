@@ -162,7 +162,15 @@ for (const act of acts) {
   const types = new Set(events.map((event) => event.type));
   const progressed = events.some((event) =>
     event.type === "timeupdate" && (event.currentTime ?? 0) >= 0.25);
-  const mediaErrors = events.filter((event) => event.type === "error");
+  const endedIndex = events.findIndex((event) => event.type === "ended");
+  const mediaErrors = events.filter((event, index) =>
+    event.type === "error" && (endedIndex < 0 || index < endedIndex));
+  // Unity clears the backing HTMLVideoElement after a successful clip. Chrome
+  // reports that deliberate empty src as MEDIA_ERR_SRC_NOT_SUPPORTED after
+  // ended/abort/emptied; IntroVideoView's idle-phase guard intentionally
+  // ignores the same teardown callback. Preserve it as evidence, not failure.
+  const teardownErrors = events.filter((event, index) =>
+    event.type === "error" && endedIndex >= 0 && index > endedIndex);
   results.push({
     ...act,
     ok: types.has("loadedmetadata") && types.has("playing") && progressed &&
@@ -177,6 +185,7 @@ for (const act of acts) {
       : null,
     maxCurrentTime: Math.max(0, ...events.map((event) => event.currentTime ?? 0)),
     mediaErrors,
+    teardownErrors,
     events,
   });
 }
