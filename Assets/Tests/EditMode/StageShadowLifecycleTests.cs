@@ -52,6 +52,12 @@ namespace CinderCourt.Tests
                 Assert.That(policy.KeyShadowRenderingLayers,
                     Is.EqualTo(StageShadowPolicy.CharacterShadowRenderingLayerMask));
                 Assert.That(policy.KeyUsesCustomShadowLayers, Is.True);
+                Assert.That(policy.KeyUsesPipelineShadowBias, Is.False,
+                    "the actor-only key must not inherit Mobile_RPAsset's 1/1 bias");
+                Assert.That(policy.KeyLight.shadowBias,
+                    Is.EqualTo(StageShadowPolicy.CharacterShadowDepthBias).Within(0.0001f));
+                Assert.That(policy.KeyLight.shadowNormalBias,
+                    Is.EqualTo(StageShadowPolicy.CharacterShadowNormalBias).Within(0.0001f));
                 Assert.That(policy.KeyLight.renderingLayerMask,
                     Is.EqualTo(StageShadowPolicy.CharacterShadowRenderingLayerMask));
 

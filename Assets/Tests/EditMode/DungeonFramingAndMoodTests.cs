@@ -265,6 +265,17 @@ namespace CinderCourt.Tests
                         Is.LessThanOrEqualTo(maximumOffsetPerCasterHeight + 1e-4f),
                         $"{stageId}: a shallower key exceeds the receiver's " +
                         "authored projection budget");
+                    // Dungeon camera pitch is 55 degrees. Keep the projected
+                    // key direction at least 45 degrees off its screen-depth
+                    // axis so a close party reads as silhouettes instead of a
+                    // single plume directly behind the actors.
+                    var screenShadowAngle = Mathf.Atan2(
+                        Mathf.Abs(ray.x),
+                        Mathf.Abs(ray.z) * Mathf.Cos(55f * Mathf.Deg2Rad))
+                        * Mathf.Rad2Deg;
+                    Assert.That(screenShadowAngle, Is.GreaterThanOrEqualTo(45f),
+                        $"{stageId}: character shadows overlap the dungeon " +
+                        "camera depth axis ({screenShadowAngle:F1} degrees)");
                     Assert.That(root.GetComponentsInChildren<Collider>(true), Is.Empty,
                         $"{stageId}: decoration never owns physics");
                 }

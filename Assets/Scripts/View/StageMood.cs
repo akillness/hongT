@@ -67,17 +67,17 @@ namespace CinderCourt.View
             new System.Collections.Generic.Dictionary<string, Rig>
             {
                 // Ember family: rake the key low so ember light throws long.
-                ["cinder-span"]   = new Rig(34f, 20f, 0.58f, 0.20f),
-                ["ember-gallery"] = new Rig(30f, 14f, 0.60f, 0.18f),
+                ["cinder-span"]   = new Rig(34f, 32f, 0.58f, 0.20f),
+                ["ember-gallery"] = new Rig(30f, 36f, 0.60f, 0.18f),
                 ["ember-bastion"] = new Rig(28f, 40f, 0.62f, 0.17f),
                 // Vault family: light falls from higher and bounces more.
                 ["abyss-chancel"] = new Rig(52f, 34f, 0.52f, 0.26f),
-                ["witness-well"]  = new Rig(56f, 22f, 0.50f, 0.28f),
+                ["witness-well"]  = new Rig(56f, 34f, 0.50f, 0.28f),
                 ["cinder-sluice"] = new Rig(48f, 44f, 0.54f, 0.24f),
                 // Judgement/boss plates: the flattest key, the deepest shadow.
                 ["echo-throne"]   = new Rig(24f, 30f, 0.56f, 0.14f),
                 ["ash-verdict"]   = new Rig(38f, 52f, 0.57f, 0.19f),
-                ["ash-march"]     = new Rig(44f, 8f,  0.53f, 0.23f),
+                ["ash-march"]     = new Rig(44f, 36f, 0.53f, 0.23f),
             };
 
         static Rig RigFor(string stageId)

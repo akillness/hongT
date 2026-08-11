@@ -23,6 +23,8 @@ namespace CinderCourt.View
         public const uint CharacterShadowRenderingLayerMask = 1u << 1;
         public const uint ActorRenderingLayerMask =
             DefaultRenderingLayerMask | CharacterShadowRenderingLayerMask;
+        public const float CharacterShadowDepthBias = 0.05f;
+        public const float CharacterShadowNormalBias = 0f;
 
         const float ReceiverHeight = 0.018f;
         const float ReceiverEdgeMargin = 0.35f;
@@ -89,6 +91,9 @@ namespace CinderCourt.View
 
         public bool KeyUsesCustomShadowLayers =>
             _keyData != null && _keyData.customShadowLayers;
+
+        public bool KeyUsesPipelineShadowBias =>
+            _keyData != null && _keyData.usePipelineSettings;
 
         public bool CapturedPipelineAssetHasOriginalSettings =>
             _capturedPipelineAsset == null
@@ -213,6 +218,14 @@ namespace CinderCourt.View
             if (_keyLight == null) return;
             _keyLight.shadows = LightShadows.Hard;
             _keyData = _keyLight.GetUniversalAdditionalLightData();
+            // Mobile_RPAsset's 1/1 depth/normal defaults erase thin limbs and
+            // equipment at the single-cascade WebGL resolutions used here.
+            // This key lights only non-receiving actor casters onto a separate
+            // floor receiver, so preserve their full silhouette with a tiny
+            // depth offset and no normal inset.
+            _keyData.usePipelineSettings = false;
+            _keyLight.shadowBias = CharacterShadowDepthBias;
+            _keyLight.shadowNormalBias = CharacterShadowNormalBias;
             _keyData.renderingLayers = DefaultRenderingLayerMask;
             _keyData.shadowRenderingLayers = CharacterShadowRenderingLayerMask;
             _keyData.customShadowLayers = true;
