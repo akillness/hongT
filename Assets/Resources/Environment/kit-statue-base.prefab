@@ -59,7 +59,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: dfe4811b1536346b6a2cf5341f18dee0, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c50fe137acb4341d287c11eaff545903, type: 2}
+      objectReference: {fileID: 2100000, guid: 87dcf1277b19b45f388caea1e27095e4, type: 2}
     - target: {fileID: 919132149155446097, guid: dfe4811b1536346b6a2cf5341f18dee0, type: 3}
       propertyPath: m_Name
       value: kit-statue-base

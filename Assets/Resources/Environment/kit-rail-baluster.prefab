@@ -59,7 +59,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: 515a5b9d492fb4ddfaaaf338c19710f9, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c50fe137acb4341d287c11eaff545903, type: 2}
+      objectReference: {fileID: 2100000, guid: 1361df6d4cfb14bb4888b55cb7067af5, type: 2}
     - target: {fileID: 919132149155446097, guid: 515a5b9d492fb4ddfaaaf338c19710f9, type: 3}
       propertyPath: m_Name
       value: kit-rail-baluster

@@ -59,7 +59,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: 4f3e12df9da1d489a85368f9cd7a124b, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c50fe137acb4341d287c11eaff545903, type: 2}
+      objectReference: {fileID: 2100000, guid: 3458e151599c44d09b2e9be2a5e61dca, type: 2}
     - target: {fileID: 919132149155446097, guid: 4f3e12df9da1d489a85368f9cd7a124b, type: 3}
       propertyPath: m_Name
       value: kit-barricade

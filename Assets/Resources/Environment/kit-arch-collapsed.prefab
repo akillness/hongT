@@ -59,7 +59,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: fa3d3e75812ec4b8983d66592da98215, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: c50fe137acb4341d287c11eaff545903, type: 2}
+      objectReference: {fileID: 2100000, guid: b9c381c4ae8324280b27bb909847beaf, type: 2}
     - target: {fileID: 919132149155446097, guid: fa3d3e75812ec4b8983d66592da98215, type: 3}
       propertyPath: m_Name
       value: kit-arch-collapsed
