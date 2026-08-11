@@ -325,29 +325,119 @@ namespace CinderCourt.View
 
 
         float _companionLastX;
+        float _companionLastY;
+        bool _companionSampled;
+        float _companionMoveHold;
+
+        /// <summary>Smallest per-step companion displacement that counts as
+        /// locomotion, in world px. Real motion is ~4 px/step at companion
+        /// speed, so this only rejects float noise (~160 ulps at arena scale).
+        /// </summary>
+        internal const float CompanionMoveEpsilon = 0.01f;
+
+        /// <summary>Sim seconds a locomotion pose survives after the last
+        /// moving step (~3 fixed steps at 60 Hz - descriptive, not an identity:
+        /// 3f * FixedStep is 0.050000004f, which is not bit-equal to 0.05f).
+        /// It is a settle tail, not a strobe guard: the strobe is handled by
+        /// decaying on SIM delta (see <see cref="AdvanceCompanionMoveHold"/>).
+        /// AMENDMENT #18's wander dwell is 0.35 s, so 0.30 s of it still reads
+        /// as a genuine pause.
+        /// </summary>
+        internal const float CompanionMoveHoldSeconds = 0.05f;
+
+        /// <summary>True when this step's companion displacement is real
+        /// motion rather than float noise. Pure: the caller owns the hold
+        /// window.</summary>
+        internal static bool CompanionMoved(float deltaX, float deltaY)
+            => deltaX * deltaX + deltaY * deltaY
+               > CompanionMoveEpsilon * CompanionMoveEpsilon;
+
+        /// <summary>Advances the locomotion-pose hold window. Pure.
+        ///
+        /// <paramref name="simDelta"/> is GameView's <c>steps x FixedStep</c>,
+        /// NEVER Time.deltaTime - the same rule the launch heuristics follow
+        /// (GameView §_simDelta). SyncViews runs per RENDER frame while the sim
+        /// advances 0 or 1 fixed steps, so above 60 fps most frames re-read an
+        /// UNCHANGED position. Decaying on render time would expire the hold
+        /// during those frames and strobe the pose Move/Idle at the
+        /// render-vs-sim beat frequency; decaying on sim time makes a zero-step
+        /// frame decay by exactly zero, so the pose simply holds. That is why
+        /// this is structural rather than a tuned constant.</summary>
+        internal static float AdvanceCompanionMoveHold(float hold, bool moved, float simDelta)
+            => moved ? CompanionMoveHoldSeconds : Mathf.Max(0f, hold - simDelta);
+
+        /// <summary>The sim's ±1 facing, gated to the swing frame. Pure.
+        ///
+        /// <c>CompanionFacingAt</c> is ±1 ALWAYS - never 0 (HackTypes §D6.5;
+        /// every write is <c>_player.Facing</c> or <c>targetDeltaX > 0f ? 1 : -1</c>).
+        /// So <c>attackFacing != 0</c> can NEVER stand in for "is swinging". It
+        /// did, and both yaw fallbacks below went unreachable: companions
+        /// hard-snapped to 90°/270° forever and GameView's 16-direction gaze was
+        /// computed then discarded. Gating on <paramref name="attacking"/> - the
+        /// flag that actually means it - is the fix, and it lives HERE rather
+        /// than at the call site so no caller can forget it.</summary>
+        internal static int ResolveCompanionSwingFacing(bool attacking, int simFacing)
+            => attacking ? simFacing : 0;
+
+        /// <summary>Companion pose selection, pure so it can be pinned
+        /// exhaustively (same idiom as <see cref="ResolveActionValue"/>).
+        ///
+        /// The pose reads MOVEMENT, not player proximity. Before AMENDMENT #18
+        /// a no-target companion inside the follow band was genuinely parked, so
+        /// GameView could infer Idle from "close to the player". #18's idle route
+        /// walks 24 px legs entirely inside that band (ComfortRadius 128 px vs
+        /// the 120 px inference), and the stale inference then posed a walking
+        /// body as Idle - the companion slid across the floor with no walk
+        /// cycle. The same inference also froze a companion hard-following a
+        /// moving player inside the band.
+        ///
+        /// Priority: a swing outranks everything (the strike must show), then
+        /// locomotion, then the combat gaze stance - a companion holding a
+        /// target between strikes reads as ready, not asleep.</summary>
+        internal static ActorAction ResolveCompanionAction(
+            bool moving, bool attacking, bool hasGaze)
+        {
+            if (attacking) return ActorAction.Attack;
+            if (moving || hasGaze) return ActorAction.Move;
+            return ActorAction.Idle;
+        }
 
         /// <summary>Companion follower (§4 + G1 combat gaze): position from the
         /// sim; pose/facing prioritized combat-first. attackFacing wins while
         /// the strike shows; combatFacing (nearest enemy in range) holds the
-        /// gaze between strikes; movement dir is the peace-time fallback; near
-        /// the player with no target the companion rests in Idle.</summary>
+        /// gaze between strikes; movement dir is the peace-time fallback; a
+        /// stationary companion with no target rests in Idle.
+        ///
+        /// <paramref name="attackFacing"/> is the sim's RAW ±1 facing - pass
+        /// <c>CompanionFacingAt(slot)</c> unconditionally. Gating it on the swing
+        /// is this method's job, not the caller's
+        /// (<see cref="ResolveCompanionSwingFacing"/>), so the gaze and
+        /// movement-yaw fallbacks stay reachable by construction.</summary>
         public void SyncCompanion(float simX, float simY, int attackFacing, bool attacking,
-                                  float gazeYaw = float.NaN, bool restIdle = false)
+                                  float gazeYaw, float simDelta)
         {
-            var moveFacing = simX >= _companionLastX ? 1 : -1;
-            var facing = attackFacing != 0 ? attackFacing : moveFacing;
+            var swingFacing = ResolveCompanionSwingFacing(attacking, attackFacing);
+            // No previous sample means no travel direction yet: default to +1
+            // rather than comparing against a pooled predecessor's seat (or the
+            // world origin, which only reads +1 because arena X is positive).
+            var moveFacing = !_companionSampled || simX >= _companionLastX ? 1 : -1;
+            var facing = swingFacing != 0 ? swingFacing : moveFacing;
             // G1(c): an in-range enemy owns the yaw even while the body keeps
-            // following the player — without this, M1's movement-delta yaw
+            // following the player - without this, M1's movement-delta yaw
             // wins during Move and the companion stares at its travel path.
             // Full 16-direction angle (M1's 22.5° grammar), not ±1 snap;
             // the attack frame keeps the sim's authoritative ±1 facing.
-            _gazeYaw = attackFacing != 0
-                ? (attackFacing > 0 ? 90f : 270f)
+            _gazeYaw = swingFacing != 0
+                ? (swingFacing > 0 ? 90f : 270f)
                 : gazeYaw;
+            var moved = _companionSampled
+                && CompanionMoved(simX - _companionLastX, simY - _companionLastY);
+            _companionMoveHold = AdvanceCompanionMoveHold(_companionMoveHold, moved, simDelta);
             _companionLastX = simX;
-            var action = attacking ? ActorAction.Attack
-                : restIdle ? ActorAction.Idle
-                : ActorAction.Move;
+            _companionLastY = simY;
+            _companionSampled = true;
+            var action = ResolveCompanionAction(
+                _companionMoveHold > 0f, attacking, !float.IsNaN(gazeYaw));
             Apply(simX, simY, facing, action, 1f, 0.92f, false, 0f, false);
         }
 
@@ -1036,6 +1126,13 @@ namespace CinderCourt.View
             _deathPop = 0f;
             _prevSimX = float.NaN;
             _prevSimY = float.NaN;
+            // A pooled companion never inherits the previous tenant's seat: the
+            // stale sample reads as one enormous first-frame stride, and the
+            // facing flip at SyncCompanion's first line reads it too.
+            _companionLastX = 0f;
+            _companionLastY = 0f;
+            _companionSampled = false;
+            _companionMoveHold = 0f;
             _eliteTint = false;
             _shieldTint = false;      // R2: pooled actors never keep a shield read
             _shieldApplied = false;   // pool reset below rewrites the block anyway

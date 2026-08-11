@@ -71,12 +71,12 @@ namespace CinderCourt.View
         /// knockback (see ActorView.SyncPlayer).</summary>
         float _simDelta;
 
-        // --- dungeon progression gate (AMENDMENTS #13/#14/#15) ---------------
+        // --- dungeon progression gate (AMENDMENTS #13–#18) ------------------
         /// <summary>
         /// The ONE place the view decides which dungeon amendments are armed.
         /// <c>Everything</c> = #13 adaptive waves + #14 graded loot + #15
-        /// expanded movement bounds. It is a static readonly rather than a call
-        /// site literal because the sim is not the only reader: the environment
+        /// expanded movement bounds + #16 boss variety + #18 companion cohesion. It is a
+        /// static readonly rather than a call site literal because the sim is not the only reader: the environment
         /// ring, the camera follow clamp and the ash-wall visuals must all be
         /// laid out against the SAME half-axes the sim clamps to, and they are
         /// built BEFORE the sim exists (GameDirector.SetStageEnvironment runs at
@@ -875,8 +875,7 @@ namespace CinderCourt.View
                     var companionY = hack.CompanionYAt(slot);
                     // G1: nearest living enemy inside the companion's attack
                     // range owns the gaze between strikes (iso-weighted metric,
-                    // same as the sim's targeting). Near the player with no
-                    // target -> rest Idle instead of treadmilling Move.
+                    // same as the sim's targeting).
                     var gazeYaw = float.NaN;
                     var bestSq = HackSpec.CompanionAttackRange * HackSpec.CompanionAttackRange;
                     for (var i = 0; i < enemies.Count; i++)
@@ -892,13 +891,16 @@ namespace CinderCourt.View
                             Mathf.Atan2(deltaX, -(enemy.Y - companionY))
                             * Mathf.Rad2Deg / 22.5f) * 22.5f;
                     }
-                    var playerDeltaX = _sim.Player.X - companionX;
-                    var playerDeltaY = _sim.Player.Y - companionY;
-                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttackingAt(slot)
-                        && playerDeltaX * playerDeltaX + playerDeltaY * playerDeltaY
-                           < HackSpec.CompanionFollowOffset * HackSpec.CompanionFollowOffset * 2.25f;
-                    view.SyncCompanion(companionX, companionY, hack.CompanionFacingAt(slot),
-                        hack.CompanionAttackingAt(slot), gazeYaw, restIdle);
+                    // Idle vs Move is ActorView's call: it reads the actual
+                    // per-step displacement. The old player-proximity guess
+                    // posed AMENDMENT #18's in-band wander legs as Idle, so a
+                    // walking companion slid with no walk cycle. _simDelta (not
+                    // Time.deltaTime) drives the hold window - a zero-step
+                    // frame must not age it.
+                    var companionAttacking = hack.CompanionAttackingAt(slot);
+                    view.SyncCompanion(companionX, companionY,
+                        hack.CompanionFacingAt(slot), companionAttacking,
+                        gazeYaw, _simDelta);
                 }
 
             }
