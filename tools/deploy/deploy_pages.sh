@@ -26,6 +26,15 @@ WORKTREE_CREATED=0
 STAGING_CREATED=0
 REPORT_TMP_DIR="$(mktemp -d)"
 
+# Framework Python installations on macOS may not inherit the system keychain.
+# Prefer certifi's maintained CA bundle when the caller has not selected one.
+if [ -z "${SSL_CERT_FILE:-}" ]; then
+  CERTIFI_CA="$($PYTHON_BIN -c 'import certifi; print(certifi.where())' 2>/dev/null || true)"
+  if [ -n "$CERTIFI_CA" ] && [ -f "$CERTIFI_CA" ]; then
+    export SSL_CERT_FILE="$CERTIFI_CA"
+  fi
+fi
+
 cleanup() {
   if [ "$STAGING_CREATED" -eq 1 ] && [ -d "$STAGING" ]; then
     rm -rf -- "$STAGING"
@@ -155,6 +164,15 @@ LOCAL_TREE="$(git -C "$WORKTREE" rev-parse 'HEAD^{tree}')"
   echo "FATAL: local gh-pages commit tree $LOCAL_TREE does not match $EXPECTED_TREE"
   exit 1
 }
+
+# verify-remote revalidates the exact source checkout and therefore must not
+# see this script's own transient staging/worktree directories as outside
+# inputs. Their commit/tree identities are frozen above, so remove them before
+# the source-clean and HTTP byte checks.
+rm -rf -- "$STAGING"
+STAGING_CREATED=0
+git worktree remove --force "$WORKTREE"
+WORKTREE_CREATED=0
 
 git fetch origin gh-pages:refs/remotes/origin/gh-pages
 REMOTE_COMMIT="$(git rev-parse origin/gh-pages)"

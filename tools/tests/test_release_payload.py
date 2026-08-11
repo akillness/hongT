@@ -285,6 +285,17 @@ class ReleasePayloadTests(unittest.TestCase):
         ).stdout
         self.assertEqual(stored, raw)
 
+    def test_deploy_removes_its_transients_before_remote_source_validation(self) -> None:
+        script = (DEPLOY_TOOLS / "deploy_pages.sh").read_text(encoding="utf-8")
+        cleanup = script.index('rm -rf -- "$STAGING"\nSTAGING_CREATED=0')
+        worktree_cleanup = script.index(
+            'git worktree remove --force "$WORKTREE"\nWORKTREE_CREATED=0'
+        )
+        remote_verify = script.index('"$SEALER" verify-remote')
+        self.assertLess(cleanup, remote_verify)
+        self.assertLess(worktree_cleanup, remote_verify)
+        self.assertIn("import certifi; print(certifi.where())", script)
+
     def test_final_payload_budget_includes_the_deployed_manifest(self) -> None:
         fixture = ReleaseFixture(self.root)
         probe_stage = fixture.repo / "stage-budget-probe"
