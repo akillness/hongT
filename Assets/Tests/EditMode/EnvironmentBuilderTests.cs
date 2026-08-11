@@ -411,6 +411,152 @@ namespace CinderCourt.Tests
                 + "telegraph behind it at the 55° dungeon pitch (§E0.5)");
         }
 
+        [Test]
+        public void GimmickFurniture_DoesNotRingStoneWallHazards()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var hazards = DressingHazardsFor(stageId);
+                if (!ContainsKind(hazards, HazardKind.StoneWall)) continue;
+
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var stoneWallFurniture = 0;
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!IsGimmickFurniture(child)) continue;
+                        if (NearestHazardKind(ToSim(child.position), hazards) == HazardKind.StoneWall)
+                            stoneWallFurniture++;
+                    }
+
+                    Assert.That(stoneWallFurniture, Is.EqualTo(0),
+                        $"{stageId}: StoneWall is already rendered by VfxDirector; "
+                        + "env-floor-5xx furniture around it duplicates the blocker "
+                        + "inside the decision space and clutters the play read.");
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+            }
+        }
+
+        [Test]
+        public void GimmickFurniture_PerKindCountsStayBelowDeclutterCaps()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var hazards = DressingHazardsFor(stageId);
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var expectedCaps = new Dictionary<HazardKind, int>();
+                    for (var i = 0; i < hazards.Length; i++)
+                    {
+                        if (!IsDiscGimmick(hazards[i].Kind)) continue;
+                        if (!expectedCaps.ContainsKey(hazards[i].Kind))
+                            expectedCaps[hazards[i].Kind] = 0;
+                        expectedCaps[hazards[i].Kind] += FurnitureCapPerHazard(hazards[i].Kind);
+                    }
+
+                    var actual = new Dictionary<HazardKind, int>();
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!IsGimmickFurniture(child)) continue;
+                        var kind = NearestHazardKind(ToSim(child.position), hazards);
+                        if (!IsDiscGimmick(kind)) continue;
+                        if (!actual.ContainsKey(kind)) actual[kind] = 0;
+                        actual[kind]++;
+                    }
+
+                    foreach (var pair in expectedCaps)
+                    {
+                        actual.TryGetValue(pair.Key, out var count);
+                        Assert.That(count, Is.LessThanOrEqualTo(pair.Value),
+                            $"{stageId}: {pair.Key} furniture count {count} exceeds "
+                            + $"declutter cap {pair.Value}. Hazard texture beds now "
+                            + "carry the tone, so local dressing must frame the gimmick "
+                            + "instead of forming a noisy ring.");
+                    }
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+            }
+        }
+
+        static HazardConfig[] DressingHazardsFor(string stageId)
+        {
+            var hazards = StageCatalog.PactFor(stageId);
+            Assert.That(hazards, Is.Not.Null.And.Not.Empty,
+                $"{stageId}: EnvironmentBuilder uses StageCatalog.PactFor; the test must inspect the same hazard set.");
+            return hazards;
+        }
+
+        static bool ContainsKind(HazardConfig[] hazards, HazardKind kind)
+        {
+            for (var i = 0; i < hazards.Length; i++)
+                if (hazards[i].Kind == kind) return true;
+            return false;
+        }
+
+        static bool IsGimmickFurniture(Transform child)
+            => child.name.StartsWith("env-floor-5", System.StringComparison.Ordinal)
+               && child.GetComponentInChildren<Renderer>() != null;
+
+        static bool IsDiscGimmick(HazardKind kind)
+            => kind == HazardKind.EmberVent
+               || kind == HazardKind.ObsidianPillar
+               || kind == HazardKind.RelicAltar
+               || kind == HazardKind.EmberPylon;
+
+        static int FurnitureCapPerHazard(HazardKind kind)
+        {
+            switch (kind)
+            {
+                case HazardKind.EmberVent: return 4;
+                case HazardKind.ObsidianPillar: return 3;
+                case HazardKind.RelicAltar: return 3;
+                case HazardKind.EmberPylon: return 3;
+                default: return 0;
+            }
+        }
+
+        static HazardKind NearestHazardKind(Vector2 sim, HazardConfig[] hazards)
+        {
+            var best = float.PositiveInfinity;
+            var bestKind = HazardKind.EmberVent;
+            for (var i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i].Kind == HazardKind.AshWall
+                    || hazards[i].Kind == HazardKind.TideCurrent)
+                    continue;
+
+                var distance = DistanceFromHazardFootprint(sim, hazards[i]);
+                if (distance >= best) continue;
+                best = distance;
+                bestKind = hazards[i].Kind;
+            }
+            return bestKind;
+        }
+
+        static float DistanceFromHazardFootprint(Vector2 sim, HazardConfig hazard)
+        {
+            if (hazard.Kind == HazardKind.StoneWall)
+            {
+                var center = new Vector2(hazard.X, hazard.Y);
+                var half = new Vector2(hazard.HalfW, hazard.HalfH);
+                var segment = half * 2f;
+                if (segment.sqrMagnitude > 0.0001f)
+                {
+                    var a = center - half;
+                    var t = Vector2.Dot(sim - a, segment) / segment.sqrMagnitude;
+                    var nearest = a + segment * Mathf.Clamp01(t);
+                    return Vector2.Distance(sim, nearest) - hazard.Radius;
+                }
+            }
+
+            return Vector2.Distance(sim, new Vector2(hazard.X, hazard.Y)) - hazard.Radius;
+        }
+
         // ------------------------- 2c. outer silhouettes actually stand up --
         //
         // The pass above proved a shape exists; this one proves it is TALL.

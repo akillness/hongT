@@ -260,6 +260,7 @@ namespace CinderCourt.View
             _dungeonPresentation = _isDungeon || _isTraining;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
+            if (Vfx != null) Vfx.SetStageContext(_logicalStageId);
             // Arena/prologue resolve to "" and the HUD chip stays hidden; a dungeon
             // room resolves to its own catalog objective.
             _roomObjective = _isDungeon ? StageCatalog.ObjectiveFor(_logicalStageId) : string.Empty;
@@ -357,6 +358,7 @@ namespace CinderCourt.View
 
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
+            if (Vfx != null) Vfx.SetStageContext(string.Empty);
             ClearDamageNumbers();
             // Presentation timers must not leak into the lobby (spec #1).
             _hitStopTimer = 0f;

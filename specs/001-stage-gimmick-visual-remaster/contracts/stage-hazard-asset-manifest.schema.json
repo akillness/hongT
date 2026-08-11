@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://akillness.github.io/hongT/contracts/stage-hazard-asset-manifest.schema.json",
+  "title": "HongT Stage Hazard Texture Manifest",
+  "type": "object",
+  "required": ["tool", "dry_run", "smoke", "assets"],
+  "properties": {
+    "tool": { "const": "god-tibo-imagen" },
+    "dry_run": { "type": "string", "minLength": 1 },
+    "smoke": { "type": "string", "minLength": 1 },
+    "assets": {
+      "type": "array",
+      "minItems": 33,
+      "items": {
+        "type": "object",
+        "required": [
+          "stage_id", "act", "hazard_kind", "role", "provider", "model",
+          "prompt", "input_refs", "source_output", "output_path", "sha256",
+          "dimensions", "mode", "import_settings", "runtime_consumer",
+          "generation_attempts", "acceptance_metrics", "decision"
+        ],
+        "properties": {
+          "stage_id": { "type": "string", "minLength": 1 },
+          "act": { "type": "integer", "minimum": 1, "maximum": 3 },
+          "hazard_kind": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "provider": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 },
+          "prompt": { "type": "string", "minLength": 1 },
+          "negative_prompt": { "type": "string" },
+          "input_refs": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "source_output": { "type": "string", "minLength": 1 },
+          "output_path": { "type": "string", "pattern": "^Assets/Resources/Textures/Hazards/.+\\.png$" },
+          "postprocess": { "type": "array", "items": { "type": "string" } },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "dimensions": { "type": "string", "pattern": "^[0-9]+x[0-9]+$" },
+          "mode": { "type": "string", "minLength": 1 },
+          "import_settings": { "type": "object" },
+          "runtime_consumer": { "type": "string", "minLength": 1 },
+          "mapping_scale": { "type": ["string", "number", "array", "object"] },
+          "generation_attempts": { "type": "integer", "minimum": 1 },
+          "acceptance_metrics": { "type": "object" },
+          "validation_artifacts": { "type": "array", "items": { "type": "string" } },
+          "decision": { "enum": ["accepted", "rejected"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

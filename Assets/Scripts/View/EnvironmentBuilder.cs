@@ -826,6 +826,52 @@ namespace CinderCourt.View
             return false;
         }
 
+        static HazardKind NearestHazardKind(HazardConfig[] hazards, double x, double y)
+        {
+            var best = double.PositiveInfinity;
+            var bestKind = HazardKind.EmberVent;
+            for (var i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i].Kind == HazardKind.AshWall
+                    || hazards[i].Kind == HazardKind.TideCurrent)
+                    continue;
+
+                var distance = DistanceFromHazardFootprint(hazards[i], x, y);
+                if (distance >= best) continue;
+                best = distance;
+                bestKind = hazards[i].Kind;
+            }
+
+            return bestKind;
+        }
+
+        static double DistanceFromHazardFootprint(HazardConfig hazard, double x, double y)
+        {
+            if (hazard.Kind == HazardKind.StoneWall)
+            {
+                var ax = hazard.X - hazard.HalfW;
+                var ay = hazard.Y - hazard.HalfH;
+                var sx = hazard.HalfW * 2.0;
+                var sy = hazard.HalfH * 2.0;
+                var segmentSq = sx * sx + sy * sy;
+                if (segmentSq > 1e-9)
+                {
+                    var t = ((x - ax) * sx + (y - ay) * sy) / segmentSq;
+                    if (t < 0.0) t = 0.0;
+                    else if (t > 1.0) t = 1.0;
+                    var nx = ax + sx * t;
+                    var ny = ay + sy * t;
+                    var ndx = x - nx;
+                    var ndy = y - ny;
+                    return Math.Sqrt(ndx * ndx + ndy * ndy) - hazard.Radius;
+                }
+            }
+
+            var dx = x - hazard.X;
+            var dy = y - hazard.Y;
+            return Math.Sqrt(dx * dx + dy * dy) - hazard.Radius;
+        }
+
         // ------------------------------------- gimmick terrain furniture --
         //
         // The sim gimmicks ARE the level design (DUNGEON_GUIDE §0: dungeons are
@@ -907,8 +953,11 @@ namespace CinderCourt.View
                 // of clear floor - the middle 50px being the documented safe
                 // corridor a player survives in. Rails there would be smaller
                 // than ClearBase and would clutter the one readable escape.
+                // StoneWall is owned by VfxDirector's capsule path; adding floor
+                // furniture here makes the blocker read as two overlapping props.
                 if (hazard.Kind == HazardKind.AshWall
-                 || hazard.Kind == HazardKind.TideCurrent) continue;
+                 || hazard.Kind == HazardKind.TideCurrent
+                 || hazard.Kind == HazardKind.StoneWall) continue;
 
                 var ringR = hazard.Radius + ClearBase + FurnitureRingMargin;
                 // scale = target height in SIM PX (× ViewWorld.Scale at use).
@@ -920,8 +969,8 @@ namespace CinderCourt.View
                 switch (hazard.Kind)
                 {
                     case HazardKind.EmberVent:
-                        // Scorched crater rim: many small shards, low and wide.
-                        count = 6; family = "prop"; scale = 17f; shade = 0.55f;
+                        // Scorched crater rim: sparse shards; texture carries the tone.
+                        count = 4; family = "prop"; scale = 17f; shade = 0.55f;
                         break;
                     case HazardKind.ObsidianPillar:
                         // Outcrop base: few, chunkier, clustered.
@@ -929,7 +978,7 @@ namespace CinderCourt.View
                         break;
                     case HazardKind.RelicAltar:
                         // Dais corners: symmetric, deliberate.
-                        count = 4; family = "feature"; scale = 32f; shade = 1.08f;
+                        count = 3; family = "feature"; scale = 32f; shade = 1.08f;
                         break;
                     default: // EmberPylon
                         // Buttress feet around the breakable column.
@@ -953,6 +1002,7 @@ namespace CinderCourt.View
                     // sits FurnitureRingMargin beyond that, so this rejects only
                     // foreign discs - the same filter every other pass uses.
                     if (NearAnyHazard(hazards, x, y, 0.0)) continue;
+                    if (NearestHazardKind(hazards, x, y) != hazard.Kind) continue;
 
                     var module = NewModule(Kind.Floor,
                         "env-floor-" + (500 + index).ToString("D3"), x, y, 0f,

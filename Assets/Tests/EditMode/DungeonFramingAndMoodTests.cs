@@ -8,6 +8,9 @@
 // rendering. RenderSettings is global, so the mood fixture snapshots and
 // restores it (the same hazard StageMood.Clear exists for at runtime).
 using System.Reflection;
+using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using UnityEngine;
 using CinderCourt.Sim;
@@ -377,6 +380,77 @@ namespace CinderCourt.Tests
             }
         }
 
+        [Test]
+        public void StageTextures_EveryCampaignStageHasDistinctFloorAndStoneAlbedos()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var floorPath = ResourceFile(EnvironmentBuilder.StageTexturePath + stageId + "-floor");
+                var stonePath = ResourceFile(EnvironmentBuilder.StageTexturePath + stageId + "-stone");
+
+                Assert.That(File.Exists(floorPath), Is.True, $"{stageId}: floor albedo missing");
+                Assert.That(File.Exists(stonePath), Is.True, $"{stageId}: stone albedo missing");
+                Assert.That(Sha256(floorPath), Is.Not.EqualTo(Sha256(stonePath)),
+                    $"{stageId}: floor and stone must stay distinct concept textures");
+            }
+        }
+
+        [Test]
+        public void StageHazardTextures_EveryCatalogBindingHasOpaque512NonFlatAlbedo()
+        {
+            var seen = new HashSet<string>();
+            Assert.That(StageHazardVisualCatalog.Bindings, Has.Count.EqualTo(33),
+                "the 9-stage campaign currently has 33 concrete stage×hazard texture bindings");
+
+            foreach (var binding in StageHazardVisualCatalog.Bindings)
+            {
+                Assert.That(IsCampaignStage(binding.StageId), Is.True,
+                    $"{binding.StageId}/{binding.Kind}: non-campaign stage leaked into the visual catalog");
+                Assert.That(seen.Add(binding.ResourcePath), Is.True,
+                    $"{binding.ResourcePath}: duplicate generated hazard resource binding");
+
+                var path = ResourceFile(binding.ResourcePath);
+                Assert.That(File.Exists(path), Is.True,
+                    $"{binding.StageId}/{binding.Kind}: generated hazard albedo missing at {path}");
+
+                var texture = LoadReadablePng(path);
+                try
+                {
+                    Assert.That(texture.width, Is.EqualTo(512), $"{path}: generated output must be 512 px wide");
+                    Assert.That(texture.height, Is.EqualTo(512), $"{path}: generated output must be 512 px high");
+                    Assert.That(IsOpaque(texture), Is.True,
+                        $"{path}: physical underlay/body textures must not reveal the base floor through alpha");
+                    Assert.That(HasNonFlatColor(texture), Is.True,
+                        $"{path}: generated texture is visually flat and cannot carry stage tone");
+                }
+                finally { Object.DestroyImmediate(texture); }
+            }
+        }
+
+        [Test]
+        public void StageHazardTextures_RepeatRolesUsePositiveRuntimeBaseMapSt()
+        {
+            var method = typeof(VfxDirector).GetMethod(
+                "SurfaceRepeatSt", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null,
+                "repeat-role hazard textures must keep a runtime _BaseMap_ST helper");
+
+            foreach (var binding in StageHazardVisualCatalog.Bindings)
+            {
+                if (!UsesRepeatRole(binding.PrimaryRole)) continue;
+
+                var st = (Vector4)method.Invoke(null, new object[] { 2.5f, 1.25f });
+                Assert.That(st.x, Is.GreaterThan(0f),
+                    $"{binding.ResourcePath}: repeat-role _BaseMap_ST x scale must stay positive");
+                Assert.That(st.y, Is.GreaterThan(0f),
+                    $"{binding.ResourcePath}: repeat-role _BaseMap_ST y scale must stay positive");
+                Assert.That(st.z, Is.EqualTo(0f).Within(1e-6f),
+                    $"{binding.ResourcePath}: repeat-role offset starts uncropped unless the hazard sync crops it");
+                Assert.That(st.w, Is.EqualTo(0f).Within(1e-6f),
+                    $"{binding.ResourcePath}: repeat-role offset starts uncropped unless the hazard sync crops it");
+            }
+        }
+
         static Material FindMaterial(GameObject root, string name)
         {
             foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
@@ -385,6 +459,61 @@ namespace CinderCourt.Tests
                         return material;
             Assert.Fail($"material {name} not found under {root.name}");
             return null;
+        }
+
+        static bool IsCampaignStage(string stageId)
+        {
+            for (var i = 0; i < StageIds.Length; i++)
+                if (StageIds[i] == stageId) return true;
+            return false;
+        }
+
+        static bool UsesRepeatRole(string role)
+            => role == "body" || role == "bed" || role == "band" || role == "albedo";
+
+        static string ResourceFile(string resourcePath)
+            => Path.Combine(Directory.GetCurrentDirectory(), "Assets/Resources/" + resourcePath + ".png");
+
+        static string Sha256(string path)
+        {
+            using (var sha = SHA256.Create())
+            using (var stream = File.OpenRead(path))
+                return System.BitConverter.ToString(sha.ComputeHash(stream));
+        }
+
+        static Texture2D LoadReadablePng(string path)
+        {
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Assert.That(ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false), Is.True,
+                $"{path}: PNG decode failed");
+            return texture;
+        }
+
+        static bool IsOpaque(Texture2D texture)
+        {
+            for (var y = 0; y < texture.height; y += 31)
+                for (var x = 0; x < texture.width; x += 31)
+                    if (texture.GetPixel(x, y).a < 0.995f)
+                        return false;
+            return texture.GetPixel(texture.width - 1, texture.height - 1).a >= 0.995f;
+        }
+
+        static bool HasNonFlatColor(Texture2D texture)
+        {
+            var colors = new HashSet<int>();
+            for (var y = 0; y < texture.height; y += 32)
+            {
+                for (var x = 0; x < texture.width; x += 32)
+                {
+                    var color = texture.GetPixel(x, y);
+                    var r = Mathf.Clamp(Mathf.RoundToInt(color.r * 31f), 0, 31);
+                    var g = Mathf.Clamp(Mathf.RoundToInt(color.g * 31f), 0, 31);
+                    var b = Mathf.Clamp(Mathf.RoundToInt(color.b * 31f), 0, 31);
+                    colors.Add((r << 10) | (g << 5) | b);
+                    if (colors.Count >= 4) return true;
+                }
+            }
+            return false;
         }
     }
 }

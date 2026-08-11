@@ -1,0 +1,13 @@
+ember-gallery|4500|4|17|2|142|(running)|881.8254|500.54425
+witness-well|2800|3|12|2|136|(running)|342.2595|514.024658
+echo-throne|3600|3|13|4|136|(running)|1029.2793|390.672241
+ash-verdict|3400|3|14|2|142|(running)|1252.95532|587.4204
+ash-march|4400|4|18|0|92|(running)|608.9268|604.268
+cinder-span|3950|4|15|3|142|(running)|948.149841|546.9919
+abyss-chancel|3850|4|16|1|142|(running)|940.9499|637.1489
+classic-cinder-span|3700|4|15|2|75|(running)|1035.27319|717.864
+classic-abyss-chancel|6350|4|21|3|100|(running)|576.829163|741.8254
+classic-echo-throne|6350|4|21|3|90|(running)|972.6431|583.8452
+new-cinder-sluice|2850|3|13|1|136|(running)|763.051|650.348
+new-ember-bastion|2250|3|11|1|136|(running)|897.4999|712.708557
+new-ash-march|4400|4|18|0|92|(running)|608.9268|604.268

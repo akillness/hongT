@@ -1,5 +1,5 @@
 // Code-generated effects only: nova ring, ward shell, pickup gems.
-// No asset dependencies; everything survives missing-prefab scaffolding.
+// Stage hazard surfaces are optional assets; gameplay VFX survives missing resources.
 using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
@@ -111,6 +111,10 @@ namespace CinderCourt.View
         struct HazardView
         {
             public Transform Root;
+            public Transform Surface;   // stage-specific physical bed/body below state layers
+            public Renderer SurfaceRenderer;
+            public Material SurfaceMaterial;
+            public MaterialPropertyBlock SurfaceProperties;
             public Renderer Ring;       // vent telegraph / altar glow / pylon aura
             public Material RingMaterial;
             public float PrevCycleT;    // eruption wrap detection (#17)
@@ -128,9 +132,14 @@ namespace CinderCourt.View
             public Transform Edge;
             public Material EdgeMaterial;
             public float PushSign;      // current flow direction (anchor lookup)
+            public bool SurfaceFromRight;
             public bool Down;           // pylon destroyed — one-shot fired
         }
         HazardView[] _hazardViews;
+        string _stageContext = string.Empty;
+        StageHazardTextureResolver _stageHazardTextureResolver;
+        readonly Dictionary<string, Material> _stageSurfaceMaterialCache =
+            new Dictionary<string, Material>(16);
         // Chevron repeat pitch inside the tide-current flow row (world units).
         // The scroll offset wraps at this pitch so the row reads endless.
         const float ChevronSpacingWorld = 1.3f;
@@ -144,6 +153,17 @@ namespace CinderCourt.View
         // arena and prologue curtains are unchanged.
         static float _wallSpanWorld = SimConfig.ArenaHalfHeight * 2f * ViewWorld.Scale;
         static float WallSpanWorld => _wallSpanWorld;
+        static float AshWallMaxDepthWorld => CampaignSpec.WallDepthMax * ViewWorld.Scale;
+
+        public void SetStageContext(string stageId)
+        {
+            var next = stageId ?? string.Empty;
+            if (_stageContext == next) return;
+
+            _stageContext = next;
+            if (_hazardViews != null)
+                DestroyHazardViews();
+        }
 
         /// <summary>
         /// AMENDMENT #15 (W-MV): adopt the dungeon sim's active clamp half-axes.
@@ -319,6 +339,19 @@ namespace CinderCourt.View
 
             for (var i = 0; i < ActiveThreatCueCount; i++)
                 EnsureActiveThreatCue(i);
+        }
+
+        void OnDestroy()
+        {
+            foreach (var pair in _stageSurfaceMaterialCache)
+            {
+                if (pair.Value == null) continue;
+                if (Application.isPlaying)
+                    Destroy(pair.Value);
+                else
+                    DestroyImmediate(pair.Value);
+            }
+            _stageSurfaceMaterialCache.Clear();
         }
 
         ParticleSystem BuildElementParticles(
@@ -707,6 +740,7 @@ namespace CinderCourt.View
                 _novaDebris.Emit(ViewPrefs.ReducedMotion ? 8 : 18);
             }
             if (view.Body != null) view.Body.gameObject.SetActive(false);  // body + band
+            if (view.Surface != null) view.Surface.gameObject.SetActive(false);  // physical aura gone
             if (view.Ring != null) view.Ring.enabled = false;              // aura gone
             if (view.FillDisc != null) view.FillDisc.gameObject.SetActive(true); // scorch stays
         }
@@ -1621,13 +1655,8 @@ namespace CinderCourt.View
         /// <summary>End-of-run cleanup: hazard visuals, pickups, live bursts.</summary>
         public void ClearTransient()
         {
-            if (_hazardViews != null)
-            {
-                for (var i = 0; i < _hazardViews.Length; i++)
-                    if (_hazardViews[i].Root != null)
-                        Destroy(_hazardViews[i].Root.gameObject);
-                _hazardViews = null;
-            }
+            _stageContext = string.Empty;
+            DestroyHazardViews();
             foreach (var pair in _pickupViews)
                 if (pair.Value != null) Destroy(pair.Value.gameObject);
             _pickupViews.Clear();
@@ -1687,6 +1716,20 @@ namespace CinderCourt.View
             _corpseTime = 0f;
             if (_channelBeam != null) _channelBeam.enabled = false;
             if (_wardShell != null) _wardShell.SetActive(false);
+        }
+
+        void DestroyHazardViews()
+        {
+            if (_hazardViews == null) return;
+            for (var i = 0; i < _hazardViews.Length; i++)
+                if (_hazardViews[i].Root != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(_hazardViews[i].Root.gameObject);
+                    else
+                        DestroyImmediate(_hazardViews[i].Root.gameObject);
+                }
+            _hazardViews = null;
         }
 
         /// <summary>
@@ -1924,8 +1967,38 @@ namespace CinderCourt.View
 
                         // Charcoal overlay covers the swallowed band between
                         // the home edge and FrontX; the ember curtain rides
-                        // the leading edge. Reduced motion: boundary line
-                        // only — overlay/curtain stay hidden.
+                        // the leading edge. The opaque stage surface remains
+                        // visible while live, including reduced motion, so the
+                        // floor below never leaks through the swallowed band.
+                        if (view.Surface != null)
+                        {
+                            if (view.Surface.gameObject.activeSelf != live)
+                                view.Surface.gameObject.SetActive(live);
+                            if (live)
+                            {
+                                var depth = Mathf.Max(0.001f, Mathf.Abs(frontWorld));
+                                var fromRight = view.SurfaceFromRight;
+                                view.Surface.localScale = new Vector3(depth, WallSpanWorld, 1f);
+                                view.Surface.localPosition =
+                                    new Vector3(frontWorld * 0.5f, 0.025f, 0f);
+                                // The authored band represents the complete maximum
+                                // swallow depth. Reveal only the travelled fraction so
+                                // texel density stays fixed while the quad grows; a
+                                // short wall never stretches the whole texture, and a
+                                // full wall never repeats false secondary fronts.
+                                var st = new Vector4(
+                                    Mathf.Clamp01(depth / AshWallMaxDepthWorld),
+                                    1f,
+                                    0f,
+                                    0f);
+                                if (fromRight)
+                                    st.z = 1f - st.x;
+                                var block = SurfaceBlock(ref view);
+                                block.SetVector(BaseMapStId, st);
+                                view.SurfaceRenderer.SetPropertyBlock(block);
+                            }
+                        }
+                        // Reduced motion: state overlay/curtain stay hidden.
                         var showBand = live && !ViewPrefs.ReducedMotion;
                         if (view.Body.gameObject.activeSelf != showBand)
                             view.Body.gameObject.SetActive(showBand);
@@ -2040,6 +2113,82 @@ namespace CinderCourt.View
             return clone;
         }
 
+        Material StageSurfaceMaterial(HazardKind kind)
+        {
+            if (string.IsNullOrEmpty(_stageContext)) return null;
+            if (_stageHazardTextureResolver == null)
+                _stageHazardTextureResolver = new StageHazardTextureResolver();
+
+            var result = _stageHazardTextureResolver.Resolve(_stageContext, kind);
+            if (!result.Found || result.Texture == null) return null;
+
+            var key = result.Binding.ResourcePath;
+            if (_stageSurfaceMaterialCache.TryGetValue(key, out var material))
+                return material;
+
+            material = ViewWorld.MakeUnlit(Color.white, false);
+            material.SetTexture("_BaseMap", result.Texture);
+            material.mainTexture = result.Texture;
+            material.SetVector(BaseMapStId, FullTextureSt);
+            _stageSurfaceMaterialCache[key] = material;
+            return material;
+        }
+
+        static void ConfigureHazardSurface(Renderer renderer)
+        {
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        static Vector4 SurfaceRepeatSt(float widthWorld, float heightWorld)
+        {
+            const float TileWorld = 2f;
+            return new Vector4(
+                Mathf.Max(0.001f, widthWorld / TileWorld),
+                Mathf.Max(0.001f, heightWorld / TileWorld),
+                0f,
+                0f);
+        }
+
+        static MaterialPropertyBlock SurfaceBlock(ref HazardView view)
+        {
+            if (view.SurfaceProperties == null)
+                view.SurfaceProperties = new MaterialPropertyBlock();
+            view.SurfaceProperties.Clear();
+            return view.SurfaceProperties;
+        }
+
+        static void SetSurfaceSt(ref HazardView view, Vector4 st)
+        {
+            if (view.SurfaceRenderer == null) return;
+            var block = SurfaceBlock(ref view);
+            block.SetVector(BaseMapStId, st);
+            view.SurfaceRenderer.SetPropertyBlock(block);
+        }
+
+        static void SetRendererSt(Renderer renderer, Vector4 st)
+        {
+            if (renderer == null) return;
+            ConfigureHazardSurface(renderer);
+            var block = new MaterialPropertyBlock();
+            block.SetVector(BaseMapStId, st);
+            renderer.SetPropertyBlock(block);
+        }
+
+        static void AssignSharedMaterial(GameObject target, Material material, Vector4 st)
+        {
+            if (target == null || material == null) return;
+            var renderers = target.GetComponentsInChildren<Renderer>();
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].sharedMaterial = material;
+                ConfigureHazardSurface(renderers[i]);
+                var block = new MaterialPropertyBlock();
+                block.SetVector(BaseMapStId, st);
+                renderers[i].SetPropertyBlock(block);
+            }
+        }
+
         HazardView BuildHazardView(in HazardState hazard)
         {
             var view = new HazardView();
@@ -2055,10 +2204,26 @@ namespace CinderCourt.View
             {
                 case HazardKind.EmberVent:
                 {
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "VentSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            r * 2.18f, 0.006f, r * 2.18f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     disc.transform.localScale = new Vector3(r * 2f, 0.012f, r * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.3f, 0.22f), true);
                     view.Ring = disc.GetComponent<Renderer>();
@@ -2098,6 +2263,7 @@ namespace CinderCourt.View
                 case HazardKind.ObsidianPillar:
                 {
                     var r = hazard.Radius * ViewWorld.Scale;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     // AMENDMENT #17b — TONE. The generated stone kit arrived for the
                     // StoneWall case only, which left the two kinds of solid in one room
                     // rendered in two different art languages: a sculpted rock beside an
@@ -2121,8 +2287,34 @@ namespace CinderCourt.View
                         pillar.transform.SetParent(root.transform, false);
                         pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
                         pillar.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                        view.Body = pillar.transform;
                         pillar.GetComponent<Renderer>().sharedMaterial =
-                            ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
+                            surfaceMaterial != null
+                                ? surfaceMaterial
+                                : ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
+                        if (surfaceMaterial != null)
+                            SetRendererSt(pillar.GetComponent<Renderer>(),
+                                SurfaceRepeatSt(r * 2f, 2.2f));
+                    }
+                    else
+                    {
+                        view.Body = pillarPart.transform;
+                        AssignSharedMaterial(pillarPart, surfaceMaterial, SurfaceRepeatSt(r * 2f, 2.2f));
+                    }
+                    if (surfaceMaterial != null)
+                    {
+                        var contact = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(contact);
+                        contact.name = "PillarContactSurface";
+                        contact.transform.SetParent(root.transform, false);
+                        contact.transform.localScale = new Vector3(
+                            r * 2.35f, 0.006f, r * 2.35f);
+                        view.Surface = contact.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = contact.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(r * 2.35f, r * 2.35f));
                     }
                     // Faint cyan edge ring at the base for readability.
                     var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -2135,10 +2327,26 @@ namespace CinderCourt.View
                 }
                 case HazardKind.RelicAltar:
                 {
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "AltarSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            r * 2.08f, 0.006f, r * 2.08f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     disc.transform.localScale = new Vector3(r * 2f, 0.02f, r * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f, 0.5f), true);
                     view.Ring = disc.GetComponent<Renderer>();
@@ -2188,6 +2396,23 @@ namespace CinderCourt.View
                     // hazard), so the bed skips the usual /IsoY squash.
                     var bandW = CampaignSpec.CurrentHalfW * 2f * ViewWorld.Scale;
                     var bandH = CampaignSpec.CurrentHalfH * 2f * ViewWorld.Scale;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "CurrentSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        surface.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+                        surface.transform.localScale = new Vector3(bandW, bandH, 1f);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(bandW, bandH));
+                    }
                     var bed = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     RemovePrimitiveCollider(bed);
                     bed.transform.SetParent(root.transform, false);
@@ -2266,6 +2491,7 @@ namespace CinderCourt.View
                     // Unlit obsidian body, pillar grammar — but destructible:
                     // the ember band advertises "hit me" and dims with Hp.
                     var r = hazard.Radius * ViewWorld.Scale;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(body);
                     body.transform.SetParent(root.transform, false);
@@ -2274,6 +2500,25 @@ namespace CinderCourt.View
                     view.Body = body.transform;
                     view.BodyMaterial = ViewWorld.MakeUnlit(new Color(0.16f, 0.08f, 0.06f), false);
                     body.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
+                    if (surfaceMaterial != null)
+                    {
+                        // The generated pylon resource is authored as a top-down
+                        // scorched underlay, so wrapping it around the cylinder would
+                        // turn floor marks into vertical stripes.  A flush opaque cap
+                        // gives the destructible core its stage albedo while the
+                        // existing body and HP band keep their semantic read.
+                        var coreSurface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(coreSurface);
+                        coreSurface.name = "PylonBodySurface";
+                        coreSurface.transform.SetParent(body.transform, false);
+                        coreSurface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        coreSurface.transform.localPosition = new Vector3(0f, 1.01f, 0f);
+                        coreSurface.transform.localScale = Vector3.one;
+                        var coreRenderer = coreSurface.GetComponent<Renderer>();
+                        coreRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(coreRenderer);
+                        SetRendererSt(coreRenderer, FullTextureSt);
+                    }
 
                     // AMENDMENT #17b — TONE. A carved brazier shell around the primitive,
                     // so the pylon belongs to the same stone family as the walls, pillars
@@ -2307,6 +2552,21 @@ namespace CinderCourt.View
                     RemovePrimitiveCollider(aura);
                     aura.transform.SetParent(root.transform, false);
                     var auraR = CampaignSpec.PylonAuraRadius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "PylonAuraSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            auraR * 2f, 0.006f, auraR * 2f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     aura.transform.localScale = new Vector3(
                         auraR * 2f, 0.008f, auraR * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.5f, 0.2f, 0.10f), true);
@@ -2342,6 +2602,7 @@ namespace CinderCourt.View
                         hazard.HalfW * hazard.HalfW + hazard.HalfH * hazard.HalfH);
                     var radiusWorld = hazard.Radius * ViewWorld.Scale;
                     var lengthWorld = (halfLength * 2f) * ViewWorld.Scale + radiusWorld * 2f;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var yaw = halfLength <= 0.0001f
                         ? 0f
                         : Mathf.Atan2(hazard.HalfH, hazard.HalfW) * Mathf.Rad2Deg;
@@ -2361,7 +2622,13 @@ namespace CinderCourt.View
                         isWall ? "kit-wall-straight" : CoverPartFor(hazard),
                         root.transform, target, uniform: !isWall);
 
-                    if (part == null)
+                    if (part != null)
+                    {
+                        view.Body = part.transform;
+                        AssignSharedMaterial(part, surfaceMaterial,
+                            SurfaceRepeatSt(target.x, Mathf.Max(target.z, target.y)));
+                    }
+                    else
                     {
                         var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
                         RemovePrimitiveCollider(body);
@@ -2370,8 +2637,30 @@ namespace CinderCourt.View
                             lengthWorld, EnvironmentLayout.StoneWallHeightWorld, radiusWorld * 2f);
                         body.transform.localPosition =
                             new Vector3(0f, EnvironmentLayout.StoneWallHeightWorld * 0.5f, 0f);
+                        view.Body = body.transform;
                         body.GetComponent<Renderer>().sharedMaterial =
-                            ViewWorld.MakeUnlit(new Color(0.13f, 0.12f, 0.14f), false);
+                            surfaceMaterial != null
+                                ? surfaceMaterial
+                                : ViewWorld.MakeUnlit(new Color(0.13f, 0.12f, 0.14f), false);
+                        if (surfaceMaterial != null)
+                            SetRendererSt(body.GetComponent<Renderer>(),
+                                SurfaceRepeatSt(lengthWorld, radiusWorld * 2f));
+                    }
+
+                    if (surfaceMaterial != null)
+                    {
+                        var contact = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        RemovePrimitiveCollider(contact);
+                        contact.name = "StoneWallContactSurface";
+                        contact.transform.SetParent(root.transform, false);
+                        contact.transform.localScale = new Vector3(
+                            lengthWorld * 1.03f, 0.008f, radiusWorld * 2.6f);
+                        view.Surface = contact.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = contact.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(lengthWorld, radiusWorld * 2.6f));
                     }
 
                     // Base ring: the same readability trick the pillar uses. At the
@@ -2396,6 +2685,8 @@ namespace CinderCourt.View
                     // lookup grammar, same reasoning as CurrentPushSign.
                     var fromRight = hazard.X
                         > (CampaignSpec.WallEdgeX + CampaignSpec.WallEdgeRightX) * 0.5f;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    view.SurfaceFromRight = fromRight;
 
                     // Boundary line at the home edge: the telegraph blink
                     // surface and the ONLY visual under reduced motion.
@@ -2415,6 +2706,23 @@ namespace CinderCourt.View
                     lineRenderer.shadowCastingMode =
                         UnityEngine.Rendering.ShadowCastingMode.Off;
                     lineRenderer.sharedMaterial = view.EdgeMaterial;
+
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "AshWallSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        surface.transform.localPosition = new Vector3(0f, 0.025f, 0f);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                        surface.SetActive(false);
+                    }
 
                     // Dark warm-charcoal overlay for the swallowed band
                     // between the home edge and FrontX — scaled every frame
