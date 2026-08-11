@@ -380,8 +380,18 @@ namespace CinderCourt.Tests
         /// its altar BY DESIGN — the tide covers the channel). One more documented
         /// v1.2 exemption: altar↔pylon pairs may overlap — the "guarded altar" motif
         /// (verdict 960,540 vs altar r70 clears anyway; march 768,520 sits 84 px from
-        /// the corridor altar: pylon bodies never block movement and altars are pure
-        /// channel discs, so the overlap is mechanically inert and intended).
+        /// the corridor altar).
+        ///
+        /// AMENDMENT #17c REVISED THE REASON, and the exemption survives on a narrower
+        /// one. It used to read "pylon bodies never block movement and altars are pure
+        /// channel discs, so the overlap is mechanically inert" — both halves are now
+        /// false: the pylon is solid at 30 and the altar at 24. What makes the overlap
+        /// harmless is that the SOLIDS do not overlap; only the altar's CHANNEL RANGE
+        /// (70) reaches the pylon, and a channel range is a predicate, not a body. The
+        /// march pair sits 84 px apart against 24+30=54 of solid, so 30 px of floor
+        /// survives between them. If either body radius grows past that, this exemption
+        /// stops being true and must be re-argued rather than re-stated — which is why
+        /// the numbers are written here instead of the word "inert".
         /// v1.3 (pact tables only): a PACT-EXTRA vent (index ≥ <paramref name="pactExtraStart"/>)
         /// may colocate with a base altar or pillar — the "guard vent" motif
         /// (meta-fun-pass-spec M3): a periodic damage disc over a channel disc

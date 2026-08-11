@@ -272,6 +272,32 @@ namespace CinderCourt.Sim
         public const float AltarOilBurst = 18f;
         public const float AltarCooldown = 6f;
 
+        /// <summary>
+        /// AMENDMENT #17c: the altar's SOLID plinth. A DIFFERENT quantity from
+        /// <see cref="AltarRadius"/>, and the two must never collapse into one.
+        ///
+        /// <see cref="AltarRadius"/> is the CHANNEL range — the sim only advances the
+        /// hold while the player's centre is iso-within it. Blocking at that radius
+        /// would wall the player out of the exact ring the gimmick requires them to
+        /// stand in, so the altar would become impossible rather than physical. One
+        /// radius cannot answer both questions.
+        ///
+        /// The usable ring is what fixes the value. A blocker holds an actor's centre
+        /// at <c>body + PlayerPushRadius</c>, so channelling is possible iff
+        ///     body + PlayerPushRadius &lt; AltarRadius,
+        /// i.e. body &lt; 70 - 26 = 44. At 24 the ring is 20 iso px deep, which the
+        /// warden crosses in 0.09 s at 218 u/s — steerable, not a pixel-hunt.
+        /// AltarReachability asserts THE INEQUALITY against these constants rather
+        /// than restating 20, so no later edit to either side can silently close the
+        /// ring (CLAUDE.md §4i).
+        ///
+        /// #17b implemented this, measured the player parking at y 639 instead of 604
+        /// (= 604 + 50/1.42, exactly), and reverted because three signed tests channel
+        /// from the centre. #17c re-applies it WITH those contracts amended — the
+        /// revert was about sequence, not about the number.
+        /// </summary>
+        public const float AltarBodyRadius = 24f;
+
         public const int EquipSlotCount = 3;
         public const int MaxEquipRank = 5;
         public const float WeaponDamagePerRank = 0.06f;

@@ -4406,31 +4406,34 @@ namespace CinderCourt.Sim
         /// coincide, and that coincidence is what made a single radius look sufficient.
         /// For the other two it is false in opposite directions:
         ///
-        /// The other four kinds stay passable, and each was tried as a solid and
-        /// rejected on evidence rather than assumed:
+        /// THE SOLID WIDTH IS NOT hazard.Radius. For the pillar and the wall the two
+        /// coincide, and that coincidence is what made one radius look sufficient. For
+        /// the masonry gimmicks it is false in opposite directions:
         ///
-        ///   RelicAltar   A FLOOR DISC BY DESIGN, not a plinth. Radius 70 is the channel
-        ///                range the player must stand INSIDE to hold it, and the v1.2
-        ///                placement contract exempts altar overlaps precisely because
-        ///                "altars are pure channel discs". Implemented at a 24 px core it
-        ///                parked the player at iso 50 — y 639 instead of 604 — and broke
-        ///                three signed tests that channel from the centre. Making it
-        ///                solid is a design reversal, not a missing collider.
+        ///   RelicAltar   Radius 70 is the CHANNEL RANGE  -> body 24 (AltarBodyRadius)
+        ///   EmberPylon   Radius 30 is already the BODY   -> body 30 (aura 280 is separate)
         ///
-        ///   EmberPylon   ash-march signs a corridor invariant ("the pylon body never
-        ///                blocks", walk x 768 through the pylon row at 768,520) on the one
-        ///                stage that also carries the ADVANCING ASH WALL, where failing to
-        ///                cross a row is the wall catching you. Measured: a solid body
-        ///                fails that walk. A signed safety contract is not this pass's to
-        ///                revoke.
+        /// Blocking an altar at 70 would not be "more collision", it would delete the
+        /// gimmick: nobody could reach the ring it requires them to stand in. The body
+        /// radii are what the meshes occupy, and PylonBodyRadius already existed for
+        /// exactly this distinction — it simply had no caller.
+        ///
+        /// #17b tried both and reverted both, because each collided with a signed
+        /// contract. #17c re-applies them WITH those contracts amended:
+        ///   * the altar's "hold the y band" assertion was a PREMISE (the player used to
+        ///     stand on the centre), not the contract — the contract is that they can
+        ///     channel while shielded, so it is now asserted from AltarRadius and
+        ///     PylonAuraRadius directly;
+        ///   * ash-march's corridor invariant IS a safety contract, because that stage
+        ///     carries the advancing ash wall and failing to cross a row is the wall
+        ///     catching you. It is amended from "pass straight through" to "get around
+        ///     within a bounded detour", never to "may be blocked".
+        ///
+        /// The floor hazards stay passable, and for a reason that does not change:
         ///
         ///   EmberVent    A hole in the floor that erupts on a period. Solid would turn a
         ///   TideCurrent  thing you TIME into a thing you walk around, and a current has
         ///                no body at all — it is a push band.
-        ///
-        /// So the collision answer for the gimmick layer is the INTERIOR: the generated
-        /// StoneWall pieces are the meshes that stop movement, and #17b's real defect was
-        /// that four of the nine stages were never given any.
         /// </summary>
         private static float SolidRadius(in HazardConfig hazard)
         {
@@ -4439,6 +4442,10 @@ namespace CinderCourt.Sim
                 case HazardKind.ObsidianPillar:
                 case HazardKind.StoneWall:
                     return hazard.Radius;
+                case HazardKind.RelicAltar:
+                    return CampaignSpec.AltarBodyRadius;
+                case HazardKind.EmberPylon:
+                    return CampaignSpec.PylonBodyRadius;
                 default:
                     return 0f;
             }

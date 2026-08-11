@@ -60,6 +60,24 @@
 // budget by CampaignSimTests.Telegraph_PactCensusUnderBudget, and their
 // determinism by CampaignSimTests.PactSluice_SameConfigSameInputs_IdenticalDigests_AndBotSurvivable.
 //
+// REVISION v1.5 (2026-08-11, AMENDMENT #17c — gimmick collision). Three rows moved
+// and two of them sit in the v1.2 "MUST NOT MOVE" list above, so the reason is
+// recorded here rather than left to the diff:
+//   ember-bastion       three EmberPylons became SOLID at body 30
+//   witness-well        two RelicAltars became SOLID at plinth 24
+//   classic-echo-throne its RelicAltar became solid — and a CLASSIC row moving is
+//                       exactly what #17b flagged as a leak, so the distinction
+//                       matters: WithoutLayoutBlockers strips the generated
+//                       StoneWall INTERIOR from every frozen-bounds run, which is
+//                       why classic-cinder-span and classic-abyss-chancel are still
+//                       byte-untouched here. Gimmick collision is not layout and is
+//                       not stripped, so a frozen run containing an altar genuinely
+//                       changes shape. A classic row moving because the ARENA grew
+//                       would still be a bug; moving because a gimmick it contains
+//                       changed is the amendment working.
+// The v1.2 lists above are therefore historical groupings, not a standing promise
+// that those particular rows never move again — read them together with this note.
+//
 // Ints assert exactly; floats are compared through their shortest round-trip
 // ("R") form, which is bit-exact within the Unity runtime — the sim is a
 // fixed-step deterministic core and any drift is a defect, not noise.
@@ -207,10 +225,24 @@ namespace CinderCourt.Tests
             var rows = new[]
             {
                 "ember-gallery|4500|4|17|2|142|(running)|881.8254|500.54425",
-                "witness-well|4500|4|17|2|142|(running)|881.8254|500.54425",
-                "echo-throne|4600|4|16|4|142|(running)|1207.48572|606.290039",
-                "ash-verdict|3400|3|14|2|142|(running)|1248.78381|567.032",
-                "ash-march|4500|4|17|2|92|(running)|951.3973|572.582",
+                // RE-PINNED (#17c): witness-well carries TWO altars, now solid at 24. The
+                // player channels from the ring instead of the centre and the pack funnels
+                // around two new small solids, so the run resolves differently. Expected
+                // movement, recorded rather than absorbed.
+                "witness-well|2800|3|12|2|136|(running)|342.2595|514.024658",
+                // RE-PINNED (#17c): the catalog echo-throne carries a RelicAltar at the
+                // arena centre, now solid at plinth 24, with a tide current running over
+                // it — the one stage where a new solid sits inside a push band. Its
+                // classic-lane twin moved for the same cause (see the v1.5 note above).
+                "echo-throne|3600|3|13|4|136|(running)|1029.2793|390.672241",
+                // RE-PINNED (#17c): ash-verdict pairs a solid altar (24) with a solid pylon
+                // (30) — the "guarded altar" motif, whose two bodies now both exist.
+                // Ints are unchanged; only the final position moved.
+                "ash-verdict|3400|3|14|2|142|(running)|1252.95532|587.4204",
+                // RE-PINNED (#17c): ash-march carries both a solid altar and the finale pylon,
+                // and its corridor now requires the bounded detour the amended invariant
+                // in CampaignSimTests measures.
+                "ash-march|4400|4|18|0|92|(running)|608.9268|604.268",
             };
             foreach (var expected in rows)
             {
@@ -254,7 +286,18 @@ namespace CinderCourt.Tests
                 // Two of the three classic anchors returning to their original rows is
                 // the evidence that the leak, not the amendment's intent, was what moved
                 // them.
-                "classic-echo-throne|3700|4|15|2|106|(running)|1035.27319|717.864",
+                // RE-PINNED by AMENDMENT #17c, and this one legitimately moves where the
+                // other two classic anchors must not. WithoutLayoutBlockers strips the
+                // generated StoneWall interior from every frozen-bounds run, so cinder-span
+                // and abyss-chancel are untouched by #17c. echo-throne is different: it
+                // carries a RelicAltar, and #17c made altars solid at their plinth (24).
+                // Gimmick collision is not layout, so it is not stripped — the frozen path
+                // genuinely gains a small solid at 768,604 and the run resolves differently.
+                //
+                // The distinction is the point: a classic anchor moving because the arena
+                // grew would be a leak (that was #17b's bug), whereas one moving because a
+                // gimmick it contains changed shape is the amendment doing its job.
+                "classic-echo-throne|6350|4|21|3|114|(running)|972.6431|583.8452",
             };
             foreach (var expected in rows)
             {
@@ -282,7 +325,10 @@ namespace CinderCourt.Tests
             var rows = new[]
             {
                 "cinder-sluice|2850|3|13|1|136|(running)|763.051|650.348",
-                "ember-bastion|1900|3|9|2|136|(running)|884.6569|605.2055",
+                // RE-PINNED (#17c): ember-bastion's identity is its three EmberPylons, now
+                // solid at body 30. Three new blockers on the stage with the most gimmicks
+                // is the largest legitimate shift in this pass.
+                "ember-bastion|2250|3|11|1|136|(running)|897.4999|712.708557",
             };
             foreach (var expected in rows)
             {

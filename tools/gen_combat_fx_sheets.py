@@ -24,6 +24,7 @@ The View maps remaining-life to frame index.
 
 Usage:
     python3 tools/gen_combat_fx_sheets.py --base <base.png> --out <sheet.png>
+    python3 tools/gen_combat_fx_sheets.py --base <base.png> --out <mask.png> --single
 """
 import argparse
 from pathlib import Path
@@ -37,6 +38,7 @@ GRID = 4
 FRAME_SIZE = 256
 FRAME_COUNT = GRID * GRID
 SHEET_SIZE = GRID * FRAME_SIZE
+SINGLE_SIZE = 512
 
 
 def load_mask(path: Path, size: int) -> np.ndarray:
@@ -123,24 +125,43 @@ def build_sheet(base: np.ndarray, mode: str) -> Image.Image:
     return sheet
 
 
+def build_single(base: np.ndarray) -> Image.Image:
+    """Write one generated shape as a compact grayscale additive mask.
+
+    Crack fans and velocity-aligned shards are static silhouettes, not timed
+    animations. Packing sixteen identical cells would spend texture memory and
+    introduce a frame contract the runtime does not need. The same luminance
+    stretch as the sheets removes the encoder's near-black floor, while the
+    generated source keeps ownership of the shape itself.
+    """
+    return Image.fromarray(np.clip(base * 255.0, 0, 255).astype(np.uint8))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--mode", choices=("burst", "ring"), default="burst",
                         help="burst = impact spark, ring = expanding shockwave")
+    parser.add_argument("--single", action="store_true",
+                        help=f"write one {SINGLE_SIZE}px grayscale mask, not a flipbook")
     args = parser.parse_args()
 
     if not args.base.exists():
         print(f"base not found: {args.base}")
         return 1
 
-    base = load_mask(args.base, FRAME_SIZE)
-    sheet = build_sheet(base, args.mode)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    sheet.save(args.out, optimize=True)
-    print(f"wrote {args.out} ({SHEET_SIZE}x{SHEET_SIZE}, {FRAME_COUNT} frames, "
-          f"{args.out.stat().st_size / 1024:.0f} KB)")
+    if args.single:
+        mask = build_single(load_mask(args.base, SINGLE_SIZE))
+        mask.save(args.out, optimize=True)
+        print(f"wrote {args.out} ({SINGLE_SIZE}x{SINGLE_SIZE}, single mask, "
+              f"{args.out.stat().st_size / 1024:.0f} KB)")
+    else:
+        sheet = build_sheet(load_mask(args.base, FRAME_SIZE), args.mode)
+        sheet.save(args.out, optimize=True)
+        print(f"wrote {args.out} ({SHEET_SIZE}x{SHEET_SIZE}, {FRAME_COUNT} frames, "
+              f"{args.out.stat().st_size / 1024:.0f} KB)")
     return 0
 
 

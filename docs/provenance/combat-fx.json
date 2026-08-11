@@ -1,6 +1,6 @@
 {
   "written": "2026-08-11",
-  "purpose": "전투 VFX 시트 생성 이력. CLAUDE.md §3: 텍스처·아틀라스는 god-tibo-imagen.",
+  "purpose": "전투 VFX 시트 생성 이력. 2026-08-11 사용자 지시를 따라 Codex 내장 이미지 생성을 우선하고, 실패할 때만 god-tibo-imagen을 fallback으로 사용한다. 이번 V1~V4는 Codex 4건이 모두 성공해 fallback을 사용하지 않았다.",
   "why_base_only": "이미지 모델에 정렬된 NxN 그리드를 그리게 하는 것은 신뢰할 수 없다. tools/gen_terrain_fx_sheets.py가 같은 결론을 기록하고 있고, 캐릭터 파이프라인의 아틀라스 시도는 시트에 섹션 라벨을 그려 넣어 기각됐다(docs/character-asset-pipeline.md:99). 베이스 1장만 생성하고 프레임은 산술로 조립한다.",
   "assets": {
     "impact-sheet": {
@@ -26,25 +26,115 @@
       "curve": "ring 모드: 0.10→1.00 확장(버스트의 0.30이 아니라), 홀드 없음. 충격파는 전선 위치로 읽히고 방출 순간이 가장 밝다",
       "consumer": "VfxDirector.SpawnBurst — 시트가 없으면 기존 LineRenderer 링으로 폴백"
     },
-    "eruption-base": {
+    "eruption-base-gti-candidate": {
       "tool": "god-tibo-imagen (gti), DEFAULT provider (private-codex)",
       "generated": "2026-08-11",
       "prompt": "A single centred eruption crown of molten lava on pure black: a ring of upward-thrown glowing rock shards and white-hot spray rising from a circular fissure, hot orange core fading to deep red at the tips, fine embers, no background detail, no text, no border, square, high contrast for additive blending",
       "out": "_workspace/current/engineering/fx-gen/eruption-base.png",
-      "status": "base only — sheet not yet assembled (AMENDMENT #17c V2)",
+      "status": "보존된 비교 후보. 사용자 후속 지시의 Codex-first 경로가 성공해 런타임 시트에는 사용하지 않음",
       "intended_surface": "VfxDirector.SpawnEruptionCrown"
+    },
+    "eruption-sheet": {
+      "tool": "Codex built-in imagegen",
+      "generated": "2026-08-11",
+      "prompt": "Use case stylized-concept, square game VFX base for a flipbook: a centered eruption crown of molten shards and spray rising from a curved fissure on pure black, front-facing crown, lower half anchored, grayscale luminance mask, no full circle, no text, no symbol, no border, no watermark, no grid, no rocks, no scene, no floor, no perspective, no lens flare, no edge contact.",
+      "original": "/Users/jangyoung/.codex/generated_images/019fef93-f96f-78e3-83b7-17720e2dfd3b/exec-388c4737-1be3-4a65-94a1-c961157e46a0.png",
+      "base": "_workspace/current/engineering/fx-gen/eruption-base-codex.png",
+      "base_sha256": "4b0493fac1258ca4df90288839220ac59c7744c2bc53c47cab16a1cb297ebbd4",
+      "assembler": "python3 tools/gen_combat_fx_sheets.py --base _workspace/current/engineering/fx-gen/eruption-base-codex.png --out Assets/Resources/Fx/eruption-sheet.png --mode burst",
+      "out": "Assets/Resources/Fx/eruption-sheet.png",
+      "out_sha256": "c2e952f6245944b9df290989b18155eb5079b3d7cf38cceb35f44bdb90152db6",
+      "layout": "4x4 · 16 frames · 256px cells · 1024 sheet · 104100 bytes",
+      "inspection": "육안: 프레임이 작음→큼→소멸 순서이며 front-facing crown이 유지됨. 수치: frame 0 bbox 73x53, frame 5 bbox 189x157, frame 10 bbox 208x168, frame 15 black.",
+      "consumer": "VfxDirector.SpawnEruptionCrown — 한 장의 중앙 vertical crown quad. 리소스가 없거나 shape gate를 통과하지 못하면 기존 vertical LineRenderer crown으로 fallback"
+    },
+    "telegraph-ring-sheet": {
+      "tool": "Codex built-in imagegen",
+      "generated": "2026-08-11",
+      "prompt": "Use case stylized-concept, game VFX base texture for an additive flipbook: one thin cracked warning ring on pure black, exactly top-down, centered, no fill, fine branching cracks, grayscale luminance mask, generous black padding, no text, no symbol, no border, no watermark, no grid, no scene, no floor, no perspective, no lens flare, no edge contact.",
+      "original": "/Users/jangyoung/.codex/generated_images/019fef93-f96f-78e3-83b7-17720e2dfd3b/exec-1a81a38d-fbad-4f5d-8e7d-117078e3ad77.png",
+      "base": "_workspace/current/engineering/fx-gen/telegraph-ring-base.png",
+      "base_sha256": "a0b37b04db76663ec2a5977b934d3ee715922985916d7ba7622040745b73e3a8",
+      "assembler": "python3 tools/gen_combat_fx_sheets.py --base _workspace/current/engineering/fx-gen/telegraph-ring-base.png --out Assets/Resources/Fx/telegraph-ring-sheet.png --mode ring",
+      "out": "Assets/Resources/Fx/telegraph-ring-sheet.png",
+      "out_sha256": "d1da022976246f84a3f872634bc905bbca4d81a36d55432c2f0902a8d9ba53b8",
+      "layout": "4x4 · 16 frames · 256px cells · 1024 sheet · 73092 bytes",
+      "inspection": "육안: 작은 fissure ring→최대 ring→소멸. 수치: frame 0 bbox 18x18, frame 5 bbox 114x113, frame 10 bbox 159x159, frame 15 black. 프레임 총휘도는 frame 7이 212226으로 최고(frame 8은 209240).",
+      "accessibility": "일반 모션은 CycleT로 frame을 전진한다. reduced-motion은 frame 7과 기존 peak alpha/tint에 고정해 두 시점의 시각 상태가 변하지 않게 한다.",
+      "consumer": "VfxDirector EmberVent telegraph quad — 시트는 shape만, 런타임 color/alpha가 warning identity를 소유. 리소스가 없으면 기존 절차 ring/fill만 유지"
+    },
+    "crack-fan": {
+      "tool": "Codex built-in imagegen",
+      "generated": "2026-08-11",
+      "prompt": "Use case stylized-concept, square game VFX decal mask: a centered radial fracture fan with eight irregular thin fissure arms on pure black, top-down, bright origin, tapered branches, grayscale luminance, no text, no symbol, no border, no watermark, no grid, no rocks, no scene, no floor, no perspective, no lens flare, no edge contact.",
+      "original": "/Users/jangyoung/.codex/generated_images/019fef93-f96f-78e3-83b7-17720e2dfd3b/exec-db0f0e83-350f-4e21-b2b0-e4e2fe73a65d.png",
+      "base": "_workspace/current/engineering/fx-gen/crack-fan-base.png",
+      "base_sha256": "f6695071bd65bca4c818f3561054e66a5adfd85e6b66cd4ebfc77312b3745c30",
+      "assembler": "python3 tools/gen_combat_fx_sheets.py --base _workspace/current/engineering/fx-gen/crack-fan-base.png --out Assets/Resources/Fx/crack-fan.png --single",
+      "out": "Assets/Resources/Fx/crack-fan.png",
+      "out_sha256": "cbf665314b217af0ad0e3accca41301a677973c4c864e57156b2c024601e785e",
+      "layout": "512x512 single grayscale mask · 40347 bytes",
+      "inspection": "threshold>8 bbox 346x365, outer border max 1/255; square corners remain black under additive blending.",
+      "consumer": "VfxDirector.SpawnCrackFan — pooled ground decal with per-spawn rotation/tint. 리소스가 없으면 기존 jagged LineRenderer arms로 fallback"
+    },
+    "shard-streak": {
+      "tool": "Codex built-in imagegen",
+      "generated": "2026-08-11",
+      "prompt": "Use case stylized-concept, square game VFX sprite mask: a single horizontal molten shard pointing right, white-hot head on the right, long tapered tail to the left, pure black background, grayscale luminance, occupying about 70 percent of the width, no extra sparks, no text, no symbol, no border, no watermark, no grid, no scene, no floor, no perspective, no lens flare, no edge contact.",
+      "original": "/Users/jangyoung/.codex/generated_images/019fef93-f96f-78e3-83b7-17720e2dfd3b/exec-ea0daa46-6503-4a02-b4b0-a48779767b23.png",
+      "base": "_workspace/current/engineering/fx-gen/shard-streak-base.png",
+      "base_sha256": "d4349aeac602998a2d5728a2d0cafbf90c1afcd60001ebd2aa696bbef4a2b9ee",
+      "assembler": "python3 tools/gen_combat_fx_sheets.py --base _workspace/current/engineering/fx-gen/shard-streak-base.png --out Assets/Resources/Fx/shard-streak.png --single",
+      "out": "Assets/Resources/Fx/shard-streak.png",
+      "out_sha256": "36024c06072cb20e22fedef4daf0a2cebb9de52593a94de6a7fe18c82e8509ee",
+      "layout": "512x512 single grayscale mask · 28731 bytes",
+      "inspection": "threshold>8 bbox 425x73, outer border max 1/255; right-pointing head and left taper are preserved.",
+      "consumer": "VfxDirector.SpawnShard for non-rising shards — pooled velocity-aligned quad. 리소스가 없으면 기존 LineRenderer shard로 fallback"
     }
   },
   "measured_defects": [
     "첫 조립본은 애니메이션이 역방향이었다. scaled()가 배율을 곱하지 않고 나눠 프레임 0이 가장 크고 점점 줄었다 — docstring은 방향을 단언했고 산술은 반대였으며, 렌더된 시트를 눈으로 보고서야 드러났다.",
     "Unity 기본 임포터가 maxTextureSize=2048로 잡아 WebGL 1024 상한을 위반했다. TextureImporters_DefaultAndWebGlCapsDoNotExceed1024가 잡았고 meta를 1024로 고정했다."
   ],
-  "not_textured": {
-    "ember_vent_telegraph": "의도적으로 절차적 디스크를 유지했다. 이건 이펙트가 아니라 경고 표면이고, 접근성 계약이 붙어 있다 — 감소 모션에서 6Hz 스트로브 대신 피크에서 고정하고 '경고가 가장 필요한 플레이어에게 더 조용해지면 안 된다'는 규칙이 코드에 적혀 있다. 텍스처가 디스크 가장자리를 흐리거나 대비를 낮추면 그 계약이 보호하는 바로 그것을 해친다. 이건 '아직 안 함'이 아니라 '하지 않기로 함'이다."
+  "superseded_decisions": {
+    "ember_vent_telegraph": "이전에는 안전 경고라 절차적 디스크만 유지하기로 했다. #17c에서는 생성 시트가 shape만 소유하고 기존 코드가 alpha/tint/reduced-motion을 계속 소유하도록 경계를 나눠 텍스처화했다. 경고 계약 자체는 폐기하지 않았고, reduced-motion은 실측 peak frame 7과 peak alpha에 고정한다."
   },
+  "codex_generation_findings_2026_08_11": [
+    "Built-in imagegen succeeded for all four requested V1~V4 source images; god-tibo-imagen fallback was not invoked.",
+    "All four generated originals were 1254x1254 RGB with near-black borders and no text, watermark, grid, or scene background on visual inspection.",
+    "The assembler owns deterministic resizing/animation only; generated images remain the authored shape source. Static V3/V4 masks use --single rather than packing sixteen duplicate cells."
+  ],
   "provider_findings_2026_08_11": [
     "gti DEFAULT provider (private-codex) returns HTTP 200 and generates. The 2026-08-06 429 image quota recorded in docs/provenance/intro-video.json has cleared.",
     "gti --provider codex-cli FAILS: it shells out to `codex exec`, and this account's model (gpt-5.4-...-premium) rejects reasoning.effort 'max' with HTTP 400 (supported: none/low/medium/high/xhigh). Not a gti defect — a codex config constraint.",
     "gti --size is rejected by codex-cli ('does not support output size selection'). Irrelevant for sheets: the assembler resamples to 256px cells, so native size does not matter."
-  ]
+  ],
+  "validation_2026_08_11": {
+    "import_only": {
+      "log": "_workspace/current/engineering/unity-logs/import-161141.log",
+      "result": "exit 0; no compile errors"
+    },
+    "editmode": {
+      "results": "_workspace/current/engineering/unity-logs/test-results-161230.xml",
+      "summary": "901 total, 896 passed, 4 failed, 1 skipped",
+      "vfx_scope": "VfxRuntimeSheetTests 9/9 passed; TextureImporters_DefaultAndWebGlCapsDoNotExceed1024 passed",
+      "known_unrelated_failures": "CampaignSimTests.NewStages_MutatedPlacement_ChangesDigest and three DungeonGoldenDigestTests drift cases belong to the pre-existing concurrent Sim collision/golden WIP"
+    },
+    "webgl_build": {
+      "log": "_workspace/current/engineering/unity-logs/build-161334.log",
+      "result": "Succeeded; size 110989836 bytes; errors 0; warnings 7; 00:01:19"
+    },
+    "browser_normal": {
+      "report": "_workspace/current/qa/vfx-codex-smoke-clear/browser-report.json",
+      "result": "13 screenshots; pageErrors 0",
+      "visual_verdict": "V1~V5 render in Ember Gallery without a white texture square, cropped UV cell, or duplicated eruption crown; the early Shift capture exposes the two short oriented shard silhouettes before crowd occlusion"
+    },
+    "browser_reduced_motion": {
+      "report": "_workspace/current/qa/vfx-codex-reduced/browser-report.json",
+      "metrics": "_workspace/current/qa/vfx-codex-reduced/reduced-motion-metrics.json",
+      "result": "5 screenshots; pageErrors 0",
+      "roi": "left lower vent elliptical outer-ring annulus, center (548,477), radii (76,43), normalized radius 0.78..1.03, 4632 pixels",
+      "luminance": "Rec.709 mean 91.1026 -> 91.0982; delta 0.0048%; threshold <2%; PASS"
+    }
+  }
 }

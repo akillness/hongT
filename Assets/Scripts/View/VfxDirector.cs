@@ -68,6 +68,15 @@ namespace CinderCourt.View
         }
         readonly Scorch[] _scorches = new Scorch[4];
         int _scorchCursor;
+        struct StaticDecal
+        {
+            public Transform Quad;
+            public Material Material;
+            public float Life, MaxLife;
+            public Color Color;
+        }
+        readonly StaticDecal[] _crackDecals = new StaticDecal[4];
+        int _crackDecalCursor;
         // §W wave warnings live on a DEDICATED RING pool declared with the other
         // Burst pools below: a warning must READ as a ring outline, and sharing
         // any live pool would evict a skill visual mid-play.
@@ -747,7 +756,24 @@ namespace CinderCourt.View
                 slot.Color = color;
                 slot.MaxRadius = radius;
                 slot.MaxLife = slot.Life = 0.9f;
-                slot.Ring.enabled = true;
+                var sheet = ShockwaveSheet();
+                if (sheet != null)
+                {
+                    EnsureBurstQuad(ref slot, sheet, "WaveWarningQuad");
+                    slot.Quad.position = slot.Center;
+                    slot.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    var span = radius * 2f;
+                    slot.Quad.localScale = new Vector3(span, span, 1f);
+                    slot.QuadMaterial.color = color;
+                    slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                    slot.Quad.gameObject.SetActive(true);
+                    slot.Ring.enabled = false;
+                }
+                else
+                {
+                    if (slot.Quad != null) slot.Quad.gameObject.SetActive(false);
+                    slot.Ring.enabled = true;
+                }
             }
         }
 
@@ -759,11 +785,30 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var warning = ref pool[i];
-                if (warning.Ring == null || !warning.Ring.enabled) continue;
+                var ringLive = warning.Ring != null && warning.Ring.enabled;
+                var quadLive = warning.Quad != null && warning.Quad.gameObject.activeSelf;
+                if (!ringLive && !quadLive) continue;
                 warning.Life -= deltaTime;
-                if (warning.Life <= 0f) { warning.Ring.enabled = false; continue; }
+                if (warning.Life <= 0f)
+                {
+                    if (warning.Ring != null) warning.Ring.enabled = false;
+                    if (warning.Quad != null) warning.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - warning.Life / warning.MaxLife;
                 var radius = warning.MaxRadius * Mathf.Lerp(1f, 0.15f, progress);
+                if (warning.Quad != null && warning.Quad.gameObject.activeSelf)
+                {
+                    warning.Quad.position = warning.Center;
+                    warning.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    var span = radius * 2f;
+                    warning.Quad.localScale = new Vector3(span, span, 1f);
+                    warning.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(1f - progress));
+                    var quadColor = warning.Color;
+                    quadColor.a = warning.Color.a * Mathf.Clamp01((1f - progress) * 3f);
+                    warning.QuadMaterial.color = quadColor;
+                    continue;
+                }
                 for (var s = 0; s < 28; s++)
                 {
                     var angle = (Mathf.PI * 2f * s) / 28f;
@@ -972,21 +1017,49 @@ namespace CinderCourt.View
 
         static Texture2D _shockwaveSheet;
         static bool _shockwaveSheetProbed;
+        static Texture2D _eruptionSheet;
+        static bool _eruptionSheetProbed;
+        static Texture2D _telegraphRingSheet;
+        static bool _telegraphRingSheetProbed;
+        static Texture2D _crackFanMask;
+        static bool _crackFanMaskProbed;
+        static Texture2D _shardStreakMask;
+        static bool _shardStreakMaskProbed;
 
         static Texture2D ShockwaveSheet()
         {
-            if (_shockwaveSheetProbed) return _shockwaveSheet;
-            _shockwaveSheetProbed = true;
-            _shockwaveSheet = Resources.Load<Texture2D>("Fx/shockwave-sheet");
-            return _shockwaveSheet;
+            return LoadFxFlipbookOnce(ref _shockwaveSheet, ref _shockwaveSheetProbed,
+                "Fx/shockwave-sheet");
         }
 
         static Texture2D ImpactSheet()
         {
-            if (_impactSheetProbed) return _impactSheet;
-            _impactSheetProbed = true;
-            _impactSheet = Resources.Load<Texture2D>("Fx/impact-sheet");
-            return _impactSheet;
+            return LoadFxFlipbookOnce(ref _impactSheet, ref _impactSheetProbed,
+                "Fx/impact-sheet");
+        }
+
+        static Texture2D EruptionSheet()
+        {
+            return LoadFxFlipbookOnce(ref _eruptionSheet, ref _eruptionSheetProbed,
+                "Fx/eruption-sheet");
+        }
+
+        static Texture2D TelegraphRingSheet()
+        {
+            return LoadFxFlipbookOnce(ref _telegraphRingSheet, ref _telegraphRingSheetProbed,
+                "Fx/telegraph-ring-sheet");
+        }
+
+        static Texture2D CrackFanMask()
+        {
+            return LoadFxMaskOnce(ref _crackFanMask, ref _crackFanMaskProbed,
+                "Fx/crack-fan");
+        }
+
+        static Texture2D ShardStreakMask()
+        {
+            return LoadFxMaskOnce(ref _shardStreakMask, ref _shardStreakMaskProbed,
+                "Fx/shard-streak");
         }
 
         // Radial burn decal, loaded once. `_scorchDecalProbed` separates "not
@@ -997,11 +1070,52 @@ namespace CinderCourt.View
 
         static Texture2D ScorchDecal()
         {
-            if (_scorchDecalProbed) return _scorchDecal;
-            _scorchDecalProbed = true;
-            _scorchDecal = Resources.Load<Texture2D>("Fx/scorch-decal");
-            return _scorchDecal;
+            return LoadFxMaskOnce(ref _scorchDecal, ref _scorchDecalProbed,
+                "Fx/scorch-decal");
         }
+
+        static Texture2D LoadFxFlipbookOnce(ref Texture2D texture, ref bool probed, string path)
+        {
+            if (probed) return texture;
+            probed = true;
+            var candidate = Resources.Load<Texture2D>(path);
+            texture = IsFxFlipbookShape(candidate) ? candidate : null;
+            return texture;
+        }
+
+        static Texture2D LoadFxMaskOnce(ref Texture2D texture, ref bool probed, string path)
+        {
+            if (probed) return texture;
+            probed = true;
+            var candidate = Resources.Load<Texture2D>(path);
+            texture = IsFxMaskShape(candidate) ? candidate : null;
+            return texture;
+        }
+
+        internal static bool IsFxFlipbookShape(Texture2D texture)
+        {
+            if (texture == null) return false;
+            if (texture.width <= 0 || texture.height <= 0) return false;
+            if (texture.width % 4 != 0 || texture.height % 4 != 0) return false;
+            return texture.width / 4 == texture.height / 4;
+        }
+
+        internal static bool IsFxMaskShape(Texture2D texture)
+        {
+            if (texture == null) return false;
+            return texture.width > 0 && texture.height > 0;
+        }
+
+        internal static Vector4 FxFrameSt(float progress)
+        {
+            var frame = Mathf.Clamp(
+                Mathf.FloorToInt(Mathf.Clamp01(progress) * TerrainFlipbook.FrameCount),
+                0, TerrainFlipbook.FrameCount - 1);
+            return TerrainFlipbook.FrameSt(frame);
+        }
+
+        internal static readonly Vector4 FullTextureSt = new Vector4(1f, 1f, 0f, 0f);
+        const int TelegraphReducedMotionFrame = 7;   // brightest total luminance in authored sheet
 
         /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
         /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
@@ -1052,6 +1166,39 @@ namespace CinderCourt.View
 
         void UpdateScorches(float deltaTime) => StepScorchPool(_scorches, deltaTime);
 
+        void SpawnCrackDecal(float simX, float simY, Color color, float radiusSim, float life, float startAngle)
+        {
+            ref var slot = ref _crackDecals[_crackDecalCursor];
+            _crackDecalCursor = (_crackDecalCursor + 1) % _crackDecals.Length;
+            if (slot.Quad == null)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                RemovePrimitiveCollider(quad);
+                quad.name = "CrackFanDecal";
+                quad.transform.SetParent(transform, false);
+                slot.Quad = quad.transform;
+                slot.Material = ViewWorld.MakeAdditive(Color.white);
+                var mask = CrackFanMask();
+                slot.Material.mainTexture = mask;
+                var renderer = quad.GetComponent<Renderer>();
+                renderer.sharedMaterial = slot.Material;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            var radiusWorld = radiusSim * ViewWorld.Scale;
+            var spin = Mathf.Repeat(startAngle * Mathf.Rad2Deg
+                                    + Mathf.Abs(simX * 37.1f + simY * 91.7f), 360f);
+            slot.Quad.position = ViewWorld.ToWorld(simX, simY, 0.025f);
+            slot.Quad.rotation = Quaternion.Euler(90f, spin, 0f);
+            slot.Quad.localScale = new Vector3(radiusWorld * 2f, radiusWorld * 2f / SimConfig.IsoY, 1f);
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            slot.Material.color = color;
+            slot.Quad.gameObject.SetActive(true);
+        }
+
+        void UpdateCrackDecals(float deltaTime) => StepStaticDecalPool(_crackDecals, deltaTime);
+
         static void StepScorchPool(Scorch[] pool, float deltaTime)
         {
             for (var i = 0; i < pool.Length; i++)
@@ -1063,6 +1210,20 @@ namespace CinderCourt.View
                 var faded = scorch.Color;
                 faded.a = scorch.Color.a * Mathf.Clamp01(scorch.Life / scorch.MaxLife);
                 scorch.Material.color = faded;
+            }
+        }
+
+        static void StepStaticDecalPool(StaticDecal[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
+            {
+                ref var decal = ref pool[i];
+                if (decal.Quad == null || !decal.Quad.gameObject.activeSelf) continue;
+                decal.Life -= deltaTime;
+                if (decal.Life <= 0f) { decal.Quad.gameObject.SetActive(false); continue; }
+                var faded = decal.Color;
+                faded.a = decal.Color.a * Mathf.Clamp01(decal.Life / decal.MaxLife);
+                decal.Material.color = faded;
             }
         }
 
@@ -1131,6 +1292,7 @@ namespace CinderCourt.View
             StepWarningPool(_waveWarnings, deltaTime);   // §W contracting rings
             StepShardPool(_shards, deltaTime);           // §S1 cracks + eruptions
             UpdateScorches(deltaTime);
+            UpdateCrackDecals(deltaTime);
             UpdateBoltStreak(deltaTime);
         }
 
@@ -1156,10 +1318,7 @@ namespace CinderCourt.View
                     // ONE-SHOT across the effect's own life, not a fixed frame
                     // rate. The spark lives 0.18 s; TerrainFlipbook's 12 fps would
                     // show two frames of sixteen and the burst would never resolve.
-                    var frame = Mathf.Clamp(
-                        Mathf.FloorToInt(progress * TerrainFlipbook.FrameCount),
-                        0, TerrainFlipbook.FrameCount - 1);
-                    burst.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(frame));
+                    burst.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(progress));
                     continue;   // the sheet carries the expansion and the fade
                 }
 
@@ -1195,12 +1354,16 @@ namespace CinderCourt.View
         {
             public LineRenderer Line;
             public Material Material;
+            public Transform Quad;
+            public Material QuadMaterial;
             public float Life, MaxLife;
             public Vector3 Center;
             public Vector3 Direction;   // unit, iso-space
             public float Length, Rise;  // Rise > 0 = vertical eruption
             public Color Color;
             public float Seed;
+            public bool Textured;
+            public bool Flipbook;
         }
         // 8 crack arms + 10 spikes: one nova fan (8) and one pulse crown (10)
         // can be live together without either evicting the other.
@@ -1230,6 +1393,11 @@ namespace CinderCourt.View
         void SpawnCrackFan(float simX, float simY, Color color, float radiusSim,
                            float life, int arms, float startAngle = 0f)
         {
+            if (CrackFanMask() != null)
+            {
+                SpawnCrackDecal(simX, simY, color, radiusSim, life, startAngle);
+                return;
+            }
             for (var a = 0; a < arms; a++)
             {
                 var angle = startAngle + (Mathf.PI * 2f * a) / arms;
@@ -1250,6 +1418,14 @@ namespace CinderCourt.View
         void SpawnEruptionCrown(float simX, float simY, Color color, float radiusSim,
                                 float riseWorld, float life, int count)
         {
+            var sheet = EruptionSheet();
+            if (sheet != null)
+            {
+                var radiusWorld = radiusSim * ViewWorld.Scale;
+                SpawnTexturedShard(simX, simY, color, radiusWorld * 2f, life,
+                    Vector3.forward, riseWorld, sheet, flipbook: true, name: "EruptionCrownQuad");
+                return;
+            }
             for (var s = 0; s < count; s++)
             {
                 var angle = (Mathf.PI * 2f * s) / count;
@@ -1281,6 +1457,16 @@ namespace CinderCourt.View
         void SpawnShard(float simX, float simY, Color color, float lengthWorld,
                         float life, Vector3 direction, float rise)
         {
+            if (rise <= 0f)
+            {
+                var mask = ShardStreakMask();
+                if (mask != null)
+                {
+                    SpawnTexturedShard(simX, simY, color, lengthWorld, life,
+                        direction, 0f, mask, flipbook: false, name: "ShardStreakQuad");
+                    return;
+                }
+            }
             ref var slot = ref _shards[_shardCursor];
             _shardCursor = (_shardCursor + 1) % _shards.Length;
             if (slot.Line == null)
@@ -1300,11 +1486,66 @@ namespace CinderCourt.View
             slot.Rise = rise;
             slot.Color = color;
             slot.MaxLife = slot.Life = life;
+            slot.Textured = false;
+            if (slot.Quad != null) slot.Quad.gameObject.SetActive(false);
             // Per-shard seed keeps the jag stable for this shard's whole life
             // (re-randomising per frame would boil, which reads as noise, not
             // fracture) while differing between shards of the same fan.
             slot.Seed = _shardCursor * 12.9898f;
             slot.Line.enabled = true;
+        }
+
+        void SpawnTexturedShard(
+            float simX, float simY, Color color, float lengthWorld, float life,
+            Vector3 direction, float rise, Texture2D texture, bool flipbook, string name)
+        {
+            ref var slot = ref _shards[_shardCursor];
+            _shardCursor = (_shardCursor + 1) % _shards.Length;
+            if (slot.Quad == null)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                RemovePrimitiveCollider(quad);
+                quad.name = name;
+                quad.transform.SetParent(transform, false);
+                slot.Quad = quad.transform;
+                slot.QuadMaterial = ViewWorld.MakeAdditive(Color.white);
+                var renderer = quad.GetComponent<Renderer>();
+                renderer.sharedMaterial = slot.QuadMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            else
+            {
+                slot.Quad.name = name;
+            }
+            if (slot.Line != null) slot.Line.enabled = false;
+            slot.QuadMaterial.mainTexture = texture;
+            slot.QuadMaterial.color = color;
+            slot.QuadMaterial.SetVector(BaseMapStId,
+                flipbook ? TerrainFlipbook.FrameSt(0) : FullTextureSt);
+            slot.Center = ViewWorld.ToWorld(simX, simY, 0.05f);
+            slot.Direction = direction.sqrMagnitude < 0.0001f ? Vector3.right : direction.normalized;
+            slot.Length = lengthWorld;
+            slot.Rise = rise;
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            slot.Textured = true;
+            slot.Flipbook = flipbook;
+            if (rise > 0f)
+            {
+                var yaw = Mathf.Atan2(slot.Direction.x, slot.Direction.z) * Mathf.Rad2Deg;
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(0f, yaw, 0f);
+                slot.Quad.localScale = new Vector3(lengthWorld, 0f, 1f);
+            }
+            else
+            {
+                var yaw = Mathf.Atan2(slot.Direction.z, slot.Direction.x) * Mathf.Rad2Deg;
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, -yaw, 0f);
+                slot.Quad.localScale = new Vector3(0f, 0.18f, 1f);
+            }
+            slot.Quad.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -1317,15 +1558,45 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var shard = ref pool[i];
-                if (shard.Line == null || !shard.Line.enabled) continue;
+                var lineLive = shard.Line != null && shard.Line.enabled;
+                var quadLive = shard.Quad != null && shard.Quad.gameObject.activeSelf;
+                if (!lineLive && !quadLive) continue;
                 shard.Life -= deltaTime;
-                if (shard.Life <= 0f) { shard.Line.enabled = false; continue; }
+                if (shard.Life <= 0f)
+                {
+                    if (shard.Line != null) shard.Line.enabled = false;
+                    if (shard.Quad != null) shard.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - shard.Life / shard.MaxLife;
                 // Ease-out extend: 0 -> full in the first ~35% of life, so the
                 // shape is already complete when the hit registers.
                 var extend = Mathf.Clamp01(progress / 0.35f);
                 extend = 1f - (1f - extend) * (1f - extend);
                 var reach = shard.Rise > 0f ? shard.Rise : shard.Length;
+                if (quadLive && shard.Textured)
+                {
+                    if (shard.Flipbook)
+                        shard.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(progress));
+                    var fadedQuad = shard.Color;
+                    fadedQuad.a = shard.Color.a * Mathf.Clamp01((1f - progress) * 1.5f);
+                    shard.QuadMaterial.color = fadedQuad;
+                    if (shard.Rise > 0f)
+                    {
+                        shard.Quad.position = shard.Center + Vector3.up * (reach * extend * 0.5f);
+                        var yaw = Mathf.Atan2(shard.Direction.x, shard.Direction.z) * Mathf.Rad2Deg;
+                        shard.Quad.rotation = Quaternion.Euler(0f, yaw, 0f);
+                        shard.Quad.localScale = new Vector3(shard.Length, reach * extend, 1f);
+                    }
+                    else
+                    {
+                        var yaw = Mathf.Atan2(shard.Direction.z, shard.Direction.x) * Mathf.Rad2Deg;
+                        shard.Quad.position = shard.Center + shard.Direction * (reach * extend * 0.5f);
+                        shard.Quad.rotation = Quaternion.Euler(90f, -yaw, 0f);
+                        shard.Quad.localScale = new Vector3(reach * extend, 0.18f, 1f);
+                    }
+                    continue;
+                }
                 for (var s = 0; s < ShardSegments; s++)
                 {
                     var t = (float)s / (ShardSegments - 1);
@@ -1371,10 +1642,18 @@ namespace CinderCourt.View
                 if (_bursts[i].Quad != null) _bursts[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
+            for (var i = 0; i < _crackDecals.Length; i++)
+                if (_crackDecals[i].Quad != null) _crackDecals[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
+            {
                 if (_waveWarnings[i].Ring != null) _waveWarnings[i].Ring.enabled = false;
+                if (_waveWarnings[i].Quad != null) _waveWarnings[i].Quad.gameObject.SetActive(false);
+            }
             for (var i = 0; i < _shards.Length; i++)         // §S1 cracks/eruptions
+            {
                 if (_shards[i].Line != null) _shards[i].Line.enabled = false;
+                if (_shards[i].Quad != null) _shards[i].Quad.gameObject.SetActive(false);
+            }
             if (_boltStreak != null) _boltStreak.enabled = false;
             for (var i = 0; i < ActiveThreatCueCount; i++)
                 SetActiveThreatCueEnabled(i, false);
@@ -1497,6 +1776,14 @@ namespace CinderCourt.View
                             color.r = 1f; color.g = 0.6f; color.b = 0.3f;
                         }
                         view.RingMaterial.color = color;
+                        if (view.BodyMaterial != null)
+                        {
+                            view.BodyMaterial.color = color;
+                            view.BodyMaterial.SetVector(BaseMapStId,
+                                ViewPrefs.ReducedMotion
+                                    ? TerrainFlipbook.FrameSt(TelegraphReducedMotionFrame)
+                                    : FxFrameSt(hazard.CycleT / CampaignSpec.VentPeriod));
+                        }
                         // V2 (interview lane, research telegraph rule): the fill
                         // disc grows with time-to-eruption so "how soon" reads at
                         // a glance — answering the telegraph's question, not just
@@ -1786,6 +2073,26 @@ namespace CinderCourt.View
                     view.FillDisc = fill.transform;
                     view.FillMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.42f, 0.18f, 0.16f), true);
                     fill.GetComponent<Renderer>().sharedMaterial = view.FillMaterial;
+                    var telegraphSheet = TelegraphRingSheet();
+                    if (telegraphSheet != null)
+                    {
+                        var telegraph = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(telegraph);
+                        telegraph.name = "VentTelegraphQuad";
+                        telegraph.transform.SetParent(root.transform, false);
+                        telegraph.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        telegraph.transform.localPosition = new Vector3(0f, 0.012f, 0f);
+                        telegraph.transform.localScale = new Vector3(r * 2.2f, r * 2.2f / SimConfig.IsoY, 1f);
+                        view.Body = telegraph.transform;
+                        view.BodyMaterial = ViewWorld.MakeAdditive(Color.white);
+                        view.BodyMaterial.mainTexture = telegraphSheet;
+                        view.BodyMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                        var telegraphRenderer = telegraph.GetComponent<Renderer>();
+                        telegraphRenderer.sharedMaterial = view.BodyMaterial;
+                        telegraphRenderer.shadowCastingMode =
+                            UnityEngine.Rendering.ShadowCastingMode.Off;
+                        telegraphRenderer.receiveShadows = false;
+                    }
                     break;
                 }
                 case HazardKind.ObsidianPillar:
@@ -1837,25 +2144,38 @@ namespace CinderCourt.View
                     view.Ring = disc.GetComponent<Renderer>();
                     view.Ring.sharedMaterial = view.RingMaterial;
 
-                    // AMENDMENT #17b — TONE, and deliberately a FLOOR tile rather than a
-                    // plinth. The altar is a channel disc: the player stands INSIDE
-                    // radius 70 to hold it, the sim gives it no collision, and the v1.2
-                    // placement contract exempts altar overlaps for exactly that reason.
-                    // A plinth mesh was built here first and reverted — geometry that
-                    // looks solid on something you walk through is §4k pointing the other
-                    // way, promising a collision the sim does not have. The sigil tile
-                    // carries the stone kit's material and stays flat, so the altar joins
-                    // the room's art language without lying about what it is.
+                    // AMENDMENT #17c — the altar is SOLID at its plinth, so it gets a
+                    // body the player can read as one. TWO meshes, because the altar has
+                    // two radii and drawing either at the other's size would lie:
+                    //
+                    //   sigil floor tile  spans the CHANNEL disc (70) — where you may
+                    //                     stand to hold it. Flat, walkable, no collision.
+                    //   plinth            spans the SOLID body (24) — what stops you.
+                    //
+                    // #17b shipped the tile alone with a comment saying a plinth would
+                    // promise a collision the sim lacked. That was correct then and is
+                    // wrong now; the premise moved, so the geometry moves with it. Both
+                    // scales come off the sim's own constants for the same reason the
+                    // StoneWall case takes its dimensions off the hazard record — a view
+                    // that stops matching the solid behind it is §4k at full size.
                     var tileWorld = hazard.Radius * ViewWorld.Scale * 1.35f;
                     SpawnKitPart("kit-floor-tile-sigil", root.transform,
                         new Vector3(tileWorld, tileWorld * 0.06f, tileWorld), uniform: false);
 
-                    // Centre relic gem — the altar's identity read at a glance.
+                    var plinthWorld = CampaignSpec.AltarBodyRadius * ViewWorld.Scale * 2f;
+                    var plinth = SpawnKitPart(
+                        "kit-altar-plinth", root.transform,
+                        new Vector3(plinthWorld, plinthWorld * 0.9f, plinthWorld), uniform: true);
+
+                    // Centre relic gem — the altar's identity read at a glance. It rides
+                    // the plinth when one exists and floats at the old height otherwise,
+                    // because a missing kit part is a normal state here (20 of 28 shipped).
                     var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     RemovePrimitiveCollider(gem);
                     gem.transform.SetParent(root.transform, false);
                     gem.transform.localScale = Vector3.one * 0.22f;
-                    gem.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+                    gem.transform.localPosition =
+                        new Vector3(0f, plinth == null ? 0.5f : plinthWorld * 0.9f + 0.16f, 0f);
                     gem.transform.localRotation = Quaternion.Euler(45f, 0f, 45f);
                     gem.GetComponent<Renderer>().sharedMaterial =
                         ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f), false);

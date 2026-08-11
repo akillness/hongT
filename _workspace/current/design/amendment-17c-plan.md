@@ -194,28 +194,31 @@ abyss-chancel +22% · ash-march +17%. 인테리어가 난이도를 **낮췄을**
 
 ---
 
-## 항목 8 + VFX — god-tibo-imagen 생성 이미지로 이펙트 개선
+## 항목 8 + VFX — Codex-first 생성 이미지로 이펙트 개선 (gti fallback)
 
 **이 절이 VFX 작업의 본체다.** 목표는 "절차적 도형을 시트로 바꾸기"가 아니라
-**gti가 생성한 실제 이미지를 이펙트의 형태 소스로 삼는 것**이다.
+**생성된 실제 이미지를 이펙트의 형태 소스로 삼는 것**이다. 2026-08-11 사용자
+후속 지시가 아래의 초기 gti 결정보다 우선한다: Codex 내장 생성이 1순위이고,
+실패할 때만 `$god-tibo-imagen`을 fallback으로 쓴다.
 
 ### 도구 결정 (2026-08-11 실측, 추정 아님)
 
 | 경로 | 결과 |
 |---|---|
+| Codex built-in imagegen | ✅ V1~V4 원본 4건 모두 생성 성공. 1254² RGB, 흑배경·무문자·무그리드 육안 확인 |
 | `gti --prompt ... --output ...` (기본 = private-codex) | ✅ **HTTP 200, 1024²급 PNG 생성.** 2026-08-06 provenance의 429 쿼터는 해소됨 |
 | `gti --provider codex-cli` | ❌ `codex exec`가 `reasoning.effort: 'max'` 거부 (모델 `gpt-5.4-…-premium`이 none/low/medium/high/xhigh만 지원, HTTP 400) |
 | `gti --size ...` + codex-cli | ❌ `The codex-cli provider does not support output size selection` |
 
-→ **기본 프로바이더를 쓴다. `--provider`·`--size`를 붙이지 않는다.**
-셀 크기는 조립기가 256으로 리샘플하므로 원본 해상도는 무관하다.
-codex-cli가 필요해지면 먼저 `~/.codex` 설정의 reasoning effort를 낮춰야 한다 —
-이건 gti 버그가 아니라 계정 모델 제약이다.
+→ **현재 결정은 Codex built-in 우선이다.** 이번 4건이 모두 성공했으므로 gti는
+호출하지 않았다. Codex가 실패하는 후속 생성에서만 gti 기본 프로바이더를 쓰고
+`--provider`·`--size`를 붙이지 않는다. 셀 크기는 조립기가 256으로 리샘플하므로
+원본 해상도는 무관하다. codex-cli 제약은 gti 버그가 아니라 계정 모델 설정이다.
 
-[OBSERVED] 이 경로로 **첫 자산을 이미 생성했다**:
+[HISTORICAL OBSERVED] 초기 gti 검증에서 **첫 비교 후보를 생성했다**:
 `_workspace/current/engineering/fx-gen/eruption-base.png` (1.5 MB,
-중앙 정렬 용암 왕관 · 순수 흑배경 · 흰 코어). 육안 확인 완료. V2가 바로 조립
-가능한 상태다.
+중앙 정렬 용암 왕관 · 순수 흑배경 · 흰 코어). 후보는 보존하지만 Codex-first
+생성이 성공해 런타임 V2 시트에는 사용하지 않았다.
 
 ### 생성 규칙 (실패 이력에서 나온 것들 — 재발견 금지)
 
@@ -240,9 +243,9 @@ codex-cli가 필요해지면 먼저 `~/.codex` 설정의 reasoning effort를 낮
 각 행은 (프롬프트 → 베이스 → 조립 → 코드 접점) 4단계가 모두 적혀 있어야
 착수 가능하다. 조립기 인자: `--base <png> --out <sheet> --mode burst|ring`.
 
-| # | 표면 | gti 프롬프트 요지 | 조립 | 배선 |
+| # | 표면 | 생성 프롬프트 요지 | 조립 | 배선 |
 |---|---|---|---|---|
-| **V2** | `SpawnEruptionCrown` (VfxDirector:1250) | *이미 생성됨* — eruption-base.png | `--mode burst` → `Fx/eruption-sheet.png` | 현 절차적 크라운 기하를 쿼드+시트로. 수명 매핑은 `SpawnHitSpark`(:913) 패턴 복제 — **`StepRingPool`(:1137)이 이미 진행도→`FrameSt` 매핑을 갖고 있으니 호출한다** |
+| **V2** | `SpawnEruptionCrown` | Codex `eruption-base-codex.png` — 전면 eruption crown, 하단 고정 | `--mode burst` → `Fx/eruption-sheet.png` | 중앙 vertical crown quad 1장. 리소스/shape gate 실패 시 기존 LineRenderer crown fallback |
 | **V1** | 분출구 텔레그래프 [항목 8] | "a thin cracked warning ring of glowing fissures on pure black, seen from above, concentric, no fill in the centre…" | `--mode ring` → `Fx/telegraph-ring-sheet.png` | **아래 접근성 절 필독** |
 | **V3** | `SpawnCrackFan` (:1230) | "a fan of jagged glowing cracks radiating from one point on pure black, thin bright fissures…" | 시트 아님 — 단일 데칼 | `scorch-decal` 방식(정적 텍스처 + 스폰별 회전) |
 | **V4** | `SpawnShard` (:1281) | "a single elongated molten shard streak on pure black, bright head fading to a thin tail…" | 단일 마스크 | 쿼드 지향(velocity 정렬)은 기존 코드 유지, `_BaseMap`만 교체 |
@@ -253,11 +256,12 @@ codex-cli가 필요해지면 먼저 `~/.codex` 설정의 reasoning effort를 낮
 
 ### V1 상세 — 접근성 계약을 유지한 채 텍스처화
 
-[OBSERVED] `combat-fx.json`의 `not_textured` 항목이 이유를 서명해 두었다:
+[HISTORICAL OBSERVED] `combat-fx.json`의 이전 `not_textured` 항목이 이유를 서명했다:
 안전 경고 표면이라 reduced-motion에서 **피크 밝기로 고정**되며,
-"경고는 그것이 가장 필요한 플레이어에게 더 조용해지면 안 된다."
+"경고는 그것이 가장 필요한 플레이어에게 더 조용해지면 안 된다." 현재 provenance는
+이 결정을 `superseded_decisions`로 보존하고 텍스처화된 경계를 기록한다.
 
-[TARGET] 소유권을 쪼갠다:
+[IMPLEMENTED] 소유권을 쪼갰다:
 
 - **시트는 형태만** 소유 → `_BaseMap` + `_BaseMap_ST` 프레임 스텝.
 - **밝기·알파·틴트는 기존 절차 코드가 계속 소유** → MaterialPropertyBlock으로
@@ -273,6 +277,18 @@ codex-cli가 필요해지면 먼저 `~/.codex` 설정의 reasoning effort를 낮
 ③ `.meta` maxTextureSize 1024 확인 → ④ `bash tools/unity_batch.sh import-only`
 (~15s) → ⑤ 항목 4 스모크 프레임에서 렌더 확인 → ⑥ provenance 갱신.
 
+### VFX 구현·검증 결과 (2026-08-11)
+
+- Codex 원본 4건으로 V1 텔레그래프, V2 eruption crown, V3 crack fan,
+  V4 shard streak을 조립·배선했다. V5는 계획대로 기존 shockwave 시트를 재사용했다.
+- reduced-motion은 실측 최고 총휘도 frame 7(212226)에 고정한다. WebGL 두 프레임의
+  환기구 외곽 링 평균 휘도는 91.1026→91.0982, 차이 **0.0048%**로 `<2%` 통과했다.
+  근거: `_workspace/current/qa/vfx-codex-reduced/reduced-motion-metrics.json`.
+- import-only 성공, 신규 VFX EditMode 9/9 통과, 텍스처 1024 상한 통과,
+  WebGL 빌드 성공(오류 0), 브라우저 일반 13장·축소 모션 5장 모두 page error 0.
+- 전체 EditMode 901개 중 4개 실패는 동시 작업 중인 Sim collision/golden digest 변경이며,
+  VFX 테스트와 무관하다. VFX 완료 판정에서 숨기지 않고 validation gap으로 남긴다.
+
 ### 현존 생성 자산 (재확인 완료, 재생성 불요)
 
 [OBSERVED] 2026-08-11 기준:
@@ -284,7 +300,11 @@ codex-cli가 필요해지면 먼저 `~/.codex` 설정의 reasoning effort를 낮
 | scorch-decal.png (800KB) | Assets/Resources/Fx/ | `SpawnScorch` (:1022) — 배선 완료 |
 | terrain-fx-lava/ice/shift-sheet.png | Assets/Resources/Terrain/ | TerrainFlipbook 루프 — 배선 완료 |
 | 베이스 impact/shockwave-base.png | _workspace/current/engineering/fx-gen/ | 재조립용 마스터 |
-| **eruption-base.png (1.5MB, 신규)** | 같은 경로 | **V2용, 2026-08-11 gti 생성·육안 확인 완료** |
+| eruption-base.png (1.5MB) | 같은 경로 | 초기 gti 비교 후보 — 보존, 런타임 미사용 |
+| **eruption-base-codex.png** | 같은 경로 | **V2 active source → eruption-sheet.png** |
+| **telegraph-ring-base.png** | 같은 경로 | **V1 active source → telegraph-ring-sheet.png** |
+| **crack-fan-base.png** | 같은 경로 | **V3 active source → crack-fan.png** |
+| **shard-streak-base.png** | 같은 경로 | **V4 active source → shard-streak.png** |
 
 조립기 `tools/gen_combat_fx_sheets.py`는 `--mode burst|ring` 두 곡선을 갖는다:
 burst는 접촉 순간이 가장 빠르고 밝기를 1/5 구간 유지, ring은 거의 0에서 시작해
