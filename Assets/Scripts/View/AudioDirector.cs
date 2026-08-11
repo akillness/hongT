@@ -338,6 +338,75 @@ namespace CinderCourt.View
             voice.PlayOneShot(clip, volume);   // overlap allowed, no trimming
         }
 
+        // ---- player exertion grunts (기합) --------------------------------
+        //
+        // A SEPARATE LAYER, not extra cue-* clips. gen_sfx.py's head carries the rule:
+        // cue-* prompts forbid vocals, because a voice baked into a sound effect can no
+        // longer be muted, ducked or translated by itself. These are voice-* assets and
+        // they keep their own volume so a later "grunts off" toggle is a one-line change
+        // rather than a regeneration.
+        //
+        // Wordless on purpose, so localisation never enters into it.
+        readonly Dictionary<string, AudioClip[]> _grunts = new Dictionary<string, AudioClip[]>();
+        readonly Dictionary<string, int> _gruntLast = new Dictionary<string, int>();
+        uint _gruntRng = 0x51ED2701u;
+
+        /// <summary>
+        /// Volume for the grunt layer. Under the cue it accompanies, deliberately: the
+        /// grunt lands on the same frame as the impact and must colour it, not replace
+        /// it. The impact is the thing that tells the player they connected.
+        /// </summary>
+        const float GruntVolume = 0.55f;
+
+        /// <summary>
+        /// One grunt from the named set, never the same take twice in a row.
+        ///
+        /// Plain random is not enough here. A dodge fires several times a minute, and
+        /// with three variants uniform sampling repeats immediately about a third of the
+        /// time — which is exactly the "it repeats" complaint this layer must avoid, and
+        /// it lands hardest on the most-used cue. Excluding the previous index costs one
+        /// int and removes that case entirely.
+        ///
+        /// Missing clips are a normal state: generation is incremental and a build
+        /// without the voice-* assets simply stays silent on this layer while every
+        /// cue-* sound keeps playing.
+        /// </summary>
+        void PlayGrunt(string setName)
+        {
+            if (_muted) return;
+            if (!_grunts.TryGetValue(setName, out var set))
+            {
+                var found = new List<AudioClip>(3);
+                for (var index = 1; index <= 4; index += 1)
+                {
+                    var clip = Resources.Load<AudioClip>($"Audio/{setName}-{index}");
+                    if (clip != null) found.Add(clip);
+                }
+                set = found.ToArray();
+                _grunts[setName] = set;        // cache misses too: no per-event I/O
+            }
+            if (set.Length == 0) return;
+
+            var previous = _gruntLast.TryGetValue(setName, out var last) ? last : -1;
+            int pick;
+            if (set.Length == 1)
+            {
+                pick = 0;
+            }
+            else
+            {
+                // Draw from the set MINUS the previous take, then map back.
+                _gruntRng ^= _gruntRng << 13;
+                _gruntRng ^= _gruntRng >> 17;
+                _gruntRng ^= _gruntRng << 5;
+                pick = (int)(_gruntRng % (uint)(set.Length - 1));
+                if (previous >= 0 && pick >= previous) pick += 1;
+                if (pick >= set.Length) pick = 0;
+            }
+            _gruntLast[setName] = pick;
+            Play(set[pick], GruntVolume);
+        }
+
         public void OnEvents(SimEvents events)
         {
             if ((events & SimEvents.PlayerStruck) != 0) Play(_strike);
@@ -354,7 +423,11 @@ namespace CinderCourt.View
                 Play(_wave);
                 Play(_lore, 0.5f);   // ambient texture under the lore line
             }
-            if ((events & SimEvents.GameOver) != 0) Play(_gameover);
+            if ((events & SimEvents.GameOver) != 0) { Play(_gameover); PlayGrunt("voice-die"); }
+            // PlayerDamaged is voiced ONLY as a grunt. The impact itself is already
+            // carried by cue-hit from the attacker's side, so adding a second impact
+            // here would double the hit and make chip damage louder than a landed blow.
+            if ((events & SimEvents.PlayerDamaged) != 0) PlayGrunt("voice-hurt");
             // Campaign events reuse existing cues (no extra generation needed):
             if ((events & SimEvents.HazardPulse) != 0) Play(_hit, 0.6f);
             if ((events & SimEvents.AltarBlessing) != 0) Play(_ward, 0.7f);
@@ -373,7 +446,10 @@ namespace CinderCourt.View
             // incremental, so a half-generated set must degrade cue by cue
             // rather than dropping the event.
             if ((events & SimEvents.DashUsed) != 0)
+            {
                 PlayOrFallback(_dash, 1f, _strike, 0.5f);
+                PlayGrunt("voice-avoid");
+            }
             if ((events & SimEvents.BoltCast) != 0)
                 PlayOrFallback(_bolt, 1f, _nova, 0.45f);
             if ((events & SimEvents.PulseCast) != 0)
@@ -393,7 +469,10 @@ namespace CinderCourt.View
             if ((events & SimEvents.BossPhase2) != 0)
                 PlayOrFallback(_bossPhase2, 1f, _gameover, 0.35f);
             if ((events & SimEvents.ComboFinisher) != 0)
+            {
                 PlayOrFallback(_comboFinisher, 1f, _kill, 0.7f);
+                PlayGrunt("voice-combo-finisher");
+            }
             if ((events & SimEvents.BossSpawned) != 0)
                 PlayOrFallback(_bossSpawned, 1f, _wave, 0.9f);
         }
