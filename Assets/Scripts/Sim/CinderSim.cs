@@ -113,6 +113,9 @@ namespace CinderCourt.Sim
         // constants, so the arena and campaign constructors need no change at all.
         private readonly float _boundsHalfWidth = SimConfig.ArenaHalfWidth;
         private readonly float _boundsHalfHeight = SimConfig.ArenaHalfHeight;
+        // AMENDMENT #18: enabled only by the dungeon progression opt-in; leaving it
+        // false keeps every frozen follower tick byte-identical.
+        private readonly bool _companionCohesion;
 
         private PlayerState _player;
         private SimMode _mode;
@@ -268,6 +271,13 @@ namespace CinderCourt.Sim
         private readonly float[] _companionLockTimer = new float[MaxCompanions];
         private readonly float[] _companionReturnGrace = new float[MaxCompanions];
         private readonly bool[] _companionEngaged = new bool[MaxCompanions];
+        // AMENDMENT #18: fixed-step idle-route state. There is no RNG — every new
+        // waypoint follows the slot's counter, and the arrays are reused per tick.
+        private readonly float[] _companionRoamX = new float[MaxCompanions];
+        private readonly float[] _companionRoamY = new float[MaxCompanions];
+        private readonly float[] _companionRoamDwell = new float[MaxCompanions];
+        private readonly int[] _companionRoamPhase = new int[MaxCompanions];
+        private readonly bool[] _companionRecovering = new bool[MaxCompanions];
         // AMENDMENT #8 (A8.2-A8.5): per-slot signature skill. The SPEC is resolved once at
         // construction because it is a constant of the archetype; only the cooldown and the
         // display flash are state. No RNG: the cooldown is fixed-step accumulation compared
@@ -423,6 +433,7 @@ namespace CinderCourt.Sim
             // AMENDMENT #13/#14 are dungeon-only (seed decision D3): the arena and the
             // prologue must not gain a branch, and a trial has no economy to grade.
             _progression = config.Mode == GameMode.Dungeon ? progression : default;
+            _companionCohesion = _progression.CompanionCohesion;
             DungeonBoundsSpec.Resolve(
                 in _progression.Bounds, out _boundsHalfWidth, out _boundsHalfHeight);
             _gameMode = config.Mode;
@@ -1923,7 +1934,16 @@ namespace CinderCourt.Sim
                     engaged = true;
                 }
 
-                if (engaged)
+                bool cohesionOwnsMovement = _companionCohesion
+                    && UpdateCompanionCohesion(slot, target >= 0, deltaTime);
+                if (cohesionOwnsMovement)
+                {
+                    // #18 recovery takes priority over a distant lock. The target is
+                    // still valid for this tick's post-movement swing, but it is no
+                    // longer an active pursuit while the slot is returning home.
+                    engaged = false;
+                }
+                else if (engaged)
                 {
                     StepCompanionToward(
                         slot,
@@ -1932,7 +1952,7 @@ namespace CinderCourt.Sim
                         _playerSpeed * HackSpec.CompanionPursuitSpeedScale,
                         deltaTime);
                 }
-                else
+                else if (!_companionCohesion)
                 {
                     // Frozen §4 follower step. With no target inside the acquire radius this is
                     // the pre-amendment path, arithmetic included.
@@ -2152,6 +2172,96 @@ namespace CinderCourt.Sim
         {
             _companionTargetId[slot] = 0;
             _companionLockTimer[slot] = 0f;
+        }
+
+        /// <summary>
+        /// AMENDMENT #18: recovery is a latched player-relative band. Crossing the
+        /// outer radius takes priority over combat motion and keeps recovering until
+        /// the inner radius; otherwise only no-target slots own an idle route.
+        /// </summary>
+        private bool UpdateCompanionCohesion(int slot, bool hasTarget, float deltaTime)
+        {
+            float playerDistance = IsoDistance(
+                _companionX[slot], _companionY[slot], _player.X, _player.Y);
+            if (playerDistance > CompanionCohesionSpec.RecoveryRadius)
+            {
+                _companionRecovering[slot] = true;
+            }
+
+            if (_companionRecovering[slot])
+            {
+                if (playerDistance <= CompanionCohesionSpec.ComfortRadius)
+                {
+                    _companionRecovering[slot] = false;
+                    _companionRoamX[slot] = _companionX[slot];
+                    _companionRoamY[slot] = _companionY[slot];
+                    _companionRoamDwell[slot] = 0f;
+                    return !hasTarget;
+                }
+
+                _companionRoamX[slot] = _companionX[slot];
+                _companionRoamY[slot] = _companionY[slot];
+                _companionRoamDwell[slot] = 0f;
+                StepCompanionToward(
+                    slot,
+                    _player.X,
+                    _player.Y,
+                    _playerSpeed * CompanionCohesionSpec.RecoverySpeedScale,
+                    deltaTime);
+                return true;
+            }
+
+            if (hasTarget)
+            {
+                return false;
+            }
+
+            float dwell = MathF.Max(0f, _companionRoamDwell[slot] - deltaTime);
+            _companionRoamDwell[slot] = dwell;
+            if (dwell > 0f)
+            {
+                return true;
+            }
+
+            if (Hypot(
+                    _companionRoamX[slot] - _companionX[slot],
+                    _companionRoamY[slot] - _companionY[slot]) <= MoveEpsilon)
+            {
+                SetNextCompanionRoamTarget(slot);
+                _companionRoamDwell[slot] = CompanionCohesionSpec.WanderDwellSeconds;
+                return true;
+            }
+            StepCompanionToward(
+                slot,
+                _companionRoamX[slot],
+                _companionRoamY[slot],
+                _playerSpeed,
+                deltaTime);
+            return true;
+        }
+
+        /// <summary>Advance one fixed, allocation-free idle-route leg for a slot.</summary>
+        private void SetNextCompanionRoamTarget(int slot)
+        {
+            float deltaX = 0f;
+            float deltaY = 0f;
+            switch (_companionRoamPhase[slot]++ & 3)
+            {
+                case 0:
+                    deltaX = CompanionCohesionSpec.WanderStride;
+                    break;
+                case 1:
+                    deltaY = CompanionCohesionSpec.WanderStride;
+                    break;
+                case 2:
+                    deltaX = -CompanionCohesionSpec.WanderStride;
+                    break;
+                default:
+                    deltaY = -CompanionCohesionSpec.WanderStride;
+                    break;
+            }
+            _companionRoamX[slot] = _companionX[slot] + deltaX;
+            _companionRoamY[slot] = _companionY[slot] + deltaY;
         }
 
         /// <summary>
@@ -3918,6 +4028,11 @@ namespace CinderCourt.Sim
                 _companionLockTimer[slot] = 0f;
                 _companionReturnGrace[slot] = 0f;
                 _companionEngaged[slot] = false;
+                _companionRoamX[slot] = _companionX[slot];
+                _companionRoamY[slot] = _companionY[slot];
+                _companionRoamDwell[slot] = 0f;
+                _companionRoamPhase[slot] = slot;
+                _companionRecovering[slot] = false;
                 // AMENDMENT #8 (A8.3): the cooldown starts FULL, so neither a fresh run nor a
                 // restart can open with a free cast. The first cast is therefore at a time the
                 // table alone predicts.

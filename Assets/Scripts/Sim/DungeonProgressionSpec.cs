@@ -22,8 +22,8 @@ using System.Collections.Generic;
 namespace CinderCourt.Sim
 {
     /// <summary>
-    /// Opt-in switches for the two dungeon-only progression amendments. Both
-    /// default to <c>false</c>, which is what every pre-amendment call site
+    /// Opt-in switches for dungeon-only progression amendments. Every switch
+    /// defaults to <c>false</c>, which is what every pre-amendment call site
     /// produces, so the frozen numbers are the default behaviour.
     /// </summary>
     public struct DungeonProgressionConfig
@@ -49,8 +49,15 @@ namespace CinderCourt.Sim
         /// </summary>
         public bool BossVariety;
 
+        /// <summary>
+        /// AMENDMENT #18: let a no-target companion preserve its local positioning
+        /// and deterministic idle route, recovering only after it leaves the player's
+        /// cohesion radius. Off retains the frozen hard-anchor follower exactly.
+        /// </summary>
+        public bool CompanionCohesion;
+
         /// <summary>True when at least one amendment is live.</summary>
-        public bool Any => AdaptiveWaves || GradedLoot || Bounds.Active || BossVariety;
+        public bool Any => AdaptiveWaves || GradedLoot || Bounds.Active || BossVariety || CompanionCohesion;
 
         /// <summary>#13 + #14 only. Bounds stay frozen — the movement amendment has
         /// a hard View coupling (the boundary wall ring), so it is opted into
@@ -64,14 +71,45 @@ namespace CinderCourt.Sim
             GradedLoot = true,
         };
 
-        /// <summary>#13 + #14 + #15 at the recommended expanded bounds + #16.</summary>
+        /// <summary>#13 + #14 + #15 + #16 + #18 at their production settings.</summary>
         public static DungeonProgressionConfig Everything => new DungeonProgressionConfig
         {
             AdaptiveWaves = true,
             GradedLoot = true,
             Bounds = DungeonBoundsSpec.Expanded,
             BossVariety = true,
+            CompanionCohesion = true,
         };
+    }
+
+    /// <summary>
+    /// AMENDMENT #18 — deterministic no-target companion autonomy. These values
+    /// are opt-in through <see cref="DungeonProgressionConfig.CompanionCohesion"/>;
+    /// default progression still takes the untouched hard-anchor follower path.
+    /// </summary>
+    public static class CompanionCohesionSpec
+    {
+        /// <summary>
+        /// Player-relative iso distance at or below which a recovery latch releases.
+        /// It covers the 80 px follow offset plus every D6.4 fan-out.
+        public const float ComfortRadius = 128f;
+
+        /// <summary>
+        /// Player-relative iso distance that interrupts idle wandering and starts
+        /// recovery. Separation from <see cref="ComfortRadius"/> prevents edge churn.
+        /// </summary>
+        public const float RecoveryRadius = 200f;
+
+        /// <summary>
+        /// Recovery outruns a walking player without the snap of a teleport.
+        /// </summary>
+        public const float RecoverySpeedScale = 1.25f;
+
+        /// <summary>One deterministic idle leg in world pixels.</summary>
+        public const float WanderStride = 24f;
+
+        /// <summary>Still time before starting the next idle leg.</summary>
+        public const float WanderDwellSeconds = 0.35f;
     }
 
     /// <summary>
