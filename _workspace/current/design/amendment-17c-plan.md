@@ -286,6 +286,19 @@ abyss-chancel +22% · ash-march +17%. 인테리어가 난이도를 **낮췄을**
   근거: `_workspace/current/qa/vfx-codex-reduced/reduced-motion-metrics.json`.
 - import-only 성공, 신규 VFX EditMode 9/9 통과, 텍스처 1024 상한 통과,
   WebGL 빌드 성공(오류 0), 브라우저 일반 13장·축소 모션 5장 모두 page error 0.
+- 제1·2·3부 전체 9스테이지를 독립 WebGL 컨텍스트로 추가 검증했다. 정상 모드
+  135장(스테이지당 15장), 부별 감소 모드 대표 15장, 총 12런 모두 page error 0.
+  출정 카드·실제 웨이브 HUD·인테리어·이동·근접·Q/E/Shift/F/R·경고를 담았고
+  흰/마젠타 누락 텍스처 쿼드는 없었다. 근거:
+  `_workspace/current/qa/amendment17c-smoke/three-act-vfx-matrix.md`.
+- 첫 제3부 자동 런은 잘못된 버튼 y좌표 때문에 로비에 남았지만 page error는 0이었다.
+  연락판 검수가 이 거짓 양성을 잡았고 좌표를 보정해 제3부 3런과 통합 보고서를
+  다시 생성했다. 이후 드라이버는 `GameFlowAgentAPI.observe()`의 실제 wave/phase와
+  위치 변화도 통과 조건으로 사용한다.
+- 새 감소 모드 대표값은 Ember Gallery 외곽 링 91.2460→90.9213,
+  **0.3559%**로 `<2%`를 통과했다. 제2·3부 대표도 실환경 렌더와 page error 0을
+  확인했으나, 샘플 쌍이 각각 경고 상태/피격 비네트 경계를 지나 수치 게이트에서는
+  제외했다.
 - 전체 EditMode 901개 중 4개 실패는 동시 작업 중인 Sim collision/golden digest 변경이며,
   VFX 테스트와 무관하다. VFX 완료 판정에서 숨기지 않고 validation gap으로 남긴다.
 

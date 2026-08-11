@@ -135,6 +135,21 @@
       "result": "5 screenshots; pageErrors 0",
       "roi": "left lower vent elliptical outer-ring annulus, center (548,477), radii (76,43), normalized radius 0.78..1.03, 4632 pixels",
       "luminance": "Rec.709 mean 91.1026 -> 91.0982; delta 0.0048%; threshold <2%; PASS"
+    },
+    "browser_three_act_normal": {
+      "report": "_workspace/current/qa/amendment17c-smoke/full-browser-report.json",
+      "matrix": "_workspace/current/qa/amendment17c-smoke/three-act-vfx-matrix.md",
+      "result": "9 independent stage runs; 15 screenshots per stage; 135 screenshots total; pageErrors 0",
+      "coverage": "all three acts and all nine logical stages: sortie card, live wave HUD, interior, two movement samples, melee, Q/E/Shift/F/R, and warning frames",
+      "visual_verdict": "all nine stages entered and rendered their distinct environment; no white or magenta missing-texture quad; skill/warning frame sets present",
+      "false_positive_recovery": "the first Act III coordinate table stayed in the lobby while pageErrors remained zero; the 3x3 contact sheet caught it, action centres were corrected, Act III was rerun, and the aggregate report was rebuilt"
+    },
+    "browser_three_act_reduced_motion": {
+      "report": "_workspace/current/qa/amendment17c-smoke/reduced-browser-report.json",
+      "metrics": "_workspace/current/qa/amendment17c-smoke/reduced-motion-metrics.json",
+      "result": "one vent-bearing representative per act; 3 runs and 15 screenshots; pageErrors 0",
+      "numeric_gate": "Ember Gallery outer-ring Rec.709 mean 91.2460 -> 90.9213; delta 0.3559%; threshold <2%; PASS",
+      "scope_note": "Echo Throne and Ash March prove reduced-mode rendering in Acts II/III, but their sampled pairs crossed dynamic warning/damage states and were intentionally excluded from the luminance gate"
     }
   }
 }
