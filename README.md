@@ -20,6 +20,8 @@
 
 ![게임플레이](docs/assets/readme/gameplay.gif)
 
+*Ember Gallery · 웨이브 2/5 — 현재 빌드 실제 플레이*
+
 **[▶ 전체 플레이 영상 (55초)](docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4)** ·
 [인트로 시네마틱](docs/nan2026/assets/video/cinder-court-intro.mp4)
 
