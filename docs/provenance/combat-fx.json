@@ -25,6 +25,14 @@
       "mode": "grayscale mask — 틴트가 정체성을 나른다. §S1이 기록하듯 NINE 개 이벤트가 이 한 호출을 지나며 색과 반경으로만 구분되므로, 컬러 시트는 그 어휘를 붕괴시킨다",
       "curve": "ring 모드: 0.10→1.00 확장(버스트의 0.30이 아니라), 홀드 없음. 충격파는 전선 위치로 읽히고 방출 순간이 가장 밝다",
       "consumer": "VfxDirector.SpawnBurst — 시트가 없으면 기존 LineRenderer 링으로 폴백"
+    },
+    "eruption-base": {
+      "tool": "god-tibo-imagen (gti), DEFAULT provider (private-codex)",
+      "generated": "2026-08-11",
+      "prompt": "A single centred eruption crown of molten lava on pure black: a ring of upward-thrown glowing rock shards and white-hot spray rising from a circular fissure, hot orange core fading to deep red at the tips, fine embers, no background detail, no text, no border, square, high contrast for additive blending",
+      "out": "_workspace/current/engineering/fx-gen/eruption-base.png",
+      "status": "base only — sheet not yet assembled (AMENDMENT #17c V2)",
+      "intended_surface": "VfxDirector.SpawnEruptionCrown"
     }
   },
   "measured_defects": [
@@ -33,5 +41,10 @@
   ],
   "not_textured": {
     "ember_vent_telegraph": "의도적으로 절차적 디스크를 유지했다. 이건 이펙트가 아니라 경고 표면이고, 접근성 계약이 붙어 있다 — 감소 모션에서 6Hz 스트로브 대신 피크에서 고정하고 '경고가 가장 필요한 플레이어에게 더 조용해지면 안 된다'는 규칙이 코드에 적혀 있다. 텍스처가 디스크 가장자리를 흐리거나 대비를 낮추면 그 계약이 보호하는 바로 그것을 해친다. 이건 '아직 안 함'이 아니라 '하지 않기로 함'이다."
-  }
+  },
+  "provider_findings_2026_08_11": [
+    "gti DEFAULT provider (private-codex) returns HTTP 200 and generates. The 2026-08-06 429 image quota recorded in docs/provenance/intro-video.json has cleared.",
+    "gti --provider codex-cli FAILS: it shells out to `codex exec`, and this account's model (gpt-5.4-...-premium) rejects reasoning.effort 'max' with HTTP 400 (supported: none/low/medium/high/xhigh). Not a gti defect — a codex config constraint.",
+    "gti --size is rejected by codex-cli ('does not support output size selection'). Irrelevant for sheets: the assembler resamples to 256px cells, so native size does not matter."
+  ]
 }
