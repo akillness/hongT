@@ -379,7 +379,14 @@ namespace CinderCourt.View
         /// </summary>
         void SetStageEnvironment(string stageId)
         {
-            if (_stageEnvironmentId == (stageId ?? "")) return;
+            if (_stageEnvironmentId == (stageId ?? ""))
+            {
+                // A retry/re-entry can reuse the same deterministic environment,
+                // but it is still a fresh performance workload. Never admit the
+                // previous attempt's PostFx/shadow samples into the new run.
+                if (!string.IsNullOrEmpty(stageId)) PostFxGate.SetStageActive(true);
+                return;
+            }
             if (_stageEnvironment != null)
             {
                 if (Application.isPlaying) Destroy(_stageEnvironment);
@@ -388,10 +395,12 @@ namespace CinderCourt.View
             }
             if (_stageMood != null)
             {
+                // Restore the global sun/ambient/URP lease synchronously while
+                // the old key still exists. Destroy is delayed in Play mode.
+                StageMood.Clear();
                 if (Application.isPlaying) Destroy(_stageMood);
                 else DestroyImmediate(_stageMood);
                 _stageMood = null;
-                StageMood.Clear();      // RenderSettings is global
             }
             _stageEnvironmentId = stageId ?? "";
             if (string.IsNullOrEmpty(stageId))
@@ -422,7 +431,7 @@ namespace CinderCourt.View
             PostFxGate.SetStageActive(true);
             // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
             // root at 4 realtime point lights.
-            _stageMood = StageMood.Apply(stageId);
+            _stageMood = StageMood.Apply(stageId, halfWidth, halfHeight);
         }
 
         void ReturnToLobby() => EnterLobby();

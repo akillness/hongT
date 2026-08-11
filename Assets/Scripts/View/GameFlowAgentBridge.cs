@@ -29,6 +29,11 @@ namespace CinderCourt.View
         float _movementUntil;
         bool _holdingMovement;
         bool _actionAppliedThisFrame;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        internal static bool DiagnosticCaptureFrozen { get; private set; }
+        float _diagnosticPreviousTimeScale = 1f;
+        bool _diagnosticTimeFrozen;
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Bootstrap()
@@ -189,8 +194,42 @@ namespace CinderCourt.View
                     _input.ClearTouchState();
                     _holdingMovement = false;
                     break;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                case "SHADOW_RECEIVER_ON":
+                    StageShadowPolicy.SetReceiverEnabledForDiagnostics(true);
+                    break;
+                case "SHADOW_RECEIVER_OFF":
+                    StageShadowPolicy.SetReceiverEnabledForDiagnostics(false);
+                    break;
+                case "SHADOW_CAPTURE_FREEZE":
+                    if (!_diagnosticTimeFrozen)
+                    {
+                        _diagnosticPreviousTimeScale = Time.timeScale;
+                        DiagnosticCaptureFrozen = true;
+                        Time.timeScale = 0f;
+                        _diagnosticTimeFrozen = true;
+                    }
+                    break;
+                case "SHADOW_CAPTURE_UNFREEZE":
+                    if (_diagnosticTimeFrozen)
+                    {
+                        Time.timeScale = _diagnosticPreviousTimeScale;
+                        DiagnosticCaptureFrozen = false;
+                        _diagnosticTimeFrozen = false;
+                    }
+                    break;
+#endif
             }
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        void OnDestroy()
+        {
+            if (_diagnosticTimeFrozen)
+                Time.timeScale = _diagnosticPreviousTimeScale;
+            DiagnosticCaptureFrozen = false;
+        }
+#endif
 
         void HoldMovement(float x, float y)
         {

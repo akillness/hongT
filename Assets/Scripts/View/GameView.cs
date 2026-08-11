@@ -435,6 +435,13 @@ namespace CinderCourt.View
         /// </summary>
         void ApplyTimeScale()
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (GameFlowAgentBridge.DiagnosticCaptureFrozen)
+            {
+                Time.timeScale = 0f;
+                return;
+            }
+#endif
             // AMENDMENT #9: a guidance card holds the run at a hard 0, and it
             // takes precedence over everything below — including the smoothing
             // ease-back, which would otherwise walk the scale up to 1 under an
@@ -1098,6 +1105,11 @@ namespace CinderCourt.View
                 return;
             }
             var visual = marker != null ? marker.Visual : EnemyVisual.EmberCohort;
+            // Shadow-caster diagnostics must not retain late equipment while
+            // this view sits inactive in the pool. Rent resets again after
+            // enable; this pre-disable reset makes the pool boundary itself
+            // clean rather than relying on the next tenant to repair it.
+            view.ResetForPool();
             view.gameObject.SetActive(false);
             _pools[(int)visual].Push(view);
         }

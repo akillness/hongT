@@ -9,6 +9,7 @@
 // the whole scene rather than a per-object light slot.
 //
 // Nothing here reads or writes sim state.
+using CinderCourt.Sim;
 using UnityEngine;
 
 namespace CinderCourt.View
@@ -23,6 +24,12 @@ namespace CinderCourt.View
         /// row in <see cref="Rigs"/>); per-stage variation lives in the table
         /// below, not by editing these.</summary>
         public const float KeyPitch = 42f, KeyYaw = 28f;
+
+        /// <summary>
+        /// Lowest authored key angle. Receiver coverage uses the same value so
+        /// the longest boss-stage projection remains inside the floor mesh.
+        /// </summary>
+        public const float MinimumCharacterShadowPitch = 24f;
 
         /// <summary>Default key/fill strengths — same fallback role as above.</summary>
         public const float KeyIntensity = 0.55f, FillIntensity = 0.22f;
@@ -85,9 +92,19 @@ namespace CinderCourt.View
         /// as the lit ones.
         /// </summary>
         public static GameObject Apply(string stageId)
+            => Apply(stageId, SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+
+        /// <summary>
+        /// Builds the stage rig and a continuous receiver sized to the active
+        /// dungeon playfield. The overload keeps existing tests/callers on the
+        /// frozen arena defaults while GameDirector supplies expanded half-axes.
+        /// </summary>
+        public static GameObject Apply(
+            string stageId, float halfWidthSim, float halfHeightSim)
         {
             if (string.IsNullOrEmpty(stageId)) return null;
             if (!StageCatalog.TryGet(stageId, out var entry)) return null;
+            StageShadowPolicy.RestoreCurrent();
             var accent = entry.AccentColor;
             var rig = RigFor(stageId);
 
@@ -102,7 +119,7 @@ namespace CinderCourt.View
             keyLight.type = LightType.Directional;
             keyLight.color = KeyColor(accent);
             keyLight.intensity = rig.Key;
-            keyLight.shadows = LightShadows.None;   // §E6: zero shadow casters
+            keyLight.shadows = LightShadows.Hard;
 
             // Fill: opposite-side bounce in the stage accent, so the shadow side
             // reads as stage colour instead of black. Yaw stays tied to the
@@ -116,7 +133,8 @@ namespace CinderCourt.View
             fillLight.intensity = rig.Fill;
             fillLight.shadows = LightShadows.None;
 
-            ApplyAmbient(accent);
+            var policy = root.AddComponent<StageShadowPolicy>();
+            policy.Acquire(keyLight, accent, halfWidthSim, halfHeightSim);
             return root;
         }
 
@@ -140,34 +158,12 @@ namespace CinderCourt.View
                 accent.b * 0.16f + 0.036f,
                 1f);
 
-        static Color _bakedAmbient;
-        static Color _bakedFog;
-        static bool _baked;
-
-        static void ApplyAmbient(Color accent)
-        {
-            if (!_baked)
-            {
-                _bakedAmbient = RenderSettings.ambientLight;
-                _bakedFog = RenderSettings.fogColor;
-                _baked = true;
-            }
-            RenderSettings.ambientMode =
-                UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = AmbientColor(accent);
-            RenderSettings.fogColor = FogColor(accent);
-        }
-
         /// <summary>
-        /// Restores the scene-authored ambient/fog colour. RenderSettings is
-        /// GLOBAL, so leaving a dungeon's wash behind would tint the lobby —
-        /// the same failure CameraRig guards against for the fog band.
+        /// Restores the exact stage lease (sun, ambient mode/colour, fog and
+        /// the captured URP asset's resolution/distance) once. GameDirector
+        /// calls this before destroying the root; component teardown is the
+        /// idempotent safety net for every other path.
         /// </summary>
-        public static void Clear()
-        {
-            if (!_baked) return;
-            RenderSettings.ambientLight = _bakedAmbient;
-            RenderSettings.fogColor = _bakedFog;
-        }
+        public static void Clear() => StageShadowPolicy.RestoreCurrent();
     }
 }

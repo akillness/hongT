@@ -21,6 +21,11 @@ namespace CinderCourt.EditorTools
         const string Dir = "Assets/Resources/Materials";
         const string AssetPath = Dir + "/unlit-transparent-seed.mat";
         const string ParticleAssetPath = Dir + "/particle-additive-seed.mat";
+        const string StageShadowReceiverAssetPath = Dir + "/StageShadowReceiver.mat";
+        const string StageShadowReceiverShaderPath = "Assets/Shaders/StageShadowReceiver.shader";
+        const string StageShadowReceiverShaderName = "CinderCourt/StageShadowReceiver";
+        const int StageShadowReceiverQueue = 2499;
+        const float StageShadowReceiverMaxStrength = 0.65f;
 
         /// <summary>Batch entry: -executeMethod ...RuntimeMaterialSeeds.EnsureSeeds</summary>
         public static void EnsureSeeds()
@@ -32,6 +37,7 @@ namespace CinderCourt.EditorTools
         /// <summary>Callable from BuildScript - no editor exit.</summary>
         internal static bool Seed()
         {
+            var receiverOk = SeedStageShadowReceiver();
             var particlesOk = SeedParticleAdditive();
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
             if (unlit == null)
@@ -57,7 +63,80 @@ namespace CinderCourt.EditorTools
             EditorUtility.SetDirty(material);
             AssetDatabase.SaveAssets();
             Debug.Log("[MaterialSeeds] unlit-transparent-seed ready");
-            return particlesOk;
+            return particlesOk && receiverOk;
+        }
+
+        /// <summary>
+        /// Retains and validates the opaque-phase stage shadow receiver.
+        ///
+        /// The committed Resources material is the build-retention reference;
+        /// this method is only its fail-closed repair path. Shader.Find is not
+        /// used because package/editor registration order must not decide
+        /// whether the WebGL player keeps the custom shadow variants.
+        /// </summary>
+        static bool SeedStageShadowReceiver()
+        {
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(StageShadowReceiverShaderPath);
+            if (shader == null || shader.name != StageShadowReceiverShaderName)
+            {
+                Debug.LogError("[MaterialSeeds] stage receiver shader missing or misnamed at "
+                               + StageShadowReceiverShaderPath);
+                return false;
+            }
+
+            Directory.CreateDirectory(Dir);
+            var material = AssetDatabase.LoadAssetAtPath<Material>(StageShadowReceiverAssetPath);
+            var changed = false;
+            if (material == null)
+            {
+                material = new Material(shader) { name = "StageShadowReceiver" };
+                material.renderQueue = StageShadowReceiverQueue;
+                material.SetOverrideTag("RenderType", "Opaque");
+                AssetDatabase.CreateAsset(material, StageShadowReceiverAssetPath);
+                changed = true;
+            }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+                changed = true;
+            }
+
+            if (material.renderQueue != StageShadowReceiverQueue)
+            {
+                material.renderQueue = StageShadowReceiverQueue;
+                changed = true;
+            }
+            if (material.GetTag("RenderType", false, string.Empty) != "Opaque")
+            {
+                material.SetOverrideTag("RenderType", "Opaque");
+                changed = true;
+            }
+            if (material.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"))
+            {
+                material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                changed = true;
+            }
+            if (!material.HasProperty("_ShadowStrength"))
+            {
+                Debug.LogError("[MaterialSeeds] stage receiver has no _ShadowStrength property");
+                return false;
+            }
+
+            var strength = material.GetFloat("_ShadowStrength");
+            var clampedStrength = Mathf.Clamp(strength, 0f, StageShadowReceiverMaxStrength);
+            if (!Mathf.Approximately(strength, clampedStrength))
+            {
+                material.SetFloat("_ShadowStrength", clampedStrength);
+                changed = true;
+            }
+
+            if (changed)
+            {
+                EditorUtility.SetDirty(material);
+                AssetDatabase.SaveAssets();
+            }
+            Debug.Log("[MaterialSeeds] StageShadowReceiver ready");
+            return true;
         }
 
         /// <summary>

@@ -167,8 +167,11 @@ DUNGEON_GUIDE의 지배 기믹 계보를 환경으로 확장한다. Zone C 팔�
   스테이지 악센트 2 (TorchPost 앵커 중 시드 선정). 나머지 횃불은
   **엠버 발광 머티리얼**(unlit emissive 클론 — 기존 seed 머티리얼 문법)로
   라이트 없이 빛나 보이게.
-- 그림자: 실시간 그림자 캐스터 0 유지(현행). 입체감은 higher/lower Y +
-  발광 대비로 만든다.
+- 그림자: 던전의 스테이지별 `mood-key` 방향광 하나만 Hard shadow를 사용한다.
+  캐스터는 Rendering Layer `CharacterShadow`로 등록된 플레이어·동료·적의
+  본체/의상/장비에 한정하며, 환경·VFX·해저드·포인트 라이트·fill은 그림자를
+  만들지 않는다. 연속 바닥 수신면은 콜라이더 없이 실제 메인광 shadow map만
+  합성하고, WebGL 품질 단계는 1024→512→256으로만 하향한다.
 - 안개 밴드(FogStartOffset 2 / FogEndOffset 5.5)는 Zone C 소멸 경계로
   유지 — 프러스텀 무보이드 증명의 합집합 항이다.
 

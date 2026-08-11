@@ -152,5 +152,27 @@ namespace CinderCourt.Tests
             StringAssert.Contains("reason: \"scenario_repairer_not_implemented\"", text);
             StringAssert.Contains("reason: \"scenario_loader_not_implemented\"", text);
         }
+
+        [Test]
+        public void WebGlDevelopmentShadowProbe_UsesASeparateNonGameplayApi()
+        {
+            var jsPath = Path.Combine(Application.dataPath, "Plugins/WebGL/gameflow_agent.jslib");
+            var js = File.ReadAllText(jsPath);
+            var bridgePath = Path.Combine(Application.dataPath, "Scripts/View/GameFlowAgentBridge.cs");
+            var bridge = File.ReadAllText(bridgePath);
+
+            StringAssert.Contains("_debugShadowReceiver: function (enabled)", js);
+            StringAssert.Contains("_debugFreezeStage: function (enabled)", js);
+            StringAssert.Contains(
+                "enabled ? \"SHADOW_RECEIVER_ON\" : \"SHADOW_RECEIVER_OFF\"", js);
+            StringAssert.Contains("#if DEVELOPMENT_BUILD || UNITY_EDITOR", bridge);
+            StringAssert.Contains("case \"SHADOW_RECEIVER_OFF\":", bridge);
+            StringAssert.Contains("case \"SHADOW_RECEIVER_ON\":", bridge);
+            StringAssert.Contains("case \"SHADOW_CAPTURE_FREEZE\":", bridge);
+            StringAssert.Contains("case \"SHADOW_CAPTURE_UNFREEZE\":", bridge);
+            var gameView = File.ReadAllText(
+                Path.Combine(Application.dataPath, "Scripts/View/GameView.cs"));
+            StringAssert.Contains("GameFlowAgentBridge.DiagnosticCaptureFrozen", gameView);
+        }
     }
 }

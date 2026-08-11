@@ -3,6 +3,7 @@
 #   bash tools/unity_batch.sh method CinderCourt.EditorTools.CharacterImportPipeline.ImportAll
 #   bash tools/unity_batch.sh tests            # EditMode tests
 #   bash tools/unity_batch.sh import-only      # plain asset import (compile gate)
+#   bash tools/unity_batch.sh build-development # Development WebGL QA output
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -66,8 +67,15 @@ case "${1:-}" in
       -buildTarget WebGL -logFile "$LOG" -nographics
     CODE=$?
     ;;
+  build-development)
+    LOG="$LOG_DIR/build-development-$STAMP.log"
+    "$UNITY" -batchmode -projectPath "$PROJECT" \
+      -executeMethod CinderCourt.EditorTools.BuildScript.BuildWebGLDevelopment \
+      -buildTarget WebGL -logFile "$LOG" -nographics
+    CODE=$?
+    ;;
   *)
-    echo "usage: unity_batch.sh method <FQN> | tests | import-only | build"; exit 2 ;;
+    echo "usage: unity_batch.sh method <FQN> | tests | import-only | build-development | build"; exit 2 ;;
 esac
 
 echo "EXIT=$CODE LOG=$LOG"

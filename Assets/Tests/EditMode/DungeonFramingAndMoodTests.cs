@@ -225,7 +225,7 @@ namespace CinderCourt.Tests
         }
 
         [Test]
-        public void Mood_EveryStageGetsShadowlessDirectionalKeyAndFill()
+        public void Mood_EveryStageGetsOneShadowedKeyAndShadowlessFill()
         {
             foreach (var stageId in StageIds)
             {
@@ -239,18 +239,32 @@ namespace CinderCourt.Tests
                     Assert.That(lights.Length, Is.EqualTo(2),
                         $"{stageId}: mood is key + fill only — extra realtime " +
                         "lights belong to the §E6 point budget");
-                    foreach (var light in lights)
-                    {
-                        Assert.That(light.type, Is.EqualTo(LightType.Directional),
-                            $"{stageId}: mood lights must not eat per-object " +
-                            "point-light slots in WebGL forward");
-                        Assert.That(light.shadows, Is.EqualTo(LightShadows.None),
-                            $"{stageId}: §E6 allows zero shadow casters");
-                        Assert.That(light.intensity, Is.GreaterThan(0f));
-                    }
-                    Assert.That(lights[0].intensity, Is.GreaterThan(lights[1].intensity),
+                    var key = root.transform.Find("mood-key").GetComponent<Light>();
+                    var fill = root.transform.Find("mood-fill").GetComponent<Light>();
+                    Assert.That(key.type, Is.EqualTo(LightType.Directional));
+                    Assert.That(fill.type, Is.EqualTo(LightType.Directional),
+                        $"{stageId}: mood lights must not eat per-object " +
+                        "point-light slots in WebGL forward");
+                    Assert.That(key.shadows, Is.EqualTo(LightShadows.Hard),
+                        $"{stageId}: the authored stage key owns character shadows");
+                    Assert.That(fill.shadows, Is.EqualTo(LightShadows.None),
+                        $"{stageId}: only the key may render shadows");
+                    Assert.That(RenderSettings.sun, Is.SameAs(key),
+                        $"{stageId}: the authored key must be the deterministic main light");
+                    Assert.That(key.intensity, Is.GreaterThan(0f));
+                    Assert.That(fill.intensity, Is.GreaterThan(0f));
+                    Assert.That(key.intensity, Is.GreaterThan(fill.intensity),
                         $"{stageId}: the fill must stay below the key or the " +
                         "scene flattens");
+                    var ray = key.transform.forward;
+                    var horizontal = new Vector2(ray.x, ray.z).magnitude;
+                    var vertical = Mathf.Abs(ray.y);
+                    var maximumOffsetPerCasterHeight = 1f / Mathf.Tan(
+                        StageMood.MinimumCharacterShadowPitch * Mathf.Deg2Rad);
+                    Assert.That(horizontal / vertical,
+                        Is.LessThanOrEqualTo(maximumOffsetPerCasterHeight + 1e-4f),
+                        $"{stageId}: a shallower key exceeds the receiver's " +
+                        "authored projection budget");
                     Assert.That(root.GetComponentsInChildren<Collider>(true), Is.Empty,
                         $"{stageId}: decoration never owns physics");
                 }

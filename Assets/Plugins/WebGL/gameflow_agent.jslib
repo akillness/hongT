@@ -233,6 +233,18 @@ mergeInto(LibraryManager.library, {
           GameFlowAgentBridgeState.queueAction("RESET");
           return GameFlowAgentBridgeState.waitForObservationAfter(version);
         },
+        _debugShadowReceiver: function (enabled) {
+          var version = GameFlowAgentBridgeState.observationVersion;
+          GameFlowAgentBridgeState.queueAction(
+            enabled ? "SHADOW_RECEIVER_ON" : "SHADOW_RECEIVER_OFF");
+          return GameFlowAgentBridgeState.waitForObservationAfter(version);
+        },
+        _debugFreezeStage: function (enabled) {
+          var version = GameFlowAgentBridgeState.observationVersion;
+          GameFlowAgentBridgeState.queueAction(
+            enabled ? "SHADOW_CAPTURE_FREEZE" : "SHADOW_CAPTURE_UNFREEZE");
+          return GameFlowAgentBridgeState.waitForObservationAfter(version);
+        },
         listTestScenarios: function () { return GameFlowAgentBridgeState.listTestScenarios(); },
         checkScenarioPreconditions: function (id) { return GameFlowAgentBridgeState.checkScenarioPreconditions(id); },
         repairScenario: function (id, plan) { return GameFlowAgentBridgeState.repairScenario(id, plan); },
@@ -249,6 +261,8 @@ mergeInto(LibraryManager.library, {
         step: bridge.step,
         evaluate: bridge.evaluate,
         reset: bridge.reset,
+        _debugShadowReceiver: bridge._debugShadowReceiver,
+        _debugFreezeStage: bridge._debugFreezeStage,
         listTestScenarios: bridge.listTestScenarios,
         checkScenarioPreconditions: bridge.checkScenarioPreconditions,
         repairScenario: bridge.repairScenario,

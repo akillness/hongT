@@ -1,6 +1,7 @@
 // One actor (player / enemy / boss). Maps sim state to transform, Animator,
 // billboarded health bar, and death fade. No per-frame allocations.
 using System.Collections.Generic;
+using System.Text;
 using CinderCourt.Sim;
 using UnityEngine;
 
@@ -19,6 +20,26 @@ namespace CinderCourt.View
         MaterialPropertyBlock _block;
         Renderer[] _renderers;
         Camera _camera;
+
+        readonly struct ShadowCasterRecord
+        {
+            public readonly Renderer Renderer;
+            public readonly Transform Root;
+            public readonly string RootKind;
+
+            public ShadowCasterRecord(Renderer renderer, Transform root, string rootKind)
+            {
+                Renderer = renderer;
+                Root = root;
+                RootKind = rootKind;
+            }
+        }
+
+        static int _nextShadowActorId;
+        readonly List<ShadowCasterRecord> _shadowCasters =
+            new List<ShadowCasterRecord>(8);
+        int _shadowActorId;
+        bool _usesFallback;
 
         ActorAction _lastAction = (ActorAction)(-1);
         float _targetYaw;
@@ -145,14 +166,18 @@ namespace CinderCourt.View
             var root = new GameObject("Actor");
             instance.transform.SetParent(root.transform, false);
             var view = root.AddComponent<ActorView>();
+            view._shadowActorId = ++_nextShadowActorId;
+            view._usesFallback = prefab == null;
             view._model = instance.transform;
             view._animator = instance.GetComponentInChildren<Animator>();
-            view._renderers = instance.GetComponentsInChildren<Renderer>();
+            view._renderers = instance.GetComponentsInChildren<Renderer>(true);
+            view.CaptureBaseShadowCasters();
             view._block = new MaterialPropertyBlock();
             view._baseScale = baseScale * GlobalScale;
             view._camera = Camera.main;
             view.BuildHealthBar();
             view.CachePoseClipSeconds();
+            StageShadowPolicy.RegisterActor(view);
 
             return view;
         }
@@ -175,8 +200,10 @@ namespace CinderCourt.View
             RemovePrimitiveCollider(back);
             back.transform.SetParent(_healthRoot, false);
             back.transform.localScale = new Vector3(0.74f, 0.085f, 1f);
-            back.GetComponent<Renderer>().sharedMaterial =
+            var backRenderer = back.GetComponent<Renderer>();
+            backRenderer.sharedMaterial =
                 ViewWorld.MakeUnlit(new Color(0.05f, 0.04f, 0.09f, 0.9f), true);
+            StageShadowPolicy.ConfigureExcludedRenderer(backRenderer);
 
             var fill = GameObject.CreatePrimitive(PrimitiveType.Quad);
             RemovePrimitiveCollider(fill);
@@ -185,6 +212,57 @@ namespace CinderCourt.View
             fill.transform.localScale = new Vector3(0.7f, 0.055f, 1f);
             _healthFill = fill.GetComponent<Renderer>();
             _healthFill.sharedMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.32f), false);
+            StageShadowPolicy.ConfigureExcludedRenderer(_healthFill);
+        }
+
+        void CaptureBaseShadowCasters()
+        {
+            for (var i = 0; i < _renderers.Length; i++)
+            {
+                var renderer = _renderers[i];
+                if (!StageShadowPolicy.TryConfigureCaster(renderer)) continue;
+                RegisterShadowCaster(renderer, _model, "body");
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        void RegisterShadowRoot(Transform root, string rootKind)
+        {
+            if (root == null) return;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (!StageShadowPolicy.TryConfigureCaster(renderer)) continue;
+                RegisterShadowCaster(renderer, root, rootKind);
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        void RegisterShadowCaster(Renderer renderer, Transform root, string rootKind)
+        {
+            for (var i = 0; i < _shadowCasters.Count; i++)
+                if (_shadowCasters[i].Renderer == renderer) return;
+            _shadowCasters.Add(new ShadowCasterRecord(renderer, root, rootKind));
+        }
+
+        void UnregisterShadowRoot(string rootKind)
+        {
+            for (var i = _shadowCasters.Count - 1; i >= 0; i--)
+            {
+                var record = _shadowCasters[i];
+                if (record.RootKind != rootKind) continue;
+                StageShadowPolicy.ConfigureExcludedRenderer(record.Renderer);
+                _shadowCasters.RemoveAt(i);
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        static void DestroyOwnedObject(GameObject target)
+        {
+            if (target == null) return;
+            if (Application.isPlaying) Destroy(target);
+            else DestroyImmediate(target);
         }
 
         /// <param name="simDelta">Sim seconds actually advanced this frame
@@ -496,7 +574,8 @@ namespace CinderCourt.View
             _equipPropBand[0] = 0;
             if (_equipProps[0] != null)
             {
-                Destroy(_equipProps[0]);
+                UnregisterShadowRoot(EquipmentRootKind(0));
+                DestroyOwnedObject(_equipProps[0]);
                 _equipProps[0] = null;
             }
         }
@@ -518,7 +597,8 @@ namespace CinderCourt.View
                 _equipPropBand[slot] = band;
                 if (_equipProps[slot] != null)
                 {
-                    Destroy(_equipProps[slot]);
+                    UnregisterShadowRoot(EquipmentRootKind(slot));
+                    DestroyOwnedObject(_equipProps[slot]);
                     _equipProps[slot] = null;
                 }
                 if (band == 0) continue;
@@ -537,8 +617,11 @@ namespace CinderCourt.View
                 prop.name = $"EquipProp-{PropSlots[slot]}";
                 ApplyPropPose(prop.transform, slot);
                 _equipProps[slot] = prop;
+                RegisterShadowRoot(prop.transform, EquipmentRootKind(slot));
             }
         }
+
+        static string EquipmentRootKind(int slot) => "equipment:" + PropSlots[slot];
 
         /// <summary>Socket-space pose per slot (meshes are normalized by
         /// tools/blender/convert_equip_props.py: weapon grip at origin blade
@@ -567,7 +650,8 @@ namespace CinderCourt.View
         {
             for (var slot = 0; slot < 3; slot++)
             {
-                if (_equipProps[slot] != null) Destroy(_equipProps[slot]);
+                UnregisterShadowRoot(EquipmentRootKind(slot));
+                DestroyOwnedObject(_equipProps[slot]);
                 _equipProps[slot] = null;
                 _equipPropBand[slot] = 0;
             }
@@ -814,8 +898,184 @@ namespace CinderCourt.View
             }
         }
 
+        internal bool UsesFallbackForShadowDiagnostics => _usesFallback;
+        internal int RegisteredShadowCasterCount => _shadowCasters.Count;
+
+        internal Renderer RegisteredShadowCasterAt(int index)
+            => _shadowCasters[index].Renderer;
+
+        internal string RegisteredShadowCasterKeyAt(int index)
+        {
+            var record = _shadowCasters[index];
+            return ShadowCasterKey(record.Renderer, record.Root, record.RootKind);
+        }
+
+        internal bool ShadowCasterSetsMatch()
+        {
+            var eligible = new HashSet<string>();
+            var liveBody = _model != null
+                ? _model.GetComponentsInChildren<Renderer>(true)
+                : new Renderer[0];
+            for (var i = 0; i < liveBody.Length; i++)
+            {
+                var renderer = liveBody[i];
+                if (!StageShadowPolicy.IsEligibleCaster(renderer)
+                    || IsEquipmentRenderer(renderer)
+                    || (_castGlow != null
+                        && renderer.transform.IsChildOf(_castGlow)))
+                    continue;
+                if (!eligible.Add(ShadowCasterKey(renderer, _model, "body"))) return false;
+            }
+
+            for (var slot = 0; slot < _equipProps.Length; slot++)
+            {
+                var prop = _equipProps[slot];
+                if (prop == null) continue;
+                var renderers = prop.GetComponentsInChildren<Renderer>(true);
+                for (var i = 0; i < renderers.Length; i++)
+                {
+                    var renderer = renderers[i];
+                    if (!StageShadowPolicy.IsEligibleCaster(renderer)) continue;
+                    if (!eligible.Add(ShadowCasterKey(
+                            renderer, prop.transform, EquipmentRootKind(slot))))
+                        return false;
+                }
+            }
+
+            var registered = new HashSet<string>();
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var record = _shadowCasters[i];
+                var renderer = record.Renderer;
+                if (renderer == null
+                    || renderer.shadowCastingMode
+                        != UnityEngine.Rendering.ShadowCastingMode.On
+                    || renderer.receiveShadows
+                    || renderer.renderingLayerMask
+                        != StageShadowPolicy.ActorRenderingLayerMask)
+                    return false;
+                if (!registered.Add(ShadowCasterKey(
+                        renderer, record.Root, record.RootKind)))
+                    return false;
+            }
+            return eligible.SetEquals(registered);
+        }
+
+        bool IsEquipmentRenderer(Renderer renderer)
+        {
+            for (var slot = 0; slot < _equipProps.Length; slot++)
+            {
+                var prop = _equipProps[slot];
+                if (prop != null && renderer.transform.IsChildOf(prop.transform)) return true;
+            }
+            return false;
+        }
+
+        internal void AccumulateShadowCasterExtents(
+            ref float maximumHeight,
+            ref float maximumHorizontalRadius)
+        {
+            var actorOrigin = transform.position;
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var renderer = _shadowCasters[i].Renderer;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy)
+                    continue;
+                var bounds = renderer.bounds;
+                var centerOffset = bounds.center - actorOrigin;
+                maximumHeight = Mathf.Max(
+                    maximumHeight,
+                    Mathf.Abs(centerOffset.y) + bounds.extents.y);
+                maximumHorizontalRadius = Mathf.Max(
+                    maximumHorizontalRadius,
+                    Mathf.Max(
+                        Mathf.Abs(centerOffset.x) + bounds.extents.x,
+                        Mathf.Abs(centerOffset.z) + bounds.extents.z));
+            }
+        }
+
+        internal void AccumulateShadowCasterDistance(Camera camera, ref float maximumDistance)
+        {
+            if (camera == null) return;
+            var cameraPosition = camera.transform.position;
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var renderer = _shadowCasters[i].Renderer;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy)
+                    continue;
+                var bounds = renderer.bounds;
+                for (var x = 0; x <= 1; x++)
+                for (var y = 0; y <= 1; y++)
+                for (var z = 0; z <= 1; z++)
+                {
+                    var corner = new Vector3(
+                        x == 0 ? bounds.min.x : bounds.max.x,
+                        y == 0 ? bounds.min.y : bounds.max.y,
+                        z == 0 ? bounds.min.z : bounds.max.z);
+                    maximumDistance = Mathf.Max(
+                        maximumDistance, Vector3.Distance(cameraPosition, corner));
+                }
+            }
+        }
+
+        string ShadowCasterKey(Renderer renderer, Transform registeredRoot, string rootKind)
+        {
+            if (renderer == null) return $"{_shadowActorId}|{rootKind}|<destroyed>";
+            var mesh = SharedMesh(renderer);
+            return $"{_shadowActorId}|{rootKind}|"
+                + $"{HierarchyIndexPath(renderer.transform, registeredRoot)}|"
+                + $"{renderer.GetType().Name}:{RendererComponentIndex(renderer)}|"
+                + (mesh != null
+                    ? mesh.name + ":" + EntityId.ToULong(mesh.GetEntityId())
+                    : "<no-mesh>");
+        }
+
+        static Mesh SharedMesh(Renderer renderer)
+        {
+            var skinned = renderer as SkinnedMeshRenderer;
+            if (skinned != null) return skinned.sharedMesh;
+            var filter = renderer.GetComponent<MeshFilter>();
+            return filter != null ? filter.sharedMesh : null;
+        }
+
+        static int RendererComponentIndex(Renderer renderer)
+        {
+            var renderers = renderer.GetComponents<Renderer>();
+            var type = renderer.GetType();
+            var index = 0;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i].GetType() != type) continue;
+                if (renderers[i] == renderer) return index;
+                index++;
+            }
+            return -1;
+        }
+
+        static string HierarchyIndexPath(Transform target, Transform registeredRoot)
+        {
+            if (target == registeredRoot) return ".";
+            var path = new StringBuilder(32);
+            var cursor = target;
+            while (cursor != null && cursor != registeredRoot)
+            {
+                if (path.Length > 0) path.Insert(0, '/');
+                path.Insert(0, cursor.GetSiblingIndex());
+                cursor = cursor.parent;
+            }
+            return cursor == registeredRoot ? path.ToString() : "<outside>";
+        }
+
+        void OnEnable() => StageShadowPolicy.RegisterActor(this);
+
+        void OnDisable() => StageShadowPolicy.UnregisterActor(this);
+
         void OnDestroy()
         {
+            StageShadowPolicy.UnregisterActor(this);
+            _shadowCasters.Clear();
             // Ghosts are unparented (world-frozen) — scene teardown must not
             // leak them, their baked meshes, or their cloned materials.
             for (var i = 0; i < GhostCount; i++)

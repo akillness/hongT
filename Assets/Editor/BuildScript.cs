@@ -16,23 +16,21 @@ namespace CinderCourt.EditorTools
         const string SocialPreviewSource = "docs/branding/" + SocialPreviewFile;
         const string BuildCacheVersionMarkerPrefix = "/* CinderCourt WebGL build cache version: ";
         const string BuildCacheVersionMarkerSuffix = " */";
-        static readonly string[] WebGlBuildResources =
-        {
-            "build-webgl.loader.js",
-            "build-webgl.data.unityweb",
-            "build-webgl.framework.js.unityweb",
-            "build-webgl.wasm.unityweb",
-        };
-
-
         public static void BuildWebGL()
+            => BuildWebGLTo("build-webgl", BuildOptions.None);
+
+        public static void BuildWebGLDevelopment()
+            => BuildWebGLTo("build-development", BuildOptions.Development);
+
+        static void BuildWebGLTo(string output, BuildOptions buildOptions)
         {
-            var originalWebGlDefines = ExcludeEditorToolingFromWebGl();
-            var output = "build-webgl";
             // Transparent-variant seed must exist BEFORE the player build, or
             // URP strips _SURFACE_TYPE_TRANSPARENT and all runtime transparent
             // materials (vents, ward shell, pickups) render opaque on WebGL.
-            RuntimeMaterialSeeds.Seed();
+            if (!RuntimeMaterialSeeds.Seed())
+                throw new BuildFailedException(
+                    "Runtime material seed validation failed; refusing WebGL build");
+            var originalWebGlDefines = ExcludeEditorToolingFromWebGl();
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
             PlayerSettings.WebGL.decompressionFallback = true;   // Pages: no Content-Encoding config
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
@@ -53,7 +51,7 @@ namespace CinderCourt.EditorTools
                 scenes = new[] { "Assets/Scenes/CinderCourt.unity" },
                 target = BuildTarget.WebGL,
                 locationPathName = output,
-                options = BuildOptions.None,
+                options = buildOptions,
             };
             BuildReport report;
             try
@@ -283,7 +281,8 @@ namespace CinderCourt.EditorTools
         }
         static string VersionWebGlBuildAssetUrls(string outputDir, string html)
         {
-            var currentVersion = ComputeWebGlBuildVersion(outputDir);
+            var resources = ResolveWebGlBuildResources(outputDir);
+            var currentVersion = ComputeWebGlBuildVersion(outputDir, resources);
             var currentMarker = BuildCacheVersionMarkerPrefix + currentVersion + BuildCacheVersionMarkerSuffix;
             var markerStart = html.IndexOf(BuildCacheVersionMarkerPrefix, StringComparison.Ordinal);
             if (markerStart >= 0)
@@ -307,8 +306,8 @@ namespace CinderCourt.EditorTools
                 html = html.Replace(buildUrlDeclaration, currentMarker + "\n      " + buildUrlDeclaration);
             }
 
-            for (var i = 0; i < WebGlBuildResources.Length; i++)
-                html = SetWebGlBuildResourceVersion(html, WebGlBuildResources[i], currentVersion);
+            for (var i = 0; i < resources.Length; i++)
+                html = SetWebGlBuildResourceVersion(html, resources[i], currentVersion);
 
             return html;
         }
@@ -324,12 +323,48 @@ namespace CinderCourt.EditorTools
         }
 
 
-        static string ComputeWebGlBuildVersion(string outputDir)
+        static string[] ResolveWebGlBuildResources(string outputDir)
         {
-            var combinedResourceHashes = new byte[WebGlBuildResources.Length * 32];
-            for (var i = 0; i < WebGlBuildResources.Length; i++)
+            return new[]
             {
-                var resourcePath = Path.Combine(outputDir, "Build", WebGlBuildResources[i]);
+                ResolveWebGlBuildResource(outputDir, ".loader.js"),
+                ResolveWebGlBuildResource(outputDir, ".data"),
+                ResolveWebGlBuildResource(outputDir, ".framework.js"),
+                ResolveWebGlBuildResource(outputDir, ".wasm"),
+            };
+        }
+
+        static string ResolveWebGlBuildResource(string outputDir, string suffix)
+        {
+            var buildDirectory = Path.Combine(outputDir, "Build");
+            var files = Directory.GetFiles(buildDirectory);
+            string match = null;
+            for (var i = 0; i < files.Length; i++)
+            {
+                var name = Path.GetFileName(files[i]);
+                if (!name.EndsWith(suffix, StringComparison.Ordinal)
+                    && !name.EndsWith(suffix + ".unityweb", StringComparison.Ordinal))
+                    continue;
+                if (match != null)
+                    throw new InvalidDataException(
+                        $"WebGL build has multiple resources ending '{suffix}'");
+                match = name;
+            }
+            if (match == null)
+                throw new FileNotFoundException(
+                    $"WebGL build resource ending '{suffix}' is missing", buildDirectory);
+            return match;
+        }
+
+        static string ComputeWebGlBuildVersion(string outputDir)
+            => ComputeWebGlBuildVersion(outputDir, ResolveWebGlBuildResources(outputDir));
+
+        static string ComputeWebGlBuildVersion(string outputDir, string[] resources)
+        {
+            var combinedResourceHashes = new byte[resources.Length * 32];
+            for (var i = 0; i < resources.Length; i++)
+            {
+                var resourcePath = Path.Combine(outputDir, "Build", resources[i]);
                 if (!File.Exists(resourcePath))
                     throw new FileNotFoundException("WebGL build resource is missing", resourcePath);
 
@@ -410,14 +445,15 @@ namespace CinderCourt.EditorTools
                 "<meta name=\"twitter:image\" content=\"./cinder-court-link-preview.png\">",
             };
 
-            var currentVersion = ComputeWebGlBuildVersion(outputDir);
+            var resources = ResolveWebGlBuildResources(outputDir);
+            var currentVersion = ComputeWebGlBuildVersion(outputDir, resources);
             var currentMarker = BuildCacheVersionMarkerPrefix + currentVersion + BuildCacheVersionMarkerSuffix;
             if (CountOccurrences(html, currentMarker) != 1)
                 throw new InvalidDataException($"WebGL index cache marker is stale or malformed: {indexPath}");
 
-            for (var i = 0; i < WebGlBuildResources.Length; i++)
+            for (var i = 0; i < resources.Length; i++)
             {
-                var resource = WebGlBuildResources[i];
+                var resource = resources[i];
                 var resourceUrl = resource + "?v=" + currentVersion;
                 if (CountOccurrences(html, resource) != 1 || CountOccurrences(html, resourceUrl) != 1)
                     throw new InvalidDataException($"WebGL index cache-bust contract is not atomic for '{resource}': {indexPath}");
@@ -502,4 +538,3 @@ namespace CinderCourt.EditorTools
     <meta name=""twitter:image"" content=""./cinder-court-link-preview.png"">";
     }
 }
-
