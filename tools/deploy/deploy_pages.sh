@@ -53,14 +53,17 @@ rsync -a --exclude "*_BurstDebugInformation_DoNotShip" "$BUILD_DIR/" "$STAGING/"
 touch "$STAGING/.nojekyll"   # Pages: serve Build/ files verbatim, no Jekyll
 rsync -a --delete --exclude ".git" "$STAGING/" "$WORKTREE/"
 
-# Stage each changed path explicitly: root checkout changes are user work,
-# while this isolated worktree contains only the deployment candidate.
+# Stage tracked changes in one operation so deleted transient files cannot
+# disappear between discovery and staging. The isolated worktree contains only
+# the exact deployment candidate, so this cannot capture root checkout work.
+git -C "$WORKTREE" add -u -- .
+
+# Stage each untracked candidate path explicitly.
 stage_paths() {
   while IFS= read -r -d '' path; do
     git -C "$WORKTREE" add -- "$path"
   done
 }
-stage_paths < <(git -C "$WORKTREE" ls-files -m -d -z)
 stage_paths < <(git -C "$WORKTREE" ls-files --others --exclude-standard -z)
 if git -C "$WORKTREE" diff --cached --quiet; then
   echo "No changes to deploy."
