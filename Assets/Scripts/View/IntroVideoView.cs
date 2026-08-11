@@ -9,8 +9,10 @@
 //
 // WebGL note: VideoPlayer on WebGL can only stream from a URL, so the clip
 // lives in StreamingAssets (relative URL, per the deploy contract) rather than
-// in Resources. If the player cannot prepare within PrepareTimeout the view
-// gives up and hands control back to the caller.
+// in Resources. Real failures arrive on errorReceived and finish immediately;
+// PrepareTimeout is only the backstop for a prepare that neither completes nor
+// errors, and it is deliberately long because that case is a slow download, not
+// a broken clip. Either way the view gives control back to the caller.
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
@@ -56,9 +58,49 @@ namespace CinderCourt.View
         public const string Act3ClipRelativePath = "Video/cinder-court-act3.mp4";
 
         const float FadeOutSeconds = 0.6f;
-        const float PrepareTimeout = 4f;    // give up if the browser will not decode
-        const float PlayStartTimeout = 2f;  // Play() issued but playback never began
-        const float MaxPlaySeconds = 20f;   // hard watchdog, clip is ~6.6 s
+
+        /// <summary>
+        /// How long to wait for <c>VideoPlayer.Prepare()</c>. RAISED 4 -> 20 s.
+        ///
+        /// 4 s made the intro INTERMITTENT, and the mechanism is that it was a
+        /// wall-clock race against a download. On WebGL the clip streams from a URL
+        /// (StreamingAssets, ~1.6 MB for the boot reel); a warm browser cache wins
+        /// that race and a cold one loses it, so the same build played the reel or
+        /// skipped it depending on nothing the player could see or control.
+        ///
+        /// The distinction this constant was being asked to make — "broken" versus
+        /// "slow" — is not a distinction a stopwatch can draw. A genuinely broken
+        /// clip (404, undecodable container) reports through <c>errorReceived</c>,
+        /// which calls Finish immediately and is unaffected by this value. What is
+        /// left for the timeout is only the case where prepare neither completes nor
+        /// errors, and there the right answer is to keep waiting: the skip hint is on
+        /// screen the whole time, so a player who does not want to wait has an exit.
+        /// </summary>
+        internal const float PrepareTimeout = 20f;
+
+        /// <summary>
+        /// Play() issued but playback never began. RAISED 2 -> 6 s, same reasoning
+        /// one stage later: by this point the data is prepared, so 6 s is generous
+        /// for a first decode rather than a race, and a stall here still lands on the
+        /// fade rather than hanging.
+        /// </summary>
+        internal const float PlayStartTimeout = 6f;
+
+        /// <summary>
+        /// Hard watchdog. RAISED 20 -> 30 s so it stays a backstop and not a second
+        /// timeout: the longest clip is ~6.6 s, and 20 could be reached legitimately
+        /// by a slow start plus a full playthrough now that PlayStartTimeout is 6.
+        /// </summary>
+        internal const float MaxPlaySeconds = 30f;
+
+        /// <summary>
+        /// How long playback must stay stopped before the polled path calls it an
+        /// ending. Covers a rebuffer without letting a real end linger.
+        /// </summary>
+        internal const float StallGraceSeconds = 1.5f;
+
+        /// <summary>Fade duration, published so tests can derive their own budgets.</summary>
+        internal const float FadeOutSecondsForTest = FadeOutSeconds;
         const int SortingOrder = 520;       // above CutsceneView (500)
         const int TextureWidth = 1280;
         const int TextureHeight = 720;
@@ -77,6 +119,7 @@ namespace CinderCourt.View
         float _fadeRemaining;
         bool _finishedFired;
         bool _playbackObserved;
+        float _notPlayingFor;
         // Sequence state. Null when a single clip is playing, which is every
         // path except the boot route.
         Beat[] _queue;
@@ -137,6 +180,7 @@ namespace CinderCourt.View
 
             _finishedFired = false;
             _playbackObserved = false;
+            _notPlayingFor = 0f;
             _phaseElapsed = 0f;
             _fadeRemaining = FadeOutSeconds;
             _group.alpha = 1f;
@@ -296,9 +340,24 @@ namespace CinderCourt.View
                     var lastFrame = _player.frameCount > 0
                                     && _player.frame >= (long)_player.frameCount - 1;
 
+                    // A SINGLE not-playing sample is not an ending. On WebGL the
+                    // clip is streamed, frameCount is commonly 0 (unknown for a
+                    // stream, so lastFrame above can never fire), and a mid-clip
+                    // rebuffer drops isPlaying for a moment. Treating that instant as
+                    // "finished" cuts the reel off wherever the network happened to
+                    // stutter — the second half of the same intermittency the
+                    // PrepareTimeout raise addresses, one phase later.
+                    //
+                    // loopPointReached is the authoritative end for a non-looping clip
+                    // and already calls BeginFadeOut, so this polled path only has to
+                    // catch the case where that callback never arrives. Requiring the
+                    // stall to persist keeps it as a fallback instead of a hair trigger.
+                    if (_playbackObserved && !_player.isPlaying) _notPlayingFor += dt;
+                    else _notPlayingFor = 0f;
+
                     var ended = lastFrame
                         || (_playbackObserved
-                            ? !_player.isPlaying
+                            ? _notPlayingFor >= StallGraceSeconds
                             : _phaseElapsed >= PlayStartTimeout);
                     if (ended || _phaseElapsed >= MaxPlaySeconds) BeginFadeOut();
                     break;

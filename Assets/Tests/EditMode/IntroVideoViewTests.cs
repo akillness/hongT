@@ -16,8 +16,13 @@ namespace CinderCourt.Tests
         GameObject _root;
         IntroVideoView _intro;
 
-        // Longer than PrepareTimeout (4 s) + FadeOutSeconds (0.6 s).
-        const float SettleSeconds = 8f;
+        // DERIVED from the view's own constants, not restated. These used to be a
+        // literal 8 f with a comment naming "PrepareTimeout (4 s)"; raising that
+        // timeout to fix the intermittent boot reel would have broken every test
+        // here for a reason that has nothing to do with what they assert
+        // (CLAUDE.md §4i). The margin covers the fade plus a few Step increments.
+        static readonly float SettleSeconds =
+            IntroVideoView.PrepareTimeout + IntroVideoView.FadeOutSecondsForTest + 2f;
 
         [SetUp]
         public void SetUp()
@@ -169,8 +174,8 @@ namespace CinderCourt.Tests
             _intro.PlaySequence(
                 new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
                 new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath, "테스트 내레이션"));
-            // Each clip times out after PrepareTimeout (4 s) with no decoder,
-            // so the pair drains in ~8 s. Step in small increments and record
+            // Each clip times out after PrepareTimeout with no decoder, so the pair
+            // drains in roughly twice SettleSeconds. Step in small increments and record
             // what actually happened rather than guessing a window: the thing
             // that proves the queue advanced is that the surface stayed up
             // ACROSS the first clip's completion.
