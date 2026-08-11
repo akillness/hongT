@@ -375,6 +375,16 @@ namespace CinderCourt.Tests
                     var a = hazards[left];
                     var b = hazards[right];
                     if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
+                    // AMENDMENT #17: interior furniture is out of scope here, for two
+                    // reasons. This test models every hazard as a circle at (X, Y), and
+                    // a StoneWall is a CAPSULE — its centre distance says nothing about
+                    // whether it overlaps anything, so a pass would be meaningless in
+                    // both directions. And the property being protected is telegraph
+                    // readability between two GIMMICKS; a wall is not a telegraph.
+                    // The layout keeps its own clearance from gimmicks
+                    // (DungeonLayoutSpec.GimmickClearance), and the View pins the
+                    // on-screen version in GroundModules_ClearEveryStageHazard.
+                    if (a.Kind == HazardKind.StoneWall || b.Kind == HazardKind.StoneWall) continue;
                     if (IsGuardedAltarPair(a.Kind, b.Kind)) continue;
                     if (right >= pactExtraStart && IsPactGuardVentPair(a.Kind, b.Kind)) continue;
                     var x = a.X - b.X;

@@ -1,3 +1,20 @@
+// AMENDMENT #17 (2026-08-11, dungeon interior) RE-PINNED every dungeon row.
+// This is a deliberate re-baselining, not a drift fix, and the cause is the whole
+// amendment: the playfield went from half 520x270 to 735x390 (2.04x area), the ash
+// wall's edges and closing speed moved with it (248/1288 at 80 px/s -> 33/1503 at
+// 110.71), the tide bands moved 470/740 -> 420/788 with their height 110 -> 160,
+// and the pack now steers around hard blockers instead of pressing into them.
+// Every one of those changes moves positions, so every position digest moves.
+//
+// What did NOT need re-pinning is the tell that the change was scoped correctly:
+// arena-hack, arena-frozen and prologue are byte-identical, because none of them
+// is GameMode.Dungeon and the amendment is gated there. A drift in one of those
+// three would mean the expansion had leaked out of the dungeon.
+//
+// Rows were taken one iteration at a time from each assert's own failure message
+// (it prints the full actual row), re-running the suite between passes, because a
+// test reports only its FIRST drifted row.
+//
 // Golden digest regression (cycle-2, R1-R3 + D5) — numeric truth:
 // _workspace/current/qa/golden-digests-cycle2.md.
 //
@@ -155,7 +172,7 @@ namespace CinderCourt.Tests
             var rows = new[]
             {
                 "cinder-span|3950|4|15|3|142|(running)|948.149841|546.9919",
-                "abyss-chancel|3150|3|14|1|142|(running)|1151.919|525.907",
+                "abyss-chancel|3850|4|16|1|142|(running)|940.9499|637.1489",
             };
             foreach (var expected in rows)
             {
@@ -189,11 +206,11 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "ember-gallery|4600|4|16|4|142|(running)|934.673157|521.9911",
-                "witness-well|4600|4|16|4|142|(running)|934.673157|521.9911",
-                "echo-throne|2250|3|11|1|136|(running)|1191.14087|728.4469",
+                "ember-gallery|4500|4|17|2|142|(running)|881.8254|500.54425",
+                "witness-well|4500|4|17|2|142|(running)|881.8254|500.54425",
+                "echo-throne|4600|4|16|4|142|(running)|1207.48572|606.290039",
                 "ash-verdict|3400|3|14|2|142|(running)|1248.78381|567.032",
-                "ash-march|3850|4|16|1|82|(running)|957.0417|573.282959",
+                "ash-march|4500|4|17|2|92|(running)|951.3973|572.582",
             };
             foreach (var expected in rows)
             {
@@ -211,9 +228,9 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "classic-cinder-span|3700|4|15|2|99|(running)|1035.27319|717.864",
-                "classic-abyss-chancel|3700|4|15|2|115|(running)|1035.92444|717.524963",
-                "classic-echo-throne|3700|4|15|2|106|(running)|1035.27319|717.864",
+                "classic-cinder-span|3700|4|15|2|99|(running)|1035.27136|717.864868",
+                "classic-abyss-chancel|3700|4|15|2|124|(running)|1078.123|695.5573",
+                "classic-echo-throne|3450|4|15|1|115|(running)|1035.37964|717.808533",
             };
             foreach (var expected in rows)
             {
@@ -240,8 +257,8 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "cinder-sluice|2600|3|13|0|136|(running)|966.1087|624.271851",
-                "ember-bastion|1650|3|9|1|128|(running)|863.109558|632.852051",
+                "cinder-sluice|2850|3|13|1|136|(running)|763.051|650.348",
+                "ember-bastion|1900|3|9|2|136|(running)|884.6569|605.2055",
             };
             foreach (var expected in rows)
             {

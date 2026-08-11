@@ -102,29 +102,48 @@ namespace CinderCourt.Sim
     public static class DungeonBoundsSpec
     {
         /// <summary>
-        /// [TARGET] Expanded half-width, 520 × 1.065. This axis is NOT limited by the
-        /// painted floor — it is limited by the frozen gimmick geometry. Both the ash
-        /// wall (<see cref="CampaignSpec.WallEdgeX"/> 248 →
-        /// <see cref="CampaignSpec.WallEdgeRightX"/> 1288) and every tide current
-        /// (x 768, <see cref="CampaignSpec.CurrentHalfW"/> 520) cover exactly
-        /// x 248..1288. With <see cref="SimConfig.PlayerMarginClamp"/> = 34 a
-        /// half-width of 554 puts the player's reach at exactly 520, so the playfield
-        /// stays fully inside both gimmicks' spans. One pixel more and the ash wall
-        /// becomes avoidable by standing past its edge — the gimmick would still fire,
-        /// but it would no longer be a threat, which is a balance change this
-        /// amendment deliberately does not make.
+        /// [TARGET] Expanded half-width, 520 × 1.4135.
+        ///
+        /// AMENDMENT #17 (_workspace/current/design/dungeon-interior-spec.md) RAISED this
+        /// from 554. #15's ceiling was 554 because the gimmick geometry was frozen: the
+        /// ash wall and every tide current covered exactly x 248..1288, so a wider
+        /// playfield would have let the player stand past the ash wall's edge and the
+        /// gimmick would still fire without being a threat. **#17 moves the gimmicks with
+        /// the bounds** (<see cref="CampaignSpec.WallEdgeX"/> 33 /
+        /// <see cref="CampaignSpec.WallEdgeRightX"/> 1503 /
+        /// <see cref="CampaignSpec.CurrentHalfW"/> 735), so that ceiling is gone and the
+        /// binding constraints are now the two that cannot be moved by editing constants:
+        ///
+        ///   1. Painted plate. It reaches sim x ±850 around the arena centre
+        ///      (EnvironmentBuilder.cs:1066). The boundary wall ring stands at e 1.02,
+        ///      i.e. x 18..1518 — inside the plate with 100 px to spare.
+        ///   2. Camera frame. At the shipped calm distance 17.5 the frustum half-width at
+        ///      the focus plane is 17.5·tan21°·1.5 = 10.076 u; this half-width is
+        ///      735 × 0.0125 = 9.1875 u, so the frame lands at e 1.097 and the wall ring
+        ///      at e 1.02 stays on screen with 7.5% margin. **This is why 735 and not
+        ///      more** — 797 would push the frame to e 1.011 and clip the wall, which is
+        ///      only payable by pulling the camera back (rejected: an 8.4% character
+        ///      shrink is the least reversible change available).
+        ///
+        /// [OBSERVED] <c>SimConfig.WorldWidth</c>/<c>WorldHeight</c> do NOT constrain this.
+        /// They are referenced nowhere outside their own definition (repo-wide grep over
+        /// Assets/Scripts and Assets/Tests) — nominal constants, not a clamp.
         /// </summary>
-        public const float ExpandedHalfWidth = 554f;
+        public const float ExpandedHalfWidth = 735f;
 
         /// <summary>
-        /// [TARGET] Expanded half-height, 270 × 1.548. No gimmick constrains this axis
-        /// — currents are y-bands at fixed y, vents are points, the ash wall sweeps on
-        /// x. The binding constraint is the painted backdrop plate: it spans sim
-        /// y 0..1024 while the arena centre sits at y 604, so the room below the
-        /// centre is only 420. 418 keeps the enemy ring at y 198..1010, inside the
-        /// plate at both ends.
+        /// [TARGET] Expanded half-height, 270 × 1.4444. Still bounded by the painted
+        /// backdrop plate (sim y 0..1024, arena centre y 604 → only 420 below centre),
+        /// which is why this axis grows less than x even though no gimmick constrains it.
+        ///
+        /// LOWERED from #15's 418 on purpose. 390 is not a tighter reading of the plate —
+        /// it is the value that makes the AREA ratio land on the contracted 2×:
+        /// π·735·390 / π·520·270 = 2.0417. 418 would give 2.188× with no extra design
+        /// value, while spending the plate's entire bottom margin (y 1022 against the
+        /// plate edge 1024) on an axis the camera reads foreshortened at 55° pitch.
+        /// At 390 the enemy ring (margin 24) sits at y 238..970, 54 px clear of the plate.
         /// </summary>
-        public const float ExpandedHalfHeight = 418f;
+        public const float ExpandedHalfHeight = 390f;
 
         public static DungeonBounds Expanded => DungeonBounds.Of(ExpandedHalfWidth, ExpandedHalfHeight);
 

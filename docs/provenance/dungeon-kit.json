@@ -1,0 +1,169 @@
+{
+  "tool": "higgsfield tripo_3d",
+  "negative_prompt": "pixel art, voxel, cartoon, cel shaded, bright saturated colors, clean new polished stone, sci-fi, plastic, character, person, ground plane, scene background",
+  "style_suffix": "dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+  "spec": "_workspace/current/design/dungeon-interior-spec.md §5",
+  "parts": {
+    "wall-straight": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a straight modular dungeon wall segment, flat back face, carved stone blocks. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_135757_4909c828-0da6-4c09-945f-bb538e5c069d.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/wall-straight.glb",
+      "bytes": 3589364
+    },
+    "wall-corner": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a modular dungeon wall corner piece, ninety degree turn, carved stone blocks. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_141315_12850269-7783-4054-b1a1-cb0dc78f7365.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/wall-corner.glb",
+      "bytes": 2977400
+    },
+    "wall-arch": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a gothic pointed archway doorway in a stone wall, open passage. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_141931_b163054e-5f64-4397-841e-29ab9cad3b98.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/wall-arch.glb",
+      "bytes": 2840204
+    },
+    "column-round": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a tall round gothic stone column with a carved capital and base. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_142316_a0ab6f3c-ffbf-4c28-8f51-360b8cdaf43e.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/column-round.glb",
+      "bytes": 3357088
+    },
+    "column-broken": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a broken snapped stone column stump with rubble at its base. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_142559_f477fa1e-7654-4631-a383-563ea8f551d6.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/column-broken.glb",
+      "bytes": 2319052
+    },
+    "floor-tile-plain": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a square flagstone floor tile panel, worn flat surface, subtle cracks. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_143048_76572c6b-3b57-4f7d-8a68-0c2e36d0a815.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/floor-tile-plain.glb",
+      "bytes": 2725860
+    },
+    "floor-tile-sigil": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a square stone floor tile panel carved with a circular occult sigil. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_143618_c10d7071-fe3b-4be2-8cbe-9979a9797338.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/floor-tile-sigil.glb",
+      "bytes": 2578628
+    },
+    "stair-block": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a short flight of three worn stone steps, straight run. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_144246_5a4ffbfc-2308-4d70-8fe9-779969d2efef.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/stair-block.glb",
+      "bytes": 2222300
+    },
+    "rail-baluster": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a low stone balustrade railing section with turned balusters. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_144804_8d2495af-7ded-492c-bacd-216279d2ce70.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/rail-baluster.glb",
+      "bytes": 2918504
+    },
+    "buttress": {
+      "class": "arch",
+      "target_polycount": 1500,
+      "prompt": "a gothic flying buttress support pier of carved stone. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_145453_b1caf55a-ce6e-4f5c-895c-3ef144418340.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/buttress.glb",
+      "bytes": 3220356
+    },
+    "arch-collapsed": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a collapsed stone archway, half standing, broken keystone. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_145603_e3e8ccb1-37b4-420b-8715-73b420281137.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/arch-collapsed.glb",
+      "bytes": 2781852
+    },
+    "statue-base": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a stone statue pedestal with the broken feet of a lost figure on top. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_150254_b557c5a6-b55b-4170-9cce-e4b976f1b65a.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/statue-base.glb",
+      "bytes": 3271332
+    },
+    "barricade": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a makeshift barricade of stacked stone blocks and splintered timber. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_151001_01d46db6-a040-4676-8905-006d917b5a87.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/barricade.glb",
+      "bytes": 2740352
+    },
+    "candelabra": {
+      "class": "decor",
+      "target_polycount": 1000,
+      "prompt": "a tall wrought iron candelabra with melted candle stubs. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_225500_fc929089-f52d-4bf1-a381-c3df87b4b563.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/candelabra.glb",
+      "bytes": 2377028
+    },
+    "chain-hanging": {
+      "class": "decor",
+      "target_polycount": 1000,
+      "prompt": "a length of heavy rusted iron chain hanging in a loop. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_225713_64154306-914b-43ff-8f07-ec6eb1c6d280.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/chain-hanging.glb",
+      "bytes": 3065144
+    },
+    "sarcophagus": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a stone sarcophagus coffin with a carved lid, waist height. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_142556_a38c9184-af22-4ae3-8d8e-c64c8d9f958a.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/sarcophagus.glb",
+      "bytes": 3074188
+    },
+    "column-fallen": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a toppled stone column lying on its side, cracked into two pieces. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_143045_2b356f3e-2d89-448a-b3cf-0efa29f31678.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/column-fallen.glb",
+      "bytes": 3059704
+    },
+    "rubble-heap": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a heap of broken masonry rubble and shattered stone blocks. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_143619_6d5767ac-18eb-4967-87b2-c18a2ac24214.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/rubble-heap.glb",
+      "bytes": 2749436
+    },
+    "altar-plinth": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a squat stone altar plinth pedestal, carved sides, flat top. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_144246_abe34518-5904-43a1-875a-48820eb5c97d.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/altar-plinth.glb",
+      "bytes": 2776752
+    },
+    "brazier-great": {
+      "class": "obstacle",
+      "target_polycount": 1200,
+      "prompt": "a large iron fire brazier bowl on a heavy stone pedestal, unlit. dark gothic dungeon stonework, charred basalt and ash-grey granite, ember-scorched cracked edges, heavily weathered, game-ready low-poly asset, clean quad-friendly topology, PBR textures, neutral even lighting, isolated object on plain background, no ground plane, no character",
+      "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_144814_336119ac-bc9f-4609-bf15-6af1321f088f.glb",
+      "raw": "_workspace/current/engineering/mesh-gen/kit/brazier-great.glb",
+      "bytes": 2622816
+    }
+  },
+  "note": "AMENDMENT #17 dungeon kit. 20 of 28 parts generated; the 8 missing are all decor and stopped on Higgsfield credit exhaustion (10.26 left, ~5/part), not on any pipeline fault. Decor is non-colliding, so gameplay geometry — 10 architecture + 8 collision props — is complete. Shards from the parallel class runs are merged here; the GLBs on disk are the artifact of record."
+}

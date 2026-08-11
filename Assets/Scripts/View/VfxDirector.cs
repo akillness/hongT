@@ -1536,6 +1536,95 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Cover props, chosen by POSITION rather than by index. Index would make
+        /// the same rock appear in the same slot on every stage, and re-ordering a
+        /// hazard table would silently reshuffle the whole arena's scenery. A
+        /// coordinate hash is stable under both.
+        /// </summary>
+        static string CoverPartFor(in HazardState hazard)
+        {
+            var slot = (Mathf.RoundToInt(hazard.X) * 73856093)
+                     ^ (Mathf.RoundToInt(hazard.Y) * 19349663);
+            return KitCoverParts[(int)((uint)slot % (uint)KitCoverParts.Length)];
+        }
+
+        static readonly string[] KitCoverParts =
+        {
+            "kit-sarcophagus", "kit-column-fallen", "kit-rubble-heap", "kit-altar-plinth",
+            "kit-brazier-great", "kit-arch-collapsed", "kit-statue-base", "kit-barricade",
+        };
+
+        static readonly Dictionary<string, GameObject> KitCache =
+            new Dictionary<string, GameObject>();
+
+        /// <summary>
+        /// Instantiates a generated kit part scaled to <paramref name="target"/>, or
+        /// returns null when that part was never generated.
+        ///
+        /// Scale is derived from MEASURED renderer bounds, not from the 1.0 length the
+        /// Blender pass normalises to. The two agree today, and measuring anyway is
+        /// what keeps them from having to: a re-export with different bounds changes
+        /// the mesh, not this code. EnvironmentBuilder.SpawnLibraryPart takes the same
+        /// approach for the terrain library and for the same reason.
+        /// </summary>
+        static GameObject SpawnKitPart(string partName, Transform parent, Vector3 target, bool uniform)
+        {
+            if (!KitCache.TryGetValue(partName, out var prefab))
+            {
+                prefab = Resources.Load<GameObject>("Environment/" + partName);
+                KitCache[partName] = prefab;
+            }
+            if (prefab == null) return null;
+
+            var clone = UnityEngine.Object.Instantiate(prefab, parent);
+            clone.transform.localPosition = Vector3.zero;
+            clone.transform.localRotation = Quaternion.identity;
+            clone.transform.localScale = Vector3.one;
+
+            var renderers = clone.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+            {
+                UnityEngine.Object.DestroyImmediate(clone);
+                return null;
+            }
+
+            var bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var size = bounds.size;
+            if (size.x <= 1e-4f || size.y <= 1e-4f || size.z <= 1e-4f)
+            {
+                UnityEngine.Object.DestroyImmediate(clone);
+                return null;
+            }
+
+            var scale = new Vector3(target.x / size.x, target.y / size.y, target.z / size.z);
+            if (uniform)
+            {
+                // Props keep their proportions. A sarcophagus squashed to a cover's
+                // exact footprint stops reading as a sarcophagus, and the collider is
+                // a circle regardless — the silhouette is the only thing the player
+                // uses to recognise it.
+                var k = Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z));
+                scale = new Vector3(k, k, k);
+            }
+            clone.transform.localScale = scale;
+
+            // Re-measure at final scale and seat the part on the floor. The mesh is
+            // exported with its base at 0, but a scaled pivot does not stay there.
+            bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var lift = parent.position.y - bounds.min.y;
+            clone.transform.position += new Vector3(0f, lift, 0f);
+
+            foreach (var renderer in renderers)
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            return clone;
+        }
+
         HazardView BuildHazardView(in HazardState hazard)
         {
             var view = new HazardView();
@@ -1743,10 +1832,70 @@ namespace CinderCourt.View
                     scorch.SetActive(false);
                     break;
                 }
+                case HazardKind.StoneWall:
+                {
+                    // AMENDMENT #17. Static capsule blocker: a body box plus a base
+                    // ring, mirroring the ObsidianPillar case above because they are
+                    // the same thing in the sim — one routine collides both, a circle
+                    // being a capsule with a zero half-vector.
+                    //
+                    // Every dimension comes off the hazard record, never off a layout
+                    // constant. This surface and CinderSim.ApplyBlockers must describe
+                    // the same solid; §4k is this repo's standing lesson on what it
+                    // costs when a view stops reflecting the state behind it, and a
+                    // wall you can walk through is that failure at full size.
+                    var halfLength = Mathf.Sqrt(
+                        hazard.HalfW * hazard.HalfW + hazard.HalfH * hazard.HalfH);
+                    var radiusWorld = hazard.Radius * ViewWorld.Scale;
+                    var lengthWorld = (halfLength * 2f) * ViewWorld.Scale + radiusWorld * 2f;
+                    var yaw = halfLength <= 0.0001f
+                        ? 0f
+                        : Mathf.Atan2(hazard.HalfH, hazard.HalfW) * Mathf.Rad2Deg;
+                    root.transform.localRotation = Quaternion.Euler(0f, -yaw, 0f);
+
+                    // Generated kit mesh when one exists, primitive cube otherwise.
+                    // The kit shipped at 20 of 28 parts (credits ran out mid-run), so
+                    // "the mesh is missing" is a NORMAL state here, not an error — a
+                    // hard dependency on it would have made the arena unrenderable for
+                    // a reason that has nothing to do with the arena.
+                    var isWall = halfLength > 0.0001f;
+                    var target = isWall
+                        ? new Vector3(lengthWorld, EnvironmentLayout.StoneWallHeightWorld,
+                            radiusWorld * 2f)
+                        : new Vector3(radiusWorld * 2f, radiusWorld * 1.6f, radiusWorld * 2f);
+                    var part = SpawnKitPart(
+                        isWall ? "kit-wall-straight" : CoverPartFor(hazard),
+                        root.transform, target, uniform: !isWall);
+
+                    if (part == null)
+                    {
+                        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        RemovePrimitiveCollider(body);
+                        body.transform.SetParent(root.transform, false);
+                        body.transform.localScale = new Vector3(
+                            lengthWorld, EnvironmentLayout.StoneWallHeightWorld, radiusWorld * 2f);
+                        body.transform.localPosition =
+                            new Vector3(0f, EnvironmentLayout.StoneWallHeightWorld * 0.5f, 0f);
+                        body.GetComponent<Renderer>().sharedMaterial =
+                            ViewWorld.MakeUnlit(new Color(0.13f, 0.12f, 0.14f), false);
+                    }
+
+                    // Base ring: the same readability trick the pillar uses. At the
+                    // 55 degree pitch a low box's footprint is ambiguous, and the
+                    // player needs to know where the solid actually starts.
+                    var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    RemovePrimitiveCollider(baseRing);
+                    baseRing.transform.SetParent(root.transform, false);
+                    baseRing.transform.localScale = new Vector3(
+                        lengthWorld * 1.03f, 0.01f, radiusWorld * 2.6f);
+                    baseRing.GetComponent<Renderer>().sharedMaterial =
+                        ViewWorld.MakeUnlit(new Color(0.35f, 0.6f, 0.8f, 0.28f), true);
+                    break;
+                }
                 case HazardKind.AshWall:
                 {
-                    // Root sits at this wall's HOME edge (config X: 248 left
-                    // / 1288 right, y=ArenaY). The lethal band is y-full in
+                    // Root sits at this wall's HOME edge (config X: 33 left
+                    // / 1503 right, y=ArenaY). The lethal band is y-full in
                     // the sim; visuals span the arena height (WallSpanWorld)
                     // — decoration, not judge. HazardState carries no PushX,
                     // so the side is inferred from the anchor X — build-time

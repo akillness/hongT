@@ -401,9 +401,20 @@ namespace CinderCourt.Tests
                 var entry = GuidanceCatalog.Entries[bit];
                 Assert.That(entry.Group, Is.EqualTo(GuidanceGroup.Hazard),
                     $"{kind} resolved to \"{entry.Title}\", which is not a hazard lesson");
-                Assert.That(entry.Tier, Is.EqualTo(GuidanceTier.Pause),
-                    $"{kind} resolved to a {entry.Tier} card — gimmicks kill players who "
-                    + "have not been told, so they hold the run");
+                // AMENDMENT #17 split this assertion. It used to demand Pause for
+                // every kind, on the stated ground that "gimmicks kill players who
+                // have not been told". That ground is what changed: StoneWall is a
+                // static capsule blocker that deals no damage, so the reason for
+                // holding the run does not exist for it, and taking a ninth pause
+                // slot would spend a budget that negotiation-record entry 13 fixed at
+                // eight. The RULE is unchanged — anything that can damage you still
+                // freezes the run — it is now written against what the kind does
+                // instead of against the enum it happens to live in.
+                var damaging = kind != HazardKind.StoneWall;
+                Assert.That(entry.Tier,
+                    Is.EqualTo(damaging ? GuidanceTier.Pause : GuidanceTier.Toast),
+                    $"{kind} resolved to a {entry.Tier} card — damaging gimmicks hold "
+                    + "the run, inert terrain toasts");
                 if (bits.TryGetValue(bit, out var other))
                     Assert.Fail($"{kind} and {other} share bit {bit} (\"{entry.Title}\") — "
                         + "one of the two gimmicks is never taught");
@@ -415,7 +426,15 @@ namespace CinderCourt.Tests
                 + "warning at all:\n" + string.Join("\n", unmapped));
             Assert.That(bits.Count, Is.EqualTo(kinds.Length),
                 "every HazardKind must map to a distinct card");
-            Assert.That(bits.Count, Is.EqualTo(6), "six gimmicks, matching the pause budget");
+            // The number that is actually negotiated is the PAUSE budget, and
+            // PauseTier_HoldsExactlyTheNegotiatedEightCards owns it. This one asserts
+            // that every kind in the enum is taught somewhere, which is the property
+            // this test is named for. Restating "6" here made the two drift the moment
+            // a non-damaging kind was added: a literal count cannot tell "we grew the
+            // pause budget without asking" from "we added terrain", and only the first
+            // is a contract breach.
+            Assert.That(bits.Count, Is.EqualTo(kinds.Length),
+                "every HazardKind must be taught, damaging or not");
         }
 
         /// <summary>

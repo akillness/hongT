@@ -184,6 +184,25 @@ namespace CinderCourt.View
             e.Add(new GuidanceEntry(bit++, GuidanceGroup.Surge, GuidanceTier.Toast,
                 "기세", $"{HackSpec.SurgeKillInterval}처치마다 {HackSpec.SurgeSeconds:0.#}초간 열린다. 웨이브당 {HackSpec.SurgeWaveCap}회."));
 
+            // AMENDMENT #17. APPENDED HERE, not filed with the other Hazard entries
+            // above, and that placement is deliberate: `bit++` numbers entries in
+            // source order, and the number is what CampaignData.GuidanceSeen stores.
+            // Slotting this beside 흑요석 기둥 would renumber every entry after it, so
+            // an existing save would mark the wrong lessons read and silently withhold
+            // the rest (CLAUDE.md §4h — indices are permanent, appending is safe,
+            // reordering re-teaches everything). Display groups by GuidanceGroup, so
+            // it still reads next to the other hazards on screen.
+            // TOAST, not Pause. The pause tier is negotiated at 8 cards
+            // (negotiation-record entry 13) and every other Hazard card is there
+            // because that gimmick DEALS DAMAGE to a player who was never told. A
+            // stone wall deals none — it is terrain. It is also the one hazard kind
+            // that teaches itself: you walk into it, at walking speed, and nothing
+            // happens except that you stop. Spending a run-freezing card on that
+            // would be taking a ninth pause slot, which is a designer + pm decision
+            // rather than a catalog edit.
+            e.Add(new GuidanceEntry(bit++, GuidanceGroup.Hazard, GuidanceTier.Toast,
+                "석벽", $"부술 수 없다. 통로는 {CampaignSpec.LanePassageWidth:F0}폭으로 뚫려 있다 — 벽을 미는 대신 통로를 찾아라. 적도 벽을 돌아온다."));
+
             return e.ToArray();
         }
 
@@ -284,6 +303,7 @@ namespace CinderCourt.View
                 case HazardKind.TideCurrent: return IndexOf("해류");
                 case HazardKind.EmberPylon: return IndexOf("방벽주");
                 case HazardKind.AshWall: return IndexOf("재의 장벽");
+                case HazardKind.StoneWall: return IndexOf("석벽");
                 default: return -1;
             }
         }

@@ -27,22 +27,39 @@ namespace CinderCourt.Tests
 
         // --- factory / config -------------------------------------------------
 
+        /// <summary>
+        /// Gimmicks only. AMENDMENT #17 appends layout blockers
+        /// (<see cref="HazardKind.StoneWall"/>) to the same array, so a raw Length is
+        /// no longer the stage's gimmick count — which is what these assertions were
+        /// always about. Counting by kind keeps them measuring the table's contract
+        /// instead of the interior's density, which is free to change per stage.
+        /// </summary>
+        static int GimmickCount(HazardConfig[] hazards)
+        {
+            var count = 0;
+            foreach (var hazard in hazards)
+            {
+                if (hazard.Kind != HazardKind.StoneWall) count++;
+            }
+            return count;
+        }
+
         [Test]
         public void StageTable_MatchesAmendment()
         {
             var stage1 = Stage(CampaignStages.CinderSpan);
             Assert.AreEqual(5, stage1.Waves);
             Assert.AreEqual(EnemyVisual.BossCommander, stage1.BossVisual);
-            Assert.AreEqual(2, stage1.Hazards.Length);
+            Assert.AreEqual(2, GimmickCount(stage1.Hazards));
 
             var stage2 = Stage(CampaignStages.AbyssChancel);
             Assert.AreEqual(6, stage2.Waves);
-            Assert.AreEqual(4, stage2.Hazards.Length);
+            Assert.AreEqual(4, GimmickCount(stage2.Hazards));
 
             var stage3 = Stage(CampaignStages.EchoThrone);
             Assert.AreEqual(7, stage3.Waves);
             Assert.AreEqual(EnemyVisual.BossMonarch, stage3.BossVisual);
-            Assert.AreEqual(3, stage3.Hazards.Length);
+            Assert.AreEqual(3, GimmickCount(stage3.Hazards));
 
             Assert.IsFalse(CampaignStages.TryGet("no-such-stage", 0, 0, 0, out _));
         }
@@ -422,16 +439,18 @@ namespace CinderCourt.Tests
             // vent(500,604,0.9) · vent(1030,604,2.1) · pillar(768,604) — the two vents
             // bomb the only safe corridor (y 580..630) between the widened lanes.
             var sluice = Stage(CampaignStages.CinderSluice).Hazards;
-            Assert.AreEqual(5, sluice.Length);
+            Assert.AreEqual(5, GimmickCount(sluice));
             Assert.AreEqual(HazardKind.TideCurrent, sluice[0].Kind);
-            Assert.AreEqual(768f, sluice[0].X); Assert.AreEqual(470f, sluice[0].Y);
+            Assert.AreEqual(768f, sluice[0].X);
+            Assert.AreEqual(CampaignSpec.CurrentNorthBandY, sluice[0].Y);
             Assert.AreEqual(CampaignSpec.CurrentPush, sluice[0].PushX);
             Assert.AreEqual(0f, sluice[0].PushY);
             Assert.AreEqual(0f, sluice[0].Phase);
             Assert.AreEqual(CampaignSpec.CurrentHalfW, sluice[0].HalfW);
             Assert.AreEqual(CampaignSpec.CurrentHalfH, sluice[0].HalfH);
             Assert.AreEqual(HazardKind.TideCurrent, sluice[1].Kind);
-            Assert.AreEqual(768f, sluice[1].X); Assert.AreEqual(740f, sluice[1].Y);
+            Assert.AreEqual(768f, sluice[1].X);
+            Assert.AreEqual(CampaignSpec.CurrentSouthBandY, sluice[1].Y);
             Assert.AreEqual(-CampaignSpec.CurrentPush, sluice[1].PushX);
             Assert.AreEqual(3f, sluice[1].Phase);
             Assert.AreEqual(HazardKind.EmberVent, sluice[2].Kind);
@@ -448,7 +467,7 @@ namespace CinderCourt.Tests
             // pillar(640,650) · pillar(900,560) · vent(768,604,0.6) — the third pylon
             // closes the aura net over the spawn convergence point (768,604).
             var bastion = Stage(CampaignStages.EmberBastion).Hazards;
-            Assert.AreEqual(6, bastion.Length);
+            Assert.AreEqual(6, GimmickCount(bastion));
             Assert.AreEqual(HazardKind.EmberPylon, bastion[0].Kind);
             Assert.AreEqual(560f, bastion[0].X); Assert.AreEqual(500f, bastion[0].Y);
             Assert.AreEqual(CampaignSpec.PylonHp, bastion[0].Hp);
@@ -472,7 +491,7 @@ namespace CinderCourt.Tests
             // covers it at iso 119: wall rhythm + shield war + altar risk converge,
             // campaign-fun-pass-spec.md §8).
             var march = Stage(CampaignStages.AshMarch).Hazards;
-            Assert.AreEqual(6, march.Length);
+            Assert.AreEqual(6, GimmickCount(march));
             Assert.AreEqual(HazardKind.AshWall, march[0].Kind);
             Assert.AreEqual(CampaignSpec.WallEdgeX, march[0].X);
             Assert.AreEqual(0f, march[0].Phase);
@@ -508,9 +527,9 @@ namespace CinderCourt.Tests
             // clear of BOTH corridor vents (500,604)/(1030,604) — v1.1 widened the
             // lanes (halfH 110) and vent-bombed the corridor, so the park spot is
             // pinned outside every blast disc below.
-            WalkOnto(sim, 650f, 470f, 60 * 4);
+            WalkOnto(sim, 650f, CampaignSpec.CurrentNorthBandY, 60 * 4);
             Assert.Less(sim.Player.X, 700f, "park must stay west of the pillar column");
-            Assert.LessOrEqual(MathF.Abs(sim.Player.Y - 470f), CampaignSpec.CurrentHalfH,
+            Assert.LessOrEqual(MathF.Abs(sim.Player.Y - CampaignSpec.CurrentNorthBandY), CampaignSpec.CurrentHalfH,
                 "park must sit inside lane A (y 360-580)");
             foreach (var (ventX, ventY) in new[] { (500f, 604f), (1030f, 604f) })
             {
@@ -531,12 +550,12 @@ namespace CinderCourt.Tests
             var idleStills = 0;
             for (var t = 0; t < 60 * 12 && sim.Mode != SimMode.GameOver; t++)
             {
-                var activeBefore = FindHazard(sim, HazardKind.TideCurrent, 768f, 470f).Active;
+                var activeBefore = FindHazard(sim, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active;
                 var xBefore = sim.Player.X;
                 var inBand = MathF.Abs(xBefore - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(sim.Player.Y - 470f) <= CampaignSpec.CurrentHalfH;
+                    && MathF.Abs(sim.Player.Y - CampaignSpec.CurrentNorthBandY) <= CampaignSpec.CurrentHalfH;
                 sim.Tick(in parkCast);
-                var activeAfter = FindHazard(sim, HazardKind.TideCurrent, 768f, 470f).Active;
+                var activeAfter = FindHazard(sim, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active;
                 if (!inBand) continue;
                 if (activeBefore && activeAfter)
                 {
@@ -559,13 +578,20 @@ namespace CinderCourt.Tests
             // across one active window while the player stays parked.
             var config2 = Stage(CampaignStages.CinderSluice, cloak: 5);
             var sim2 = new CinderSim(in config2);
-            WalkOnto(sim2, 650f, 470f, 60 * 4);
+            // Park INSIDE lane A but away from the band's own centre line. #17 moved
+            // that centre 470 -> 420, and at y 420 the frozen diamond only spans
+            // x 602..934 — the player ends up wedged near the top vertex and every
+            // enemy that can reach lane A approaches from below-right, so all of them
+            // walk -x faster than the current pushes +x and the max displacement comes
+            // back negative. y 520 is still inside the band (260..580) and leaves
+            // x 410..1126 of playfield, which is the roomy spot the original 470 was.
+            WalkOnto(sim2, 650f, SimConfig.ArenaY - 84f, 60 * 4);
             for (var guard = 0; guard < 60 * 7; guard++)
             {
-                if (FindHazard(sim2, HazardKind.TideCurrent, 768f, 470f).Active) break;
+                if (FindHazard(sim2, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active) break;
                 sim2.Tick(Idle);
             }
-            Assert.IsTrue(FindHazard(sim2, HazardKind.TideCurrent, 768f, 470f).Active,
+            Assert.IsTrue(FindHazard(sim2, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active,
                 "lane A must activate within one period");
             var startX = new System.Collections.Generic.Dictionary<int, float>();
             for (var i = 0; i < sim2.Enemies.Count; i++)
@@ -573,7 +599,7 @@ namespace CinderCourt.Tests
                 var enemy = sim2.Enemies[i];
                 if (!enemy.Dead
                     && MathF.Abs(enemy.X - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(enemy.Y - 470f) <= CampaignSpec.CurrentHalfH)
+                    && MathF.Abs(enemy.Y - CampaignSpec.CurrentNorthBandY) <= CampaignSpec.CurrentHalfH)
                     startX[enemy.Id] = enemy.X;
             }
             Assert.Greater(startX.Count, 0, "an enemy must be inside lane A at activation");
@@ -596,7 +622,7 @@ namespace CinderCourt.Tests
             // Lane A, held +x through two active windows: never beyond the L1 diamond.
             var config = Stage(CampaignStages.CinderSluice, cloak: 5);
             var sim = new CinderSim(in config);
-            WalkOnto(sim, 990f, 470f, 60 * 8);
+            WalkOnto(sim, 990f, CampaignSpec.CurrentNorthBandY, 60 * 8);
             var right = new SimInput { MoveX = 1f };
             var maxX = sim.Player.X;
             for (var t = 0; t < 60 * 14 && sim.Mode != SimMode.GameOver; t++)
@@ -612,17 +638,17 @@ namespace CinderCourt.Tests
             // Lane B: parked at (830,740), x strictly decreases across active ticks.
             var configB = Stage(CampaignStages.CinderSluice, cloak: 5);
             var simB = new CinderSim(in configB);
-            WalkOnto(simB, 830f, 740f, 60 * 4);
+            WalkOnto(simB, 830f, CampaignSpec.CurrentSouthBandY, 60 * 4);
             var decreases = 0;
             var nonDecreases = 0;
             for (var t = 0; t < 60 * 12 && simB.Mode != SimMode.GameOver; t++)
             {
-                var activeBefore = FindHazard(simB, HazardKind.TideCurrent, 768f, 740f).Active;
+                var activeBefore = FindHazard(simB, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentSouthBandY).Active;
                 var xBefore = simB.Player.X;
                 var inBand = MathF.Abs(xBefore - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(simB.Player.Y - 740f) <= CampaignSpec.CurrentHalfH;
+                    && MathF.Abs(simB.Player.Y - CampaignSpec.CurrentSouthBandY) <= CampaignSpec.CurrentHalfH;
                 simB.Tick(Idle);
-                var activeAfter = FindHazard(simB, HazardKind.TideCurrent, 768f, 740f).Active;
+                var activeAfter = FindHazard(simB, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentSouthBandY).Active;
                 if (!inBand || !activeBefore || !activeAfter) continue;
                 if (simB.Player.X < xBefore) decreases++;
                 else nonDecreases++;
@@ -911,15 +937,44 @@ namespace CinderCourt.Tests
                 }
             }
             var tolerance = CampaignSpec.WallSpeed / 60f + 0.01f;   // one fixed step of travel
-            Assert.AreEqual(248f, leftSamples[270], tolerance, "t=4.5: rest ends, left depth still 0");
-            Assert.AreEqual(328f, leftSamples[420], tolerance, "t=7.0: advance 248+(7-6)*80");
-            Assert.AreEqual(808f, leftSamples[810], tolerance, "t=13.5: hold at 248+560 — PAST centre 768");
-            Assert.AreEqual(488f, leftSamples[1200], tolerance, "t=20.0: recede 808-(20-16)*80");
-            // Right wall local t = stage t + 11.5 — half a period out of phase.
-            Assert.AreEqual(728f, rightSamples[270], tolerance, "t=4.5: right local 16.0, hold end at 1288-560");
-            Assert.AreEqual(928f, rightSamples[420], tolerance, "t=7.0: right local 18.5, recede 728+(18.5-16)*80");
-            Assert.AreEqual(1288f, rightSamples[810], tolerance, "t=13.5: right local 2.0, resting at its edge");
-            Assert.AreEqual(1088f, rightSamples[1200], tolerance, "t=20.0: right local 8.5, advance 1288-(8.5-6)*80");
+            Assert.AreEqual(CampaignSpec.WallEdgeX, leftSamples[270], tolerance,
+                "t=4.5: rest ends, left depth still 0");
+            // AMENDMENT #17 rewrote these from literals to the timetable's own terms.
+            // The edges moved (248/1288 -> 33/1503) and the speed with them (80 ->
+            // WallDepthMax / WallAdvance = 110.71), so any literal here is a second
+            // source for a number CampaignSpec already owns (CLAUDE.md §4i).
+            //
+            // Worth noting what did NOT move: the full-depth positions, 808 and 728.
+            // WallDepthMax is derived from WallOvershoot, so both jaws still stop
+            // exactly 40 px past centre however far out the edges go. Only the
+            // mid-phase samples shift, because only the rate changed.
+            const float advanceStart = CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+            const float recedeStart = advanceStart + CampaignSpec.WallAdvance + CampaignSpec.WallHold;
+
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + (7.0f - advanceStart) * CampaignSpec.WallSpeed,
+                leftSamples[420], tolerance, "t=7.0: one second into the advance");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax,
+                leftSamples[810], tolerance, "t=13.5: hold at full depth — PAST centre 768");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax
+                    - (20.0f - recedeStart) * CampaignSpec.WallSpeed,
+                leftSamples[1200], tolerance, "t=20.0: four seconds into the recede");
+            // Right wall local t = stage t + half a period — the jaws alternate.
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - CampaignSpec.WallDepthMax,
+                rightSamples[270], tolerance, "t=4.5: right local at hold, full depth");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - CampaignSpec.WallDepthMax
+                    + (18.5f - recedeStart) * CampaignSpec.WallSpeed,
+                rightSamples[420], tolerance, "t=7.0: right local 18.5, receding");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX,
+                rightSamples[810], tolerance, "t=13.5: right local 2.0, resting at its edge");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - (8.5f - advanceStart) * CampaignSpec.WallSpeed,
+                rightSamples[1200], tolerance, "t=20.0: right local 8.5, advancing");
 
             // (2) exact-10 drops on the 0.6 s grid. Killer-park at (300,604) — the L1
             // clamp pins x≈282-324 — one-shots wave arrivals (weapon 5: 75.4 vs ≤80 hp
@@ -1606,7 +1661,7 @@ namespace CinderCourt.Tests
         public void EmberGallery_VentRing_PulsesInPhaseOrder()
         {
             var config = CatalogStage("ember-gallery", 0, 0, 5);
-            Assert.AreEqual(5, config.Hazards.Length, "gallery v1.2: 4 ring vents + centre pillar");
+            Assert.AreEqual(5, GimmickCount(config.Hazards), "gallery v1.2: 4 ring vents + centre pillar");
             var ringPhases = new[] { 0f, 0.6f, 1.2f, 1.8f };
             for (var i = 0; i < 4; i++)
             {
@@ -1820,7 +1875,7 @@ namespace CinderCourt.Tests
             Assert.AreEqual(604f, sim.Player.Y, 14f, "player must hold the altar y band");
             var through = new CinderSim(in config);
             WalkOnto(through, 768f, 604f, 60 * 4);
-            WalkOnto(through, 768f, 470f, 60 * 4);   // path crosses pylon centre (768,520)
+            WalkOnto(through, 768f, CampaignSpec.CurrentNorthBandY, 60 * 4);   // path crosses pylon centre (768,520)
             Assert.AreEqual(768f, through.Player.X, 2f, "corridor x must stay walkable through the pylon");
             Assert.Less(through.Player.Y, 520f, "the player must pass THROUGH the pylon body row");
         }
@@ -2057,10 +2112,16 @@ namespace CinderCourt.Tests
 
                 var ticks = hasWall ? 60 * 23 : hasCurrent ? 60 * 12 : 60 * 3;
                 var bot = hasWall ? (CensusBot)CorridorMidInput : BotInput;
-                AssertTelegraphCensus(new CinderSim(in config), config.Hazards, id + " (pact)", ticks, bot);
+                // AMENDMENT #17: mirror what the SIM carries, not what the table lists.
+                // PactStage builds a frozen-bounds run, and a frozen-bounds run strips
+                // the layout blockers the expanded playfield placed — so the raw table
+                // has entries the sim never publishes. Same routine the constructor
+                // uses, so the two cannot drift.
+                var carried = CinderSim.WithoutLayoutBlockers(config.Hazards);
+                AssertTelegraphCensus(new CinderSim(in config), carried, id + " (pact)", ticks, bot);
 
                 if (hasWall)
-                    AssertAnalyticCensus(config.Hazards, id + " (pact)", 60 * 276);
+                    AssertAnalyticCensus(carried, id + " (pact)", 60 * 276);
             }
         }
 

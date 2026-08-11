@@ -487,6 +487,16 @@ namespace CinderCourt.Sim
             _hazards = _dungeon
                 ? (_config.Hazards ?? NoHazards)
                 : (_training ? (configured.Hazards ?? NoHazards) : NoHazards);
+            // AMENDMENT #17: the interior belongs to the EXPANDED playfield and only
+            // to it. DungeonLayoutSpec places against half 735x390, but the layout
+            // rides the static stage table, which a frozen-bounds run reads too — a
+            // dungeon opted into #13/#14 but not #15, and every trial. Those runs
+            // would inherit stone sitting outside their own clamp or crowding their
+            // spawn ring. Stripping it here rather than at the table keeps ONE table
+            // for both, and keeps the decision where the bounds are actually known.
+            _hazards = _boundsHalfWidth > SimConfig.ArenaHalfWidth
+                ? _hazards
+                : WithoutLayoutBlockers(_hazards);
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
             _stageId = _prologue
@@ -703,6 +713,53 @@ namespace CinderCourt.Sim
         public float BoundsHalfHeight => _boundsHalfHeight;
         public bool ExpandedBoundsActive =>
             _boundsHalfWidth > SimConfig.ArenaHalfWidth || _boundsHalfHeight > SimConfig.ArenaHalfHeight;
+
+        /// <summary>
+        /// AMENDMENT #17 probe surface — additive and read-only (CLAUDE.md §1: new read
+        /// surfaces are additive, the six frozen interfaces are untouched). True when
+        /// (<paramref name="x"/>, <paramref name="y"/>) is a legal standing position for
+        /// an actor of the given push radius: inside the movement clamp AND outside every
+        /// hard blocker.
+        ///
+        /// It answers by RUNNING the two routines the tick runs rather than by
+        /// re-deriving the ellipse and the capsules from the constants. That is the
+        /// §4i rule — assert a round trip, not a restatement. A probe that restated the
+        /// geometry would be a second source for one fact and would keep reporting the
+        /// contracted reachable area after the movement code stopped producing it.
+        ///
+        /// Costs nothing at runtime: nobody in the tick path calls it.
+        /// </summary>
+        public bool IsStandable(float x, float y, float actorRadius, float margin)
+        {
+            float probeX = x;
+            float probeY = y;
+            ClampToArena(ref probeX, ref probeY, margin);
+            ApplyBlockers(ref probeX, ref probeY, actorRadius);
+            return MathF.Abs(probeX - x) <= MoveEpsilon
+                && MathF.Abs(probeY - y) <= MoveEpsilon;
+        }
+
+        /// <summary>
+        /// AMENDMENT #17 probe surface — blockers ONLY, ignoring the movement clamp.
+        ///
+        /// Separate from <see cref="IsStandable"/> because the concavity gate
+        /// (design/dungeon-interior-spec.md §3.6) has to exclude the arena boundary.
+        /// The clamp is an ellipse, and an ellipse is convex, so it cannot enclose
+        /// anything — but every point NEAR it has most of its outward directions
+        /// unstandable, so a gate that counted the clamp would report a 220-degree
+        /// "trap" on a completely empty stage. Measured: it did, on all six, including
+        /// the three with no blockers at all. A gate that fires the same on a good
+        /// layout and a bad one is measuring in a coordinate system where the right
+        /// and wrong answers coincide (CLAUDE.md §4m).
+        /// </summary>
+        public bool IsBlocked(float x, float y, float actorRadius)
+        {
+            float probeX = x;
+            float probeY = y;
+            ApplyBlockers(ref probeX, ref probeY, actorRadius);
+            return MathF.Abs(probeX - x) > MoveEpsilon
+                || MathF.Abs(probeY - y) > MoveEpsilon;
+        }
 
         // AMENDMENT #16 §20.5. BossVarietyActive is derived from the RESOLVED
         // archetype, not from the config flag: a gated run on an unmapped stage
@@ -938,7 +995,7 @@ namespace CinderCourt.Sim
             _novaX = _player.X;
             _novaY = _player.Y;
 
-            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+            ApplyBlockers(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
             ResetCompanion();
 
             StartWave(1);
@@ -2340,7 +2397,7 @@ namespace CinderCourt.Sim
             }
 
             ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, deltaTime, PlayerCurrentPushMult);
-            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+            ApplyBlockers(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
 
             if (_dungeon)
             {
@@ -2414,7 +2471,7 @@ namespace CinderCourt.Sim
             _player.Y += _dashDirY * speed * SimConfig.YMoveScale * step;
             ClampToArena(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp);
             ApplyCurrents(ref _player.X, ref _player.Y, SimConfig.PlayerMarginClamp, step, PlayerCurrentPushMult);
-            ApplyPillars(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
+            ApplyBlockers(ref _player.X, ref _player.Y, CampaignSpec.PlayerPushRadius);
             _player.Moving = true;
             _player.ActionTime += deltaTime;
 
@@ -3023,6 +3080,22 @@ namespace CinderCourt.Sim
                         moveY /= rawDistance;
                     }
 
+                    // AMENDMENT #17: steer around hard blockers BEFORE separation, not
+                    // after. This vector answers "where do I want to go"; separation is a
+                    // local correction on top of it. Applying the two in the other order
+                    // would let a neighbour's shove re-aim the enemy into the wall it
+                    // just decided to walk around. No-op when nothing is in the way, and
+                    // no-op on every table without a blocker — which is the arena, the
+                    // prologue and 3 of the 6 campaign anchors.
+                    SteerAroundBlockers(
+                        enemy.State.X,
+                        enemy.State.Y,
+                        goalX,
+                        goalY,
+                        CampaignSpec.EnemyPushRadius,
+                        ref moveX,
+                        ref moveY);
+
                     for (int otherIndex = 0; otherIndex < _enemyCount; otherIndex += 1)
                     {
                         if (otherIndex == index)
@@ -3078,7 +3151,7 @@ namespace CinderCourt.Sim
             }
 
             ApplyCurrents(ref enemy.State.X, ref enemy.State.Y, SimConfig.EnemyMarginClamp, deltaTime, _sigilCurrentEnemyPushMult);
-            ApplyPillars(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
+            ApplyBlockers(ref enemy.State.X, ref enemy.State.Y, CampaignSpec.EnemyPushRadius);
 
             if (MathF.Abs(deltaX) > EnemyFacingDeadzone)
             {
@@ -4205,23 +4278,89 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// Obsidian pillars are hard blockers: an actor that ends its move inside
-        /// <c>pillarRadius + actorRadius</c> is pushed back out along the iso normal.
+        /// Hard blockers: an actor that ends its move inside
+        /// <c>blockerRadius + actorRadius</c> is pushed back out along the iso normal.
+        /// <see cref="HazardKind.ObsidianPillar"/> is a circle,
+        /// <see cref="HazardKind.StoneWall"/> (AMENDMENT #17) a capsule — one routine
+        /// serves both because a circle IS a capsule with a zero half-vector.
+        ///
+        /// GOLDEN SAFETY. The circle path is bit-identical to the frozen ApplyPillars
+        /// this replaces. A zero half-vector forces the projection parameter to 0, so
+        /// the local closest point is (0, 0) and every expression collapses term for
+        /// term onto the original:
+        ///     x = hazard.X + 0f + deltaX / distance * target
+        ///     y = hazard.Y + (0f + deltaY / distance * target) / IsoY
+        /// Adding a literal 0f is exact in IEEE-754, so no rounding is introduced.
+        /// Working in HAZARD-LOCAL iso coordinates is what makes that true: deltaY stays
+        /// the frozen <c>(y - hazard.Y) * IsoY</c> rather than the algebraically equal
+        /// but numerically different <c>y * IsoY - hazard.Y * IsoY</c>. Absolute iso
+        /// coordinates would have been the tidier formulation and would have moved every
+        /// pillar golden by a few ULP.
+        ///
+        /// <see cref="HazardKind.EmberPylon"/> is deliberately still NOT a blocker. It
+        /// has HP and an aura; making it solid changes how the pack funnels around it,
+        /// which is a balance change #17 does not make.
         /// No-op on the arena path (no hazards).
         /// </summary>
-        private void ApplyPillars(ref float x, ref float y, float actorRadius)
+        /// <summary>
+        /// The stage table minus its AMENDMENT #17 interior. Returns the SAME array
+        /// when there is nothing to strip, so the frozen paths keep sharing the static
+        /// instance and allocate nothing.
+        ///
+        /// PUBLIC because it is a seam, not a detail. A frozen-bounds run carries fewer
+        /// hazards than its own stage table lists, so anything that mirrors the table
+        /// against a running sim — the telegraph census does exactly this — has to
+        /// apply the same rule. Exposing the routine keeps that one rule in one place
+        /// instead of restating it at every mirror (CLAUDE.md §4i).
+        /// </summary>
+        public static HazardConfig[] WithoutLayoutBlockers(HazardConfig[] hazards)
+        {
+            int keep = 0;
+            for (int index = 0; index < hazards.Length; index += 1)
+            {
+                if (hazards[index].Kind != HazardKind.StoneWall) keep += 1;
+            }
+            if (keep == hazards.Length) return hazards;
+
+            var stripped = new HazardConfig[keep];
+            int cursor = 0;
+            for (int index = 0; index < hazards.Length; index += 1)
+            {
+                if (hazards[index].Kind == HazardKind.StoneWall) continue;
+                stripped[cursor] = hazards[index];
+                cursor += 1;
+            }
+            return stripped;
+        }
+
+        private void ApplyBlockers(ref float x, ref float y, float actorRadius)
         {
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 HazardConfig hazard = _hazards[index];
-                if (hazard.Kind != HazardKind.ObsidianPillar)
+                if (hazard.Kind != HazardKind.ObsidianPillar
+                    && hazard.Kind != HazardKind.StoneWall)
                 {
                     continue;
                 }
 
                 float target = hazard.Radius + actorRadius;
-                float deltaX = x - hazard.X;
-                float deltaY = (y - hazard.Y) * SimConfig.IsoY;
+                float localX = x - hazard.X;
+                float localY = (y - hazard.Y) * SimConfig.IsoY;
+                BlockerAxis(in hazard, out float axisX, out float axisY);
+
+                // Closest point on the segment [-axis, +axis], parameter clamped to +-1.
+                float axisLengthSq = axisX * axisX + axisY * axisY;
+                float t = axisLengthSq > 0f
+                    ? (localX * axisX + localY * axisY) / axisLengthSq
+                    : 0f;
+                if (t > 1f) t = 1f;
+                else if (t < -1f) t = -1f;
+                float nearX = t * axisX;
+                float nearY = t * axisY;
+
+                float deltaX = localX - nearX;
+                float deltaY = localY - nearY;
                 float distance = Hypot(deltaX, deltaY);
                 if (distance >= target)
                 {
@@ -4231,14 +4370,202 @@ namespace CinderCourt.Sim
                 if (distance <= MoveEpsilon)
                 {
                     // Dead centre has no normal: eject along +x deterministically.
-                    x = hazard.X + target;
-                    y = hazard.Y;
+                    x = hazard.X + nearX + target;
+                    y = hazard.Y + nearY / SimConfig.IsoY;
                     continue;
                 }
 
-                x = hazard.X + deltaX / distance * target;
-                y = hazard.Y + deltaY / distance * target / SimConfig.IsoY;
+                x = hazard.X + nearX + deltaX / distance * target;
+                y = hazard.Y + (nearY + deltaY / distance * target) / SimConfig.IsoY;
             }
+        }
+
+        /// <summary>
+        /// A blocker's segment half-vector in ISO space. Circles report (0, 0), which is
+        /// what collapses every capsule expression onto the frozen circle arithmetic.
+        /// </summary>
+        private static void BlockerAxis(in HazardConfig hazard, out float axisX, out float axisY)
+        {
+            if (hazard.Kind == HazardKind.StoneWall)
+            {
+                axisX = hazard.HalfW;
+                axisY = hazard.HalfH * SimConfig.IsoY;
+                return;
+            }
+            axisX = 0f;
+            axisY = 0f;
+        }
+
+        /// <summary>Wraps an angle into (-pi, pi].</summary>
+        private static float WrapAngle(float angle)
+        {
+            const float TwoPi = MathF.PI * 2f;
+            while (angle > MathF.PI) angle -= TwoPi;
+            while (angle <= -MathF.PI) angle += TwoPi;
+            return angle;
+        }
+
+        /// <summary>
+        /// AMENDMENT #17 §4.3 — enemy tangent steering. An enemy whose straight line to
+        /// its goal is intercepted by a blocker aims at the edge of that blocker's
+        /// angular silhouette instead of walking into it. Without this the pack piles up
+        /// on the lane spines: <see cref="ApplyBlockers"/> pushes them out every tick but
+        /// nothing ever points them somewhere the push does not undo.
+        ///
+        /// The cone is the UNION of the two end caps' tangent pairs, which is why one
+        /// formula covers both shapes: a circle's caps coincide, so the union degenerates
+        /// to the classic tangent pair, while a wall's caps are its two ends and the
+        /// enemy aims past whichever end is the shorter detour.
+        ///
+        /// Deterministic throughout — no RNG, no ordering by anything but the frozen
+        /// hazard-array index, and the only tie-break (a goal bearing exactly on the
+        /// cone's axis) resolves toward +x, the same convention
+        /// <see cref="ApplyBlockers"/> uses for a dead-centre ejection.
+        ///
+        /// STATELESS ON PURPOSE — decided fresh every tick, no committed side.
+        /// That looks like an oscillation bug waiting to happen (near the cone's axis
+        /// the two edges are almost equidistant, so the preferred one can flip), and
+        /// hysteresis was tried twice to fix it. Both attempts made it WORSE. Stall rate
+        /// summed over the three stages that have blockers, 90 s each:
+        ///
+        ///     no steering ............ 15.45%   (9.16 / 3.27 / 3.02)
+        ///     stateless steering ...... 5.73%   (0.00 / 2.44 / 3.29)   &lt;- shipped
+        ///     + committed side ....... 22.88%   (11.42 / 9.01 / 2.45)
+        ///     + side keyed to blocker  24.02%   (11.42 / 9.04 / 3.56)
+        ///
+        /// The oscillation hypothesis was simply wrong. Committing a side does not stop
+        /// a flip, it locks an enemy into circling the FAR way around and pressing into
+        /// the surface for as long as the blocker stays nearest — which is the very
+        /// stall this routine exists to remove. Re-deciding every tick is what lets an
+        /// enemy abandon a bad side the instant a better one appears.
+        ///
+        /// LIMIT, by design: this is local. It cannot escape a concave pocket, so the
+        /// layout carries that invariant instead. The probe enforces it as a DETOUR
+        /// ratio (walkable distance / straight-line distance ≤ 2.5), not as the
+        /// enclosure angle design/dungeon-interior-spec.md §3.6 originally specified —
+        /// enclosure angle turned out to measure contact with any convex obstacle
+        /// rather than entrapment.
+        /// </summary>
+        private void SteerAroundBlockers(
+            float fromX,
+            float fromY,
+            float goalX,
+            float goalY,
+            float actorRadius,
+            ref float moveX,
+            ref float moveY)
+        {
+            float goalDeltaX = goalX - fromX;
+            float goalDeltaY = (goalY - fromY) * SimConfig.IsoY;
+            float goalDistance = Hypot(goalDeltaX, goalDeltaY);
+            if (goalDistance <= MoveEpsilon)
+            {
+                return;
+            }
+
+            float desired = MathF.Atan2(goalDeltaY, goalDeltaX);
+            float nearestGap = float.MaxValue;
+            float coneLow = 0f;
+            float coneHigh = 0f;
+            bool blocked = false;
+
+            for (int index = 0; index < _hazards.Length; index += 1)
+            {
+                HazardConfig hazard = _hazards[index];
+                if (hazard.Kind != HazardKind.ObsidianPillar
+                    && hazard.Kind != HazardKind.StoneWall)
+                {
+                    continue;
+                }
+
+                float clearance =
+                    hazard.Radius + actorRadius + CampaignSpec.SteerClearanceBias;
+                float centreX = hazard.X - fromX;
+                float centreY = (hazard.Y - fromY) * SimConfig.IsoY;
+                BlockerAxis(in hazard, out float axisX, out float axisY);
+
+                float capAX = centreX + axisX;
+                float capAY = centreY + axisY;
+                float capBX = centreX - axisX;
+                float capBY = centreY - axisY;
+                float capADistance = Hypot(capAX, capAY);
+                float capBDistance = Hypot(capBX, capBY);
+
+                // Already inside the clearance: ApplyBlockers owns that frame. Steering
+                // on top of it would fight the push-out instead of following it out.
+                if (capADistance <= clearance || capBDistance <= clearance)
+                {
+                    continue;
+                }
+
+                // Cheap reject before any trig: a blocker whose near surface is further
+                // than the goal cannot be between us and it. Typically leaves 0-2
+                // survivors out of the whole table.
+                float gap = MathF.Min(capADistance, capBDistance) - clearance;
+                if (gap >= goalDistance)
+                {
+                    continue;
+                }
+
+                float bearingA = MathF.Atan2(capAY, capAX);
+                float bearingB = MathF.Atan2(capBY, capBX);
+                float halfA = MathF.Asin(clearance / capADistance);
+                float halfB = MathF.Asin(clearance / capBDistance);
+
+                // Union taken in bearingA's frame so wraparound cannot bite: a capsule
+                // viewed from outside its own clearance subtends less than 180 degrees,
+                // so bearingB is always within +-pi of bearingA.
+                float relativeB = WrapAngle(bearingB - bearingA);
+                float low = MathF.Min(-halfA, relativeB - halfB);
+                float high = MathF.Max(halfA, relativeB + halfB);
+                float relativeDesired = WrapAngle(desired - bearingA);
+                if (relativeDesired <= low || relativeDesired >= high)
+                {
+                    continue;
+                }
+
+                if (gap < nearestGap)
+                {
+                    nearestGap = gap;
+                    coneLow = bearingA + low;
+                    coneHigh = bearingA + high;
+                    blocked = true;
+                }
+            }
+
+            if (!blocked)
+            {
+                return;
+            }
+
+            float toLow = MathF.Abs(WrapAngle(coneLow - desired));
+            float toHigh = MathF.Abs(WrapAngle(coneHigh - desired));
+            float chosen;
+            if (toLow < toHigh)
+            {
+                chosen = coneLow;
+            }
+            else if (toHigh < toLow)
+            {
+                chosen = coneHigh;
+            }
+            else
+            {
+                // Exact tie: take the edge pointing further along +x.
+                chosen = MathF.Cos(coneHigh) >= MathF.Cos(coneLow) ? coneHigh : coneLow;
+            }
+
+            // Back to SIM space: the caller's contract is a unit vector there, not in the
+            // iso frame this routine reasons in.
+            float steeredX = MathF.Cos(chosen);
+            float steeredY = MathF.Sin(chosen) / SimConfig.IsoY;
+            float length = Hypot(steeredX, steeredY);
+            if (length <= MoveEpsilon)
+            {
+                return;
+            }
+            moveX = steeredX / length;
+            moveY = steeredY / length;
         }
 
         // --- Amendment #5 helpers (docs/SIM_SPEC_DUNGEONS.md) ------------------
@@ -4471,6 +4798,13 @@ namespace CinderCourt.Sim
                 state.X = hazard.X;
                 state.Y = hazard.Y;
                 state.Radius = hazard.Radius;
+                if (hazard.Kind == HazardKind.StoneWall)
+                {
+                    // #17: the segment half-vector, so the View draws the capsule the
+                    // sim actually collides against rather than a post at its centre.
+                    state.HalfW = hazard.HalfW;
+                    state.HalfH = hazard.HalfH;
+                }
                 if (hazard.Kind == HazardKind.EmberVent)
                 {
                     float cycleT = (_stageTime + hazard.Phase) % CampaignSpec.VentPeriod;

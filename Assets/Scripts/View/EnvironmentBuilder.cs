@@ -633,6 +633,19 @@ namespace CinderCourt.View
 
         // §E3 heights (contract): gallery +0.8, bridge +1.1, channel -0.5.
         const float GalleryH = 0.8f;
+
+        /// <summary>
+        /// AMENDMENT #17 stone-wall body height, world units. ONE constant read by both
+        /// renderers of this blocker — EnvironmentBuilder's static module and
+        /// VfxDirector's per-hazard primitive. Two literals would drift, and the
+        /// symptom would be a wall that changes height depending on which path drew it.
+        ///
+        /// Equal to <see cref="GalleryH"/> rather than taller: at the 55 degree dungeon
+        /// pitch a wall hides 0.70x its own height of ground behind it, and the lanes
+        /// have vents in them whose telegraphs must stay readable (§E0.5). Waist height
+        /// still reads solid from this angle because the top face is visible.
+        /// </summary>
+        internal const float StoneWallHeightWorld = GalleryH;
         const float BridgeH = 1.1f;
         const float ChannelH = -0.5f;
 
@@ -993,8 +1006,29 @@ namespace CinderCourt.View
             // read as answers to the sim's own hazards, not as scatter.
             AddGimmickTerrain(modules, stageSeed, hazards);
             var gateInfo = AddRingAndGates(modules, stageSeed, hazards, palette);
+            // The sim's hard blockers are NOT drawn here. VfxDirector owns per-hazard
+            // geometry and already builds the StoneWall capsule; emitting a module too
+            // drew every wall twice, and the duplicate tripped three audits that walk
+            // env-* modules — the boundary-ring sync test read a blocker at e 0.58 as
+            // "the ring never moved", the stop-line test read it as scenery standing on
+            // the combat floor, and the hazard-clearance test measured the module
+            // against the very hazard it was drawing. A blocker is a hazard, so it
+            // belongs on the hazard path.
+            // Zone C STAYS. #17 briefly removed it alongside the silhouettes, on the
+            // reading that both dressed an annulus the widened playfield had eaten.
+            // That was a misread of what this pass is: the silhouette ring is
+            // decoration at e 1.35/1.50, but Zone C's terraces are the VOID-FLOOR
+            // COVERAGE system — they tile out to the frustum (sim x -1650..3200), not
+            // to a ring radius. Removing them exposed bare floor across 27.15% of the
+            // frame against a pinned gate of 2%.
             AddZoneC(modules, stageId, stageSeed, palette);
-            AddOuterSilhouettes(modules, stageSeed, palette);
+            //
+            // AddOuterSilhouettes is gone, and only that. It stands at e 1.35/1.50,
+            // which at half 735 is sim x -224..1760 — past the painted plate's
+            // -82..1618 and far past the camera frame's e 1.097. It would hang over
+            // void to decorate something nobody can see. The boundary read it used to
+            // provide now comes from the ring in AddRingAndGates, which tracks the
+            // active half-axes (#15) and stands where the player actually stops.
             AddTorchesAndLights(modules, stageSeed, hazards, gateInfo);
             return modules;
         }
