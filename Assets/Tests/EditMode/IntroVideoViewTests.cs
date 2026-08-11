@@ -8,6 +8,7 @@ using System;
 using CinderCourt.View;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Video;
 
 namespace CinderCourt.Tests
 {
@@ -351,6 +352,94 @@ namespace CinderCourt.Tests
                 "reading input must go through the Input System package");
             Assert.That(_intro.Active, Is.True,
                 "a single Update must not tear the intro down on its own");
+        }
+
+        /// <summary>A background WebGL tab can resume with a multi-second
+        /// unscaled delta. One throttled frame must not consume the whole
+        /// watchdog and silently skip a healthy reel.</summary>
+        [Test]
+        public void BackgroundResumeDeltaCannotConsumeThePrepareWatchdog()
+        {
+            _intro.Play();
+
+            _intro.Step(IntroVideoView.PrepareTimeout * 4f);
+
+            Assert.That(_intro.Active, Is.True,
+                "one post-throttle frame must count as a bounded foreground step");
+        }
+
+        [Test]
+        public void MediaTimeFallbackOnlyClassifiesTheActualTailAsEnded()
+        {
+            Assert.That(IntroVideoView.IsAtMediaEnd(4.96d, 5d), Is.True);
+            Assert.That(IntroVideoView.IsAtMediaEnd(4.9d, 5d), Is.False,
+                "the fallback must not trim the final quarter-second of a reel");
+            Assert.That(IntroVideoView.IsAtMediaEnd(2.5d, 5d), Is.False,
+                "a mid-stream rebuffer is not an end-of-media signal");
+            Assert.That(IntroVideoView.IsAtMediaEnd(double.NaN, 5d), Is.False);
+            Assert.That(IntroVideoView.IsAtMediaEnd(0d, 0d), Is.False,
+                "WebGL reports unknown duration as zero while a stream initializes");
+        }
+
+        /// <summary>Stop/Hide can race an already queued platform error. The
+        /// late callback belongs to the cancelled URL and must neither report
+        /// completion nor resurrect the next beat of its old sequence.</summary>
+        [Test]
+        public void HideCancelsQueuedClipsAndIgnoresLateErrors()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+            _intro.PlaySequence(
+                new IntroVideoView.Beat(IntroVideoView.Act1ClipRelativePath),
+                new IntroVideoView.Beat(IntroVideoView.Act2ClipRelativePath));
+            var player = _intro.GetComponentInChildren<VideoPlayer>(true);
+            Assert.That(player, Is.Not.Null);
+
+            _intro.Hide();
+            InvokeVideoError(player, "cancelled request completed late");
+            Drive(SettleSeconds * 3f);
+
+            Assert.That(_intro.Active, Is.False,
+                "a cancelled sequence must never restart from a late callback");
+            Assert.That(finished, Is.Zero,
+                "Hide is a silent cancellation even when the platform reports late");
+        }
+
+        [Test]
+        public void PlainPlayReplacesRatherThanInheritsAnEarlierSequence()
+        {
+            var finished = 0;
+            _intro.OnFinished = () => finished++;
+            _intro.PlaySequence(
+                new IntroVideoView.Beat(IntroVideoView.Act1ClipRelativePath),
+                new IntroVideoView.Beat(IntroVideoView.Act2ClipRelativePath));
+
+            _intro.Play(IntroVideoView.Act3ClipRelativePath);
+            Drive(SettleSeconds * 1.5f);
+
+            Assert.That(_intro.Active, Is.False,
+                "the replacement is one clip, not the head of the cancelled queue");
+            Assert.That(finished, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MessageBridgeEntryPointSelectsTheRequestedClip()
+        {
+            _intro.PlayClip(IntroVideoView.Act2ClipRelativePath);
+            var player = _intro.GetComponentInChildren<VideoPlayer>(true);
+
+            Assert.That(player, Is.Not.Null);
+            Assert.That(player.url.Replace('\\', '/'),
+                Does.EndWith(IntroVideoView.Act2ClipRelativePath));
+        }
+
+        void InvokeVideoError(VideoPlayer player, string message)
+        {
+            var callback = typeof(IntroVideoView).GetMethod("OnVideoError",
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic);
+            Assert.That(callback, Is.Not.Null);
+            callback.Invoke(_intro, new object[] { player, message });
         }
 
     }

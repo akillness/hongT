@@ -97,7 +97,19 @@ namespace CinderCourt.View
         /// How long playback must stay stopped before the polled path calls it an
         /// ending. Covers a rebuffer without letting a real end linger.
         /// </summary>
-        internal const float StallGraceSeconds = 1.5f;
+        internal const float StallGraceSeconds = 4f;
+
+        /// <summary>
+        /// Web browsers throttle or suspend background tabs. The first frame
+        /// after focus returns can therefore carry a very large unscaled delta;
+        /// counting that one frame verbatim would consume the prepare/play
+        /// watchdog and skip a healthy clip before the browser can resume it.
+        /// Watchdogs advance in bounded foreground-sized steps instead.
+        /// </summary>
+        internal const float MaxWatchdogStep = 0.25f;
+
+        /// <summary>Time tolerance for the polled end-of-media fallback.</summary>
+        internal const double MediaEndTolerance = 0.05d;
 
         /// <summary>Fade duration, published so tests can derive their own budgets.</summary>
         internal const float FadeOutSecondsForTest = FadeOutSeconds;
@@ -162,6 +174,14 @@ namespace CinderCourt.View
         public void Play(string clipRelativePath) => Play(clipRelativePath, null);
 
         /// <summary>
+        /// Unambiguous one-argument entry point for engine message bridges.
+        /// Unity SendMessage cannot reliably choose between Play() and
+        /// Play(string), so browser automation and other string-only bridges
+        /// use this name while ordinary C# callers keep the overloads above.
+        /// </summary>
+        public void PlayClip(string clipRelativePath) => Play(clipRelativePath, null);
+
+        /// <summary>
         /// Plays a clip with an optional narration caption beneath it.
         ///
         /// The caption is what makes a generated reel a SCENE rather than
@@ -176,7 +196,21 @@ namespace CinderCourt.View
         /// </summary>
         public void Play(string clipRelativePath, string narration)
         {
+            CancelPlayback();
+            StartClip(clipRelativePath, narration);
+        }
+
+        /// <summary>Starts one clip without discarding the sequence that owns it.</summary>
+        void StartClip(string clipRelativePath, string narration)
+        {
             EnsureBuilt();
+
+            // A single VideoPlayer is intentionally reused, but its previous
+            // URL decoder is not. Stop also cancels an outstanding Prepare;
+            // without it, a late error from the old request can arrive while
+            // the next clip is already preparing and advance the new queue.
+            _phase = Phase.Idle;
+            if (_player != null) _player.Stop();
 
             _finishedFired = false;
             _playbackObserved = false;
@@ -244,10 +278,11 @@ namespace CinderCourt.View
                 Play();
                 return;
             }
+            CancelPlayback();
             _queue = beats;
             _queueIndex = 0;
             _skipRequested = false;
-            Play(_queue[0].Clip, _queue[0].Narration);
+            StartClip(_queue[0].Clip, _queue[0].Narration);
         }
 
         /// <summary>Player-driven skip (any key / tap) — fades out from wherever we are.</summary>
@@ -263,9 +298,24 @@ namespace CinderCourt.View
         /// <summary>Tears the intro down instantly (mode switches, resets).</summary>
         public void Hide()
         {
+            CancelPlayback();
+        }
+
+        /// <summary>
+        /// Silently cancels both the decoder and its logical queue. Phase is
+        /// cleared before Stop so any platform callback already queued for the
+        /// old URL is ignored by the phase guards below.
+        /// </summary>
+        void CancelPlayback()
+        {
             _phase = Phase.Idle;
             _phaseElapsed = 0f;
-            if (_player != null && _player.isPlaying) _player.Stop();
+            _playbackObserved = false;
+            _notPlayingFor = 0f;
+            _queue = null;
+            _queueIndex = 0;
+            _skipRequested = false;
+            if (_player != null) _player.Stop();
             if (_canvas != null)
             {
                 _group.alpha = 0f;
@@ -304,6 +354,8 @@ namespace CinderCourt.View
         internal void Step(float dt)
         {
             if (_phase == Phase.Idle) return;
+            if (float.IsNaN(dt) || float.IsInfinity(dt) || dt <= 0f) dt = 0f;
+            else if (dt > MaxWatchdogStep) dt = MaxWatchdogStep;
             _phaseElapsed += dt;
 
             switch (_phase)
@@ -355,7 +407,8 @@ namespace CinderCourt.View
                     if (_playbackObserved && !_player.isPlaying) _notPlayingFor += dt;
                     else _notPlayingFor = 0f;
 
-                    var ended = lastFrame
+                    var mediaEnded = IsAtMediaEnd(_player.time, _player.length);
+                    var ended = lastFrame || mediaEnded
                         || (_playbackObserved
                             ? _notPlayingFor >= StallGraceSeconds
                             : _phaseElapsed >= PlayStartTimeout);
@@ -387,7 +440,7 @@ namespace CinderCourt.View
             // between two clips of one sequence would blink the surface off
             // and straight back on. Play() re-arms the per-clip state itself.
             if (AdvanceQueue()) return;
-            Hide();
+            CancelPlayback();
             if (_finishedFired) return;
             _finishedFired = true;
             OnFinished?.Invoke();
@@ -404,8 +457,16 @@ namespace CinderCourt.View
                 _queue = null;
                 return false;
             }
-            Play(_queue[_queueIndex].Clip, _queue[_queueIndex].Narration);
+            StartClip(_queue[_queueIndex].Clip, _queue[_queueIndex].Narration);
             return true;
+        }
+
+        internal static bool IsAtMediaEnd(double time, double length)
+        {
+            if (double.IsNaN(time) || double.IsInfinity(time) ||
+                double.IsNaN(length) || double.IsInfinity(length) || length <= 0d)
+                return false;
+            return time >= System.Math.Max(0d, length - MediaEndTolerance);
         }
 
         // ------------------------------------------------------------- build --
@@ -468,6 +529,8 @@ namespace CinderCourt.View
 
         void OnVideoError(VideoPlayer source, string message)
         {
+            if (source != _player || (_phase != Phase.Preparing && _phase != Phase.Playing))
+                return;
             Debug.LogWarning($"[IntroVideo] playback failed, skipping: {message}");
             Finish();
         }
@@ -476,7 +539,8 @@ namespace CinderCourt.View
         /// instead of waiting for the polled end conditions in Step.</summary>
         void OnClipEnded(VideoPlayer source)
         {
-            if (_phase == Phase.Preparing || _phase == Phase.Playing) BeginFadeOut();
+            if (source == _player && _phase == Phase.Playing)
+                BeginFadeOut();
         }
 
         void OnDestroy()

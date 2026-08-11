@@ -161,10 +161,14 @@ namespace CinderCourt.View
         }
 
         // ------------------------------------------------------------- lobby --
-        // Act cinematic latched by a clear, played by EnterLobby. Null when the
-        // cleared stage did not end an act.
+        // Act cinematic latched by a clear. It is played either in EnterLobby
+        // or between Ember Rest and its direct successor; null means no beat is
+        // waiting to be delivered.
         string _pendingActReel;
         string _pendingActNarration;
+        string _actContinuationStageId = "";
+        PreparationOffer _actContinuationPreparation;
+        bool _actContinuationPending;
 
         /// <summary>Reel + watcher line for a stage that ENDS an act, null
         /// otherwise.
@@ -196,8 +200,62 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Consumes the latched act beat and optionally delays a direct
+        /// successor until the reel has completed, failed, timed out, or been
+        /// skipped. All four outcomes share IntroVideoView's exactly-once
+        /// completion path, so an unavailable video can never strand campaign
+        /// progression.
+        /// </summary>
+        bool TryPlayPendingActCinematic(string continuationStageId = "",
+                                        PreparationOffer continuationPreparation = default)
+        {
+            if (string.IsNullOrEmpty(_pendingActReel)) return false;
+
+            var reel = _pendingActReel;
+            var line = _pendingActNarration;
+            _pendingActReel = null;
+            _pendingActNarration = null;
+
+            if (_intro == null) return false;
+
+            if (!string.IsNullOrEmpty(continuationStageId))
+            {
+                CancelActContinuation();
+                _actContinuationStageId = continuationStageId;
+                _actContinuationPreparation = continuationPreparation;
+                _actContinuationPending = true;
+                _intro.OnFinished += ContinueAfterActCinematic;
+            }
+
+            _intro.PlaySequence(new IntroVideoView.Beat(reel, line));
+            return true;
+        }
+
+        void ContinueAfterActCinematic()
+        {
+            if (_intro != null) _intro.OnFinished -= ContinueAfterActCinematic;
+            if (!_actContinuationPending) return;
+
+            var stageId = _actContinuationStageId;
+            var preparation = _actContinuationPreparation;
+            _actContinuationStageId = "";
+            _actContinuationPreparation = default;
+            _actContinuationPending = false;
+            StartDungeon(stageId, preparation);
+        }
+
+        void CancelActContinuation()
+        {
+            if (_intro != null) _intro.OnFinished -= ContinueAfterActCinematic;
+            _actContinuationStageId = "";
+            _actContinuationPreparation = default;
+            _actContinuationPending = false;
+        }
+
         void EnterLobby()
         {
+            CancelActContinuation();
             _state = State.Lobby;
             ClearEmberRestRoute();
             if (_audio != null)
@@ -227,14 +285,7 @@ namespace CinderCourt.View
             // that has already settled, so a failed or missing clip costs the
             // beat and nothing else — IntroVideoView finishes immediately and
             // the player is already where they were going.
-            if (_pendingActReel != null && _intro != null)
-            {
-                var reel = _pendingActReel;
-                var line = _pendingActNarration;
-                _pendingActReel = null;
-                _pendingActNarration = null;
-                _intro.PlaySequence(new IntroVideoView.Beat(reel, line));
-            }
+            TryPlayPendingActCinematic();
         }
 
         /// <summary>
@@ -744,6 +795,7 @@ namespace CinderCourt.View
             _emberRestPreparation = default;
             _emberRestDecisionMade = false;
             _hud.HideEmberRest();
+            if (TryPlayPendingActCinematic(nextStageId, preparation)) return;
             StartDungeon(nextStageId, preparation);
         }
 
@@ -982,15 +1034,18 @@ namespace CinderCourt.View
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
                     // An act ends every third stage. Latch it here — where the
-                    // clear is known — and PLAY it in EnterLobby, which is
-                    // after _game.EndRun() and the one moment on this route
-                    // with no sim running underneath. Playing it now would put
-                    // a five-second overlay over the victory card and a live
+                    // clear is known — and play it at the next safe transition:
+                    // EnterLobby, or after Ember Rest closes but before its
+                    // direct successor starts. Playing it now would put a
+                    // five-second overlay over the victory card and a live
                     // scene, the same reason the boot reels are on the boot
                     // route and not on a stage entry.
                     var actBeat = ActBeatFor(_runStageId);
-                    _pendingActReel = actBeat?.reel;
-                    _pendingActNarration = actBeat?.narration;
+                    if (actBeat != null)
+                    {
+                        _pendingActReel = actBeat.Value.reel;
+                        _pendingActNarration = actBeat.Value.narration;
+                    }
                 }
                 else if (_state == State.Training)
                 {

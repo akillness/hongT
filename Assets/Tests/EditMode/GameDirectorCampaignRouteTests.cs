@@ -68,6 +68,54 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
+        /// Act I/II have direct successors, so their normal route is Ember Rest
+        /// "continue" rather than the lobby. The act reel must hold that handoff
+        /// and release it exactly once on the shared completed/skipped/failed
+        /// callback; otherwise the next ordinary clear overwrites the pending
+        /// beat and the player never sees it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EmberRestDirectSuccessor_WaitsForPendingActCinematic()
+        {
+            var route = new CampaignRoute(withIntro: true);
+            try
+            {
+                yield return null;
+                route.StartCinderSpanThroughLobbyCallback();
+                var completed = route.Game.Sim as CinderSim;
+                Assert.That(completed, Is.Not.Null);
+                ClearCinderSpan(completed);
+                route.Game.OnRunEvents.Invoke(completed.Events, completed);
+                Assert.That(route.Hud.OnEmberRestDeferred.Invoke(), Is.True);
+
+                route.PrimeActCinematic(
+                    IntroVideoView.Act1ClipRelativePath,
+                    "첫 세 재판이 끝났습니다.");
+                route.Hud.OnEmberRestContinue.Invoke();
+
+                Assert.That(route.Intro.Active, Is.True,
+                    "the act reel must start before the direct successor");
+                Assert.That(route.Game.Sim, Is.SameAs(completed),
+                    "StartDungeon must wait for the cinematic completion callback");
+
+                route.Intro.Skip();
+                for (var i = 0; i < 8; i++) route.Intro.Step(0.25f);
+
+                Assert.That(route.Intro.Active, Is.False);
+                Assert.That(route.Game.Sim, Is.Not.SameAs(completed),
+                    "skip is one of the safe completion paths and must release progression");
+                Assert.That(((ICampaignSnapshot)route.Game.Sim).StageId,
+                    Is.EqualTo(StageCatalog.Entries[1].SimAnchorId));
+                Assert.That(route.Intro.OnFinished, Is.Null,
+                    "the continuation callback is one-shot and must not leak into a later reel");
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
+        /// <summary>
         /// Verdict Pact payout contract (meta-fun-pass-spec M3 · negotiation
         /// entry 5, signed designer+pm): an armed pact pays the in-run relic
         /// haul TIMES <see cref="GameDirector.PactRelicMultiplier"/> and
@@ -603,8 +651,9 @@ namespace CinderCourt.Tests
             public readonly LobbyView Lobby;
             public readonly HudView Hud;
             public readonly GameView Game;
+            public readonly IntroVideoView Intro;
 
-            public CampaignRoute()
+            public CampaignRoute(bool withIntro = false)
             {
                 foreach (var gameObject in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include,
                              FindObjectsSortMode.None))
@@ -643,13 +692,32 @@ namespace CinderCourt.Tests
                 Game = AddChild<GameView>("Game");
                 var speech = AddChild<SpeechBubbleView>("Speech");
                 var cutscene = AddChild<CutsceneView>("Cutscene");
+                Intro = withIntro ? AddChild<IntroVideoView>("IntroVideo") : null;
                 Hud.Build();
                 Game.Input = input;
                 Game.Hud = Hud;
                 Game.Audio = audio;
                 Game.Vfx = vfx;
                 Game.Rig = rig;
-                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx, Game, speech, cutscene);
+                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx,
+                    Game, speech, cutscene, Intro);
+                // Attach may start the ordinary boot reel. This harness is
+                // testing an act transition and primes that beat explicitly.
+                if (Intro != null) Intro.Hide();
+            }
+
+            public void PrimeActCinematic(string reel, string narration)
+            {
+                SetDirectorField("_pendingActReel", reel);
+                SetDirectorField("_pendingActNarration", narration);
+            }
+
+            private void SetDirectorField(string name, object value)
+            {
+                var field = typeof(GameDirector).GetField(name,
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"GameDirector must retain {name}");
+                field.SetValue(Director, value);
             }
 
             /// <summary>

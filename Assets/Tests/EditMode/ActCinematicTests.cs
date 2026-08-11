@@ -1,11 +1,12 @@
 // Act-boundary cinematics: the catalog is nine stages in three acts, and the
 // player is promised a beat when an act closes.
 //
-// What can go wrong here is silent in every direction. The reel plays from
-// EnterLobby, which is also where death and abandon land, so a mis-latched
-// beat plays over a defeat. The mapping is derived from CatalogIndex, so a
-// tenth stage appended to the catalog moves every boundary. And a missing clip
-// finishes immediately by design, so nothing at runtime reports it.
+// What can go wrong here is silent in every direction. The reel plays at a
+// safe transition (EnterLobby or the Ember Rest direct-successor gate), so a
+// mis-latched beat can play over a defeat or disappear before the next act.
+// The mapping is derived from CatalogIndex, so a tenth stage appended to the
+// catalog moves every boundary. And a missing clip finishes immediately by
+// design, so nothing at runtime reports it.
 //
 // This file asks the three questions a player would notice:
 //   * does an act END on the stage the fiction says it does,
