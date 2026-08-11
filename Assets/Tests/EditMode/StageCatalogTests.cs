@@ -341,14 +341,37 @@ namespace CinderCourt.Tests
         {
             Assert.That(StageCatalog.TryGet(id, out var entry), Is.True);
             Assert.That(entry.HazardOverride, Is.Not.Null);
-            Assert.That(entry.HazardOverride.Length, Is.EqualTo(expected.Length));
+
+            // AMENDMENT #17b: an override table is now GIMMICKS ++ GENERATED INTERIOR,
+            // because these four stages were composed through DungeonLayoutSpec like the
+            // six sim anchors already were. Before that they were the only stages with no
+            // interior at all, which is the defect this shape change fixes.
+            //
+            // The authored placements are still pinned EXACTLY, and as a prefix — that is
+            // the part a human wrote and the part a spec signs. The tail is asserted to be
+            // generated (StoneWall) rather than enumerated: pinning generated geometry
+            // here would restate the generator's output in a second place, so a rule
+            // change would have to be typed twice and could be typed differently (§4i).
+            Assert.That(entry.HazardOverride.Length, Is.GreaterThanOrEqualTo(expected.Length),
+                id + " must still carry every authored placement");
 
             // v1.2: bands and pylons carry live fields beyond kind/x/y/phase —
             // pin them ALL (the throne current's push IS the stage identity).
             for (var index = 0; index < expected.Length; index += 1)
                 AssertHazardFieldsEqual(id, index, expected[index], entry.HazardOverride[index]);
 
-            AssertRadialClearance(id, entry.HazardOverride);
+            for (var index = expected.Length; index < entry.HazardOverride.Length; index += 1)
+                Assert.That(entry.HazardOverride[index].Kind, Is.EqualTo(HazardKind.StoneWall),
+                    id + " tail entry " + index + " must be generated interior");
+
+            // Radial clearance is asserted on the AUTHORED table only. The generated
+            // pieces have their own placement rules (sanctum hole, ring standoff,
+            // kind-aware gimmick clearance, pinch rejection) enforced inside the
+            // generator; re-judging them by the hand-placement contract would be a
+            // second, weaker copy of those rules.
+            var authored = new HazardConfig[expected.Length];
+            System.Array.Copy(entry.HazardOverride, authored, expected.Length);
+            AssertRadialClearance(id, authored);
         }
 
         /// <summary>

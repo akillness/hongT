@@ -110,53 +110,17 @@ namespace CinderCourt.View
     public static class StageCatalog
     {
         // ------------------------------------------------ fun-pass v1.2 tables --
-        // campaign-fun-pass-spec.md: every stage = one dominant gimmick, ramped
-        // preview→mastery. Placements are the spec's verbatim sim coordinates;
-        // simultaneous-telegraph budget (≤3 total, ≤2 same-kind) pre-computed in
-        // the spec and frozen by the TestLane LCM census.
-
-        // Stage 1 "불씨 윤무" — vent mastery: clockwise phase ring (0/0.6/1.2/1.8 s
-        // on the 2.4 s vent period) around a central pillar.
-        static readonly HazardConfig[] EmberGalleryHazards =
-        {
-            HazardConfig.Vent(560f, 480f, 0f),
-            HazardConfig.Vent(980f, 480f, 0.6f),
-            HazardConfig.Vent(980f, 720f, 1.2f),
-            HazardConfig.Vent(560f, 720f, 1.8f),
-            HazardConfig.Pillar(768f, 604f),
-        };
-
-        // Stage 3 "쌍 제단" — altar introduction with risk: diagonal altar pair,
-        // each guarded by an offset-phase vent (channel while dodging the rhythm).
-        static readonly HazardConfig[] WitnessWellHazards =
-        {
-            HazardConfig.Altar(560f, 500f),
-            HazardConfig.Altar(980f, 700f),
-            HazardConfig.Pillar(768f, 604f),
-            HazardConfig.Vent(560f, 700f, 0.3f),
-            HazardConfig.Vent(980f, 500f, 1.5f),
-        };
-
-        // Stage 4 "왕좌의 조류" — current preview: one weak band (+120 push) over
-        // the central altar; the 1.2 s hold must ride the 2.8 s current rest window.
-        static readonly HazardConfig[] EchoThroneHazards =
-        {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Vent(500f, 700f, 0f),
-            HazardConfig.Vent(1030f, 480f, 1.2f),
-            HazardConfig.Current(768f, 604f, 120f, 0.3f),
-        };
-
-        // Stage 5 "판결의 방벽" — pylon preview: one pylon guarding the altar
-        // approach (aura 280 covers the centre — kill it first or channel shielded
-        // enemies).
-        static readonly HazardConfig[] AshVerdictHazards =
-        {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Pylon(960f, 540f),
-            HazardConfig.Vent(560f, 480f, 0f),
-            HazardConfig.Vent(980f, 720f, 1.2f),
-        };
+        // The four override tables MOVED TO THE SIM (Sim/StageOverrideHazards.cs).
+        // They are hazard geometry, not presentation, and keeping them here cost two
+        // real defects: AMENDMENT #17's interior composed onto the six sim anchors and
+        // reached none of these four (4 of 9 stages shipped with no interior), and the
+        // standalone sim harness could not measure them because this file references
+        // UnityEngine. The View keeps what is genuinely its own — which stage uses
+        // which table.
+        static readonly HazardConfig[] EmberGalleryHazards = StageOverrideHazards.EmberGallery;
+        static readonly HazardConfig[] WitnessWellHazards = StageOverrideHazards.WitnessWell;
+        static readonly HazardConfig[] EchoThroneHazards = StageOverrideHazards.EchoThrone;
+        static readonly HazardConfig[] AshVerdictHazards = StageOverrideHazards.AshVerdict;
 
         static readonly StageEntry[] AllEntries =
         {

@@ -124,10 +124,36 @@ namespace CinderCourt.Sim
             && kind != HazardKind.TideCurrent
             && kind != HazardKind.StoneWall;
 
+        /// <summary>
+        /// The keep-out a gimmick demands from a blocker, which depends on whether the
+        /// gimmick is itself SOLID.
+        ///
+        /// AMENDMENT #17b. <see cref="GimmickClearance"/> is a full corridor, and a
+        /// corridor is what two SOLIDS need between them — the pinch rule exists because
+        /// an actor that fits through neither gap gets caught in the middle. A vent is
+        /// not solid: the sim lets anyone walk straight over it, so a cover piece beside
+        /// one cannot form a pinch, because there is no second wall. Charging a passable
+        /// hazard the price of a wall was measured, not theorised: with four vents on the
+        /// board it sterilised the ENTIRE cover lattice, and ember-gallery, witness-well
+        /// and cinder-sluice each ended with zero interior pieces — three of nine stages
+        /// with no layout, produced by a rule that was protecting a corridor that could
+        /// not exist.
+        ///
+        /// What a passable hazard does need is an ESCAPE gap: the vent erupts on a
+        /// period, and a player standing in it must be able to leave. Two push radii is
+        /// exactly the width of the walking actor, so the annulus outside the vent stays
+        /// traversable at every bearing. That is a physical requirement with a derivation,
+        /// where 150 was a borrowed constant.
+        /// </summary>
+        static float ClearanceFor(HazardKind kind)
+            => kind == HazardKind.EmberVent
+                ? 2f * CampaignSpec.PlayerPushRadius
+                : GimmickClearance;
+
         /// <summary>How far a gimmick's keep-out reaches along a spine at height y.</summary>
         static float GapHalfWidthAt(in HazardConfig gimmick, float y, float stoneRadius)
         {
-            float need = gimmick.Radius + stoneRadius + GimmickClearance;
+            float need = gimmick.Radius + stoneRadius + ClearanceFor(gimmick.Kind);
             float dy = gimmick.Y - y;
             float inside = need * need - dy * dy;
             return inside <= 0f ? 0f : MathF.Sqrt(inside);
@@ -144,7 +170,7 @@ namespace CinderCourt.Sim
             {
                 HazardConfig gimmick = gimmicks[index];
                 if (!HasLocalFootprint(gimmick.Kind)) continue;
-                float need = gimmick.Radius + radius + GimmickClearance;
+                float need = gimmick.Radius + radius + ClearanceFor(gimmick.Kind);
                 float dx = gimmick.X - x;
                 float dy = gimmick.Y - y;
                 if (dx * dx + dy * dy < need * need) return false;
@@ -431,13 +457,23 @@ namespace CinderCourt.Sim
         }
 
         /// <summary>
-        /// Drops any layout piece that would leave a corridor in (0,
-        /// <see cref="MinCorridor"/>) against a gimmick or an already-accepted piece.
+        /// Drops any layout piece that would leave a corridor narrower than the pair
+        /// requires, against a gimmick or an already-accepted piece.
         ///
         /// Gimmicks are immovable — their coordinates are contracts — so the layout is
         /// always the side that yields. Acceptance is in table order, which keeps the
         /// result a pure function of the table: no search, no iteration-order
         /// dependence, nothing to re-derive when a stage is edited.
+        ///
+        /// AMENDMENT #17b: the threshold against a gimmick comes from
+        /// <see cref="ClearanceFor"/>, not from <see cref="MinCorridor"/> directly.
+        /// This routine held the SECOND copy of the "how far from a gimmick" rule, and
+        /// the two copies disagreed the moment the first one learned that a passable
+        /// hazard is not a wall — ember-gallery's lattice passed the clearance test with
+        /// four pieces and then lost all four here, to a corridor requirement measured
+        /// against vents you can walk over. Sharing the function is what stops the pair
+        /// from drifting again (CLAUDE.md §4i); piece-to-piece stays MinCorridor,
+        /// because two layout pieces are both solid and genuinely can pinch.
         /// </summary>
         static HazardConfig[] WithoutPinchPoints(HazardConfig[] gimmicks, List<HazardConfig> layout)
         {
@@ -449,7 +485,7 @@ namespace CinderCourt.Sim
                 {
                     if (!HasLocalFootprint(gimmick.Kind)) continue;
                     float gap = SurfaceGap(in piece, in gimmick);
-                    if (gap > 0f && gap < MinCorridor) { pinches = true; break; }
+                    if (gap > 0f && gap < ClearanceFor(gimmick.Kind)) { pinches = true; break; }
                 }
                 if (!pinches)
                 {

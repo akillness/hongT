@@ -380,7 +380,20 @@ namespace CinderCourt.Sim
             _companionAttackInterval[0] = HackSpec.CompanionAttackInterval;
             _companionAttackRange[0] = HackSpec.CompanionAttackRange;
             _companionDamageScale[0] = HackSpec.CompanionDamageScale;
-            _hazards = config.Hazards ?? NoHazards;
+            // The v0.1 path runs at FROZEN arena bounds, so it must drop the AMENDMENT
+            // #17 interior exactly as the hack path does. It did not, and that was a
+            // split rule rather than a decision: WithoutLayoutBlockers was made public
+            // so every mirror of the stage table could apply the one rule, and this
+            // constructor is a mirror that never called it.
+            //
+            // The interior is generated for the EXPANDED playfield (735 x 390). Dropping
+            // it into the frozen 520 x 270 ellipse packs cover into a third of the room
+            // it was placed for. It stayed invisible while the pieces happened to be
+            // survivable and surfaced the moment the generator's clearance rule changed:
+            // a shard-collection bot that had always finished started dying inside the
+            // 300 s window. The failure named the stage it died on, not the rule that
+            // was missing (CLAUDE.md §4i).
+            _hazards = WithoutLayoutBlockers(config.Hazards ?? NoHazards);
             _hazardRuntime = _hazards.Length == 0 ? NoHazardRuntime : new HazardRuntime[_hazards.Length];
             _hazardView = new List<HazardState>(_hazards.Length);
             _stageId = config.StageId ?? string.Empty;
@@ -4338,13 +4351,13 @@ namespace CinderCourt.Sim
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 HazardConfig hazard = _hazards[index];
-                if (hazard.Kind != HazardKind.ObsidianPillar
-                    && hazard.Kind != HazardKind.StoneWall)
+                float solidRadius = SolidRadius(in hazard);
+                if (solidRadius <= 0f)
                 {
                     continue;
                 }
 
-                float target = hazard.Radius + actorRadius;
+                float target = solidRadius + actorRadius;
                 float localX = x - hazard.X;
                 float localY = (y - hazard.Y) * SimConfig.IsoY;
                 BlockerAxis(in hazard, out float axisX, out float axisY);
@@ -4377,6 +4390,57 @@ namespace CinderCourt.Sim
 
                 x = hazard.X + nearX + deltaX / distance * target;
                 y = hazard.Y + (nearY + deltaY / distance * target) / SimConfig.IsoY;
+            }
+        }
+
+        /// <summary>
+        /// How wide a hazard is as a SOLID, or 0 when it is not one.
+        ///
+        /// AMENDMENT #17b. The user's contract for this pass is that a mesh standing in
+        /// the room stops movement and actors path around it. Before this, only the
+        /// pillar and the generated stone wall did; the altar and the pylon were drawn
+        /// as masonry and walked straight through, which reads as a rendering bug from
+        /// the player's side however defensible it is from the sim's.
+        ///
+        /// THE SOLID WIDTH IS NOT hazard.Radius. For the pillar and the wall the two
+        /// coincide, and that coincidence is what made a single radius look sufficient.
+        /// For the other two it is false in opposite directions:
+        ///
+        /// The other four kinds stay passable, and each was tried as a solid and
+        /// rejected on evidence rather than assumed:
+        ///
+        ///   RelicAltar   A FLOOR DISC BY DESIGN, not a plinth. Radius 70 is the channel
+        ///                range the player must stand INSIDE to hold it, and the v1.2
+        ///                placement contract exempts altar overlaps precisely because
+        ///                "altars are pure channel discs". Implemented at a 24 px core it
+        ///                parked the player at iso 50 — y 639 instead of 604 — and broke
+        ///                three signed tests that channel from the centre. Making it
+        ///                solid is a design reversal, not a missing collider.
+        ///
+        ///   EmberPylon   ash-march signs a corridor invariant ("the pylon body never
+        ///                blocks", walk x 768 through the pylon row at 768,520) on the one
+        ///                stage that also carries the ADVANCING ASH WALL, where failing to
+        ///                cross a row is the wall catching you. Measured: a solid body
+        ///                fails that walk. A signed safety contract is not this pass's to
+        ///                revoke.
+        ///
+        ///   EmberVent    A hole in the floor that erupts on a period. Solid would turn a
+        ///   TideCurrent  thing you TIME into a thing you walk around, and a current has
+        ///                no body at all — it is a push band.
+        ///
+        /// So the collision answer for the gimmick layer is the INTERIOR: the generated
+        /// StoneWall pieces are the meshes that stop movement, and #17b's real defect was
+        /// that four of the nine stages were never given any.
+        /// </summary>
+        private static float SolidRadius(in HazardConfig hazard)
+        {
+            switch (hazard.Kind)
+            {
+                case HazardKind.ObsidianPillar:
+                case HazardKind.StoneWall:
+                    return hazard.Radius;
+                default:
+                    return 0f;
             }
         }
 
@@ -4472,14 +4536,19 @@ namespace CinderCourt.Sim
             for (int index = 0; index < _hazards.Length; index += 1)
             {
                 HazardConfig hazard = _hazards[index];
-                if (hazard.Kind != HazardKind.ObsidianPillar
-                    && hazard.Kind != HazardKind.StoneWall)
+                // Steering asks SolidRadius the same question ApplyBlockers asks, rather
+                // than repeating the kind list and the radius choice. When the two lists
+                // drifted, an actor would round an obstacle it could walk through, or —
+                // worse — walk into one it could not, which is the stall this amendment
+                // exists to remove (CLAUDE.md §4i).
+                float solidRadius = SolidRadius(in hazard);
+                if (solidRadius <= 0f)
                 {
                     continue;
                 }
 
                 float clearance =
-                    hazard.Radius + actorRadius + CampaignSpec.SteerClearanceBias;
+                    solidRadius + actorRadius + CampaignSpec.SteerClearanceBias;
                 float centreX = hazard.X - fromX;
                 float centreY = (hazard.Y - fromY) * SimConfig.IsoY;
                 BlockerAxis(in hazard, out float axisX, out float axisY);

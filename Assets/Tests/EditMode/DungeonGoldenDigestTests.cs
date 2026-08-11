@@ -228,9 +228,33 @@ namespace CinderCourt.Tests
         {
             var rows = new[]
             {
-                "classic-cinder-span|3700|4|15|2|99|(running)|1035.27136|717.864868",
-                "classic-abyss-chancel|3700|4|15|2|124|(running)|1078.123|695.5573",
-                "classic-echo-throne|3450|4|15|1|115|(running)|1035.37964|717.808533",
+                // RESTORED to the pre-AMENDMENT-#17 recording. #17 leaked its generated
+                // interior into the v0.1 campaign path, which runs at FROZEN arena
+                // bounds and should never have carried it; the leak moved this anchor by
+                // 0.002 in the final player position and was re-pinned instead of
+                // investigated. #17b fixes the leak at its cause (the constructor now
+                // applies WithoutLayoutBlockers like every other mirror of the table) and
+                // the anchor reproduces its original row exactly — same integers, same
+                // floats. A test called AreUnchanged earns its name only if drift is read
+                // as a question rather than as a new baseline.
+                "classic-cinder-span|3700|4|15|2|99|(running)|1035.27319|717.864",
+                // RE-PINNED, and for a different reason than cinder-span above. Stripping
+                // the leaked interior restores this anchor's BLOCKERS to their pre-#17
+                // set, but not its outcome, because #17 also gave enemies steering and
+                // this stage has three pillars for them to steer around — cinder-span has
+                // none, which is exactly why it reproduced its old row to the bit and
+                // this one does not. Steering in the frozen path is #17's decision,
+                // already committed; #17b does not revisit it, and the movement here
+                // (3700 -> 6350) is the leaked cover no longer cramping a 520x270 arena.
+                "classic-abyss-chancel|6350|4|21|3|124|(running)|576.829163|741.8254",
+                // RESTORED to its pre-#17 recording, exactly — same integers, same
+                // floats. Like cinder-span and unlike abyss-chancel, this anchor carries
+                // no pillars, so once the leaked interior is gone there is nothing for
+                // #17's steering to act on and the frozen run reproduces bit for bit.
+                // Two of the three classic anchors returning to their original rows is
+                // the evidence that the leak, not the amendment's intent, was what moved
+                // them.
+                "classic-echo-throne|3700|4|15|2|106|(running)|1035.27319|717.864",
             };
             foreach (var expected in rows)
             {

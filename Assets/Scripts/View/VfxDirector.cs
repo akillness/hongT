@@ -786,11 +786,17 @@ namespace CinderCourt.View
             public float Life, MaxLife, MaxRadius;
             public Vector3 Center;
             public Color Color;
+            // Optional textured flipbook, used only by the hit-spark pool. The
+            // other two pools leave these null and StepRingPool's ring path is
+            // then exactly what it was.
+            public Transform Quad;
+            public Material QuadMaterial;
         }
         readonly Burst[] _bursts = new Burst[8];
         int _burstCursor;
         // §C3 hit sparks: dedicated pool — sharing _bursts would let a nova
         // volley (up to 6 sparks/frame) evict live skill rings mid-play.
+        static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
         readonly Burst[] _sparks = new Burst[12];
         int _sparkCursor, _sparkBudget;
         // §W wave warnings: dedicated pool, exactly one ring per spawn point.
@@ -854,7 +860,52 @@ namespace CinderCourt.View
             slot.Color = color;
             slot.MaxRadius = maxRadiusWorld;
             slot.MaxLife = slot.Life = life;
+
+            // Textured shockwave when the sheet shipped. The tint is untouched,
+            // and that matters more here than for the spark: §S1 records that
+            // NINE distinct events funnel through this one call and are told
+            // apart only by colour and radius. A coloured sheet would collapse
+            // that vocabulary — dash, ward, nova and a vent eruption would all
+            // become the same orange ring.
+            var sheet = ShockwaveSheet();
+            if (sheet != null)
+            {
+                EnsureBurstQuad(ref slot, sheet, "KitBurstQuad");
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                var span = maxRadiusWorld * 2.2f;
+                slot.Quad.localScale = new Vector3(span, span, 1f);
+                slot.QuadMaterial.color = color;
+                slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                slot.Quad.gameObject.SetActive(true);
+                slot.Ring.enabled = false;
+                return;
+            }
+
             slot.Ring.enabled = true;
+        }
+
+        /// <summary>
+        /// Lazily builds the flipbook quad for a pooled burst slot. Shared by the
+        /// shockwave and the hit spark because they differ only in which sheet
+        /// they bind — the geometry, the additive material and the
+        /// collider-stripping are identical, and duplicating them would give the
+        /// two effects two places to drift apart.
+        /// </summary>
+        void EnsureBurstQuad(ref Burst slot, Texture2D sheet, string name)
+        {
+            if (slot.Quad != null) return;
+            var quadObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(quadObject);
+            quadObject.name = name;
+            quadObject.transform.SetParent(transform, false);
+            slot.QuadMaterial = ViewWorld.MakeAdditive(Color.white);
+            slot.QuadMaterial.mainTexture = sheet;
+            var quadRenderer = quadObject.GetComponent<Renderer>();
+            quadRenderer.sharedMaterial = slot.QuadMaterial;
+            quadRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            quadRenderer.receiveShadows = false;
+            slot.Quad = quadObject.transform;
         }
 
         /// <summary>§C3: small contact ring at the struck enemy. Budgeted at
@@ -883,7 +934,59 @@ namespace CinderCourt.View
                 : new Color(0.953f, 0.349f, 0.173f, 0.75f);
             slot.MaxRadius = finisher ? 0.6f : 0.3f;
             slot.MaxLife = slot.Life = 0.18f;
+
+            // Textured burst when the sheet shipped, expanding ring when it did
+            // not. The tint is the SAME Color either way — ember for a hit, gold
+            // for a finisher — because the sheet is a grayscale mask and identity
+            // has always lived in the tint (the split SpawnScorch documents).
+            var sheet = ImpactSheet();
+            if (sheet != null)
+            {
+                EnsureBurstQuad(ref slot, sheet, "HitSparkQuad");
+
+                // Spin varies per spawn rather than being baked into the sheet:
+                // sixteen frames of a fixed burst replayed at a fixed angle makes
+                // every hit in the game the same picture. Derived from the impact
+                // point so it stays deterministic — the View must not introduce a
+                // second source of randomness the sim cannot reproduce.
+                var spin = (Mathf.Abs(simX * 37.1f + simY * 91.7f) % 360f);
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, spin, 0f);
+                var span = slot.MaxRadius * 2.6f;
+                slot.Quad.localScale = new Vector3(span, span, 1f);
+                slot.QuadMaterial.color = slot.Color;
+                slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                slot.Quad.gameObject.SetActive(true);
+                slot.Ring.enabled = false;
+                return;
+            }
+
             slot.Ring.enabled = true;
+        }
+
+        // Impact flipbook (tools/gen_combat_fx_sheets.py). Same probe-once guard
+        // as the scorch decal below, and the same absent-asset contract: without
+        // it the spark is exactly the ring it has always been.
+        static Texture2D _impactSheet;
+        static bool _impactSheetProbed;
+
+        static Texture2D _shockwaveSheet;
+        static bool _shockwaveSheetProbed;
+
+        static Texture2D ShockwaveSheet()
+        {
+            if (_shockwaveSheetProbed) return _shockwaveSheet;
+            _shockwaveSheetProbed = true;
+            _shockwaveSheet = Resources.Load<Texture2D>("Fx/shockwave-sheet");
+            return _shockwaveSheet;
+        }
+
+        static Texture2D ImpactSheet()
+        {
+            if (_impactSheetProbed) return _impactSheet;
+            _impactSheetProbed = true;
+            _impactSheet = Resources.Load<Texture2D>("Fx/impact-sheet");
+            return _impactSheet;
         }
 
         // Radial burn decal, loaded once. `_scorchDecalProbed` separates "not
@@ -1036,10 +1139,30 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var burst = ref pool[i];
-                if (burst.Ring == null || !burst.Ring.enabled) continue;
+                var ringLive = burst.Ring != null && burst.Ring.enabled;
+                var quadLive = burst.Quad != null && burst.Quad.gameObject.activeSelf;
+                if (!ringLive && !quadLive) continue;
                 burst.Life -= deltaTime;
-                if (burst.Life <= 0f) { burst.Ring.enabled = false; continue; }
+                if (burst.Life <= 0f)
+                {
+                    if (burst.Ring != null) burst.Ring.enabled = false;
+                    if (burst.Quad != null) burst.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - burst.Life / burst.MaxLife;
+
+                if (quadLive)
+                {
+                    // ONE-SHOT across the effect's own life, not a fixed frame
+                    // rate. The spark lives 0.18 s; TerrainFlipbook's 12 fps would
+                    // show two frames of sixteen and the burst would never resolve.
+                    var frame = Mathf.Clamp(
+                        Mathf.FloorToInt(progress * TerrainFlipbook.FrameCount),
+                        0, TerrainFlipbook.FrameCount - 1);
+                    burst.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(frame));
+                    continue;   // the sheet carries the expansion and the fade
+                }
+
                 var radius = burst.MaxRadius * progress;
                 for (var s = 0; s < 28; s++)
                 {
@@ -1240,7 +1363,12 @@ namespace CinderCourt.View
             for (var i = 0; i < _bursts.Length; i++)
                 if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
             for (var i = 0; i < _sparks.Length; i++)
+            {
                 if (_sparks[i].Ring != null) _sparks[i].Ring.enabled = false;
+                if (_sparks[i].Quad != null) _sparks[i].Quad.gameObject.SetActive(false);
+            }
+            for (var i = 0; i < _bursts.Length; i++)
+                if (_bursts[i].Quad != null) _bursts[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
@@ -1662,14 +1790,33 @@ namespace CinderCourt.View
                 }
                 case HazardKind.ObsidianPillar:
                 {
-                    var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    RemovePrimitiveCollider(pillar);
-                    pillar.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
-                    pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
-                    pillar.transform.localPosition = new Vector3(0f, 1.1f, 0f);
-                    var material = ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
-                    pillar.GetComponent<Renderer>().sharedMaterial = material;
+                    // AMENDMENT #17b — TONE. The generated stone kit arrived for the
+                    // StoneWall case only, which left the two kinds of solid in one room
+                    // rendered in two different art languages: a sculpted rock beside an
+                    // untextured primitive cylinder. That reads as an unfinished object
+                    // rather than as a style, and it is most visible exactly where the
+                    // amendment added the most geometry.
+                    //
+                    // The kit mesh replaces the BODY only. The base ring below stays:
+                    // it is not decoration, it is the footprint cue that tells the player
+                    // where the solid begins at the 55 degree pitch, and a prettier body
+                    // does not answer that question.
+                    var pillarPart = SpawnKitPart(
+                        "kit-column-round", root.transform,
+                        new Vector3(r * 2f, 2.2f, r * 2f), uniform: false);
+                    if (pillarPart == null)
+                    {
+                        // Missing part is a NORMAL state (the kit shipped 20 of 28), so
+                        // the primitive stays as the fallback rather than as the plan.
+                        var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(pillar);
+                        pillar.transform.SetParent(root.transform, false);
+                        pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
+                        pillar.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                        pillar.GetComponent<Renderer>().sharedMaterial =
+                            ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
+                    }
                     // Faint cyan edge ring at the base for readability.
                     var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(baseRing);
@@ -1689,7 +1836,21 @@ namespace CinderCourt.View
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f, 0.5f), true);
                     view.Ring = disc.GetComponent<Renderer>();
                     view.Ring.sharedMaterial = view.RingMaterial;
-                    // Center relic gem.
+
+                    // AMENDMENT #17b — TONE, and deliberately a FLOOR tile rather than a
+                    // plinth. The altar is a channel disc: the player stands INSIDE
+                    // radius 70 to hold it, the sim gives it no collision, and the v1.2
+                    // placement contract exempts altar overlaps for exactly that reason.
+                    // A plinth mesh was built here first and reverted — geometry that
+                    // looks solid on something you walk through is §4k pointing the other
+                    // way, promising a collision the sim does not have. The sigil tile
+                    // carries the stone kit's material and stays flat, so the altar joins
+                    // the room's art language without lying about what it is.
+                    var tileWorld = hazard.Radius * ViewWorld.Scale * 1.35f;
+                    SpawnKitPart("kit-floor-tile-sigil", root.transform,
+                        new Vector3(tileWorld, tileWorld * 0.06f, tileWorld), uniform: false);
+
+                    // Centre relic gem — the altar's identity read at a glance.
                     var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     RemovePrimitiveCollider(gem);
                     gem.transform.SetParent(root.transform, false);
@@ -1793,6 +1954,19 @@ namespace CinderCourt.View
                     view.Body = body.transform;
                     view.BodyMaterial = ViewWorld.MakeUnlit(new Color(0.16f, 0.08f, 0.06f), false);
                     body.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
+
+                    // AMENDMENT #17b — TONE. A carved brazier shell around the primitive,
+                    // so the pylon belongs to the same stone family as the walls, pillars
+                    // and altars now standing beside it.
+                    //
+                    // AROUND, not INSTEAD OF. `view.Body` is the destructible readout —
+                    // the sim dims and shrinks it as Hp falls — so replacing it would
+                    // hand that job to a mesh nothing updates, and a pylon at 5 Hp would
+                    // look exactly like one at full. The shell is inert dressing; the
+                    // primitive stays the thing that tells the truth about state (§4k).
+                    var shellWorld = r * 2.15f;
+                    SpawnKitPart("kit-brazier-great", root.transform,
+                        new Vector3(shellWorld, shellWorld * 1.15f, shellWorld), uniform: true);
 
                     // Ember-orange band riding the upper body — child of the
                     // body so the destroyed state hides both in one SetActive.
