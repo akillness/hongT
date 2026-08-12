@@ -146,3 +146,62 @@
 전 기믹 RNG 금지 — 위상/모듈러/카운터 산술만. 해저드 배열이 없거나 신규
 kind가 없는 기존 config의 다이제스트는 **바이트 동일**해야 한다(R1-R3 골든).
 동일 config+입력 → 동일 Digest·스냅샷.
+## AMENDMENT #5b — 2026-08-12 뷰 레이어 스케일링 (심 불변)
+
+이 개정은 **뷰 전용**이며 심 계약(반축, 해저드 반경, 골든)을 0바이트도 바꾸지
+않는다. 기믹 배치는 이미 §Gimmick 1-3과 배치 테이블에 확정됐으므로, 본 섹션은
+그것을 **화면에 어떻게 표현하는가**만 다룬다.
+근거: _workspace/current/design/dungeon-interior-spec.md §2-4 (기하 확장)
++ docs/DUNGEON_GUIDE.md (기믹 톤 통합) + 사용자 요청 "스테이지별 던전구성 전면
+업데이트, 오브젝트 크기를 지금의 0.7배로 줄인다".
+
+### 이동 영역 — 심 반축은 이미 출하됐고, 이번 확장은 월드 스케일이다
+
+**[OBSERVED]** 심 클램프 타원은 **이미** `DungeonBoundsSpec.ExpandedHalfWidth
+= 735` / `ExpandedHalfHeight = 390`이다 (AMENDMENT #15 §19, 출하 완료 —
+`Assets/Scripts/Sim/DungeonProgressionSpec.cs`). 프롤로그·아레나·훈련장은
+동결 520×270을 유지한다. **이번 개정은 이 숫자를 건드리지 않는다.**
+
+**[OBSERVED]** 이번 개정의 이동 영역 확대는 심→월드 환산 계수다:
+`ViewWorld.Scale` **0.0125 → 0.0150** (×1.2). 던전 바닥이 월드 공간에서
+1.2× 커지며, `EnvironmentBuilder.SimToWorld`·`EnvironmentLayout.SimToWorld`가
+같은 값을 미러한다 (`DungeonFramingAndMoodTests`가 1e-9로 고정).
+
+### 오브젝트 축소 (0.7×)
+
+**[OBSERVED]** `ActorView.GlobalScale`: 1.00 → **0.70** (전 액터 균일).
+`ViewWorld.DungeonObjectScale = 0.70f`가 계수의 단일 출처다.
+
+- `CameraRig.DungeonCalmDistance` 17.5 → **21.0**,
+  `DungeonCrowdDistance` 21.5 → **25.8** — 둘 다 ViewWorld.Scale과 같은
+  ×1.2라 바닥의 화면상 크기는 유지되고, 0.70× 액터만 상대적으로 작게 읽힌다.
+  1.229 티어 비율 유지.
+- 해저드 몸체·텔레그래프처럼 **심 반경에서 크기를 얻는 비주얼은 축소 대상이
+  아니다** — 축소하면 충돌 발자국과 화면 표현이 어긋난다 (아래 참조).
+
+### 해저드 반경 불변
+
+**[OBSERVED]** §Gimmick 1-3의 모든 해저드 반경은 **심 상수**다 (vent 90,
+pillar 40, altar 70, current half 110, pylon 30 body / 280 aura, wall edges).
+**[CONTRACT]** 이 반경들은 본 개정으로 변경되지 않는다. 충돌 판정·텔레그래프
+타이밍·피해 틱 스케줄·골든 다이제스트가 전부 이 상수에 걸려 있다. 심 반경에서
+파생되는 비주얼(경고 링, 몸체 실루엣)은 반경 × ViewWorld.Scale 그대로 두고,
+장식 지오메트리만 0.7×를 받는다.
+
+### 골든 다이제스트 — 무이동이 전제다
+
+**[CONTRACT]** 본 개정은 심을 0바이트도 바꾸지 않으므로
+`DungeonGoldenDigestTests`는 **재고정 없이 그대로 통과해야 한다.** 골든이
+움직였다면 이 개정이 뷰 전용이라는 전제가 깨진 것이고, 그 시점에서 개정이
+아니라 결함이다 (CLAUDE.md §4e "골든 무이동은 PASS 조건이 아니라 전제").
+
+### 변경 상수 대장
+
+- `ViewWorld.Scale` 0.0125 → 0.0150 (+ `LegacyScale = 0.01`,
+  `LegacyScaleRatio` 파생 유지 — 프롤로그/로비 카메라 보상용).
+- `ViewWorld.DungeonObjectScale = 0.70f` (신규).
+- `ActorView.GlobalScale` 1.00 → 0.70.
+- `EnvironmentBuilder.SimToWorld` / `EnvironmentLayout.SimToWorld` 0.0125 → 0.0150.
+- `CameraRig.DungeonCalmDistance` 17.5 → 21.0 / `DungeonCrowdDistance` 21.5 → 25.8.
+- 심 상수: **0건 변경.** `DungeonBoundsSpec` 735×390은 선행 출하분이다.
+

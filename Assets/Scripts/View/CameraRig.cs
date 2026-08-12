@@ -99,8 +99,20 @@ namespace CinderCourt.View
         // Cost, stated plainly: less of the arena is on screen, so combat sight
         // lines shorten. The tiers keep their ratio (1.229) so the calm/crowd
         // relationship the wave pacing depends on is unchanged.
-        internal const float DungeonCalmDistance = 17.5f;
-        internal const float DungeonCrowdDistance = 21.5f;
+        //
+        // 2026-08 movement-area enlargement (사용자: "던전이동영역을 높이고"):
+        // ViewWorld.Scale grew 0.0125 -> 0.0150 (×1.2), so the dungeon FLOOR now
+        // occupies 1.2× the world-space it did. Both distance tiers are pulled
+        // back by the SAME ×1.2 so the enlarged floor stays framed exactly as
+        // before — the arena does not leave the frame. Net on-screen result:
+        // the floor holds its apparent size while the 0.70× actors (ActorView
+        // .GlobalScale) read much smaller against it, which is the "bigger
+        // movement area, smaller objects" the request asks for. 1.229 ratio and
+        // the LegacyScaleRatio compensation of the Prologue/Lobby profiles are
+        // untouched (those constants ride LegacyScale, not this bump).
+        internal const float DungeonCalmDistance = 21.0f;   // 17.5 × (0.0150/0.0125)
+        internal const float DungeonCrowdDistance = 25.8f;  // 21.5 × (0.0150/0.0125)
+
         float _dungeonDistance = DungeonCalmDistance;
         float _dungeonTargetDistance = DungeonCalmDistance;
 

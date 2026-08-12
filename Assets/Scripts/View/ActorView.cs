@@ -137,15 +137,21 @@ namespace CinderCourt.View
 
         /// <summary>
         /// Uniform scale applied to EVERY actor (player, companions, enemies,
-        /// bosses) on top of its authored base scale. Restored to authored size
-        /// after independent visual comparison showed 0.90x did not improve the
-        /// board-scale combat silhouette over baseline. Applied once at Create
-        /// so per-frame scale math (death pop, boss 1.6x) keeps its existing
+        /// bosses) on top of its authored base scale. Applied once at Create so
+        /// per-frame scale math (death pop, boss 1.6x) keeps its existing
         /// relationships.
-        /// Actor prefabs are authored in world units, so this is independent of
-        /// ViewWorld.Scale (which grew the floor by 25% in the same change).
+        ///
+        /// 2026-08 (사용자 요청 "오브젝트 크기를 지금의 0.7배로"): 1.00 -> 0.70.
+        /// This is the actor half of the dungeon object shrink; the environment
+        /// prop half rides <see cref="ViewWorld.DungeonObjectScale"/> in
+        /// EnvironmentBuilder. Actor prefabs are authored in world units, so
+        /// this is independent of ViewWorld.Scale (which sizes the FLOOR / the
+        /// movement area, grown in the same change). The net read is a larger
+        /// traversable floor with smaller figures standing on it — exactly the
+        /// "이동 범위를 높이고 오브젝트를 줄여라" request. Sim hitboxes are
+        /// untouched: this scales the mesh, never the collision radius.
         /// </summary>
-        public const float GlobalScale = 1.00f;
+        public const float GlobalScale = 0.70f;
 
         public static ActorView Create(GameObject prefab, Color fallbackColor, float baseScale)
         {

@@ -155,13 +155,17 @@ namespace CinderCourt.Sim
         ///   1. Painted plate. It reaches sim x ±850 around the arena centre
         ///      (EnvironmentBuilder.cs:1066). The boundary wall ring stands at e 1.02,
         ///      i.e. x 18..1518 — inside the plate with 100 px to spare.
-        ///   2. Camera frame. At the shipped calm distance 17.5 the frustum half-width at
-        ///      the focus plane is 17.5·tan21°·1.5 = 10.076 u; this half-width is
-        ///      735 × 0.0125 = 9.1875 u, so the frame lands at e 1.097 and the wall ring
-        ///      at e 1.02 stays on screen with 7.5% margin. **This is why 735 and not
-        ///      more** — 797 would push the frame to e 1.011 and clip the wall, which is
-        ///      only payable by pulling the camera back (rejected: an 8.4% character
-        ///      shrink is the least reversible change available).
+        ///   2. Camera frame. The frustum half-width at the focus plane is
+        ///      D·tan21°·1.5 and this playfield half-width is 735 · ViewWorld.Scale,
+        ///      so the frame lands at e = D·tan21°·1.5 / (735·Scale). This ratio is
+        ///      INVARIANT under the 2026-08 movement-area enlargement because Scale
+        ///      (0.0125 → 0.0150) and the calm distance D (17.5 → 21.0) both grew by
+        ///      ×1.2 and cancel: 17.5·tan21°·1.5 / (735·0.0125) = 21.0·tan21°·1.5 /
+        ///      (735·0.0150) = e 1.097, so the wall ring at e 1.02 keeps its 7.5%
+        ///      margin. **This is why 735 and not more** — a larger bound raises e
+        ///      toward 1.011 and clips the wall regardless of the Scale/distance pair,
+        ///      because the wall ring's e is fixed by geometry, not by the quotient.
+
         ///
         /// [OBSERVED] <c>SimConfig.WorldWidth</c>/<c>WorldHeight</c> do NOT constrain this.
         /// They are referenced nowhere outside their own definition (repo-wide grep over

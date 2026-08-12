@@ -163,7 +163,7 @@ namespace CinderCourt.Tests
         // -------------------------------------------------- 4. actor scale ---
 
         [Test]
-        public void ActorScale_AuthoredScaleRestoresCombatReadability()
+        public void ActorScale_ShrinksUniformlyButKeepsRelativeSilhouettes()
         {
             var view = ActorView.Create(null, Color.white, 1f);
             try
@@ -180,17 +180,25 @@ namespace CinderCourt.Tests
                         Is.EqualTo(1.6f * ActorView.GlobalScale).Within(1e-5f),
                         "the global actor scale must be proportional, not a replacement");
                     // Relative silhouettes are the gameplay contract: a boss must
-                    // still read 1.6x its minions at authored scale.
+                    // still read 1.6x its minions AFTER the uniform shrink.
                     Assert.That((float)field.GetValue(boss) / (float)field.GetValue(view),
                         Is.EqualTo(1.6f).Within(1e-5f));
                 }
                 finally { Object.DestroyImmediate(boss.gameObject); }
 
-                Assert.That(ActorView.GlobalScale, Is.EqualTo(1.00f).Within(1e-6f),
-                    "authored actor scale restores board-scale combat readability");
+                // 2026-08 request "오브젝트 크기를 지금의 0.7배로": actors shrink to
+                // 0.70 of authored size while the dungeon FLOOR grows (ViewWorld
+                // .Scale up), so figures read smaller on a larger movement area.
+                // The value is bounded to a legible range — a shrink past ~0.5
+                // would lose the combat silhouette the follow camera depends on.
+                Assert.That(ActorView.GlobalScale, Is.EqualTo(0.70f).Within(1e-6f),
+                    "the object-shrink request pins the actor scale at 0.70");
+                Assert.That(ActorView.GlobalScale, Is.InRange(0.5f, 1f),
+                    "actor shrink must stay inside a legible board-scale range");
             }
             finally { Object.DestroyImmediate(view.gameObject); }
         }
+
 
         // ------------------------------------------------- 4. mood lighting --
 

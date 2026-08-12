@@ -407,8 +407,11 @@ namespace CinderCourt.Tests
                     + "tracking before the player stops moving");
 
                 // And the clamp extreme must still leave the player on screen:
-                // visible ground runs 6.46 u toward the camera at D 17.5 (pitch
-                // 55, FOV 42) — computed, not guessed, in the report.
+                // visible ground runs ~7.75 u toward the camera at the shipped
+                // dungeon calm distance D 21.0 (pitch 55, FOV 42); the 6.46 u
+                // figure was measured at the pre-enlargement D 17.5 and scales
+                // with distance (6.46 × 21.0/17.5). The 6.46 bound is kept as the
+                // TIGHTER of the two — passing it proves on-screen at either D.
                 Assert.That(expandedReachZ - CameraRig.FollowClampZ, Is.LessThan(6.46f),
                     "the player can end up further from the focus than the near "
                     + "edge of the visible ground");

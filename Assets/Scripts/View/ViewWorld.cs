@@ -8,19 +8,36 @@ namespace CinderCourt.View
     {
         // Dungeon-scale request (2026-10): the sim contract (CLAUDE.md §2) is
         // FROZEN at a 1536x1024 arena, so "make the dungeon bigger" can only be
-        // a VIEW change — the sim-to-world quotient. 0.01 -> 0.0125 grows every
+        // a VIEW change — the sim-to-world quotient. 0.01 -> 0.0125 grew every
         // world-space distance derived from sim coordinates by 25% while actor
         // prefab sizes (authored directly in world units) stay put, so the floor
         // reads larger and the characters read smaller standing on it. Camera
         // constants tuned against the old quotient are compensated with
         // LegacyScaleRatio so only the dungeon framing actually changes.
-        public const float Scale = 0.0125f;
+        //
+        // 2026-08 amendment (사용자: "던전이동영역을 높이고 오브젝트 크기를 0.7배"):
+        // 0.0125 -> 0.0150 raises the traversable floor a further 20% WITHOUT
+        // touching the sim (the 735x390 dungeon clamp ellipse and the golden
+        // digests are unchanged — the same ellipse just maps to more world units).
+        // The paired object shrink lives in DungeonObjectScale below.
+        public const float Scale = 0.0150f;
 
         /// <summary>Pre-2026-10 sim-to-world quotient (framing compensation).</summary>
         public const float LegacyScale = 0.01f;
 
         /// <summary>Restores legacy framing for a world-unit camera constant.</summary>
         public const float LegacyScaleRatio = Scale / LegacyScale;
+
+        /// <summary>
+        /// Uniform shrink applied to DUNGEON OBJECTS (characters, environment
+        /// props, decorative VFX geometry) — 사용자 요청 "오브젝트 크기를 지금의
+        /// 0.7배로". Distinct from <see cref="Scale"/>, which sizes the FLOOR and
+        /// the sim-derived movement area: the floor grows, the things standing on
+        /// it shrink. Sim hazard COLLISION radii are NOT multiplied by this — they
+        /// define gameplay judgement and the golden digest (CLAUDE.md §2), so only
+        /// the visual footprint of an object is reduced, never its hitbox.
+        /// </summary>
+        public const float DungeonObjectScale = 0.70f;
 
         public static Vector3 ToWorld(float simX, float simY, float height = 0f)
             => new Vector3(simX * Scale, height, -simY * Scale);

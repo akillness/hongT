@@ -360,8 +360,20 @@ namespace CinderCourt.View
             var byFootprint = piece.Uncapped || sourceHalf <= 1e-4f
                 ? float.MaxValue
                 : EnvironmentLayout.FurnitureMaxHalfExtent / sourceHalf;
+            // 2026-08 오브젝트 축소: decorative library parts (env-floor-*/feature/
+            // prop pool) read at 0.70× — the same shrink actors take (ViewWorld
+            // .DungeonObjectScale). Applied AFTER the height/footprint caps solve,
+            // so shrinking can only ever move a part further UNDER the §E0.5
+            // occlusion/clearance budget, never over it. Hazard bodies and
+            // telegraphs are NOT built here (they size off sim Radius × Scale), so
+            // this cannot desync a collision footprint. The sentinel branch is
+            // guarded FIRST: MaxValue means "no measurable source bounds, leave the
+            // authored scale" — multiplying the sentinel by 0.70 would turn it into
+            // a finite ~2.4e38 that slips past the guard and explodes the part.
             var factor = Mathf.Min(byHeight, byFootprint);
-            if (factor < float.MaxValue) clone.transform.localScale = source.localScale * factor;
+            if (factor < float.MaxValue)
+                clone.transform.localScale =
+                    source.localScale * (factor * ViewWorld.DungeonObjectScale);
 
             // Re-measure at the FINAL scale, then counter the baked XZ offset.
             var bounds = renderers[0].bounds;
@@ -585,8 +597,10 @@ namespace CinderCourt.View
         const double Cx = SimConfig.ArenaX;
         const double Cy = SimConfig.ArenaY;
         // Mirrors ViewWorld.Scale (const there too). Grown with it 0.01 ->
-        // 0.0125 so module footprints keep matching sim-space geometry.
-        const double SimToWorld = 0.0125;
+        // 0.0125 -> 0.0150 so module footprints keep matching sim-space geometry.
+        // DungeonFramingAndMoodTests.WorldScale_EnvironmentLayoutUsesTheSameQuotientAsViewWorld
+        // asserts this equals ViewWorld.Scale to 1e-9.
+        const double SimToWorld = 0.0150;
 
         // AMENDMENT #15 (W-MV, MV-2). These were `const double HalfW/HalfH =
         // SimConfig.Arena*` — the sim can now clamp to an expanded ellipse, and
