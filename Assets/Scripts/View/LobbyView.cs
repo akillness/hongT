@@ -45,12 +45,6 @@ namespace CinderCourt.View
         static readonly Color Lock = new Color(0.42f, 0.45f, 0.58f);
         static readonly Color ButtonBack = new Color(0.16f, 0.13f, 0.24f, 0.9f);
         static readonly Color ButtonActive = new Color(0.32f, 0.28f, 0.16f, 0.95f);
-        // The start button is the one control that must not read as part of the palette
-        // — it is louder than Gold on purpose (see BuildPlayNow). Its ink is near-black
-        // because gold plate at this value fails contrast against any of the ink greys.
-        static readonly Color PlayNowPlate = new Color(0xDB / 255f, 0x9E / 255f, 0x33 / 255f, 0.92f);
-        static readonly Color PlayNowInk = new Color(0x0F / 255f, 0x0D / 255f, 0x0A / 255f);
-        static readonly Color PlayNowHint = new Color(0x1A / 255f, 0x17 / 255f, 0x12 / 255f, 0.85f);
 
 
         // AMENDMENT #8: caps and prices moved to ProgressionGuide. The badge
@@ -477,17 +471,36 @@ namespace CinderCourt.View
                 plated: true);
             button.name = "PlayNow";
 
+            // The plate carries emphasis by SPRITE, not by tint. TextButton's own
+            // comment (:2274) says a sprite would multiply-tint, and the first draft
+            // of this button proved it in the shipped frame: gold multiplied into the
+            // dark ember plate came out muddy brown, and the near-black label I had
+            // chosen for gold became unreadable on it. A tint can only ever DARKEN a
+            // dark plate — there is no colour that brightens one. So emphasis has to
+            // come from the three things that are not the fill: the warmer plate, a
+            // gold border where every other panel is cyan, and size.
             var plate = button.GetComponent<Image>();
-            if (plate != null) plate.color = PlayNowPlate;
+            if (plate != null) PlateStateful(plate, true);
+            Border(button.transform, true, Gold);
 
             var label = button.GetComponentInChildren<Text>();
-            if (label != null) label.color = PlayNowInk;
+            if (label != null)
+            {
+                label.color = Gold;
+                // Lifted off centre so the caption below has its own band. Left at
+                // centre the two lines collide, and a label overlapping its own
+                // explanation is the single-builder overlap this repo audits for
+                // (§4f) — authored here in one function precisely so it cannot.
+                label.alignment = TextAnchor.UpperCenter;
+                var rect = label.rectTransform;
+                rect.offsetMin = new Vector2(rect.offsetMin.x, rect.offsetMin.y + 24f);
+            }
 
             // A caption under the label, not a tooltip: a tooltip requires knowing to
             // hover, which is the same "you must already know" trap the rail icons set.
-            var hint = Label(button.transform, 0, -(PlayNowHeight - 26f), RailIcon + 12, 18,
-                "튜토리얼부터 자동으로", 11, TextAnchor.MiddleCenter);
-            hint.color = PlayNowHint;
+            var hint = Label(button.transform, 0, -(PlayNowHeight - 34f), RailIcon + 12, 26,
+                "튜토리얼부터\n자동으로", 11, TextAnchor.UpperCenter);
+            hint.color = InkDim;
         }
 
         /// <summary>Deliberately equal to RailIcon: see BuildPlayNow's GEOMETRY note.
@@ -2333,19 +2346,34 @@ namespace CinderCourt.View
         /// (top-bar underline).</summary>
         void Border(Transform parent, bool full)
         {
-            Line(parent, new Vector2(0, 0), new Vector2(1, 0));          // bottom
+            Border(parent, full, BorderColor);
+        }
+
+        /// <summary>Border in a caller-chosen colour. Additive overload: the two-arg
+        /// form is the house border and stays the default for every existing caller.
+        /// The colour exists for surfaces that must NOT read as one more panel — the
+        /// start button is the only one today, and it is the one control a first-timer
+        /// has to find without being told.</summary>
+        void Border(Transform parent, bool full, Color color)
+        {
+            Line(parent, new Vector2(0, 0), new Vector2(1, 0), color);    // bottom
             if (!full) return;
-            Line(parent, new Vector2(0, 1), new Vector2(1, 1));          // top
-            LineVertical(parent, 0);
-            LineVertical(parent, 1);
+            Line(parent, new Vector2(0, 1), new Vector2(1, 1), color);    // top
+            LineVertical(parent, 0, color);
+            LineVertical(parent, 1, color);
         }
 
         void Line(Transform parent, Vector2 anchorMin, Vector2 anchorMax)
         {
+            Line(parent, anchorMin, anchorMax, BorderColor);
+        }
+
+        void Line(Transform parent, Vector2 anchorMin, Vector2 anchorMax, Color color)
+        {
             var line = new GameObject("Line");
             line.transform.SetParent(parent, false);
             var image = line.AddComponent<Image>();
-            image.color = BorderColor;
+            image.color = color;
             image.raycastTarget = false;
             var rect = line.GetComponent<RectTransform>();
             rect.anchorMin = anchorMin;
@@ -2357,10 +2385,15 @@ namespace CinderCourt.View
 
         void LineVertical(Transform parent, float anchorX)
         {
+            LineVertical(parent, anchorX, BorderColor);
+        }
+
+        void LineVertical(Transform parent, float anchorX, Color color)
+        {
             var line = new GameObject("Line");
             line.transform.SetParent(parent, false);
             var image = line.AddComponent<Image>();
-            image.color = BorderColor;
+            image.color = color;
             image.raycastTarget = false;
             var rect = line.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(anchorX, 0);

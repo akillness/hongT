@@ -1,0 +1,25 @@
+{
+  "viewport": "desktop-1440x900",
+  "coldProfile": true,
+  "savePresent": null,
+  "ctaFound": true,
+  "ctaPixels": 0,
+  "ctaCssSize": {
+    "w": 128,
+    "h": 112
+  },
+  "ctaClearsTouchFloor": true,
+  "before": {
+    "done": false,
+    "success": false,
+    "failed": false,
+    "reason": "loading"
+  },
+  "after": {
+    "done": false,
+    "success": false,
+    "failed": false,
+    "reason": "running"
+  },
+  "pageErrors": []
+}

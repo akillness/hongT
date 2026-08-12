@@ -1,0 +1,25 @@
+{
+  "viewport": "mobile-390x844",
+  "coldProfile": true,
+  "savePresent": null,
+  "ctaFound": true,
+  "ctaPixels": 0,
+  "ctaCssSize": {
+    "w": 60,
+    "h": 52
+  },
+  "ctaClearsTouchFloor": true,
+  "before": {
+    "done": false,
+    "success": false,
+    "failed": false,
+    "reason": "loading"
+  },
+  "after": {
+    "done": false,
+    "success": false,
+    "failed": false,
+    "reason": "running"
+  },
+  "pageErrors": []
+}
