@@ -108,6 +108,77 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
+        /// WHICH renderers form the pale ring — by POSITION, which is the question five
+        /// refuted hypotheses all skipped.
+        ///
+        /// Every one of them assumed the ring was env-stone and then argued about why
+        /// env-stone looked wrong. Nobody checked that the ring IS env-stone. The arena
+        /// is 1536x1024 centred (768, 604) with radii 520x270 (CLAUDE.md §2), so a
+        /// piece belongs to the boundary if its centre sits near that ellipse. Grouping
+        /// the boundary pieces separately from the interior ones says, without any
+        /// inference, what the ring is made of.
+        /// </summary>
+        [Test]
+        public void CinderSpan_BoundaryRing_IsMadeOfWhat()
+        {
+            _environment = EnvironmentBuilder.Build("cinder-span");
+            var renderers = _environment.GetComponentsInChildren<MeshRenderer>(true);
+            Assert.That(renderers.Length, Is.GreaterThan(0));
+
+            // Arena contract (§2). Reading the ellipse rather than eyeballing a radius:
+            // a hand-picked band would decide the answer before measuring it.
+            const float cx = 768f, cz = 604f, rx = 520f, rz = 270f;
+            var onRing = new Dictionary<string, int>();
+            var inside = new Dictionary<string, int>();
+            var ringTint = new Dictionary<string, string>();
+            var block = new MaterialPropertyBlock();
+            var minR = float.MaxValue;
+            var maxR = float.MinValue;
+
+            foreach (var renderer in renderers)
+            {
+                var p = renderer.bounds.center;
+                // Normalised elliptical radius: 1.0 is exactly on the boundary.
+                var r = Mathf.Sqrt(((p.x - cx) * (p.x - cx)) / (rx * rx)
+                                 + ((p.z - cz) * (p.z - cz)) / (rz * rz));
+                minR = Mathf.Min(minR, r);
+                maxR = Mathf.Max(maxR, r);
+
+                var name = renderer.sharedMaterial != null
+                    ? renderer.sharedMaterial.name : "(null)";
+                var bucket = r >= 0.85f ? onRing : inside;
+                bucket.TryGetValue(name, out var n);
+                bucket[name] = n + 1;
+
+                if (r >= 0.85f && !ringTint.ContainsKey(name))
+                {
+                    block.Clear();
+                    renderer.GetPropertyBlock(block);
+                    var tint = block.GetVector("_BaseColor");
+                    var st = block.GetVector("_BaseMap_ST");
+                    var b = renderer.bounds;
+                    ringTint[name] = $"r={r:F2} tint=({tint.x:F3},{tint.y:F3},{tint.z:F3}) "
+                        + $"ST=({st.x:F2},{st.y:F2}) size=({b.size.x:F1},{b.size.y:F1},{b.size.z:F1})";
+                }
+            }
+
+            var report = new StringBuilder();
+            report.AppendLine($"[normalised elliptical radius spans {minR:F2}..{maxR:F2} "
+                + "— 1.00 is the arena boundary]");
+            report.AppendLine("  ON THE RING (r >= 0.85):");
+            foreach (var pair in onRing)
+                report.AppendLine($"    x{pair.Value,-4} {pair.Key,-14} {ringTint[pair.Key]}");
+            report.AppendLine("  INSIDE (r < 0.85):");
+            foreach (var pair in inside)
+                report.AppendLine($"    x{pair.Value,-4} {pair.Key}");
+            TestContext.WriteLine(report.ToString());
+
+            Assert.That(maxR, Is.GreaterThan(0.5f),
+                "every piece sits near the centre, so this probe never looked at a "
+                + "boundary and its buckets mean nothing");
+        }
+
+        /// <summary>
         /// The same question one level out: what does the stage's TERRAIN carry? The
         /// boundary ring might not be an EnvironmentBuilder piece at all — that is the
         /// assumption every refuted hypothesis shared, and it has never been checked.
