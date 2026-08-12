@@ -1,57 +1,110 @@
-# 인계 — 툰 렌더링 2단계 배포 대기
+# 인계 — 툰 렌더링 2단계 배포 **완료** (2026-08-12 종결)
 
-2026-08-12. 작성: 툰 레인. 수신: 릴리스 프로비넌스 게이트를 만든 레인.
+이 문서는 배포를 요청하는 인계문서였다. 배포가 끝났으므로 요청은 종결하고,
+**대기 사유 두 가지가 실제로는 존재하지 않았다는 것**을 기록으로 남긴다.
+그쪽이 다음 사이클에 쓸모가 있다.
 
-## 요청
+원문의 요청·검증 기록은 git 이력(`7c9f2a0` 시점)에 남아 있다.
 
-`7c9f2a0`까지 푸시된 상태를 **빌드해서 gh-pages로 배포**해 주세요. 소스 쪽 작업은
-끝났고 검증도 마쳤습니다. 제 쪽에서 배포만 실행하지 못합니다.
-
-## 왜 제가 못 하는가
-
-`tools/deploy/deploy_pages.sh:67`이 `build-webgl/release-build-provenance.json`을
-요구하고, 없으면 `FATAL: frozen Release provenance is missing`으로 멈춥니다.
-
-그 파일을 만들려면 `release_provenance.py create --metadata`에 evidence 레코드가
-필요한데, 검증기가 이렇게 요구합니다:
+## 결과 [OBSERVED]
 
 ```
-metadata.evidence IDs must exactly match the stage-shadow policy
+라이브        https://akillness.github.io/hongT/
+gh-pages     874def5  (tree 3302a183)
+후보 소스     713d95e9010d971cf18b5a42b5f0f081485d567e
 ```
 
-[INFERENCE] 이 ID 집합과 probe 해시의 규격은 `9d30d88`(08/12 02:03)에서 도입된
-릴리스 체계의 일부이고, 저장소·`docs/`·`specs/` 어디에도 절차 문서가 없습니다.
-제가 값을 채워 넣으면 **동결 증거 없이 릴리스하지 못하게 막으려던 게이트를 제가
-무력화**하는 셈이라 실행하지 않았습니다.
+라이브 프로비넌스의 `candidateSourceSha`와 release `contentMarker`
+(`5626530142cad469`)가 로컬과 일치. 실제 https URL에 대한 콜드 프로필
+원버튼 스모크가 데스크톱·모바일 모두 `loading -> running`, 페이지 에러 0.
 
-## 배포 대상에 담긴 것 (커밋 3건)
+## 대기 사유 1 — "절차 문서가 없다": 틀렸다
 
-| 커밋 | 내용 |
-|---|---|
-| `b1a3a4a` | 툰 셰이더 도입 + 키트 석재 20종 전환 |
-| `7c9f2a0` | 환경 툰 전환 — gti 툰 텍스처 18종 + 셰이더 배선 |
-| `cc864aa` | 기믹 고체 실그림자 캐스터 승격 (그 앞 `5f413ce` 블롭 포함) |
-
-## 이미 통과한 검증 [OBSERVED]
+원문은 evidence ID 집합과 probe 해시의 규격이 "저장소·`docs/`·`specs/`
+어디에도 없다"고 적었고, 그래서 값을 채우면 게이트를 무력화하는 셈이라
+실행하지 않았다. **그 판단의 전제가 사실이 아니었다.**
 
 ```
-EditMode      992 중 990 통과 · 실패 0 · 스킵 2
-빌드          errors 0 · data 85.7 MB (상한 120)
-9스테이지 스모크  전부 진입 · 페이지 에러 0
-§E0.5 해저드 판독  텔레그래프 채도 / 환경 채도 = 1.6~3.8배 (전 스테이지 지배적)
+tools/deploy/run_release_gate.sh      stage 1/2로 엔진 단계 전체
+tools/deploy/make_release_evidence.py 독스트링이 6종 각각의 질문을 명시
 ```
 
-마지막 항목은 환경 톤이 바뀌었기 때문에 새로 잰 것입니다. 툰 전환이 해저드
-텔레그래프를 흐리지 않았음을 스테이지별로 확인했습니다.
+둘 다 게이트를 도입한 같은 커밋(`9d30d88`)에 함께 들어와 있었다.
+`docs/`와 `specs/`만 찾고 `tools/deploy/`를 안 봤다.
 
-## 주의점 두 가지
+**일반화**: "문서가 없다"고 적기 전에 **그 도구의 디렉터리를 봐라.**
+게이트를 만든 사람은 절차를 게이트 옆에 둔다. 그리고 이 판단은 사이클 하나를
+통째로 대기시켰다 — 블로커의 근거는 블로커 자체보다 검증 비용이 싸다.
 
-- **툰 텍스처는 `Assets/Resources/Textures/Toon/`에 별도로 있고 `Env/`는 그대로
-  둡니다.** `EnvironmentBuilder`가 Toon 우선 → Env 폴백으로 읽습니다. Env를 지우면
-  폴백이 사라지므로 건드리지 마세요.
-- **셰이더는 `ViewWorld.LitShader` 한 곳에서 전환됩니다.** 되돌릴 일이 생기면
-  거기서 `Shader.Find("Universal Render Pipeline/Lit")`만 남기면 전체가 원복됩니다.
+## 대기 사유 2 — "모바일 그림자 증거가 임계에서 실패": 지금은 통과
 
-## 현재 라이브
+**임계를 하나도 건드리지 않고** 현재 빌드에서 재측정:
 
-`70058d9` — 툰 이전 빌드입니다. 사용자에게 보이는 화면에 회귀는 없습니다.
+| | SNR | footprint | darkening | |
+|---|---:|---:|---:|---|
+| desktop 1440x900 | 120.96 | 0.375% | 19.06 | PASS |
+| mobile 390x844 | 20.41 | 0.256% | 18.52 | PASS |
+
+두 뷰포트 모두 리시버 재활성화가 shipped 상태가 지닌 luma의 100%를 복원.
+
+§4z 그대로다 — **이월된 블로커는 매 사이클 도구 쪽을 한 번씩 의심하라.**
+대상은 잘 안 변하지만 도구는 쉽게 바뀐다. 여기서 바뀐 것은 landing 판정이
+프레임 전체 평균 luma가 아니라 변경 픽셀 수를 보게 된 것이다.
+
+## 정직하게 약해진 것 — 다음 사람이 알아야 한다
+
+### `probeHashes`의 정의를 복원하지 못했다
+
+검증기가 재계산하지 않는 자유 필드다. 이전 값
+`9c6f5d70...`은 저장소의 어떤 것으로도 재현되지 않았다 — 셰이더/스크립트
+파일 7종, `ls-tree` 4개 경로, 트리 오브젝트 id, sha-of-sha 전부 불일치.
+
+**뜻을 적을 수 없는 값을 복사하는 것은 확인하지 않은 것을 주장하는 것**이라,
+이번 릴리스의 정의를 `metadata.commands`에 써넣고 실제로 계산했다:
+
+```
+probeHashes := sha256( sorted (path, blob-sha256) of
+  StageShadowPolicy.cs · StageMood.cs · VfxDirector.cs · StageShadowReceiver.shader )
+  at baselineProbeSha / candidateSourceSha
+```
+
+이번은 baseline != candidate이고 그게 참이다(베이스라인 이후 VfxDirector가
+블롭 그림자와 캐스터 승격을 받았다). **이전 릴리스의 쌍과 이번 쌍은 서로 다른
+정의를 비교하는 것**이므로 나란히 놓고 "프로브가 변했다"고 읽으면 안 된다.
+
+### `cleanStatus` pre/post가 이번엔 빌드를 감싸지 않는다
+
+이번 쌍은 프로비넌스 **생성 단계**를 감싼다. 빌드가 이미 돈 뒤에는 빌드를
+감싸는 쌍을 소급 생성할 수 없고, 이전 릴리스의 동결 쌍은 불변이며 후보
+`1bd8eca`의 것이다. pre/post 관례는 어디에도 강제·문서화돼 있지 않아
+파일명만 보면 더 강한 주장으로 읽힌다.
+
+독립적으로 강제되는 것: `validate_exact_candidate`가 생성 시점에 워킹트리를
+`candidateSourceSha`로 고정하고, 각 빌드 증거가 그 빌드가 낸 바이트의
+`contentMarker`를 지닌다.
+
+**다음 릴리스는 순서를 지켜라** — 게이트 stage 1 **전에** pre 스냅샷,
+stage 2 **후에** post 스냅샷. 그러면 이 문단이 필요 없어진다.
+
+## 유지되는 주의점
+
+- **툰 텍스처는 `Assets/Resources/Textures/Toon/`에 별도로 있고 `Env/`는
+  그대로 둔다.** `EnvironmentBuilder`가 Toon 우선 → Env 폴백으로 읽는다.
+  Env를 지우면 폴백이 사라진다.
+- **셰이더는 `ViewWorld.LitShader` 한 곳에서 전환된다.** 되돌릴 일이 생기면
+  거기서 `Shader.Find("Universal Render Pipeline/Lit")`만 남기면 전체가 원복.
+
+## 이어지는 미해결 [OBSERVED]
+
+툰 텍스처 세트가 브리프 밖으로 나간 것이 측정됐다 — 표면 디테일 중앙값
+`localStd` PBR 9.28 → 툰 1.82, 밝기 중앙값 +19%(최악 witness-well/floor
++126%), 18장 중 6장이 사실상 단색 시트. 평탄화 자체는 브리프이지만
+**밝기와 단색화는 프롬프트가 요구한 적이 없다.**
+
+`ember-bastion`이 같은 생성기·같은 COMMON으로 10.50/10.34를 냈으므로
+브리프는 달성 가능하다. 재촬영 도구:
+
+```
+bash tools/gen_toon_env_retake.sh          # 스테이징에만 생성, 덮어쓰지 않음
+python3 tools/qa/measure_toon_textures.py --staging <dir>
+```
