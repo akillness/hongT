@@ -491,8 +491,52 @@ namespace CinderCourt.View
         // ------------------------------------------------------------ sorties --
         void OnSortie(string target)
         {
+            if (target == PlayNowTarget) { StartPlayNow(); return; }
             if (target == "prologue") { StartPrologue(); return; }
             if (IsStageUnlocked(target)) StartDungeon(target);
+        }
+
+        /// <summary>The one-button route's target id. Not a stage — a request to pick one.</summary>
+        public const string PlayNowTarget = "play-now";
+
+        /// <summary>
+        /// Put the player in the game, choosing the destination for them.
+        ///
+        /// WHY THIS EXISTS. Playtest feedback (2026-08-12): "there is no tutorial and I
+        /// cannot tell what the UI is, so I cannot start" and "a first-timer cannot even
+        /// work out what kind of game this is". The lobby asked a newcomer to read three
+        /// unlabelled rail icons, open the right one, expand the right act, and pick
+        /// among nine cards — every one of which is locked until a training run they
+        /// have not been told about. That is four decisions before the first frame of
+        /// gameplay, and the feedback is that players quit at the first of them.
+        ///
+        /// The rule this route follows: THE PLAYER PRESSES ONE THING AND IS PLAYING.
+        /// Choosing between "prologue" and "next stage" is a decision the game can make
+        /// from the save, so the game makes it.
+        ///
+        /// Order matters and is not arbitrary:
+        ///   1. prologue while it is undone — it is the only mode that teaches, and
+        ///      every campaign stage is gated behind it anyway, so sending a newcomer
+        ///      anywhere else would land them on a locked card.
+        ///   2. otherwise the first unlocked stage they have not cleared — "continue",
+        ///      which is what a returning player means by "play".
+        ///   3. otherwise the last unlocked stage — a completionist replaying; never a
+        ///      dead end, because a button that sometimes does nothing is worse than no
+        ///      button (the run-holding-surface lesson, §4o, in the other direction).
+        /// </summary>
+        void StartPlayNow()
+        {
+            if (!_data.PrologueDone) { StartPrologue(); return; }
+
+            string fallback = null;
+            foreach (var entry in StageCatalog.Entries)
+            {
+                if (!StageCatalog.IsUnlocked(in _data, in entry)) continue;
+                fallback = entry.Id;
+                if (!StageCatalog.IsCleared(in _data, in entry)) { StartDungeon(entry.Id); return; }
+            }
+            if (fallback != null) StartDungeon(fallback);
+            else StartPrologue();   // nothing unlocked at all: the tutorial is still the answer
         }
 
         void StartArena()

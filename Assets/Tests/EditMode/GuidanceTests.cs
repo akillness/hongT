@@ -174,12 +174,29 @@ namespace CinderCourt.Tests
                 "only gimmicks and outcomes may freeze the run — a control or pickup that "
                 + "stops the game is the over-explaining the survey found players punish:\n"
                 + string.Join("\n", offBudget));
-            Assert.That(pause.Count, Is.EqualTo(GuidanceCatalog.PauseBudget),
-                $"{pause.Count} entries freeze the run but the negotiated budget is "
-                + $"{GuidanceCatalog.PauseBudget} (entry 13). Adding a ninth is a "
-                + "designer+pm decision, not a catalog edit.");
-            Assert.That(hazards, Is.EqualTo(6), "six gimmicks, one card each (entry 13)");
-            Assert.That(outcomes, Is.EqualTo(2), "win and lose, taught before they happen");
+            // A CEILING, not a fixed count. This assertion used to demand exact equality
+            // and told the reader that changing it was "a designer+pm decision, not a
+            // catalog edit" — a process prohibition wearing an assertion's clothes.
+            // Removed on the user's instruction (2026-08-12), and it deserved removing:
+            // a test cannot tell whether a design change was authorised, so all that
+            // rule ever did was make legitimate design work fail the build.
+            //
+            // What survives is the thing measurement CAN speak to. The budget came from
+            // a survey finding — players punish over-explaining — so too many pauses is
+            // a defect this suite should still catch. Too FEW is not: a cycle that
+            // teaches the same material with six cards instead of eight has improved on
+            // the budget, and a test that fails it would be enforcing a plan rather than
+            // a property.
+            Assert.That(pause.Count, Is.LessThanOrEqualTo(GuidanceCatalog.PauseBudget),
+                $"{pause.Count} entries freeze the run, over the {GuidanceCatalog.PauseBudget} "
+                + "the survey budget allows (entry 13). Each pause is a stop the player did "
+                + "not ask for; raise PauseBudget deliberately if the design now wants more.");
+            Assert.That(hazards, Is.LessThanOrEqualTo(6),
+                "at most one pause card per gimmick — a second card for the same gimmick is "
+                + "the over-explaining the budget exists to bound (entry 13)");
+            Assert.That(outcomes, Is.EqualTo(2),
+                "win and lose, taught before they happen. This one IS exact: it is coverage, "
+                + "not budget — a player who is never told how the run ends cannot plan for it");
         }
 
         /// <summary>

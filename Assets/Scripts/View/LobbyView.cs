@@ -45,6 +45,12 @@ namespace CinderCourt.View
         static readonly Color Lock = new Color(0.42f, 0.45f, 0.58f);
         static readonly Color ButtonBack = new Color(0.16f, 0.13f, 0.24f, 0.9f);
         static readonly Color ButtonActive = new Color(0.32f, 0.28f, 0.16f, 0.95f);
+        // The start button is the one control that must not read as part of the palette
+        // — it is louder than Gold on purpose (see BuildPlayNow). Its ink is near-black
+        // because gold plate at this value fails contrast against any of the ink greys.
+        static readonly Color PlayNowPlate = new Color(0xDB / 255f, 0x9E / 255f, 0x33 / 255f, 0.92f);
+        static readonly Color PlayNowInk = new Color(0x0F / 255f, 0x0D / 255f, 0x0A / 255f);
+        static readonly Color PlayNowHint = new Color(0x1A / 255f, 0x17 / 255f, 0x12 / 255f, 0.85f);
 
 
         // AMENDMENT #8: caps and prices moved to ProgressionGuide. The badge
@@ -430,8 +436,71 @@ namespace CinderCourt.View
         /// could be deleted with it (D-3) and why the replacement invariant is
         /// containment, not overlap (D-10).
         /// </summary>
+        /// <summary>
+        /// The one-button route into gameplay, sitting BELOW the three rail icons.
+        ///
+        /// Playtest feedback (2026-08-12) was that a newcomer cannot start at all:
+        /// "there is no tutorial and I cannot tell what the UI is". The lobby's entry
+        /// point was three unlabelled fantasy glyphs, and the correct one opened a list
+        /// where every card was locked behind a training run nobody had mentioned. The
+        /// player had to make four decisions before seeing a frame of the game.
+        ///
+        /// So this button makes all four of them. It is deliberately the LOUDEST thing
+        /// on the screen — wider than the rail, plated, gold — because the feedback was
+        /// not "the button was in the wrong place", it was "I could not find where to
+        /// begin". A second-most-obvious start button would not have fixed that.
+        ///
+        /// The label says what happens, not where it goes. "출정" is the game's word and
+        /// a returning player knows it; a first-timer does not, and the survey lesson in
+        /// this repo is that they leave rather than learn.
+        ///
+        /// GEOMETRY — 103.3 u tall, not the 62 u the first draft used. 62 u measured
+        /// 30.3 CSS px in the touch-floor sweep and failed the 44 px floor on BOTH axes:
+        /// the game's most important button was its least pressable control. 103.3 is the
+        /// rail icons' number and it is not round for a reason (LobbyContainmentTests
+        /// :553) — it is exactly 44.0 px at the band-A worst 0.4261 px/u, so this button
+        /// clears the floor at the support floor and not merely at the audit's basis.
+        ///
+        /// BELOW the rail, not above it. Above it is off-canvas: the rail starts at
+        /// PanelTop -72 and this button is 103.3 tall, so an "above" placement puts its
+        /// top edge past y=0 and the plate is clipped by the canvas. Below also puts it
+        /// in thumb reach on the portrait phone this sweep measures, and it leaves the
+        /// pinned rail pitch (three 103.3 squares on a 115.3 stride) untouched — that
+        /// pitch is asserted in two other files and is not this feature's to move.
+        /// </summary>
+        void BuildPlayNow(Transform root)
+        {
+            var button = TextButton(root, new Vector2(0, 1),
+                new Vector2(RailLeft - 6, PanelTop - 3 * (RailIcon + RailGap)),
+                new Vector2(RailIcon + 12, PlayNowHeight),
+                "▶  바로 시작", 19, () => _callbacks.OnSortie?.Invoke(GameDirectorPlayNowTarget),
+                plated: true);
+            button.name = "PlayNow";
+
+            var plate = button.GetComponent<Image>();
+            if (plate != null) plate.color = PlayNowPlate;
+
+            var label = button.GetComponentInChildren<Text>();
+            if (label != null) label.color = PlayNowInk;
+
+            // A caption under the label, not a tooltip: a tooltip requires knowing to
+            // hover, which is the same "you must already know" trap the rail icons set.
+            var hint = Label(button.transform, 0, -(PlayNowHeight - 26f), RailIcon + 12, 18,
+                "튜토리얼부터 자동으로", 11, TextAnchor.MiddleCenter);
+            hint.color = PlayNowHint;
+        }
+
+        /// <summary>Deliberately equal to RailIcon: see BuildPlayNow's GEOMETRY note.
+        /// Shrinking this below 103.3 re-opens the touch-floor failure it was raised
+        /// to close, and LobbyLayoutTests' debt table is what will say so.</summary>
+        const float PlayNowHeight = RailIcon;
+        /// <summary>Mirrors GameDirector.PlayNowTarget. The View may not reference the
+        /// director, so the two share the literal and a test pins them together.</summary>
+        public const string GameDirectorPlayNowTarget = "play-now";
+
         void BuildRail(Transform root)
         {
+            BuildPlayNow(root);
             for (var i = 0; i < 3; i++)
             {
                 var index = i;
