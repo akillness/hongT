@@ -258,9 +258,15 @@ namespace CinderCourt.EditorTools
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {
-                material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                material = new Material(ToonOrLit());
                 AssetDatabase.CreateAsset(material, path);
             }
+            // Re-point an already-created material too: the kit was imported under
+            // URP/Lit before the toon pass existed, and a material asset keeps the
+            // shader it was born with. Without this line "re-run the importer" would
+            // silently do nothing for the 20 that already exist.
+            var wanted = ToonOrLit();
+            if (material.shader != wanted) material.shader = wanted;
 
             var albedo = LoadMap(partName, "albedo");
             var normal = LoadMap(partName, "normal");
@@ -296,6 +302,23 @@ namespace CinderCourt.EditorTools
         /// the kit shipped 20 of 28 parts, so absence is the ungenerated remainder, not
         /// an error, and nothing here may hard-depend on a map existing.
         /// </summary>
+        /// <summary>
+        /// The toon shader when it is present, URP/Lit otherwise.
+        ///
+        /// Not a hard dependency: Shader.Find returns null for a shader that failed to
+        /// compile or was stripped, and a null shader turns every kit part magenta.
+        /// Falling back keeps a broken shader from taking the dungeon's geometry with
+        /// it — the same "absent asset degrades, never breaks" rule the kit meshes and
+        /// the recovered textures already follow.
+        /// </summary>
+        static Shader ToonOrLit()
+        {
+            var toon = Shader.Find(ToonShaderName);
+            return toon != null ? toon : Shader.Find("Universal Render Pipeline/Lit");
+        }
+
+        const string ToonShaderName = "CinderCourt/ToonLit";
+
         static Texture2D LoadMap(string partName, string suffix)
         {
             var path = $"{TextureDir}/{partName}-{suffix}.png";
