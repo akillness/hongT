@@ -195,13 +195,30 @@ def clean_status_record(
     repo = repo.resolve()
     head = git_output(repo, "rev-parse", "HEAD")
     require_sha(head, "HEAD")
+    roots = tuple(input_roots)
+    # SCOPED TO input_roots, exactly like untracked/ignored below.
+    #
+    # This query used to run over the whole repository, which made the gate
+    # inconsistent with its own two siblings and — worse — unsatisfiable in practice.
+    # The knowledge-pipeline hooks rewrite graphify-out/ and llm-wiki/.graphify/ on
+    # every prompt and every reply (CLAUDE.md §7), so a tracked file outside the build
+    # inputs is dirty again within seconds of being committed. Measured: a deploy
+    # attempt failed on llm-wiki/.graphify/graph.json, was committed, and failed on the
+    # same path again before the next command ran.
+    #
+    # Nothing the gate protects is weakened. INPUT_ROOTS is the set that can change what
+    # gets built or deployed; a modification outside it cannot alter the payload, and
+    # untracked/ignored files outside it are already handled separately through
+    # outside_status_paths + outsideInputAllowList. Scoping here makes "exact source"
+    # mean exact BUILD source, which is what the provenance actually certifies.
     tracked = _list_git_paths(
         repo,
         "status",
         "--porcelain=v1",
         "--untracked-files=no",
+        "--",
+        *roots,
     )
-    roots = tuple(input_roots)
     untracked = _list_git_paths(
         repo,
         "ls-files",
