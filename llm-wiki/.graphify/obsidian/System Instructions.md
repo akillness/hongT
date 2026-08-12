@@ -11,8 +11,8 @@ tags:
 # ## System Instructions
 
 ## Connections
-- [[System Instructions_2]] - `links_to` [EXTRACTED]
-- [[System Instructions_4]] - `links_to` [EXTRACTED]
+- [[System Instructions_10]] - `links_to` [EXTRACTED]
+- [[System Instructions_18]] - `links_to` [EXTRACTED]
 - [[Log]] - `links_to` [EXTRACTED]
 
 #graphify/document #graphify/EXTRACTED #community/Community_1

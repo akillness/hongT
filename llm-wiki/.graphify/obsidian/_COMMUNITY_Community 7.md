@@ -10,9 +10,9 @@ members: 3
 **Members:** 3 nodes
 
 ## Members
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_1]] - raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki.md
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_3]] - wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_6]] - wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki.md
+- [[System Instructions_7]] - raw/sources/prompts/2026/08/09/223907-019fe8ad-a2a-system-instructions.md
+- [[System Instructions_8]] - wiki/queries/2026-08-09-223907-system-instructions.md
+- [[System Instructions_16]] - wiki/sources/2026-08-09-223907-system-instructions.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -22,10 +22,8 @@ SORT file.name ASC
 ```
 
 ## Connections to other communities
-- 3 edges to [[_COMMUNITY_Community 1]]
 - 2 edges to [[_COMMUNITY_Community 0]]
 
 ## Top bridge nodes
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_3]] - degree 4, connects to 2 communities
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_6]] - degree 4, connects to 2 communities
-- [[subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │_1]] - degree 3, connects to 1 community
+- [[System Instructions_8]] - degree 3, connects to 1 community
+- [[System Instructions_16]] - degree 3, connects to 1 community

@@ -1,18 +1,18 @@
 ---
 type: community
-cohesion: 0.67
+cohesion: 1.00
 members: 3
 ---
 
 # Community 2
 
-**Cohesion:** 0.67 - moderately connected
+**Cohesion:** 1.00 - tightly connected
 **Members:** 3 nodes
 
 ## Members
-- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…]] - raw/sources/prompts/2026/08/04/163651-019fcda2-50b-worktree-users-jangyoung-orca-workspaces-hongt-m.md
-- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_1]] - wiki/queries/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md
-- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_2]] - wiki/sources/2026-08-04-163651-worktree-users-jangyoung-orca-workspaces-hongt-m.md
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘]] - raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr.md
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘_1]] - wiki/queries/2026-08-08-142728-pr.md
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘_2]] - wiki/sources/2026-08-08-142728-pr.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -22,7 +22,10 @@ SORT file.name ASC
 ```
 
 ## Connections to other communities
-- 1 edge to [[_COMMUNITY_Community 0]]
+- 3 edges to [[_COMMUNITY_Community 1]]
+- 2 edges to [[_COMMUNITY_Community 0]]
 
 ## Top bridge nodes
-- [[Worktree UsersjangyoungorcaworkspacesHongTmain (Unity project). You own…_2]] - degree 2, connects to 1 community
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘_1]] - degree 4, connects to 2 communities
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘_2]] - degree 4, connects to 2 communities
+- [[pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘]] - degree 3, connects to 1 community

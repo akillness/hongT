@@ -10,9 +10,9 @@ members: 3
 **Members:** 3 nodes
 
 ## Members
-- [[Overview_1]] - raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview.md
-- [[Overview_3]] - wiki/queries/2026-08-08-142733-overview.md
-- [[Overview_5]] - wiki/sources/2026-08-08-142733-overview.md
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ]] - raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt.md
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ_1]] - wiki/queries/2026-08-09-014349-prompt.md
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ_2]] - wiki/sources/2026-08-09-014349-prompt.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -26,6 +26,6 @@ SORT file.name ASC
 - 2 edges to [[_COMMUNITY_Community 0]]
 
 ## Top bridge nodes
-- [[Overview_3]] - degree 4, connects to 2 communities
-- [[Overview_5]] - degree 4, connects to 2 communities
-- [[Overview_1]] - degree 3, connects to 1 community
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ_1]] - degree 4, connects to 2 communities
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ_2]] - degree 4, connects to 2 communities
+- [[작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ]] - degree 3, connects to 1 community

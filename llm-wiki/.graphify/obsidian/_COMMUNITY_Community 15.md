@@ -1,16 +1,18 @@
 ---
 type: community
 cohesion: 1.00
-members: 1
+members: 3
 ---
 
 # Community 15
 
 **Cohesion:** 1.00 - tightly connected
-**Members:** 1 nodes
+**Members:** 3 nodes
 
 ## Members
-- [[RAW 핵앤슬래시 게임 디자인 상세 설계 가이드 (외부 레퍼런스)]] - raw/sources/2026-08-07-hackslash-design-guide-reference.md
+- [[커밋하고, 깃 푸시해. 그리고 빌드 배포까지 깃페이지]] - raw/sources/prompts/2026/08/11/094116-019fef93-f96-prompt.md
+- [[커밋하고, 깃 푸시해. 그리고 빌드 배포까지 깃페이지_1]] - wiki/queries/2026-08-11-094116-prompt.md
+- [[커밋하고, 깃 푸시해. 그리고 빌드 배포까지 깃페이지_2]] - wiki/sources/2026-08-11-094116-prompt.md
 
 ## Live Query (requires Dataview plugin)
 

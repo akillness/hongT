@@ -1,19 +1,17 @@
 ---
-source_file: "wiki/sources/2026-08-07-133343-system-instructions.md"
+source_file: "raw/sources/prompts/2026/08/09/224029-019fe8ae-f9d-system-instructions.md"
 type: ""
-community: "Community 1"
+community: "Community 0"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Community_1
+  - community/Community_0
 ---
 
 # ## System Instructions
 
 ## Connections
-- [[System Instructions_3]] - `links_to` [EXTRACTED]
-- [[System Instructions_1]] - `links_to` [EXTRACTED]
-- [[Index]] - `links_to` [EXTRACTED]
-- [[Log]] - `links_to` [EXTRACTED]
+- [[System Instructions_14]] - `links_to` [EXTRACTED]
+- [[System Instructions_22]] - `links_to` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/Community_1
+#graphify/document #graphify/EXTRACTED #community/Community_0

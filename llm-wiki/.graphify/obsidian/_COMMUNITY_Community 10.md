@@ -10,9 +10,9 @@ members: 3
 **Members:** 3 nodes
 
 ## Members
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘.]] - raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4.md
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘._1]] - wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘._2]] - wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4.md
+- [[이어서 작업하고 리소스 제작업데이트해]] - raw/sources/prompts/2026/08/11/065341-019fef96-0b2-prompt.md
+- [[이어서 작업하고 리소스 제작업데이트해_1]] - wiki/queries/2026-08-11-065341-prompt.md
+- [[이어서 작업하고 리소스 제작업데이트해_2]] - wiki/sources/2026-08-11-065341-prompt.md
 
 ## Live Query (requires Dataview plugin)
 
@@ -20,12 +20,3 @@ members: 3
 TABLE source_file, type FROM #community/Community_10
 SORT file.name ASC
 ```
-
-## Connections to other communities
-- 3 edges to [[_COMMUNITY_Community 1]]
-- 2 edges to [[_COMMUNITY_Community 0]]
-
-## Top bridge nodes
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘._1]] - degree 4, connects to 2 communities
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘._2]] - degree 4, connects to 2 communities
-- [[docsnan2026finalabyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘.]] - degree 3, connects to 1 community

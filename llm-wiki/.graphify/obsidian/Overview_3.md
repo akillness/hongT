@@ -1,19 +1,17 @@
 ---
-source_file: "wiki/queries/2026-08-08-142733-overview.md"
+source_file: "wiki/queries/2026-08-11-065117-overview.md"
 type: ""
-community: "Community 4"
+community: "Community 9"
 tags:
   - graphify/document
   - graphify/EXTRACTED
-  - community/Community_4
+  - community/Community_9
 ---
 
 # # Overview
 
 ## Connections
-- [[Overview_1]] - `links_to` [EXTRACTED]
-- [[Overview_5]] - `links_to` [EXTRACTED]
-- [[Index]] - `links_to` [EXTRACTED]
-- [[Log]] - `links_to` [EXTRACTED]
+- [[Overview]] - `links_to` [EXTRACTED]
+- [[Overview_6]] - `links_to` [EXTRACTED]
 
-#graphify/document #graphify/EXTRACTED #community/Community_4
+#graphify/document #graphify/EXTRACTED #community/Community_9
