@@ -461,6 +461,28 @@ namespace CinderCourt.View
                 _cubeMesh.vertices = v;
                 _cubeMesh.uv = uv;
                 _cubeMesh.triangles = tri;
+                // NORMALS. Their absence is the bug that made the arena's boundary
+                // wall render as blank pale slabs, and it took nine refuted hypotheses
+                // to find because every one of them was about materials or textures.
+                //
+                // A Mesh with no normal channel feeds the shader normalOS = (0,0,0).
+                // Everything downstream then collapses at once:
+                //   lambert = saturate(dot(N, L))            -> 0, so the surface only
+                //                                               ever gets _ShadowFloor
+                //   rim     = pow(1 - dot(N, V), _RimPower)  -> pow(1, anything) = 1,
+                //                                               so the rim runs at FULL
+                //                                               strength over whole faces
+                // and the result is a flat surface painted in _RimColor's blue with no
+                // texture read and no directional light. MEASURED: deleting the rim
+                // term moved the ring from (60, 66, 85) to (8, 9, 12) — 87% of it was
+                // rim — while changing _RimPower from 4 to 10 changed nothing at all,
+                // which is only possible when the base of that pow() is 1.
+                //
+                // 24 verts already exist precisely so each face can carry its own
+                // normal (see the comment above), so RecalculateNormals produces hard
+                // per-face normals here rather than the smoothed ones it would give a
+                // shared-corner cube.
+                _cubeMesh.RecalculateNormals();
                 _cubeMesh.RecalculateBounds();
             }
             if (_quadMesh == null)
@@ -477,6 +499,11 @@ namespace CinderCourt.View
                     new Vector2(1, 1), new Vector2(0, 1),
                 };
                 _quadMesh.triangles = new[] { 0, 3, 2, 0, 2, 1 }; // up-facing
+                // Same omission as the cube, same consequence — see there. The quad is
+                // planar and up-facing, so this is (0,1,0) at every vertex; it is
+                // written as a Recalculate rather than a literal so the two meshes
+                // cannot drift into disagreeing about how they get their normals.
+                _quadMesh.RecalculateNormals();
                 _quadMesh.RecalculateBounds();
             }
         }
