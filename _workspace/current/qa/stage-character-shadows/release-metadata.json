@@ -1,0 +1,87 @@
+{
+  "baselineProbeSha": "94195cf4b9ffb44ad4b4af07a10cb5dee3ace3d3",
+  "candidateSourceSha": "1bd8eca383e15e2ce2a8aaaf8a905909552d155c",
+  "cleanStatus": {
+    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post.json",
+    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre.json"
+  },
+  "commands": [
+    "bash tools/unity_batch.sh import-only",
+    "bash tools/deploy/run_release_gate.sh 1",
+    "python3 tools/deploy/make_release_evidence.py editmode",
+    "python3 tools/deploy/make_release_evidence.py build --kind development",
+    "node tools/qa/run_shadow_browser_evidence.mjs (harness e2a44f6) --viewport 1440x900 --evidence-id browser-shadow-desktop",
+    "node tools/qa/run_shadow_browser_evidence.mjs (harness e2a44f6) --viewport 390x844 --evidence-id browser-shadow-mobile",
+    "bash tools/deploy/run_release_gate.sh 2",
+    "python3 tools/deploy/make_release_evidence.py build --kind release",
+    "python3 tools/deploy/release_provenance.py snapshot-clean (pre, post)",
+    "python3 tools/deploy/release_provenance.py create"
+  ],
+  "evidence": [
+    {
+      "buildMode": "Source",
+      "contentMarker": null,
+      "evidenceId": "shadow-focused-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-shadow-focused-editmode.json"
+    },
+    {
+      "buildMode": "Source",
+      "contentMarker": null,
+      "evidenceId": "full-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-full-editmode.json"
+    },
+    {
+      "buildMode": "Source",
+      "contentMarker": null,
+      "evidenceId": "release-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-release-build.json"
+    },
+    {
+      "buildMode": "Development",
+      "contentMarker": "fb79d8d21e0bfc54",
+      "evidenceId": "development-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json"
+    },
+    {
+      "buildMode": "Development",
+      "contentMarker": "fb79d8d21e0bfc54",
+      "evidenceId": "browser-shadow-desktop",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json"
+    },
+    {
+      "buildMode": "Development",
+      "contentMarker": "fb79d8d21e0bfc54",
+      "evidenceId": "browser-shadow-mobile",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json"
+    }
+  ],
+  "generatedAt": "2026-08-12T08:56:24Z",
+  "outsideInputAllowList": [
+    ".*",
+    "_workspace/*",
+    "docs/*.DS_Store",
+    "graphify-out/*",
+    "llm-wiki/*",
+    "tools/*",
+    "Library",
+    "Logs",
+    "Temp",
+    "obj",
+    "UserSettings",
+    "*.csproj",
+    "build-development*",
+    "build-webgl*",
+    "mono_crash.*.json",
+    "node_modules",
+    "skills",
+    "skills-lock.json",
+    "tmp"
+  ],
+  "probeHashes": {
+    "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
+    "candidate": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322"
+  },
+  "releaseBaseSha": "94195cf4b9ffb44ad4b4af07a10cb5dee3ace3d3",
+  "sourceUpstream": "origin/akillness/main",
+  "unityVersion": "6000.5.6f1"
+}
