@@ -8,7 +8,7 @@ next_public_beat = "gh-pages 라이브 — 처음 들어온 사람이 외부 문
 **Stage 1 재진입 (컨셉 전환).** cycle-8 회고의 "Stage 2 retune" 지정을
 디렉터가 뒤집었다 — 근거는 `intake/production-brief.md` §진입 결정 뒤집기.
 
-**상태: Stage 1 Phase 1a·1b 완료 + 범위 확정. Phase 1c(협상) 대기 —
+**상태: Stage 1 Phase 1a·1b·1c 완료 + 범위 확정. Phase 1d(구현) 대기 —
 실행 승인 전.**
 
 ## 이번 사이클이 답하는 질문
@@ -55,7 +55,7 @@ next_public_beat = "gh-pages 라이브 — 처음 들어온 사람이 외부 문
 | 폰트 사전 검증 (제안 UI 문자열 전수, getBestCmap) | qa | 1.b | design/dungeon-entry-fun-spec.md §10.1 | G1 | done |
 | W1 골든 비용 실측 | director | 1.b | 아래 §골든 비용 | G6 | done |
 
-## Phase 1c — 선결 (일부 완료)
+## 완료 (Phase 1c — 선결)
 
 | task | owner | stage.phase | artifact | gate | status |
 |---|---|---|---|---|---|
