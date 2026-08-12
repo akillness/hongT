@@ -245,6 +245,11 @@ mergeInto(LibraryManager.library, {
             enabled ? "SHADOW_CAPTURE_FREEZE" : "SHADOW_CAPTURE_UNFREEZE");
           return GameFlowAgentBridgeState.waitForObservationAfter(version);
         },
+        _debugRendererCensus: function () {
+          var version = GameFlowAgentBridgeState.observationVersion;
+          GameFlowAgentBridgeState.queueAction("RENDERER_CENSUS");
+          return GameFlowAgentBridgeState.waitForObservationAfter(version);
+        },
         listTestScenarios: function () { return GameFlowAgentBridgeState.listTestScenarios(); },
         checkScenarioPreconditions: function (id) { return GameFlowAgentBridgeState.checkScenarioPreconditions(id); },
         repairScenario: function (id, plan) { return GameFlowAgentBridgeState.repairScenario(id, plan); },
@@ -263,6 +268,7 @@ mergeInto(LibraryManager.library, {
         reset: bridge.reset,
         _debugShadowReceiver: bridge._debugShadowReceiver,
         _debugFreezeStage: bridge._debugFreezeStage,
+        _debugRendererCensus: bridge._debugRendererCensus,
         listTestScenarios: bridge.listTestScenarios,
         checkScenarioPreconditions: bridge.checkScenarioPreconditions,
         repairScenario: bridge.repairScenario,

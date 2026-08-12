@@ -62,6 +62,7 @@ namespace CinderCourt.View
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
         static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int RimColorId = Shader.PropertyToID("_RimColor");
 
         /// <summary>UV tiles per world unit (§E9 candidate 3 texture pass). One
         /// tile per 1.28 u = the §E2 module grid (128 sim-px), so a wall segment
@@ -105,6 +106,13 @@ namespace CinderCourt.View
             EnsureMaterials();
             ApplyStageTextures(stageId);
             var tints = StageTints(entry.AccentColor);
+            // Stage-hued rim on the two shared env materials. Material-level,
+            // not MPB: every kit piece shares these two runtime materials
+            // (never serialized), so two SetColor calls re-hue the whole ring/
+            // terrace/gate family at once. Pieces' MPBs carry only _BaseColor +
+            // _BaseMap_ST, so this does not get overridden.
+            if (_stoneMaterial != null) _stoneMaterial.SetColor(RimColorId, tints.Rim);
+            if (_floorMaterial != null) _floorMaterial.SetColor(RimColorId, tints.Rim);
 
             var root = new GameObject("StageEnvironment");
             for (var i = 0; i < modules.Count; i++)
@@ -118,13 +126,14 @@ namespace CinderCourt.View
         // ------------------------------------------------------------ tints --
         readonly struct Tints
         {
-            public readonly Color Stone, Floor, Ember, Water;
-            public Tints(Color stone, Color floor, Color ember, Color water)
+            public readonly Color Stone, Floor, Ember, Water, Rim;
+            public Tints(Color stone, Color floor, Color ember, Color water, Color rim)
             {
                 Stone = stone;
                 Floor = floor;
                 Ember = ember;
                 Water = water;
+                Rim = rim;
             }
         }
 
@@ -145,7 +154,43 @@ namespace CinderCourt.View
                 accent.g * 0.30f + 0.06f,
                 accent.b * 0.45f + 0.12f,
                 0.78f);
-            return new Tints(stone, floor, ember, water);
+            return new Tints(stone, floor, ember, water, RimColorFor(accent));
+        }
+
+        /// <summary>
+        /// Per-stage fresnel rim for every ToonLit surface the stage builds.
+        ///
+        /// WHY THIS EXISTS (pale-ring-investigation.md, closed by the renderer
+        /// census + shader arithmetic): the arena boundary ring's VISIBLE color
+        /// was never its albedo. Its base term is tints.Stone × stone map ≈ 0.04
+        /// luma — near black — so the shader's rim term owns the pixel, and
+        /// _RimColor defaulted to a hardcoded cold blue (0.72, 0.78, 1.0) on
+        /// every stage. Measured on the live frame: ring RGB (60.0, 65.8, 84.5)
+        /// ÷ RimColor = 0.326/0.331/0.331 — ONE scalar across all channels, the
+        /// fingerprint of a pixel that is rim and almost nothing else. An
+        /// ember-orange stage wearing a constant ice-blue shell is exactly the
+        /// "이미지가 덧씌워진 느낌" the 2026-08-12/13 playtest named twice.
+        ///
+        /// The hue moves toward the stage accent but STRONGLY desaturated first
+        /// (same §E0.5 discipline as the Uncapped silhouette branch below:
+        /// scenery must separate from telegraphs by VALUE, never borrow the
+        /// hazard's chroma). Luminance is normalized back to the old rim's so
+        /// the silhouette-separation job — the reason the rim exists — keeps
+        /// its measured strength on every stage.
+        /// </summary>
+        internal static Color RimColorFor(Color accent)
+        {
+            var baseRim = new Color(0.72f, 0.78f, 1.0f, 1f);   // the shader default
+            var grey = accent.r * 0.299f + accent.g * 0.587f + accent.b * 0.114f;
+            var soft = Color.Lerp(accent, new Color(grey, grey, grey, 1f), 0.60f);
+            var rim = Color.Lerp(baseRim, soft, 0.55f);
+            // Restore the default rim's luminance: the hue may move, the
+            // silhouette lift may not (E0.5 reads by value).
+            var baseLuma = baseRim.r * 0.299f + baseRim.g * 0.587f + baseRim.b * 0.114f;
+            var rimLuma = rim.r * 0.299f + rim.g * 0.587f + rim.b * 0.114f;
+            if (rimLuma > 0.001f) rim *= baseLuma / rimLuma;
+            rim.a = 1f;
+            return rim;
         }
 
         // ------------------------------------------------------ materialize --
@@ -414,6 +459,10 @@ namespace CinderCourt.View
                 tint.a = 1f;
                 var block = new MaterialPropertyBlock();
                 block.SetColor(BaseColorId, tint);
+                // Library parts share the terrain FBX's SERIALIZED materials, so
+                // the stage rim must ride the MPB — a material-level SetColor
+                // here would dirty a committed .mat asset.
+                block.SetColor(RimColorId, tints.Rim);
                 r.SetPropertyBlock(block);
             }
         }

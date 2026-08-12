@@ -218,6 +218,15 @@ namespace CinderCourt.View
                         _diagnosticTimeFrozen = false;
                     }
                     break;
+                case "RENDERER_CENSUS":
+                    // Runtime renderer walk (pale-ring-investigation.md's next
+                    // probe): the ring's material exists in no .mat asset, so
+                    // only the PLAYING object graph can name it. Director found
+                    // per call — this is a diagnostic, not a frame path.
+                    var director = FindAnyObjectByType<GameDirector>();
+                    if (director != null) director.DumpRendererCensus();
+                    else Debug.Log("[RingProbe] BEGIN no-director\n[RingProbe] END");
+                    break;
 #endif
             }
         }

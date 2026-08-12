@@ -285,7 +285,8 @@ namespace CinderCourt.View
             _selectedStage = CurrentCampaignStageId() ?? _selectedStage;
             SetStageTerrain(StageCatalog.TryGet(_selectedStage, out var selectedEntry)
                 ? selectedEntry.TerrainId
-                : null);
+                : null,
+                _selectedStage);
             ApplyStageDressing(null);
             SetStageEnvironment(null);
             SetLobbyMood(_selectedStage);
@@ -307,28 +308,70 @@ namespace CinderCourt.View
         }
 
         /// <summary>
-        /// Dungeon ground swap: instantiate Resources/Terrain/terrain-<stage>
+        /// Dungeon ground swap: instantiate Resources/Terrain/terrain-<stageId>
         /// at the arena center (court plate stays underneath as safety net).
         /// Pass null to return to the base court look.
+        ///
+        /// <paramref name="logicalStageId"/> is the stage whose CONCEPT the
+        /// plate serves this time — three plates cover nine stages, so the same
+        /// mesh reappears under different accents. The plate's ToonLit rim is
+        /// re-hued per logical stage (EnvironmentBuilder.RimColorFor — the
+        /// census-closed pale-ring fix); the key is the (plate, logical) PAIR
+        /// so a shared plate re-tints when a different stage borrows it.
         /// </summary>
-        void SetStageTerrain(string stageId)
+        void SetStageTerrain(string stageId, string logicalStageId = null)
         {
-            if (_stageTerrainId == (stageId ?? "")) return;
-            if (_stageTerrain != null)
+            var key = (stageId ?? "") + "|" + (logicalStageId ?? "");
+            if (_stageTerrainId == key) return;
+            var samePlate = _stageTerrain != null
+                && _stageTerrainId.Split('|')[0] == (stageId ?? "");
+            _stageTerrainId = key;
+            if (!samePlate)
             {
-                if (Application.isPlaying) Destroy(_stageTerrain);
-                else DestroyImmediate(_stageTerrain);
-                _stageTerrain = null;
+                if (_stageTerrain != null)
+                {
+                    if (Application.isPlaying) Destroy(_stageTerrain);
+                    else DestroyImmediate(_stageTerrain);
+                    _stageTerrain = null;
+                }
+                if (string.IsNullOrEmpty(stageId)) return;
+                var prefab = Resources.Load<GameObject>("Terrain/terrain-" + stageId);
+                if (prefab == null) return;   // stage without terrain keeps the court
+                _stageTerrain = Instantiate(prefab);
+                _stageTerrain.name = "StageTerrain";
+                // Arena center in view space; terrain FBX is origin-centered, top y=0.
+                _stageTerrain.transform.position = ViewWorld.ToWorld(768f, 512f, 0f);
             }
-            _stageTerrainId = stageId ?? "";
-            if (string.IsNullOrEmpty(stageId)) return;
-            var prefab = Resources.Load<GameObject>("Terrain/terrain-" + stageId);
-            if (prefab == null) return;   // stage without terrain keeps the court
-            _stageTerrain = Instantiate(prefab);
-            _stageTerrain.name = "StageTerrain";
-            // Arena center in view space; terrain FBX is origin-centered, top y=0.
-            _stageTerrain.transform.position = ViewWorld.ToWorld(768f, 512f, 0f);
+            ApplyTerrainRim(logicalStageId);
         }
+
+        /// <summary>
+        /// Stage-hued fresnel rim on the terrain plate's renderers, via MPB —
+        /// the plate's materials are SERIALIZED assets shared by three prefabs,
+        /// so a material-level SetColor would dirty committed .mat files and
+        /// leak one stage's hue into the next (EnvironmentBuilder's shared env
+        /// materials are runtime clones, the opposite case). No logical stage
+        /// (lobby fallback with nothing unlocked) keeps the shader default.
+        /// </summary>
+        void ApplyTerrainRim(string logicalStageId)
+        {
+            if (_stageTerrain == null || string.IsNullOrEmpty(logicalStageId)) return;
+            if (!StageCatalog.TryGet(logicalStageId, out var entry)) return;
+            var rim = EnvironmentBuilder.RimColorFor(entry.AccentColor);
+            var block = new MaterialPropertyBlock();
+            var renderers = _stageTerrain.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                // Preserve whatever the block already carries (none today —
+                // the plate is instantiated bare) rather than replacing it.
+                renderer.GetPropertyBlock(block);
+                block.SetColor(TerrainRimColorId, rim);
+                renderer.SetPropertyBlock(block);
+            }
+        }
+
+        static readonly int TerrainRimColorId = Shader.PropertyToID("_RimColor");
 
         /// <summary>
         /// Stage dressing pass (spec §Lane T-a): clone named children of the
@@ -435,8 +478,10 @@ namespace CinderCourt.View
                     _rig.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
                 VfxDirector.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
                 PostFxGate.SetStageActive(false);   // §V4: post is dungeon-only
+                ApplyVoidFloorHue(null);            // court modes keep the baked tone
                 return;
             }
+            ApplyVoidFloorHue(stageId);
             // AMENDMENT #15 (W-MV, MV-2): the boundary wall ring must be laid
             // out against the half-axes the SIM will clamp to, or an expanded
             // clamp puts the player outside the ring. This runs BEFORE
@@ -455,6 +500,72 @@ namespace CinderCourt.View
             // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
             // root at 4 realtime point lights.
             _stageMood = StageMood.Apply(stageId, halfWidth, halfHeight);
+        }
+
+        // --- outskirt darkness, per stage --------------------------------------
+        // VoidFloor is the scene-baked quad under everything past the apron. Two
+        // magenta paint-bakes disagree on its frame share — CameraRig.cs records
+        // 0.25% (2026-08 pull-in decision), pale-ring-investigation.md measured
+        // 61,510 px = 4.75% with its bbox reading "아레나 바깥 보라 영역"
+        // (2026-08-12, the fresher bake). This hook does not pick a winner:
+        // whether the hue landed is measured per release as a pre/post HUE
+        // delta on the outskirt band (mean R−B / saturation — this change
+        // holds luminance constant BY DESIGN, so the luma-only seam probe
+        // tools/qa/measure_outskirt_seam.py can only serve as the regression
+        // guard that the seam tuning survived, never as proof the hue moved).
+        // Either way a constant purple-grey is a stage-blind surface, same
+        // class as the constant blue rim: the "이미지가 덧씌워진 느낌" the
+        // 08-12/13 playtest named twice.
+        //
+        // The hue moves toward the stage accent; the VALUE stays the baked
+        // tone's. SceneBuilder tuned that value against the apron seam by
+        // measurement (a 4x step reads as "the world ends here"), and this
+        // hook must not be able to undo that tuning — so the lerp is followed
+        // by a luminance renormalization, mirroring RimColorFor's discipline.
+        Renderer _voidFloorRenderer;
+        Color _voidFloorBakedTone;
+        bool _voidFloorFound;
+
+        void ApplyVoidFloorHue(string stageId)
+        {
+            if (!_voidFloorFound)
+            {
+                var quad = GameObject.Find("VoidFloor");
+                _voidFloorRenderer = quad != null ? quad.GetComponent<Renderer>() : null;
+                if (_voidFloorRenderer != null && _voidFloorRenderer.sharedMaterial != null)
+                    _voidFloorBakedTone =
+                        _voidFloorRenderer.sharedMaterial.GetColor(VoidBaseColorId);
+                _voidFloorFound = true;   // scene-baked: absent stays absent
+            }
+            if (_voidFloorRenderer == null) return;
+            var block = new MaterialPropertyBlock();
+            if (!string.IsNullOrEmpty(stageId) && StageCatalog.TryGet(stageId, out var entry))
+            {
+                _voidFloorRenderer.GetPropertyBlock(block);
+                block.SetColor(VoidBaseColorId,
+                    VoidTintFor(_voidFloorBakedTone, entry.AccentColor));
+                _voidFloorRenderer.SetPropertyBlock(block);
+                return;
+            }
+            // Court modes (lobby/arena/prologue/trial): back to the baked tone.
+            _voidFloorRenderer.SetPropertyBlock(block);   // empty block = clear
+        }
+
+        static readonly int VoidBaseColorId = Shader.PropertyToID("_BaseColor");
+
+        /// <summary>
+        /// Stage-hued outskirt tone: hue from the accent, VALUE from the baked
+        /// tone (luminance-renormalized so SceneBuilder's measured seam tuning
+        /// survives every stage — internal so a test can pin exactly that).
+        /// </summary>
+        internal static Color VoidTintFor(Color baked, Color accent)
+        {
+            var tinted = Color.Lerp(baked, accent, 0.35f);
+            var bakedLuma = baked.r * 0.299f + baked.g * 0.587f + baked.b * 0.114f;
+            var tintedLuma = tinted.r * 0.299f + tinted.g * 0.587f + tinted.b * 0.114f;
+            if (tintedLuma > 0.001f) tinted *= bakedLuma / tintedLuma;
+            tinted.a = 1f;
+            return tinted;
         }
 
         /// <summary>
@@ -764,7 +875,7 @@ namespace CinderCourt.View
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;
-            SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
+            SetStageTerrain(entry.TerrainId, entry.Id); // 3 plates serve 9 stages — rim re-hues per logical stage
             ApplyStageDressing(entry.Id);     // per-LOGICAL-stage dressing (spec §T-a)
             SetStageEnvironment(entry.Id);    // modular environment (AMENDMENT #12)
             PrepareRunUi();
@@ -1640,6 +1751,49 @@ namespace CinderCourt.View
                     break;
             }
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // --- runtime renderer census (pale-ring-investigation.md, next probe) --
+        //
+        // The investigation's one positive fact: the arena boundary ring renders
+        // through CinderCourt/ToonLit, yet EVERY .mat asset and every
+        // SetPropertyBlock site disclaims it. The remaining hypothesis is a
+        // material that never exists as a .mat — FBX-embedded, or runtime-made —
+        // which no Assets/**.mat search can see. The only graph that contains
+        // such an object is the PLAYING scene, so this walks it there.
+        //
+        // DEVELOPMENT_BUILD-gated like the shadow toggle API: diagnostic surface,
+        // zero release cost. Trigger from the browser console:
+        //   unityInstance.SendMessage("GameRoot", "DumpRendererCensus")
+        // and recover the [RingProbe] lines from the console.
+        public void DumpRendererCensus()
+        {
+            var block = new MaterialPropertyBlock();
+            var renderers = FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+            Debug.Log($"[RingProbe] BEGIN state={_state} stage={_runStageId} renderers={renderers.Length}");
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var r = renderers[i];
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                var material = r.sharedMaterial;
+                var bounds = r.bounds;
+                r.GetPropertyBlock(block);
+                var mpb = block.isEmpty ? "none"
+                    : block.HasColor("_BaseColor")
+                        ? block.GetColor("_BaseColor").ToString("F3")
+                        : "no-color";
+                var path = r.transform.parent == null
+                    ? r.name
+                    : $"{r.transform.parent.name}/{r.name}";
+                Debug.Log(
+                    $"[RingProbe] path={path} mat={(material == null ? "null" : material.name)}"
+                    + $" shader={(material == null || material.shader == null ? "null" : material.shader.name)}"
+                    + $" center={bounds.center.ToString("F2")} ext={bounds.extents.ToString("F2")}"
+                    + $" mpb={mpb}");
+            }
+            Debug.Log("[RingProbe] END");
+        }
+#endif
 
         void StepToast(int next)
         {
