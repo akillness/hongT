@@ -1,16 +1,16 @@
 # Graph Report - main  (2026-08-12)
 
 ## Corpus Check
-- 1002 files · ~41,209,047 words
+- 1004 files · ~41,211,012 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 19153 nodes · 23480 edges · 1528 communities (1407 shown, 121 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 202 edges (avg confidence: 0.79)
+- 19177 nodes · 23516 edges · 1525 communities (1403 shown, 122 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 203 edges (avg confidence: 0.79)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0096627b`
+- Built from commit: `00c1a201`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -708,7 +708,6 @@
 - [[_COMMUNITY_Community 717|Community 717]]
 - [[_COMMUNITY_Community 718|Community 718]]
 - [[_COMMUNITY_Community 719|Community 719]]
-- [[_COMMUNITY_Community 720|Community 720]]
 - [[_COMMUNITY_Community 721|Community 721]]
 - [[_COMMUNITY_Community 722|Community 722]]
 - [[_COMMUNITY_Community 723|Community 723]]
@@ -716,7 +715,6 @@
 - [[_COMMUNITY_Community 725|Community 725]]
 - [[_COMMUNITY_Community 726|Community 726]]
 - [[_COMMUNITY_Community 727|Community 727]]
-- [[_COMMUNITY_Community 728|Community 728]]
 - [[_COMMUNITY_Community 729|Community 729]]
 - [[_COMMUNITY_Community 730|Community 730]]
 - [[_COMMUNITY_Community 731|Community 731]]
@@ -809,11 +807,11 @@
 - [[_COMMUNITY_Community 824|Community 824]]
 - [[_COMMUNITY_Community 825|Community 825]]
 - [[_COMMUNITY_Community 826|Community 826]]
+- [[_COMMUNITY_Community 828|Community 828]]
 - [[_COMMUNITY_Community 829|Community 829]]
 - [[_COMMUNITY_Community 830|Community 830]]
 - [[_COMMUNITY_Community 831|Community 831]]
 - [[_COMMUNITY_Community 832|Community 832]]
-- [[_COMMUNITY_Community 833|Community 833]]
 - [[_COMMUNITY_Community 834|Community 834]]
 - [[_COMMUNITY_Community 835|Community 835]]
 - [[_COMMUNITY_Community 836|Community 836]]
@@ -1448,13 +1446,11 @@
 - [[_COMMUNITY_Community 1516|Community 1516]]
 - [[_COMMUNITY_Community 1517|Community 1517]]
 - [[_COMMUNITY_Community 1518|Community 1518]]
+- [[_COMMUNITY_Community 1519|Community 1519]]
 - [[_COMMUNITY_Community 1520|Community 1520]]
 - [[_COMMUNITY_Community 1521|Community 1521]]
-- [[_COMMUNITY_Community 1522|Community 1522]]
 - [[_COMMUNITY_Community 1523|Community 1523]]
-- [[_COMMUNITY_Community 1524|Community 1524]]
 - [[_COMMUNITY_Community 1526|Community 1526]]
-- [[_COMMUNITY_Community 1527|Community 1527]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `CinderSim` - 163 edges
@@ -1471,16 +1467,16 @@
 ## Surprising Connections (you probably didn't know these)
 - `IconApplicator` --references--> `Dictionary`  [EXTRACTED]
   tools/icons/apply-icons-to-hud.cs → Assets/Scripts/View/HudIconIntegration.cs
-- `SourceEntry` --uses--> `ReleaseError`  [INFERRED]
-  tools/deploy/seal_pages_payload.py → tools/deploy/release_common.py
-- `SourceTree` --uses--> `ReleaseError`  [INFERRED]
-  tools/deploy/seal_pages_payload.py → tools/deploy/release_common.py
-- `ReleaseFixture` --uses--> `ReleaseError`  [INFERRED]
-  tools/tests/test_release_payload.py → tools/deploy/release_common.py
-- `ReleasePayloadTests` --uses--> `ReleaseError`  [INFERRED]
-  tools/tests/test_release_payload.py → tools/deploy/release_common.py
+- `IconApplicator` --references--> `Material`  [EXTRACTED]
+  tools/icons/apply-icons-to-hud.cs → Assets/Scripts/View/HudIconIntegration.cs
+- `ManifestAsset` --references--> `string`  [EXTRACTED]
+  Assets/Tests/EditMode/StageHazardVisualCatalogTests.cs → Assets/Editor/AutoInitializeIconMaterials.cs
+- `GuidanceTests` --references--> `Regex`  [EXTRACTED]
+  Assets/Tests/EditMode/GuidanceTests.cs → Assets/Tests/EditMode/ViewColliderStripConventionTests.cs
+- `HudView` --references--> `Func<int, bool>`  [EXTRACTED]
+  Assets/Scripts/View/HudView.cs → Assets/Scripts/View/HudViewCodex.cs
 
-## Communities (1528 total, 121 thin omitted)
+## Communities (1525 total, 122 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.04
@@ -1503,8 +1499,8 @@ Cohesion: 0.17
 Nodes (3): CinderCourt.Tests, CompanionSkillTests, Row
 
 ### Community 6 - "Community 6"
-Cohesion: 0.05
-Nodes (11): Action<char>, Action<int>, CanvasScaler, CommandConsoleImeComposition, Func<int>, InputField, Keyboard, LayoutTier (+3 more)
+Cohesion: 0.04
+Nodes (11): Action<char>, Action<int>, Button, CommandConsoleImeComposition, Func<int>, InputField, Keyboard, LayoutTier (+3 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.06
@@ -1512,7 +1508,7 @@ Nodes (36): dependencies, depth, source, version, dependencies, depth, source, v
 
 ### Community 8 - "Community 8"
 Cohesion: 0.05
-Nodes (9): ActorAction, Animator, HumanBodyBones, Renderer, SkinnedMeshRenderer, TrailRenderer, Transform, ActorView (+1 more)
+Nodes (8): ActorAction, Animator, HumanBodyBones, Renderer, SkinnedMeshRenderer, TrailRenderer, Transform, ActorView
 
 ### Community 9 - "Community 9"
 Cohesion: 0.08
@@ -1644,7 +1640,7 @@ Nodes (6): 6. MODEL LOADING & INSTANTIATION CONTRACT, Actor Types & Their Loader
 
 ### Community 43 - "Community 43"
 Cohesion: 0.05
-Nodes (22): BossArchetype, CampaignConfig, ComboVariant, CompanionBehavior, CompanionSkillSpec, Corpse, DifficultyProfile, Enemy (+14 more)
+Nodes (22): CampaignConfig, ComboVariant, CompanionBehavior, CompanionSkillSpec, Corpse, DifficultyProfile, Enemy, GameMode (+14 more)
 
 ### Community 44 - "Community 44"
 Cohesion: 0.22
@@ -1699,8 +1695,8 @@ Cohesion: 0.18
 Nodes (11): dependencies, depth, source, url, version, dependencies, depth, source (+3 more)
 
 ### Community 64 - "Community 64"
-Cohesion: 0.09
-Nodes (23): dependencies, depth, source, url, version, dependencies, depth, source (+15 more)
+Cohesion: 0.06
+Nodes (33): dependencies, depth, source, url, version, dependencies, depth, source (+25 more)
 
 ### Community 65 - "Community 65"
 Cohesion: 0.05
@@ -1747,8 +1743,8 @@ Cohesion: 0.33
 Nodes (6): bytes, durationSeconds, file, prompt, promptInfluence, bgm
 
 ### Community 79 - "Community 79"
-Cohesion: 0.17
-Nodes (12): dependencies, depth, source, url, version, dependencies, depth, source (+4 more)
+Cohesion: 0.09
+Nodes (22): dependencies, depth, source, url, version, dependencies, depth, source (+14 more)
 
 ### Community 80 - "Community 80"
 Cohesion: 0.06
@@ -1791,8 +1787,8 @@ Cohesion: 0.40
 Nodes (4): cues, endpoint, generatedAt, tool
 
 ### Community 91 - "Community 91"
-Cohesion: 0.07
-Nodes (10): CampaignData, CutsceneView, Dictionary<string, string>, List<int>, LobbyStaging, PreparationOffer, SpeechBubbleView, State (+2 more)
+Cohesion: 0.09
+Nodes (7): CutsceneView, Dictionary<string, string>, List<int>, LobbyStaging, SpeechBubbleView, State, GameDirector
 
 ### Community 92 - "Community 92"
 Cohesion: 0.08
@@ -1807,8 +1803,8 @@ Cohesion: 0.40
 Nodes (5): dependencies, depth, source, version, com.unity.modules.umbra
 
 ### Community 95 - "Community 95"
-Cohesion: 0.07
-Nodes (6): Button, CampaignMapView, Dictionary<string, bool>, LobbyCallbacks, ScrollRect, LobbyView
+Cohesion: 0.08
+Nodes (4): Dictionary<string, bool>, LobbyCallbacks, ScrollRect, LobbyView
 
 ### Community 96 - "Community 96"
 Cohesion: 0.06
@@ -1823,8 +1819,8 @@ Cohesion: 0.06
 Nodes (32): Acceptance Criteria, Approved External Asset Plan, Assumptions Exposed and Resolved, Camera, Clarity Breakdown, Constraints, Core Interaction Contract, Deep Interview Spec: Cinder Court — Dungeon Revival (+24 more)
 
 ### Community 100 - "Community 100"
-Cohesion: 0.16
-Nodes (17): ApplySkillCardReadyState(), BuildTouchControls(), CinderCourt.View, ForceTouchControlsForTest(), JoystickSprite(), OnEvents(), SetBossIntroState(), StartCastFlash() (+9 more)
+Cohesion: 0.15
+Nodes (17): ApplySkillCardReadyState(), CinderCourt.View, MakeRadialTexture(), OnEvents(), Overlay(), RefreshMuteLabel(), SetBossIntroState(), StartCastFlash() (+9 more)
 
 ### Community 101 - "Community 101"
 Cohesion: 0.06
@@ -1907,8 +1903,8 @@ Cohesion: 0.10
 Nodes (20): 1.1 플레이 문법 요약, 1.2 콘텐츠 구성, 1. 게임 제목 및 한 줄 소개, 2.1 목표, 2.2 조작, 2.3 아레나 전투 규칙 (동결 수치 계약), 2.4 캠페인 — 6단계·Ember Rest·장비, 2.4 캠페인 — 9단계·Ember Rest·장비 (+12 more)
 
 ### Community 126 - "Community 126"
-Cohesion: 0.20
-Nodes (9): GitHub Pages 배포 — Lane V1 시전 동기화 + Lane V4 URP 포스트 (스펙 전 레인 완료) · 2026-08-05, GitHub Pages 배포 — WebGL 텍스처 상한 빌드 · 2026-08-04, Release Notes, v0.1.0 — Unity 재구현 초판 · 2026-08-04, V1 — 시전 동기화 손 글로우 (`a9bd7ff`, 캐시 `30f826ca74f49b95`), V4 — URP 포스트 (블룸+비네트) (`7669414`, 캐시 `2442aaa76e15f544`), 배포, 배포 후 스모크 (+1 more)
+Cohesion: 0.18
+Nodes (10): GitHub Pages 배포 — WebGL 텍스처 상한 빌드 · 2026-08-04, Release Notes, v0.1.0 — Unity 재구현 초판 · 2026-08-04, 로컬 검증 — WebGL 텍스처 상한 보정 · 2026-08-04, 배포, 배포 후 스모크, 변경, 변경 (+2 more)
 
 ### Community 127 - "Community 127"
 Cohesion: 0.11
@@ -1959,8 +1955,8 @@ Cohesion: 0.13
 Nodes (13): Animator / Modify, Behavior, code:bash (unity-mcp-cli run-tool animator-modify --input '{), code:json ({), code:json ({), How to Call, Input, Input JSON Schema (+5 more)
 
 ### Community 142 - "Community 142"
-Cohesion: 0.05
-Nodes (20): ArchetypePlan, CultureInfo, Difficulty, AddBool(), AddByte(), AddFloat(), AddInt(), AddString() (+12 more)
+Cohesion: 0.10
+Nodes (5): ArchetypePlan, CultureInfo, Cycle9CombatEvidenceRecorder, InputSchedule, UTF8Encoding
 
 ### Community 143 - "Community 143"
 Cohesion: 0.13
@@ -2715,8 +2711,8 @@ Cohesion: 0.17
 Nodes (11): Cinder Court — Campaign Amendment (2026-08-04), Determinism, Dungeon gimmicks (결정적 배치), ember-vent (분출구) — 주기 AoE, Item drops (장비 파편 3슬롯), obsidian-pillar (흑요석 기둥) — 이동 차단, Page flow (원작 index → campaign 구성 이식), relic-altar (유물 제단) — 스탠드 버프 (+3 more)
 
 ### Community 334 - "Community 334"
-Cohesion: 0.24
-Nodes (11): downscale_icon(), ensure_output_dirs(), generate_batch(), load_prompts(), main(), Downscale icon from 1254x1254 to 256x256 using PIL., Save generation results to provenance file., Create output directories if they don't exist. (+3 more)
+Cohesion: 0.13
+Nodes (7): Action, CampaignData, CampaignMapView, CanvasScaler, List<RectTransform>, CinderCourt.View, MetaScreenView
 
 ### Community 335 - "Community 335"
 Cohesion: 0.17
@@ -2787,8 +2783,8 @@ Cohesion: 0.20
 Nodes (9): deletedSuperseded, followUp2, goal, lane, outputs, revision, stageThemeMapping, findings (+1 more)
 
 ### Community 357 - "Community 357"
-Cohesion: 0.06
-Nodes (17): Action, List<RectTransform>, Phase, RawImage, RenderTexture, VideoPlayer, BeginFadeOut(), CinderCourt.View (+9 more)
+Cohesion: 0.05
+Nodes (24): Beat, double, CinderCourt.Tests, DungeonBoundsViewSyncTests, Phase, RawImage, RenderTexture, { chromium } (+16 more)
 
 ### Community 359 - "Community 359"
 Cohesion: 0.18
@@ -2839,8 +2835,8 @@ Cohesion: 0.13
 Nodes (7): AssetPostprocessor, CinderCourt.EditorTools, EnvTextureImportPipeline, CinderCourt.EditorTools, HazardTextureImportPipeline, CinderCourt.EditorTools, IconImportPipeline
 
 ### Community 373 - "Community 373"
-Cohesion: 0.07
-Nodes (32): dependencies, depth, source, version, dependencies, depth, source, version (+24 more)
+Cohesion: 0.10
+Nodes (21): dependencies, depth, source, version, dependencies, depth, source, version (+13 more)
 
 ### Community 374 - "Community 374"
 Cohesion: 0.25
@@ -2883,8 +2879,8 @@ Cohesion: 0.32
 Nodes (4): BrandBumper(), EMBERS, EmberSpec, Root()
 
 ### Community 386 - "Community 386"
-Cohesion: 0.08
-Nodes (51): Beat, ACT_HEADER_Y, assertActiveDungeon(), assertCrop(), canvasScalerScale(), captureFull(), capturePerf(), captureStage() (+43 more)
+Cohesion: 0.07
+Nodes (59): ACT_HEADER_Y, assertActiveDungeon(), assertCrop(), canvasScalerScale(), captureFull(), capturePerf(), captureStage(), commandPath() (+51 more)
 
 ### Community 387 - "Community 387"
 Cohesion: 0.29
@@ -2903,8 +2899,8 @@ Cohesion: 0.17
 Nodes (6): CommandAgentSignal, CommandPlan, StepPhase, CinderCourt.View, CommandAgentSpec, CommandSequenceRunner
 
 ### Community 392 - "Community 392"
-Cohesion: 0.15
-Nodes (5): AudioClip, AudioSource, uint, AudioDirector, CinderCourt.View
+Cohesion: 0.16
+Nodes (4): AudioClip, AudioSource, AudioDirector, CinderCourt.View
 
 ### Community 393 - "Community 393"
 Cohesion: 0.12
@@ -2919,8 +2915,8 @@ Cohesion: 0.25
 Nodes (6): Binding docs, LANE: Campaign Sim Extension (owner: gjc), Mission, Reporting, Test requirements (CampaignSimTests.cs), Verification
 
 ### Community 396 - "Community 396"
-Cohesion: 0.09
-Nodes (9): MeshRenderer, Quaternion, ShadowQualityGate, Tier, UniversalAdditionalLightData, UniversalRenderPipelineAsset, CinderCourt.View, ShadowQualityGate (+1 more)
+Cohesion: 0.08
+Nodes (10): MeshRenderer, Quaternion, ShadowQualityGate, Tier, uint, UniversalAdditionalLightData, UniversalRenderPipelineAsset, CinderCourt.View (+2 more)
 
 ### Community 397 - "Community 397"
 Cohesion: 0.29
@@ -3258,6 +3254,10 @@ Nodes (35): 1. StageCatalog.cs (+82/-4), 1. StageCatalog.cs — M3a 서약 테�
 Cohesion: 0.20
 Nodes (9): code:block1 (rsync -a --delete Assets/Scripts/ /tmp/hongt-unity-test/Asse), [INFERENCE] 남은 범위, [OBSERVED] 뮤테이션 검증 (테스트가 실제로 문다), [OBSERVED] 수정, [OBSERVED] 실행 명령, [OBSERVED] 원인 — 같은 InputField에 writer가 둘, [OBSERVED] 증상, [OBSERVED] 테스트 (신규 16 케이스, 259 → 276) (+1 more)
 
+### Community 500 - "Community 500"
+Cohesion: 0.23
+Nodes (3): CinderCourt.Tests, LobbyContainmentTests, LobbyView
+
 ### Community 501 - "Community 501"
 Cohesion: 0.09
 Nodes (21): §0 모드와 상태머신, §12 / §12.1 SimTypes 증분 · 입력 뎁스, §13 결정론 · SIM_SPEC 아레나 수치계약 (발췌 대조), §1 Prologue, 1. 조항별 대조표, §2.1 기본 콤보, §2.2 대시, §2.3 스킬 4종 (+13 more)
@@ -3351,8 +3351,8 @@ Cohesion: 0.40
 Nodes (5): A7.1 Target lock, A7.2 Anchor-relative acquisition and leashed pursuit, A7.3 Return grace, A7.4 Swing, snapshot and determinism, Frozen Contract Amendment #7 — Companion autonomy (2026-08-07)
 
 ### Community 529 - "Community 529"
-Cohesion: 0.15
-Nodes (10): ApplyFrameOverlay(), Bar(), Label(), Letterbox(), MakeRadialTexture(), Overlay(), Panel(), RefreshMuteLabel() (+2 more)
+Cohesion: 0.20
+Nodes (7): ApplyFrameOverlay(), Bar(), Label(), Letterbox(), Panel(), SkillCard(), TextButton()
 
 ### Community 530 - "Community 530"
 Cohesion: 0.40
@@ -3383,7 +3383,7 @@ Cohesion: 0.50
 Nodes (3): 소스: 핵앤슬래시 디자인 가이드 (외부 레퍼런스, 2026-08-07), 프로젝트 계약과의 알려진 충돌 (감사 시 결함으로 오인 금지), 핵심 주장 요약
 
 ### Community 537 - "Community 537"
-Cohesion: 0.21
+Cohesion: 0.20
 Nodes (25): AnchorTopRight(), Border(), BuildEquipTab(), BuildGrowthTab(), BuildLegionTab(), BuildSanctumPanel(), BuildSigilTab(), BuildTrialCards() (+17 more)
 
 ### Community 538 - "Community 538"
@@ -3415,8 +3415,8 @@ Cohesion: 0.25
 Nodes (7): HongT — 결정론 심 테스트에서 반복 재현되는 "앵커 오프바이원" 함정, [INFERENCE] 재사용 규칙, [OBSERVED] 세 번째 함정 — 상수를 자기 자신으로 검증하기, [OBSERVED] 원인 — 틱 내부 순서, [OBSERVED] 증상, [OBSERVED] 함께 걸린 두 번째 함정 — 슬롯 순서와 같은 틱 내 사망, 관련 경로
 
 ### Community 546 - "Community 546"
-Cohesion: 0.20
-Nodes (27): build_record(), clean_status_record(), committed_blob(), committed_tree(), compute_build_marker(), git_mode(), git_output(), git_tree_for_stage() (+19 more)
+Cohesion: 0.17
+Nodes (12): AddBool(), AddByte(), AddFloat(), AddInt(), AddString(), ArchetypePlan, CinderCourt.EditorTools, CommitCheckpoint() (+4 more)
 
 ### Community 547 - "Community 547"
 Cohesion: 0.05
@@ -3607,8 +3607,8 @@ Cohesion: 0.10
 Nodes (20): N11이 최강인 이유 — "회피"가 아니라 "불가능"이었다, Novelty Scorecard — cycle 2 (G8 v1), Novelty Scorecard — cycle 3 (G8 v2, run-id 20260806-training-and-upgrade), Novelty Scorecard — cycle 4 (G8 v3, run-id 20260807-progression-navigation), Novelty Scorecard — cycle 9 (G8 v4, run-id 20260809-dungeon-fun-authorship), W1이 방어 가능한 이유 — 포화 축 안의 비포화 부분집합, W4가 0/15인 이유 — 그리고 그 0을 조심해야 하는 이유, 리스크 (+12 more)
 
 ### Community 601 - "Community 601"
-Cohesion: 0.10
-Nodes (6): ICinderSim, CinderCourt.View, GameFlowAgentBridge, GFAB_GetActionCount(), GFAB_PopAction(), GFAB_SetObservation()
+Cohesion: 0.08
+Nodes (9): byte, ICinderSim, CinderCourt.View, GameFlowAgentBridge, GFAB_GetActionCount(), GFAB_PopAction(), GFAB_SetObservation(), CinderCourt.View (+1 more)
 
 ### Community 603 - "Community 603"
 Cohesion: 0.16
@@ -3640,7 +3640,7 @@ Nodes (8): Active audited inventory, Carried cycle-2 baseline, Cycle resource pl
 
 ### Community 616 - "Community 616"
 Cohesion: 0.04
-Nodes (61): ActivationRow, bool, Comeback, AudioPreloadTests, CinderCourt.Tests, BossTrace, ActivationRow, CinderCourt.Tests (+53 more)
+Nodes (64): ActivationRow, bool, char, Comeback, AudioPreloadTests, CinderCourt.Tests, BossTrace, ActivationRow (+56 more)
 
 ### Community 617 - "Community 617"
 Cohesion: 0.07
@@ -3690,33 +3690,37 @@ Nodes (7): code:block1 (gti --provider codex-cli --prompt "<stage concept>, <com
 Cohesion: 0.20
 Nodes (9): last_triage, created_at, destination, lane, prompt_signature, reason, turn_id, suppress_followup (+1 more)
 
+### Community 633 - "Community 633"
+Cohesion: 0.14
+Nodes (8): BuildClearedLobby(), CinderCourt.Tests, Describe(), FindButton(), LabelOf(), LobbyLayoutTests, Path(), WorldRect()
+
 ### Community 635 - "Community 635"
 Cohesion: 0.20
 Nodes (9): last_triage, created_at, destination, lane, prompt_signature, reason, turn_id, suppress_followup (+1 more)
 
 ### Community 636 - "Community 636"
-Cohesion: 0.08
-Nodes (25): dependencies, depth, source, version, dependencies, depth, source, version (+17 more)
+Cohesion: 0.12
+Nodes (16): dependencies, depth, source, version, dependencies, depth, source, version (+8 more)
 
 ### Community 638 - "Community 638"
 Cohesion: 0.40
 Nodes (4): HongT — AMENDMENT #12 던전 환경: "빈 화면"의 진짜 원인과 링 아키텍처, [OBSERVED] 세 가지 측정된 사실 (재사용 가치), 채택 구조 (A안: 고정 카메라 유지), 함정 (다음 세션 주의)
 
 ### Community 640 - "Community 640"
-Cohesion: 0.06
-Nodes (17): Action<bool>, CampaignMapLink, EnemyVisual, IDragHandler, InputAdapter, IPointerDownHandler, IPointerExitHandler, IPointerUpHandler (+9 more)
+Cohesion: 0.13
+Nodes (9): Action<bool>, IDragHandler, IPointerDownHandler, IPointerExitHandler, IPointerUpHandler, RectTransform, Vector2, TouchHold (+1 more)
 
 ### Community 641 - "Community 641"
 Cohesion: 0.11
 Nodes (22): 10. emissive는 주변을 비추지 않는다 [INFERENCE], 11. 지표와 목표가 갈리는 지점이 있다 [OBSERVED], 12. 픽셀 지표는 프로토콜에 종속된다 [OBSERVED 2026-08-08], 13. 실루엣 std 0.31은 창(window) 산물이었다 [RESOLVED 2026-08-08], 14. 캡처 프레임 ≠ 렌더 뷰포트 [OBSERVED 2026-08-08], 1. 상한 단언은 0개일 때 진공 통과한다 [OBSERVED], 2. 곱한 뒤 캡을 씌우면 인자가 대수적으로 소거된다 [OBSERVED], 3. 축 이름을 확인하라 — HalfW ≠ 세로 반높이 [OBSERVED] (+14 more)
 
 ### Community 642 - "Community 642"
-Cohesion: 0.20
-Nodes (10): dependencies, depth, source, version, dependencies, depth, source, version (+2 more)
+Cohesion: 0.10
+Nodes (21): dependencies, depth, source, version, dependencies, depth, source, version (+13 more)
 
 ### Community 643 - "Community 643"
 Cohesion: 0.04
-Nodes (21): AudioPitchJitterTests, CinderCourt.Tests, EnemySample, CinderCourt.EditorTools, SceneBuilder, float, LootGrade, LootToastKind (+13 more)
+Nodes (24): BossArchetype, AudioPitchJitterTests, CinderCourt.Tests, EnemySample, SwingArcProbe, float, LootGrade, LootToastKind (+16 more)
 
 ### Community 645 - "Community 645"
 Cohesion: 0.40
@@ -3783,12 +3787,12 @@ Cohesion: 0.12
 Nodes (16): 1.1 기여의 정량 근거, 1. 팀 구성, 2.1 정장영 — 리드 개발 / 아트 파이프라인 / AI 활용, 2.2 이석민 — 로비 · 메타 진행 / 던전 확장, 2.3 정우영 — 기획 / QA, 2. 팀원별 담당 영역, 3.1 단일 운영 계약, 3.2 Pull Request 기반 병렬 브랜치 (+8 more)
 
 ### Community 665 - "Community 665"
-Cohesion: 0.11
-Nodes (4): CodexStats, Func<int, bool>, CinderCourt.View, HudView
+Cohesion: 0.12
+Nodes (3): CodexStats, Func<int, bool>, HudView
 
 ### Community 666 - "Community 666"
-Cohesion: 0.13
-Nodes (8): Rule, CinderCourt.View, CommandQueueEntry, CommandTriggerParser, Fires(), Of(), CinderCourt.View, CompanionCommandParser
+Cohesion: 0.11
+Nodes (9): Rule, CinderCourt.View, CommandQueue, CommandQueueEntry, CommandTriggerParser, Fires(), Of(), CinderCourt.View (+1 more)
 
 ### Community 671 - "Community 671"
 Cohesion: 0.10
@@ -3847,12 +3851,12 @@ Cohesion: 0.05
 Nodes (39): 1. Shared policy and Rendering Layer, 2. Main-light lease, 3. Character-only casters, 4. Real-shadow receiver, 5. Quality lease and frame gate, 6. Honest production and conservative stress surfaces, 7. Lighting-composition evidence, 8. Exact-source release provenance (+31 more)
 
 ### Community 685 - "Community 685"
-Cohesion: 0.15
-Nodes (29): canonical_json_bytes(), load_json(), Return the repository's canonical JSON representation., Create a file once. Upstream release artifacts are never rewritten., sha256_bytes(), write_new_file(), create_clean_snapshot(), _cache_busted_url() (+21 more)
+Cohesion: 0.05
+Nodes (91): fail(), import_any(), Import an FBX or GLB and return the objects it added., build_record(), canonical_json_bytes(), clean_status_record(), committed_blob(), committed_tree() (+83 more)
 
 ### Community 686 - "Community 686"
-Cohesion: 0.10
-Nodes (9): Canvas, CanvasGroup, Font, CinderCourt.View, CutsceneView, CinderCourt.View, SpeechBubbleView, CinderCourt.View (+1 more)
+Cohesion: 0.06
+Nodes (13): CampaignMapLink, Canvas, CanvasGroup, Font, Image, CampaignMapView, CinderCourt.View, CinderCourt.View (+5 more)
 
 ### Community 687 - "Community 687"
 Cohesion: 0.20
@@ -3891,12 +3895,12 @@ Cohesion: 0.07
 Nodes (26): 0. 조사가 실제로 바꾼 것 — 설계 3건이 뒤집혔다, 1. 채택 축과 구현 대응, 2.1 그룹 정의 (worldview §공간 계보가 유일 출처), 2.2 기하 (실측 산술), 2.3 펼침 규칙, 2.4 헤더 구성, 2. SORTIE — 4그룹 아코디언, 3.1 문자열 (+18 more)
 
 ### Community 699 - "Community 699"
-Cohesion: 0.07
-Nodes (4): double, CinderCourt.Tests, DungeonBoundsViewSyncTests, EnvironmentLayout
+Cohesion: 0.06
+Nodes (6): IconApplicator, Material, CinderCourt.View, EnvironmentBuilder, EnvironmentLayout, HudIconIntegration
 
 ### Community 701 - "Community 701"
 Cohesion: 0.08
-Nodes (10): AmbientMode, Color, Dictionary<string, Rig>, CinderCourt.Tests, StageShadowLifecycleTests, Light, CinderCourt.View, LightFlicker (+2 more)
+Nodes (10): AmbientMode, Color, Dictionary<string, Rig>, CinderCourt.Tests, StageShadowLifecycleTests, TextMesh, CinderCourt.View, DamageNumberPool (+2 more)
 
 ### Community 702 - "Community 702"
 Cohesion: 0.14
@@ -3911,8 +3915,8 @@ Cohesion: 0.50
 Nodes (4): execute(), main(), Run `code` inside the bridged Blender and return the decoded response., RuntimeError
 
 ### Community 706 - "Community 706"
-Cohesion: 0.13
-Nodes (6): GameBootstrap, Vector3, CinderCourt.View, LobbyStaging, CinderCourt.View, ViewWorld
+Cohesion: 0.11
+Nodes (10): EnemyVisual, GameBootstrap, Light, MonoBehaviour, CinderCourt.View, VisualMarker, CinderCourt.View, LightFlicker (+2 more)
 
 ### Community 707 - "Community 707"
 Cohesion: 0.10
@@ -3939,8 +3943,8 @@ Cohesion: 0.12
 Nodes (15): 1. 논쟁은 테스트를 낳고 합의는 낳지 않는다, 2. 실척을 고르면 답이 바뀐다 — 그리고 하한이 없으면 모두가 고른다, 3. 커버리지 아티팩트가 거짓말하면 그것이 최악의 거짓말이다, 4. 제보의 형태가 결함의 크기를 숨긴다, 5. 이름이 거짓말하는 테스트는 없는 테스트보다 나쁘다 — 4번째 사례, 6. 해석으로 못 얻는 답은 화면이 준다 — §4c가 또 맞았다, 7. 사용자 반복이 측정과 같은 결론에 도달했다 (D-12), code:block1 (D-3  강하 92u 유지   1280 CSS로 측정 → 100.1px → PASS) (+7 more)
 
 ### Community 714 - "Community 714"
-Cohesion: 0.10
-Nodes (7): Mesh, Shader, CinderCourt.View, EnvironmentBuilder, CinderCourt.View, ViewFactory, ViewSpace
+Cohesion: 0.11
+Nodes (8): Mesh, Shader, Vector3, CinderCourt.View, ViewFactory, ViewSpace, CinderCourt.View, ViewWorld
 
 ### Community 715 - "Community 715"
 Cohesion: 0.10
@@ -3961,10 +3965,6 @@ Nodes (11): dependencies, depth, source, url, version, depth, source, url (+3 mo
 ### Community 719 - "Community 719"
 Cohesion: 0.10
 Nodes (19): 10. 다음 사이클 진입 판단, 1. 게이트 판정 요약, 2. 조사가 실제로 바꾼 것 — 설계 3건이 뒤집혔다, 2번과 3번은 소스 폰트에 문자가 없어서 재생성으로 안 닫힌다, 3. 다섯 공백이 전부 "번역"이었다, 3번이 가장 위험한 종류다, 3번이 이 사이클의 교차 검증 사례다, 4. 게이트가 7건을 잡았고, 그중 2건은 이미 배포돼 있던 결함이다 (+11 more)
-
-### Community 720 - "Community 720"
-Cohesion: 0.18
-Nodes (4): DressingPlacement, StageEntry, CinderCourt.View, StageCatalog
 
 ### Community 721 - "Community 721"
 Cohesion: 0.10
@@ -3987,16 +3987,12 @@ Cohesion: 0.12
 Nodes (16): 1. 스크롤 제거가 래칫 안에서 성립하는가 `[OBSERVED]`, 2. 신규 문자열의 글리프 비용 `[OBSERVED]`, 3. 발견된 라이브 결함 — `·`(U+00B7) 글리프 탈락 `[OBSERVED]`, 4. 발견된 라이브 결함 2 — `−`(U+2212), `·`보다 높은 등급 `[OBSERVED]`, G8 후보 (빈도 ≤2/N), PM 실측이 N11에 박은 수치, PM 판정 — 선례 두께 ≠ 밴드 통과 (§6.5), Stage 1b가 승계하는 규칙 7개 (+8 more)
 
 ### Community 726 - "Community 726"
-Cohesion: 0.12
-Nodes (3): CinderCourt.Tests, HudIconIntegrationTests, Image
+Cohesion: 0.08
+Nodes (10): Camera, CameraRig, CinderCourt.Tests, Fixture, CinderCourt.Tests, Fixture, CinderCourt.Tests, HudIconIntegrationTests (+2 more)
 
 ### Community 727 - "Community 727"
 Cohesion: 0.15
 Nodes (4): GuidanceEntry, GuidanceGroup, CinderCourt.View, GuidanceCatalog
-
-### Community 728 - "Community 728"
-Cohesion: 0.17
-Nodes (6): CampaignRoute, CinderCourt.Tests, GameDirector, GameView, HudView, LobbyView
 
 ### Community 729 - "Community 729"
 Cohesion: 0.12
@@ -4051,8 +4047,8 @@ Cohesion: 0.20
 Nodes (10): §21 안내 카탈로그 (23종), §22 정지 예산, §23 트리거, §24 저장 (v6), §25 이탈 (C4), §26 timeScale 0 계약, §27 단일 빌더 (설계 제약), AMENDMENT #9 — 인게임 안내 (run-id 20260807-ingame-guidance) (+2 more)
 
 ### Community 743 - "Community 743"
-Cohesion: 0.22
-Nodes (9): 0. 함정을 먼저 명시한다 — 네비게이션은 지급을 안 건드리지만 순서를 건드린다, 3. entry 6 (각인 12유물 미서명) 영향 — 이진 판정, 4. 브리프 대조 — entry 10은 조사 시점엔 없었고, 조사 중에 생겼다, 5.1 유물 싱크 2개의 신호 비대칭 — NB1 측정에는 무영향, 배지 설계에는 입력, 5.2 구매 유도형 문법의 장르 실패 선례 — PM이 경제 근거로 채택한다, 5. 이 절이 확정하는 것과 남기는 것, v1.7 진행 네비게이션, 게이지가 "영향 있음"인 것에 대한 PM 권고 (+1 more)
+Cohesion: 0.15
+Nodes (13): 0. 함정을 먼저 명시한다 — 네비게이션은 지급을 안 건드리지만 순서를 건드린다, 1. 접점표 — 네비게이션이 건드리는 경제 지점, 3. entry 6 (각인 12유물 미서명) 영향 — 이진 판정, 4. 브리프 대조 — entry 10은 조사 시점엔 없었고, 조사 중에 생겼다, 5.1 유물 싱크 2개의 신호 비대칭 — NB1 측정에는 무영향, 배지 설계에는 입력, 5.2 구매 유도형 문법의 장르 실패 선례 — PM이 경제 근거로 채택한다, 5. 이 절이 확정하는 것과 남기는 것, N-A 근거 산술 — 임계는 유물 72 (+5 more)
 
 ### Community 744 - "Community 744"
 Cohesion: 0.22
@@ -4127,8 +4123,8 @@ Cohesion: 0.40
 Nodes (5): 3. entry 6 (각인 가격 12유물 × 5) — PM 입장, code:yaml (revenue_point: 각인 해금 비용 (entry 6 — 미서명 해소용)), entry 6 협상 준비 블록, PM 입장 4항, 두 모델 아래에서 c=12가 어디에 서는가
 
 ### Community 762 - "Community 762"
-Cohesion: 0.13
-Nodes (9): fail(), import_any(), Import an FBX or GLB and return the objects it added., CinderCourt.View, CinderNavigate(), CinderQueryParam(), CinderStorageGet(), CinderStorageSet() (+1 more)
+Cohesion: 0.70
+Nodes (4): import_glb(), main(), parse_args(), world_bounds()
 
 ### Community 763 - "Community 763"
 Cohesion: 0.06
@@ -4144,7 +4140,7 @@ Nodes (14): arg(), ASSET_DIR, build(), BUILD_DIR, convertDiagrams(), discover(),
 
 ### Community 772 - "Community 772"
 Cohesion: 0.06
-Nodes (10): BindingFlags, CameraFlourishTests, CinderCourt.Tests, CameraRigPresentationTests, CinderCourt.Tests, CinderCourt.Tests, ClipTableTests, FieldInfo (+2 more)
+Nodes (8): BindingFlags, CameraFlourishTests, CameraRigPresentationTests, CinderCourt.Tests, ClipTableTests, FieldInfo, MethodInfo, PropertyInfo
 
 ### Community 773 - "Community 773"
 Cohesion: 0.14
@@ -4181,6 +4177,10 @@ Nodes (19): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_cou
 ### Community 782 - "Community 782"
 Cohesion: 0.06
 Nodes (32): 230, 235, 236, 237, 239, 242, 243, 244 (+24 more)
+
+### Community 783 - "Community 783"
+Cohesion: 0.11
+Nodes (5): CampaignRoute, CinderCourt.Tests, GameDirectorCampaignRouteTests, GameDirector, GameView
 
 ### Community 784 - "Community 784"
 Cohesion: 0.11
@@ -4327,8 +4327,8 @@ Cohesion: 0.18
 Nodes (11): 4.1 역전된 저작권 배치 (조사가 명명한 결함), 4.2 선택 압력 — 진행 밴드 `[확정 D-24]`, 4.3 풀을 어디서 얻는가 — 신규 어휘 0개, 4.4 오퍼 필터링 — 죽은 선택지를 만들지 않는다, 4.5 어느 3개를 보일 것인가 — StS 기법의 이식, 4.6 정지 문제 — 조사가 확인한 우리만의 이상값, 4. M-C 「현장 각인」 — 런 안에서 규칙을 저작한다, code:block3 (offerHash(stageId, level, kills, hitsTaken, slot)) (+3 more)
 
 ### Community 824 - "Community 824"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1c5-5f91-7513-a17c-577959cecac7
+Cohesion: 0.18
+Nodes (4): DressingPlacement, StageEntry, CinderCourt.View, StageCatalog
 
 ### Community 825 - "Community 825"
 Cohesion: 0.18
@@ -4342,25 +4342,25 @@ Nodes (11): C5. 예고 예산 (cycle-2 밴드 5, cycle-3 S4) → **위협 없음
 Cohesion: 0.20
 Nodes (9): code:block17 (기름 환급 ↑ → 스킬 사용 빈도 ↑ → 클리어율 ↑ → 유물 수입/세션 ↑ → T5 도달 ↓), entry 17 ↔ 19 순효과 — PM이 판정해야 하는 것, parity 재측정이 3사이클째 이월인 것에 대해, Revenue Map — cycle 2 draft, v3.0 기믹 무기화 (run-id 20260809-dungeon-fun-authorship), 각인 가격 c — entry 6 재확인, 간접 경로 — 이번 사이클의 진짜 경제 리스크, 신규 수익 포인트 — 0개 (+1 more)
 
+### Community 831 - "Community 831"
+Cohesion: 0.25
+Nodes (3): CinderCourt.Tests, CommandConsoleFieldTests, HudView
+
 ### Community 832 - "Community 832"
 Cohesion: 0.17
 Nodes (11): asset, clips, date, openQuestions, source, acquisition, format, library (+3 more)
-
-### Community 833 - "Community 833"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe448-def8-70a3-9167-c0c69d80e527
 
 ### Community 834 - "Community 834"
 Cohesion: 0.11
 Nodes (26): actHeaderY, captureLayout(), chromium, errors, hold(), normalErrors, normalResults, openSortie() (+18 more)
 
 ### Community 835 - "Community 835"
-Cohesion: 0.17
-Nodes (12): dependencies, depth, source, url, version, dependencies, depth, source (+4 more)
+Cohesion: 0.07
+Nodes (28): dependencies, dependencies, depth, source, url, version, dependencies, depth (+20 more)
 
 ### Community 836 - "Community 836"
-Cohesion: 0.11
-Nodes (19): leader_thread_id, session_id, threads, updated_at, first_seen_at, kind, last_seen_at, last_turn_id (+11 more)
+Cohesion: 0.08
+Nodes (26): leader_thread_id, session_id, threads, updated_at, first_seen_at, kind, last_seen_at, last_turn_id (+18 more)
 
 ### Community 837 - "Community 837"
 Cohesion: 0.07
@@ -4369,10 +4369,6 @@ Nodes (27): code:bash (# Launch all tests for User Story 1 together (if tests re
 ### Community 838 - "Community 838"
 Cohesion: 0.25
 Nodes (7): Additivity check, Cross-mode controls, Cycle 9 dungeon golden decomposition, Stage-row delta, W1 — aimed Launcher finisher knockback, W2 — gimmick kill credit and oil refund, W4 — enemy behavior differentiation
-
-### Community 839 - "Community 839"
-Cohesion: 0.34
-Nodes (16): forbid_downstream_identity_fields(), validate_outside_allow_list(), create_provenance(), _evidence_records(), main(), _parser(), _require_mapping(), _require_string() (+8 more)
 
 ### Community 841 - "Community 841"
 Cohesion: 0.20
@@ -4383,16 +4379,16 @@ Cohesion: 0.08
 Nodes (23): acts, chromium, consoleErrors, element, endedIndex, filename, mediaErrors, mediaEvents (+15 more)
 
 ### Community 844 - "Community 844"
-Cohesion: 0.12
-Nodes (17): dependencies, dependencies, depth, source, url, version, depth, source (+9 more)
+Cohesion: 0.24
+Nodes (11): downscale_icon(), ensure_output_dirs(), generate_batch(), load_prompts(), main(), Downscale icon from 1254x1254 to 256x256 using PIL., Save generation results to provenance file., Create output directories if they don't exist. (+3 more)
 
 ### Community 845 - "Community 845"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe4e9-d1df-7cc2-a4a9-940e334172c8
+Cohesion: 0.20
+Nodes (3): Difficulty, CinderCourt.Sim, DifficultySpec
 
 ### Community 846 - "Community 846"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe50d-4ced-7f82-acaf-2fb5e796d1c3
+Cohesion: 0.08
+Nodes (26): first_seen_at, kind, last_seen_at, last_turn_id, leader_thread_id, session_id, thread_id, threads (+18 more)
 
 ### Community 849 - "Community 849"
 Cohesion: 0.22
@@ -4461,10 +4457,6 @@ Nodes (4): last_agent_output, last_progress_at, last_turn_at, turn_count
 ### Community 865 - "Community 865"
 Cohesion: 0.40
 Nodes (4): last_agent_output, last_progress_at, last_turn_at, turn_count
-
-### Community 866 - "Community 866"
-Cohesion: 0.20
-Nodes (4): git(), load_json_bytes(), ReleaseFixture, ReleasePayloadTests
 
 ### Community 868 - "Community 868"
 Cohesion: 0.40
@@ -4648,7 +4640,7 @@ Nodes (16): all_attempt_raw_evidence_preserved, attempt_count, attempts, finishe
 
 ### Community 916 - "Community 916"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe43f-2f66-7120-a0bb-f7fadfa00d56
+Nodes (4): CI, PYTHONDONTWRITEBYTECODE, UNITY_MCP_KEEP_CONNECTED, UNITY_MCP_START_SERVER
 
 ### Community 917 - "Community 917"
 Cohesion: 0.22
@@ -4783,8 +4775,8 @@ Cohesion: 0.67
 Nodes (3): 7.1 이번 사이클 — 서명 완료, 7.2 cycle-10 이월 — M-A·M-B의 경제 (미상정), 7. 경제
 
 ### Community 952 - "Community 952"
-Cohesion: 0.70
-Nodes (4): import_glb(), main(), parse_args(), world_bounds()
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe441-971e-7d42-a4d7-12053f2a4e4f
 
 ### Community 953 - "Community 953"
 Cohesion: 0.12
@@ -4811,8 +4803,8 @@ Cohesion: 0.20
 Nodes (9): exported_at, exporter, exporter_version, output_dir, recording_exists, recording_path, screenshot_count, screenshots (+1 more)
 
 ### Community 959 - "Community 959"
-Cohesion: 0.13
-Nodes (6): char, StringBuilder, CampaignStore, CinderCourt.View, CinderCourt.View, CommandConsoleBuffer
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe4ba-125c-7a50-8177-648f6b55b198
 
 ### Community 961 - "Community 961"
 Cohesion: 0.12
@@ -4861,10 +4853,6 @@ Nodes (15): 1. 基础信息, 1. 按下操作后，游戏响应得太慢, 1. 按�
 ### Community 973 - "Community 973"
 Cohesion: 0.12
 Nodes (16): skill_report, action_types, coverage_ratio, coverage_score, covered_skills, evidence_state_fields, game_type, missing_skills (+8 more)
-
-### Community 974 - "Community 974"
-Cohesion: 0.25
-Nodes (7): BuildClearedLobby(), CinderCourt.Tests, Describe(), FindButton(), LabelOf(), Path(), WorldRect()
 
 ### Community 975 - "Community 975"
 Cohesion: 0.33
@@ -4935,8 +4923,8 @@ Cohesion: 0.14
 Nodes (14): final_observation, api_available, api_version, game_type, mode, standard_api_available, status, upgrade (+6 more)
 
 ### Community 993 - "Community 993"
-Cohesion: 0.07
-Nodes (12): Camera, CameraRig, Fixture, Fixture, CinderCourt.Tests, GameFlowAgentBridgeTests, GameFlowAgentBridge, GameObject (+4 more)
+Cohesion: 0.13
+Nodes (4): CinderCourt.Tests, GameFlowAgentBridgeTests, GameFlowAgentBridge, InputAdapter
 
 ### Community 994 - "Community 994"
 Cohesion: 0.17
@@ -5022,10 +5010,6 @@ Nodes (22): body, eventCounts, format, items, responseIdPresent, keepalive, resp
 Cohesion: 0.09
 Nodes (22): body, eventCounts, format, items, responseIdPresent, keepalive, response.completed, response.content_part.added (+14 more)
 
-### Community 1015 - "Community 1015"
-Cohesion: 0.40
-Nodes (5): 로컬 검증 — WebGL 텍스처 상한 보정 · 2026-08-04, 변경, 변경, 변경, 회귀 게이트
-
 ### Community 1016 - "Community 1016"
 Cohesion: 0.08
 Nodes (26): leader_thread_id, session_id, threads, updated_at, first_seen_at, kind, last_seen_at, last_turn_id (+18 more)
@@ -5035,8 +5019,8 @@ Cohesion: 0.29
 Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe543-862b-79a0-8c10-1a7ab764d4ae
 
 ### Community 1018 - "Community 1018"
-Cohesion: 0.07
-Nodes (14): byte, CinderCourt.EditorTools, ClipAvatarProbe, CinderCourt.EditorTools, ClipWindowProbe, CinderCourt.EditorTools, GoldenDigestRecorder, CinderCourt.EditorTools (+6 more)
+Cohesion: 0.09
+Nodes (12): CinderCourt.Tests, CinderCourt.Tests, CinderCourt.Tests, CinderCourt.EditorTools, ClipAvatarProbe, CinderCourt.EditorTools, ReskinAvatarProbe, CinderCourt.EditorTools (+4 more)
 
 ### Community 1019 - "Community 1019"
 Cohesion: 0.50
@@ -5083,8 +5067,8 @@ Cohesion: 0.09
 Nodes (22): body, eventCounts, format, items, responseIdPresent, keepalive, response.completed, response.content_part.added (+14 more)
 
 ### Community 1032 - "Community 1032"
-Cohesion: 0.50
-Nodes (4): 1. 접점표 — 네비게이션이 건드리는 경제 지점, N-A 근거 산술 — 임계는 유물 72, N-B 근거 산술 — 같은 12유물, 도달률 9배 스프레드, N-C 근거 — 보상은 보이는데 실행 행은 스크롤 밖에 있다
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1c5-5f91-7513-a17c-577959cecac7
 
 ### Community 1033 - "Community 1033"
 Cohesion: 0.09
@@ -5167,8 +5151,8 @@ Cohesion: 0.60
 Nodes (4): alpha_at(), build_png(), main(), Alpha byte for a pixel offset from the sprite centre.
 
 ### Community 1054 - "Community 1054"
-Cohesion: 0.33
-Nodes (4): CinderCourt.Sim, ICinderSim, ISimSnapshot, SimConfig
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1d1-5931-75a1-9057-51e1058aedfd
 
 ### Community 1055 - "Community 1055"
 Cohesion: 0.09
@@ -5502,6 +5486,10 @@ Nodes (16): alphaRework, after, firstAttempt, fix, measuredFailure, asset, consu
 Cohesion: 0.12
 Nodes (17): punchCluster, weaponCluster, measures, output, path, secondPass_2026_08_10, credits, defect (+9 more)
 
+### Community 1140 - "Community 1140"
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1d1-6f5b-7191-8c0f-fb374504d19a
+
 ### Community 1141 - "Community 1141"
 Cohesion: 0.22
 Nodes (10): find_specify_root(), format_speckit_command(), get_current_branch(), get_feature_paths(), get_invoke_separator(), get_repo_root(), json_escape(), _persist_feature_json() (+2 more)
@@ -5533,6 +5521,10 @@ Nodes (16): report, result, visual_verdict, known_unrelated_failures, results, s
 ### Community 1148 - "Community 1148"
 Cohesion: 0.13
 Nodes (14): 1. Freeze current evidence, 2. Probe god-tibo-imagen, 3. Generate serially, 4. Import and run targeted gates, 5. Full WebGL verification, 6. Final integrity check, code:bash (git rev-parse HEAD), code:bash (command -v gti) (+6 more)
+
+### Community 1149 - "Community 1149"
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe431-d4d0-7350-9d74-485a380c1890
 
 ### Community 1151 - "Community 1151"
 Cohesion: 0.13
@@ -5659,8 +5651,8 @@ Cohesion: 0.23
 Nodes (12): decode(), deramp(), encode(), main(), make_seamless(), Offset by half, then cosine cross-fade the resulting centre cross., Remove a LINEAR brightness ramp across each axis.      Why this exists beside of, Force opposing edges to agree by blending each into the other.      The last res (+4 more)
 
 ### Community 1185 - "Community 1185"
-Cohesion: 0.20
-Nodes (10): depth, source, version, dependencies, depth, source, url, version (+2 more)
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe433-bb95-71c1-9c85-823c485c1d09
 
 ### Community 1186 - "Community 1186"
 Cohesion: 0.17
@@ -6004,11 +5996,11 @@ Nodes (6): automationPass, pageErrors, phase, results, url, viewport
 
 ### Community 1275 - "Community 1275"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe43e-bcc2-7531-ad1d-d5e3c306469f
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe43f-110b-7882-898f-3c39ae31b9dd
 
 ### Community 1277 - "Community 1277"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe43e-d712-7ec1-ad8a-b33450e097ce
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe43f-2f66-7120-a0bb-f7fadfa00d56
 
 ### Community 1278 - "Community 1278"
 Cohesion: 0.29
@@ -6168,11 +6160,15 @@ Nodes (7): runtimeConsumer, confirmedPath, followUp, importApplied, importRecomm
 
 ### Community 1318 - "Community 1318"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1d1-6f5b-7191-8c0f-fb374504d19a
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe469-f17e-7ba0-9eb9-d5de3394f7ad
 
 ### Community 1319 - "Community 1319"
 Cohesion: 0.29
 Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe429-6202-7b41-90cc-cb095c997b5b
+
+### Community 1320 - "Community 1320"
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe46a-26ad-7d60-b776-4fb859bd16c8
 
 ### Community 1321 - "Community 1321"
 Cohesion: 0.33
@@ -6183,8 +6179,8 @@ Cohesion: 0.33
 Nodes (5): 감소 모드 — 부별 대표, 남은 범위, 실행 방법과 판정 경계, 정상 모드 — 9스테이지, 제1·2·3부 WebGL VFX 검증 매트릭스
 
 ### Community 1323 - "Community 1323"
-Cohesion: 0.11
-Nodes (19): leader_thread_id, session_id, threads, updated_at, first_seen_at, kind, last_seen_at, last_turn_id (+11 more)
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe471-9952-7402-b005-d2862b074787
 
 ### Community 1325 - "Community 1325"
 Cohesion: 0.47
@@ -6379,8 +6375,8 @@ Cohesion: 0.40
 Nodes (5): Weapon Combo 2 (241) 47..57 [fix], foot, hand, ratio, verdict
 
 ### Community 1374 - "Community 1374"
-Cohesion: 0.67
-Nodes (6): key_magenta(), main(), process(), process_plate(), process_split(), tight_bbox()
+Cohesion: 0.29
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe501-7edf-73f1-888d-76c563cd1812
 
 ### Community 1375 - "Community 1375"
 Cohesion: 0.40
@@ -6704,19 +6700,11 @@ Nodes (3): 270, action, seconds
 
 ### Community 1512 - "Community 1512"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe469-f17e-7ba0-9eb9-d5de3394f7ad
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe469-bbc0-71c0-a3c7-f61d6e61a065
 
 ### Community 1513 - "Community 1513"
 Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe46a-26ad-7d60-b776-4fb859bd16c8
-
-### Community 1514 - "Community 1514"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe501-7edf-73f1-888d-76c563cd1812
-
-### Community 1515 - "Community 1515"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe1ce-9c9e-7651-8205-495dd2016535
+Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe50d-4ced-7f82-acaf-2fb5e796d1c3
 
 ### Community 1516 - "Community 1516"
 Cohesion: 0.29
@@ -6727,53 +6715,41 @@ Cohesion: 0.40
 Nodes (5): world, current_phase, elapsed, enemy_count, wave
 
 ### Community 1518 - "Community 1518"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe431-b035-73a0-a759-f523c8163508
+Cohesion: 0.40
+Nodes (5): leader_thread_id, session_id, threads, updated_at, 019fe467-1955-76d1-9cc6-f5a08409bc8b
+
+### Community 1519 - "Community 1519"
+Cohesion: 0.27
+Nodes (3): BuildTouchControls(), ForceTouchControlsForTest(), JoystickSprite()
 
 ### Community 1520 - "Community 1520"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe431-e6a6-76c3-af2e-39b8c2c3e08a
+Cohesion: 0.50
+Nodes (4): GitHub Pages 배포 — Lane V1 시전 동기화 + Lane V4 URP 포스트 (스펙 전 레인 완료) · 2026-08-05, V1 — 시전 동기화 손 글로우 (`a9bd7ff`, 캐시 `30f826ca74f49b95`), V4 — URP 포스트 (블룸+비네트) (`7669414`, 캐시 `2442aaa76e15f544`), 스펙 현황
 
 ### Community 1521 - "Community 1521"
 Cohesion: 0.29
 Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe469-a169-7482-92b2-9b19c0fd2ff9
 
-### Community 1522 - "Community 1522"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe469-bbc0-71c0-a3c7-f61d6e61a065
-
-### Community 1523 - "Community 1523"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe501-22ea-7862-85c5-f1098557bbce
-
-### Community 1524 - "Community 1524"
-Cohesion: 0.29
-Nodes (7): first_seen_at, kind, last_seen_at, last_turn_id, thread_id, turn_count, 019fe501-5335-7b53-a225-6595207d9ac5
-
 ### Community 1526 - "Community 1526"
 Cohesion: 0.33
 Nodes (6): hit, bytes, durationSeconds, file, prompt, promptInfluence
 
-### Community 1527 - "Community 1527"
-Cohesion: 0.40
-Nodes (5): leader_thread_id, session_id, threads, updated_at, 019fe4e9-d1df-7cc2-a4a9-940e334172c8
-
 ## Knowledge Gaps
-- **10388 isolated node(s):** `ROOT`, `{ chromium }`, `SORTIE_TAB`, `EMBER_GALLERY`, `SEED` (+10383 more)
+- **10397 isolated node(s):** `ROOT`, `{ chromium }`, `SORTIE_TAB`, `EMBER_GALLERY`, `SEED` (+10392 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **121 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **122 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `int` connect `Community 616` to `Community 640`, `Community 898`, `Community 643`, `Community 772`, `Community 5`, `Community 4`, `Community 391`, `Community 8`, `Community 392`, `Community 6`, `Community 393`, `Community 396`, `Community 142`, `Community 1168`, `Community 662`, `Community 665`, `Community 794`, `Community 411`, `Community 29`, `Community 798`, `Community 1054`, `Community 32`, `Community 672`, `Community 553`, `Community 1194`, `Community 43`, `Community 686`, `Community 690`, `Community 178`, `Community 1282`, `Community 821`, `Community 315`, `Community 700`, `Community 699`, `Community 959`, `Community 962`, `Community 1091`, `Community 706`, `Community 707`, `Community 1221`, `Community 714`, `Community 842`, `Community 588`, `Community 847`, `Community 720`, `Community 723`, `Community 727`, `Community 728`, `Community 601`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 993`, `Community 98`, `Community 356`, `Community 101`, `Community 357`, `Community 617`, `Community 620`, `Community 621`, `Community 115`, `Community 500`, `Community 372`, `Community 1018`, `Community 765`, `Community 1150`, `Community 511`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `float` connect `Community 643` to `Community 640`, `Community 1282`, `Community 644`, `Community 772`, `Community 5`, `Community 4`, `Community 8`, `Community 392`, `Community 391`, `Community 6`, `Community 393`, `Community 396`, `Community 142`, `Community 639`, `Community 659`, `Community 660`, `Community 22`, `Community 664`, `Community 665`, `Community 411`, `Community 669`, `Community 29`, `Community 1054`, `Community 32`, `Community 551`, `Community 1194`, `Community 43`, `Community 686`, `Community 178`, `Community 313`, `Community 699`, `Community 701`, `Community 962`, `Community 706`, `Community 707`, `Community 714`, `Community 587`, `Community 842`, `Community 589`, `Community 848`, `Community 81`, `Community 720`, `Community 340`, `Community 601`, `Community 602`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 993`, `Community 98`, `Community 101`, `Community 357`, `Community 615`, `Community 616`, `Community 617`, `Community 377`, `Community 621`, `Community 1135`, `Community 624`, `Community 115`, `Community 116`, `Community 500`, `Community 119`, `Community 633`, `Community 1018`, `Community 765`, `Community 511`?**
+- **Why does `float` connect `Community 643` to `Community 640`, `Community 1282`, `Community 644`, `Community 772`, `Community 5`, `Community 4`, `Community 8`, `Community 392`, `Community 391`, `Community 6`, `Community 393`, `Community 396`, `Community 639`, `Community 659`, `Community 660`, `Community 22`, `Community 664`, `Community 665`, `Community 411`, `Community 669`, `Community 29`, `Community 32`, `Community 551`, `Community 1194`, `Community 43`, `Community 686`, `Community 178`, `Community 824`, `Community 313`, `Community 699`, `Community 701`, `Community 962`, `Community 707`, `Community 706`, `Community 714`, `Community 587`, `Community 842`, `Community 845`, `Community 334`, `Community 589`, `Community 848`, `Community 81`, `Community 340`, `Community 601`, `Community 602`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 98`, `Community 101`, `Community 357`, `Community 615`, `Community 616`, `Community 617`, `Community 377`, `Community 1515`, `Community 621`, `Community 1135`, `Community 624`, `Community 115`, `Community 116`, `Community 500`, `Community 1015`, `Community 119`, `Community 633`, `Community 765`, `Community 511`?**
   _High betweenness centrality (0.023) - this node is a cross-community bridge._
-- **Why does `string` connect `Community 616` to `Community 6`, `Community 8`, `Community 29`, `Community 548`, `Community 43`, `Community 52`, `Community 569`, `Community 574`, `Community 579`, `Community 589`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 98`, `Community 101`, `Community 615`, `Community 620`, `Community 115`, `Community 119`, `Community 633`, `Community 1149`, `Community 1150`, `Community 1153`, `Community 643`, `Community 644`, `Community 134`, `Community 1160`, `Community 142`, `Community 144`, `Community 665`, `Community 666`, `Community 670`, `Community 672`, `Community 695`, `Community 699`, `Community 701`, `Community 704`, `Community 706`, `Community 1221`, `Community 714`, `Community 720`, `Community 723`, `Community 1236`, `Community 726`, `Community 727`, `Community 728`, `Community 762`, `Community 1282`, `Community 771`, `Community 772`, `Community 783`, `Community 794`, `Community 798`, `Community 1324`, `Community 821`, `Community 314`, `Community 842`, `Community 848`, `Community 354`, `Community 355`, `Community 356`, `Community 357`, `Community 358`, `Community 867`, `Community 365`, `Community 372`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 396`, `Community 411`, `Community 1462`, `Community 959`, `Community 962`, `Community 500`, `Community 1018`, `Community 511`?**
-  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+- **Why does `int` connect `Community 616` to `Community 898`, `Community 643`, `Community 772`, `Community 5`, `Community 4`, `Community 391`, `Community 8`, `Community 392`, `Community 6`, `Community 393`, `Community 396`, `Community 142`, `Community 783`, `Community 1168`, `Community 662`, `Community 665`, `Community 794`, `Community 411`, `Community 666`, `Community 29`, `Community 798`, `Community 32`, `Community 672`, `Community 553`, `Community 1194`, `Community 43`, `Community 686`, `Community 690`, `Community 178`, `Community 1282`, `Community 821`, `Community 824`, `Community 315`, `Community 700`, `Community 701`, `Community 699`, `Community 962`, `Community 1091`, `Community 706`, `Community 707`, `Community 1221`, `Community 839`, `Community 842`, `Community 588`, `Community 845`, `Community 334`, `Community 847`, `Community 723`, `Community 727`, `Community 601`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 98`, `Community 356`, `Community 101`, `Community 357`, `Community 617`, `Community 1514`, `Community 620`, `Community 621`, `Community 115`, `Community 500`, `Community 372`, `Community 1015`, `Community 765`, `Community 1150`, `Community 511`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `string` connect `Community 616` to `Community 6`, `Community 8`, `Community 29`, `Community 546`, `Community 548`, `Community 43`, `Community 52`, `Community 569`, `Community 574`, `Community 579`, `Community 589`, `Community 601`, `Community 603`, `Community 92`, `Community 91`, `Community 95`, `Community 98`, `Community 101`, `Community 615`, `Community 620`, `Community 115`, `Community 119`, `Community 633`, `Community 1150`, `Community 1153`, `Community 643`, `Community 644`, `Community 134`, `Community 1160`, `Community 142`, `Community 144`, `Community 665`, `Community 666`, `Community 670`, `Community 672`, `Community 685`, `Community 695`, `Community 699`, `Community 701`, `Community 704`, `Community 706`, `Community 1221`, `Community 714`, `Community 723`, `Community 1236`, `Community 726`, `Community 727`, `Community 1282`, `Community 771`, `Community 772`, `Community 783`, `Community 794`, `Community 798`, `Community 1324`, `Community 821`, `Community 824`, `Community 314`, `Community 828`, `Community 839`, `Community 842`, `Community 334`, `Community 848`, `Community 354`, `Community 866`, `Community 356`, `Community 355`, `Community 358`, `Community 357`, `Community 867`, `Community 365`, `Community 372`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 396`, `Community 411`, `Community 1462`, `Community 962`, `Community 1515`, `Community 500`, `Community 1018`, `Community 511`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **What connects `PNG -> (w, h, bytearray RGB). Via ffmpeg so any bit depth/colour type works.`, `Mean per-channel mismatch between opposing edges (256px sample).`, `Offset by half, then cosine cross-fade the resulting centre cross.` to the rest of the system?**
-  _10442 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _10451 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.03508771929824561 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
