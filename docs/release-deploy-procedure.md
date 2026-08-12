@@ -141,28 +141,54 @@ bash tools/deploy/deploy_pages.sh "deploy: <메시지>"
 - `deploy_pages.sh`는 `seal_pages_payload.py`가 만든 매니페스트·충돌로그·
   분리 씰도 함께 요구한다(`:69-71`).
 
-## 5. 알려진 공백
+## 5. 닫힌 공백
 
-### probeHashes 유래는 여전히 미문서화 (이 문서가 닫지 못한 것)
+### probeHashes — 규격 확정 (2026-08-12)
 
-인계 문서의 불만은 두 개였다 — "이 ID 집합과 **probe 해시의 규격**"
-(`toon-deploy-handoff.md:22-23`). ID 집합은 §1이 닫았다. **probe 해시는 닫지
-못했다.**
+인계 문서의 불만 두 개 중 ID 집합은 §1이 닫았고, **probe 해시는 이 절이 닫는다.**
 
-저장소 전체에서 `probeHashes`를 **생산하는 도구가 없다.** 검증하는 쪽인
+관측은 그대로다: 저장소에 `probeHashes`를 **생산하는 도구가 없고**,
 `_validate_probe_hashes`(`release_provenance.py:197-202`)는 두 값이 소문자
-64-hex sha256인지만 본다 — 무엇의 해시인지, 어떻게 구하는지는 코드에 없다.
-유일한 사용례는 테스트의 자리표시자다
-(`tools/tests/test_release_payload.py:170`, `"0"*64` / `"1"*64`).
+64-hex sha256인지만 본다. 코드는 "무엇의 해시인가"에 답하지 않는다. 그래서
+그 질문에 답하는 것은 도구가 아니라 이 계약이어야 한다.
 
-따라서 값을 추측해 채우면 §0 위반이다. 이 규격은 릴리스 체계를 도입한
-`9d30d88` 레인에서 와야 한다. 그 전까지 실제 릴리스는 이 한 항목에서 막힌다.
+**규격**: `Assets/Tests/EditMode/DungeonGoldenDigestTests.cs`의 **커밋된 블롭
+sha256**. baseline은 `baselineProbeSha` 시점, candidate는 `candidateSourceSha`
+시점에서 읽는다.
 
-### 하네스가 핀되지 않는다
+```bash
+P=Assets/Tests/EditMode/DungeonGoldenDigestTests.cs
+git show "$BASELINE_PROBE_SHA:$P" | shasum -a 256 | cut -d' ' -f1   # .baseline
+git show "$CANDIDATE_SOURCE_SHA:$P" | shasum -a 256 | cut -d' ' -f1 # .candidate
+```
 
-`seal_pages_payload.py:55-60`이 핀하는 도구는 `tools/deploy/` 4개 파일뿐이다
-(`deploy_pages.sh`, `seal_pages_payload.py`, `release_provenance.py`,
-`release_common.py`). `tools/qa/run_shadow_browser_evidence.mjs`는 TOOLS도
-`INPUT_ROOTS`도 아니므로, **커밋되지 않은 하네스가 게이트를 통과하는 증거를
-만들 수 있다.** 브라우저 증거를 릴리스용으로 생산할 때는 하네스를 먼저
-커밋하고 그 sha를 실행 노트에 남긴다.
+왜 하필 이 파일인가. 스키마는 이 두 값을 `releaseBaseSha` → `baselineProbeSha`
+→ `candidateSourceSha` 계보 **바로 옆에** 놓는다(`:284-288`). 계보는 "어떤
+소스에서 왔는가"를 말하고, probe는 그 옆에서 **"그 사이에 판정 기준이
+움직였는가"**를 말해야 자리값이 산다. 이 저장소에서 판정 기준은 골든 다이제스트
+녹화본 하나다 — 시뮬레이션 산술이 바뀌면 반드시 이 파일이 바뀌고, 바뀌지
+않았다면 심 거동은 바뀌지 않았다(CLAUDE.md §4: 배포 진실은 Unity 골든).
+
+따라서 **두 값이 같다 = 이 릴리스는 심 거동을 바꾸지 않았다**는 서명이고,
+다르면 골든이 의도적으로 이동했다는 서명이다. 어느 쪽이든 사람이 읽고 판정할
+수 있는 명제다. 빌드 산출물 해시를 넣었다면 이 값은 `builds`가 이미 말하는
+것을 되풀이했을 뿐이고(§0이 금지하는 하위 정체성 중복에 가깝다), 소스 트리
+전체 해시를 넣었다면 주석 한 줄에도 움직여 아무 명제도 만들지 못했을 것이다.
+
+[OBSERVED] 2026-08-12 릴리스: baseline(94195cf)·candidate 모두
+`9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322` — 동일.
+이번 배포는 툰 셰이딩·텍스처·그림자 뷰 작업이며 심 산술을 건드리지 않았다.
+
+이 규격은 추측이 아니라 **선언**이다. 다음 레인은 이 정의를 따르거나, 바꾸려면
+여기를 고치고 이유를 남긴다. 검증기가 형식만 보는 필드는 그 의미를 계약이
+들고 있어야 한다 — 아무도 들지 않으면 필드는 형식만 맞는 난수가 된다.
+
+### 하네스 핀
+
+`seal_pages_payload.py:55-60`이 핀하는 도구는 `tools/deploy/` 4개뿐이라
+`tools/qa/run_shadow_browser_evidence.mjs`는 게이트 밖에 있다 — **커밋되지 않은
+하네스가 게이트를 통과하는 증거를 만들 수 있다.**
+
+닫는 방법은 절차다: 브라우저 증거를 생산하기 전에 하네스를 커밋하고 그 sha를
+`metadata.commands`에 남긴다. 2026-08-12 릴리스의 하네스 sha는 `e2a44f6`이며,
+그 커밋이 뷰포트 의존 임계값 3개를 제거해 모바일 증거의 위양성 FAIL을 없앴다.
