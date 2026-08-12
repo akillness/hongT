@@ -119,6 +119,16 @@ namespace CinderCourt.View
             instance.transform.position = position;
             instance.transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
             instance.transform.localScale = Vector3.one * scale;
+            // Lobby shadows (2026-08-12): the diorama rides the same key-light
+            // lease a run uses (GameDirector.SetLobbyMood), and that key only
+            // renders casters on its shadow layer — an unconfigured clone
+            // stands in the lobby light without grounding. Same split as
+            // ActorView: mesh/skinned renderers cast, everything else is
+            // excluded rather than left on defaults.
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+                StageShadowPolicy.TryConfigureCaster(renderers[i]);
+            StageShadowPolicy.NotifyCasterBoundsChanged();
             return instance;
         }
 

@@ -46,6 +46,7 @@ namespace CinderCourt.View
         GameObject _stageEnvironment;     // EnvironmentBuilder root (AMENDMENT #12)
         string _stageEnvironmentId = "";
         GameObject _stageMood;            // StageMood rig (separate light root)
+        GameObject _lobbyMood;            // lobby StageMood rig (selected stage's light)
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -211,13 +212,15 @@ namespace CinderCourt.View
                                         PreparationOffer continuationPreparation = default)
         {
             if (string.IsNullOrEmpty(_pendingActReel)) return false;
+            // No overlay to play through (EditMode fixtures, stripped boots):
+            // leave the latch alone instead of consuming a beat nothing can
+            // deliver — the next transition with an intro view still owns it.
+            if (_intro == null) return false;
 
             var reel = _pendingActReel;
             var line = _pendingActNarration;
             _pendingActReel = null;
             _pendingActNarration = null;
-
-            if (_intro == null) return false;
 
             if (!string.IsNullOrEmpty(continuationStageId))
             {
@@ -268,9 +271,24 @@ namespace CinderCourt.View
                 _audio.SetBgmContext("lobby");   // W12
             }
             if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
-            SetStageTerrain(null);        // back to the base court plate
+            // Lobby backdrop (2026-08-12 request: the lobby was the one place
+            // with no background and no shadows). The sanctum dresses itself as
+            // the stage the campaign is AT (same rule as StartPlayNow: first
+            // uncleared unlocked stage, else the last unlocked one): its
+            // terrain plate replaces the bare court and its mood rig lights
+            // the diorama — the same key/fill + shadow lease a run uses, at
+            // the frozen arena half-axes. EnvironmentBuilder and PostFxGate
+            // stay dungeon-only (AMENDMENT #12/#15, §V4): no wall ring, no
+            // playfield change, no post — light and ground only.
+            // Null (fresh save, nothing unlocked) keeps the field's cinder-span
+            // default: the pre-prologue sanctum still shows the first door.
+            _selectedStage = CurrentCampaignStageId() ?? _selectedStage;
+            SetStageTerrain(StageCatalog.TryGet(_selectedStage, out var selectedEntry)
+                ? selectedEntry.TerrainId
+                : null);
             ApplyStageDressing(null);
             SetStageEnvironment(null);
+            SetLobbyMood(_selectedStage);
             _game.EndRun();
             _lobby.Refresh(_data);
             _lobby.Show();
@@ -379,6 +397,11 @@ namespace CinderCourt.View
         /// </summary>
         void SetStageEnvironment(string stageId)
         {
+            // The lobby mood never survives a mode transition: every Start*
+            // route and EnterLobby itself pass through here, and a surviving
+            // lobby key light would double-light the stage rig built below
+            // (EnterLobby re-applies its own via SetLobbyMood afterwards).
+            ClearLobbyMood();
             if (_stageEnvironmentId == (stageId ?? ""))
             {
                 // A retry/re-entry can reuse the same deterministic environment,
@@ -432,6 +455,33 @@ namespace CinderCourt.View
             // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
             // root at 4 realtime point lights.
             _stageMood = StageMood.Apply(stageId, halfWidth, halfHeight);
+        }
+
+        /// <summary>
+        /// Lobby atmosphere: the SELECTED stage's mood rig (key/fill light +
+        /// ambient/fog tint + the StageShadowPolicy lease) over the sanctum
+        /// diorama, sized to the frozen arena half-axes the lobby keeps.
+        /// The run's rig (_stageMood) and this one are never alive together:
+        /// SetStageEnvironment clears this on every transition, and StageMood
+        /// .Apply single-owns the global lease besides.
+        /// </summary>
+        void SetLobbyMood(string stageId)
+        {
+            ClearLobbyMood();
+            _lobbyMood = StageMood.Apply(stageId,
+                SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+        }
+
+        void ClearLobbyMood()
+        {
+            if (_lobbyMood == null) return;
+            // Same discipline as _stageMood: restore the global lease
+            // synchronously while the old key still exists (Destroy is
+            // deferred in Play mode).
+            StageMood.Clear();
+            if (Application.isPlaying) Destroy(_lobbyMood);
+            else DestroyImmediate(_lobbyMood);
+            _lobbyMood = null;
         }
 
         void ReturnToLobby() => EnterLobby();
@@ -528,15 +578,28 @@ namespace CinderCourt.View
         {
             if (!_data.PrologueDone) { StartPrologue(); return; }
 
+            var target = CurrentCampaignStageId();
+            if (target != null) StartDungeon(target);
+            else StartPrologue();   // nothing unlocked at all: the tutorial is still the answer
+        }
+
+        /// <summary>
+        /// Where the campaign currently IS: the first unlocked stage not yet
+        /// cleared, else the last unlocked stage, else null (fresh save with
+        /// nothing unlocked). One rule shared by the 지금 플레이 route and the
+        /// lobby's sanctum dressing, so the door the button opens is the door
+        /// the room shows.
+        /// </summary>
+        string CurrentCampaignStageId()
+        {
             string fallback = null;
             foreach (var entry in StageCatalog.Entries)
             {
                 if (!StageCatalog.IsUnlocked(in _data, in entry)) continue;
                 fallback = entry.Id;
-                if (!StageCatalog.IsCleared(in _data, in entry)) { StartDungeon(entry.Id); return; }
+                if (!StageCatalog.IsCleared(in _data, in entry)) return entry.Id;
             }
-            if (fallback != null) StartDungeon(fallback);
-            else StartPrologue();   // nothing unlocked at all: the tutorial is still the answer
+            return fallback;
         }
 
         void StartArena()
@@ -654,6 +717,15 @@ namespace CinderCourt.View
 
         void StartDungeon(string stageId, PreparationOffer preparation = default)
         {
+            // Act cinematic latched by the previous clear. EnterLobby delivers
+            // it on the lobby route, but a victory card offers routes that
+            // NEVER pass the lobby — retry, Ember Rest continue, a direct
+            // sortie — and a latch nobody consumes here surfaced one or more
+            // stages LATE, over whichever lobby visit happened next (the
+            // 2026-08-12 "video arrives pushed back" report). The gate sits
+            // before any run state changes; the reel's exactly-once completion
+            // callback re-enters with the latch already cleared.
+            if (TryPlayPendingActCinematic(stageId, preparation)) return;
             if (!preparation.IsValid) ClearEmberRestRoute();
             if (!StageCatalog.TryGet(stageId, out var entry))
             {
@@ -748,10 +820,22 @@ namespace CinderCourt.View
             new System.Collections.Generic.Dictionary<string, string>(9);
 
         /// <summary>
-        /// `<c>generic</c>-<c>stageId</c>` when that sprite exists, otherwise
-        /// <paramref name="generic"/>. Authoring a new frame is therefore a
-        /// drop-in: no code change, no catalog entry — the file appearing under
-        /// Resources/Scenes is the whole opt-in.
+        /// Loading-frame resolution, most specific art first:
+        ///   1. `<c>generic</c>-<c>stageId</c>`   (context frame authored for THIS stage)
+        ///   2. `scene-stage-entry-<c>stageId</c>` (the stage's own key art)
+        ///   3. <paramref name="generic"/>         (context frame shared by all stages)
+        /// Authoring a new frame is therefore a drop-in: no code change, no
+        /// catalog entry — the file appearing under Resources/Scenes is the
+        /// whole opt-in.
+        ///
+        /// Step 2 is why the chain exists. All nine stages ship a
+        /// scene-stage-entry-* frame, but the transition/boss contexts have
+        /// almost none — the single-level fallback sent every Ember Rest
+        /// continuation to the SAME scene-transition.png and every monarch
+        /// stage to the SAME scene-boss-entry.png, so the loading screen said
+        /// nothing about WHICH door was being opened (the 2026-08-12 "fixed
+        /// image every entry" report). Per-stage art outranks per-context art
+        /// because the player reads the place before the occasion.
         /// </summary>
         internal string StageCutsceneSprite(string generic, string stageId)
         {
@@ -759,7 +843,14 @@ namespace CinderCourt.View
             var key = generic + "-" + stageId;
             if (!_stageCutsceneCache.TryGetValue(key, out var resolved))
             {
-                resolved = Resources.Load<Sprite>("Scenes/" + key) != null ? key : generic;
+                resolved = key;
+                if (Resources.Load<Sprite>("Scenes/" + resolved) == null)
+                {
+                    resolved = "scene-stage-entry-" + stageId;
+                    if (resolved == key
+                        || Resources.Load<Sprite>("Scenes/" + resolved) == null)
+                        resolved = generic;
+                }
                 _stageCutsceneCache[key] = resolved;
             }
             return resolved;
@@ -848,7 +939,8 @@ namespace CinderCourt.View
             _emberRestPreparation = default;
             _emberRestDecisionMade = false;
             _hud.HideEmberRest();
-            if (TryPlayPendingActCinematic(nextStageId, preparation)) return;
+            // StartDungeon owns the pending-act-cinematic gate for EVERY entry
+            // path (sortie, retry, Ember Rest continue), so no second gate here.
             StartDungeon(nextStageId, preparation);
         }
 
@@ -1087,12 +1179,11 @@ namespace CinderCourt.View
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
                     // An act ends every third stage. Latch it here — where the
-                    // clear is known — and play it at the next safe transition:
-                    // EnterLobby, or after Ember Rest closes but before its
-                    // direct successor starts. Playing it now would put a
-                    // five-second overlay over the victory card and a live
-                    // scene, the same reason the boot reels are on the boot
-                    // route and not on a stage entry.
+                    // clear is known — and play it at the next TRANSITION,
+                    // whichever comes first: EnterLobby, or the StartDungeon
+                    // gate (retry, direct sortie, Ember Rest continue). Never
+                    // on the clear frame itself — that would put a five-second
+                    // overlay over a victory card the player is still reading.
                     var actBeat = ActBeatFor(_runStageId);
                     if (actBeat != null)
                     {
