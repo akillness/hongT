@@ -60,10 +60,29 @@ const SIGNAL_TO_NOISE = 3.0;
 // lighting (0.25) rejects the very thing this harness exists to detect. The
 // gates below are therefore: does it cover pixels at all, does it darken the
 // pixels it covers, and does the frame-mean shift clear the measured noise.
-const LUMA_DELTA_EPSILON = 0.02;
-const MIN_FOOTPRINT_RATIO = 0.0005;
+// Direction only. The magnitude bar is deliberately NOT a whole-frame constant:
+// that unit made the identical shadow read 0.072 on desktop and 0.012 on mobile,
+// so any constant either waves the small screen through or rejects it for being
+// small. Magnitude is enforced twice instead, both viewport-independent --
+// separatedFromNoise (gap vs measured same-state noise) and footprintIsDarkened
+// (how far the covered pixels actually drop). This flag carries the sign.
 const MIN_FOOTPRINT_DARKENING = 3.0;
-const NOISE_FLOOR = 0.02;
+// [OBSERVED] A fraction-of-frame footprint gate is the same coordinate-system
+// mistake the toggle detector made: the shadow's pixel count is set by how the
+// character is drawn, the denominator by the viewport, so the identical shadow
+// reads 0.387% on 1440x900 and 0.043% on 390x844 and only the small screen
+// fails. The gate is therefore a coherent-patch pixel count plus a measured
+// same-state noise multiple -- both viewport-independent.
+const MIN_FOOTPRINT_PIXELS = 60;
+const FOOTPRINT_NOISE_MULTIPLE = 5;
+// [OBSERVED] The old 0.02 luma floor was picked while frames still churned under
+// swiftshader. On the GPU path both states are bit-stable (spread exactly 0 over
+// 8 samples / 12 s, desktop and mobile alike), so 0.02 is not a noise estimate,
+// it is 20x above the measured noise -- and being an absolute whole-frame number
+// it scales with the viewport exactly like the ratio gate did. Replaced by what
+// the instrument can actually resolve: a frame mean must move by at least a few
+// fully-dark pixels' worth before it counts as more than rounding.
+const MIN_SIGNIFICANT_PIXELS = 3;
 const MAX_SETTLE_FRAMES = 8;
 const SETTLE_EPSILON = 0.01;
 const TOGGLE_ATTEMPTS = 4;
@@ -474,9 +493,11 @@ async function main() {
     const shippedLumas = shipped.map((s) => s.stats.meanLuma);
     const removedLumas = removed.map((s) => s.stats.meanLuma);
     const gap = mean(shippedLumas) - mean(removedLumas);
-    const noise = Math.max(spread(shippedLumas), spread(removedLumas), NOISE_FLOOR);
+    const totalPixels = first.width * first.height;
+    const quantizationFloor = MIN_SIGNIFICANT_PIXELS * 255 / totalPixels;
+    const noise = Math.max(spread(shippedLumas), spread(removedLumas), quantizationFloor);
 
-    const darker = gap <= -LUMA_DELTA_EPSILON;
+    const darker = gap < 0;
     const separated = Math.abs(gap) >= noise * SIGNAL_TO_NOISE;
     const everyFrameDarker = Math.max(...shippedLumas) < Math.min(...removedLumas);
     const footprint = compareShots(binary, shipped[0].shot, removed[0].shot);
@@ -487,7 +508,14 @@ async function main() {
     const footprintDarkening = footprint.changedPixels > 0
       ? Math.abs(gap) * footprint.totalPixels / footprint.changedPixels
       : 0;
-    const footprintPresent = footprint.changedRatio >= MIN_FOOTPRINT_RATIO;
+    // Same-state pixel churn: what two frames of the untouched shipped state
+    // disagree on. This is the footprint gate's own noise floor, measured rather
+    // than assumed, so the shadow has to beat this machine's actual jitter.
+    const footprintNoise = shipped.length > 1
+      ? compareShots(binary, shipped[0].shot, shipped[1].shot).changedPixels
+      : 0;
+    const footprintPresent = footprint.changedPixels >= MIN_FOOTPRINT_PIXELS
+      && footprint.changedPixels >= footprintNoise * FOOTPRINT_NOISE_MULTIPLE;
     const footprintDark = footprintDarkening >= MIN_FOOTPRINT_DARKENING;
 
     measurements = {
@@ -522,6 +550,8 @@ async function main() {
         changedPixels: footprint.changedPixels,
         changedRatio: Number(footprint.changedRatio.toFixed(6)),
         meanDarkeningWithinFootprint: Number(footprintDarkening.toFixed(3)),
+        sameStateChangedPixels: footprintNoise,
+        minChangedPixels: MIN_FOOTPRINT_PIXELS,
       },
       gates: {
         darkerWithShadows: darker,
@@ -535,11 +565,12 @@ async function main() {
         pageErrorFree: errors.length === 0,
       },
     };
-    if (!darker) notes.push(`shipped frame was not darker (gap ${gap})`);
+    if (!darker) notes.push(`shipped frame was not darker than the receiver-off frame (gap ${gap})`);
     if (!everyFrameDarker) notes.push("shipped and shadow-removed frame sets overlap");
     if (!separated) notes.push(`gap ${gap} did not clear ${SIGNAL_TO_NOISE}x noise ${noise}`);
     if (!footprintPresent)
-      notes.push(`shadow covered ${footprint.changedRatio} of the frame, below ${MIN_FOOTPRINT_RATIO}`);
+      notes.push(`shadow covered ${footprint.changedPixels} px, below ${MIN_FOOTPRINT_PIXELS} ` +
+        `or within ${FOOTPRINT_NOISE_MULTIPLE}x same-state churn ${footprintNoise} px`);
     if (!footprintDark)
       notes.push(`covered pixels darkened by ${footprintDarkening.toFixed(3)}, below ${MIN_FOOTPRINT_DARKENING}`);
     if (!freezeEffective) notes.push("frames were not frozen; the noise floor is not trustworthy");

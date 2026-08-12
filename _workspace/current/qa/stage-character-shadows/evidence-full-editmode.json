@@ -1,0 +1,17 @@
+{
+  "evidenceId": "full-editmode",
+  "candidateSourceSha": "5b910f105429f300c327964844ceb43dd9474b0d",
+  "buildMode": "Source",
+  "contentMarker": null,
+  "result": "PASS",
+  "method": "bash tools/unity_batch.sh tests",
+  "resultsFile": "_workspace/current/engineering/unity-logs/test-results-141842.xml",
+  "totals": {
+    "total": 992,
+    "passed": 990,
+    "failed": 0,
+    "skipped": 2,
+    "inconclusive": 0
+  },
+  "failures": []
+}
