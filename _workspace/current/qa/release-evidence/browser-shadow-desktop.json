@@ -1,0 +1,11 @@
+{
+  "evidenceId": "browser-shadow-desktop",
+  "candidateSourceSha": "2e484269bca2783ce7c2ddfea87a8146d40b768b",
+  "buildMode": "Development",
+  "contentMarker": "9a9e11f25f211f61",
+  "result": "PASS",
+  "band": "A (>=501 CSS)",
+  "viewport": "1440x900",
+  "pageErrors": 0,
+  "frame": "_workspace/current/qa/release-evidence/shadow-desktop.png"
+}

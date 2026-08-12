@@ -1,0 +1,10 @@
+{
+  "evidenceId": "release-build",
+  "candidateSourceSha": "2e484269bca2783ce7c2ddfea87a8146d40b768b",
+  "buildMode": "Source",
+  "contentMarker": null,
+  "result": "PASS",
+  "command": "bash tools/unity_batch.sh build",
+  "errorsCS": 0,
+  "dataBytes": 89900447
+}
