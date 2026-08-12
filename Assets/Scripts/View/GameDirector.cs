@@ -1255,6 +1255,11 @@ namespace CinderCourt.View
         void DrainGuidanceQueue()
         {
             if (_guidanceQueue.Count == 0 || _hud == null || _hud.GuidancePaused) return;
+            // One card at a time — including the toast tier. This runs per SIM TICK,
+            // so without this line a backlog drains at 60 cards/second onto a single
+            // surface and the player reads only the last one. See HudView
+            // .GuidanceToastBusy for the measurement and why no unit test caught it.
+            if (_hud.GuidanceToastBusy) return;
             var bit = _guidanceQueue[0];
             _guidanceQueue.RemoveAt(0);
             if (GuidanceCatalog.Seen(in _data, bit)) return;

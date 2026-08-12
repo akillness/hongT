@@ -141,6 +141,16 @@ namespace CinderCourt.View
         RectTransform _levelToastRect, _growthPanelRect;
         readonly RectTransform[] _skillCardRects = new RectTransform[4];
         readonly RectTransform[] _comboPipRects = new RectTransform[3];
+        /// <summary>Permanent "타격 SPACE" legend beside the combo pips. Desktop only —
+        /// see PlaceStrikeKeyLabel.</summary>
+        Text _strikeKeyLabel;
+        /// <summary>Read by the layout tests: they must be able to ask where this sits
+        /// without reaching into the hierarchy by name, because a prefix lookup is only
+        /// a lookup when the name is unique (§4s).</summary>
+        public RectTransform StrikeKeyLabelRectForTest =>
+            _strikeKeyLabel != null ? _strikeKeyLabel.rectTransform : null;
+        public bool StrikeKeyLabelVisibleForTest =>
+            _strikeKeyLabel != null && _strikeKeyLabel.gameObject.activeSelf;
         RectTransform _xpBackRect;            // §U1 readout-overlap test seam
         RectTransform _strikeRect, _dashTouchRect;
 
@@ -779,6 +789,7 @@ namespace CinderCourt.View
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition =
                         new Vector2(-26 + i * 26 + rowShift, 200 + lift);
+                PlaceStrikeKeyLabel(-36f + rowShift, 200f + lift);
                 // §캡처5: phone stack tops out at pips (200+lift+20) — the
                 // speaker line sits above the whole control stack.
                 if (_speakerLine != null)
@@ -800,6 +811,7 @@ namespace CinderCourt.View
                 // rect (18..106) — 3 verified collisions. Above the row now.
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition = new Vector2(-26 + i * 26, 102 + lift);
+                PlaceStrikeKeyLabel(-36f, 102f + lift);
                 if (_speakerLine != null)
                     _speakerLine.rectTransform.anchoredPosition = new Vector2(0f, 132f + lift);
             }
@@ -1705,6 +1717,31 @@ namespace CinderCourt.View
             _rotateHintTimer = GuidanceToastSeconds;
         }
 
+        /// <summary>
+        /// True while the shared top-centre band is still showing something the player
+        /// has not had time to read.
+        ///
+        /// WHY THE DRAINER HAS TO ASK. GameDirector queues several control lessons at
+        /// once — movement, combo, and every skill the current oil can afford — and
+        /// drained one per SIM TICK. At 60 Hz that is a card every 16 ms onto ONE
+        /// surface with a 4.5 s timer, so the whole backlog overwrote itself in about
+        /// a sixth of a second, every bit was marked seen forever, and the player read
+        /// whichever card happened to be last. The game did explain; it explained at a
+        /// speed nobody can read, which is indistinguishable from not explaining.
+        ///
+        /// CLAUDE.md §4j already carries the rule ("안내 큐는 한 번에 한 장만 뽑는다")
+        /// and the PAUSE tier honours it through GuidancePaused. The toast tier simply
+        /// had no equivalent, and nothing in EditMode could see the difference because
+        /// the final text is correct either way — the coordinate system where right
+        /// and wrong coincide (§4m). Reading the queue's contents proves nothing here;
+        /// the readable question is how much time separates two cards.
+        ///
+        /// The prologue steps and the rotate hint ride this same surface and this same
+        /// timer, so they are covered by the same gate: a guidance toast can no longer
+        /// wipe "이동 — W A S D" out from under a player who is still reading it.
+        /// </summary>
+        public bool GuidanceToastBusy => _rotateHintTimer > 0f;
+
         // ------------------------------------------------- abandon (C4) -----
         // The reported gap: once inside a campaign stage there was no way out.
         // The death panel's back link existed but sat 26 u under the death-cause
@@ -2607,6 +2644,34 @@ namespace CinderCourt.View
 
             }
 
+            // --- strike key legend (desktop only) -------------------------------
+            // Playtest feedback (2026-08-12): "it looks like I am supposed to press
+            // something to attack, but I cannot work out what to press."
+            //
+            // The audit that finds this is a count, not an opinion. Every control on
+            // the bottom stack names its key on a permanent card — SHIFT, Q, E, R, F,
+            // and G/H/V on the companion column. The basic strike, the one thing the
+            // player does most and the first thing they need, had NO permanent
+            // surface at all. Its only mention was a toast that shows once and a
+            // prologue step that is gone by wave 2.
+            //
+            // TOUCH ALREADY HAD ONE: the strike button is a labelled 110 u square
+            // (:3688). So this is a desktop-only gap, which is also why it survived —
+            // the touch layout is where the geometry work happened.
+            //
+            // Built HERE, beside the pips, because the pips are the strike's existing
+            // HUD representation (they show the combo it builds) and because a static
+            // y next to this stack is the trap §4f names: the row lives at y=18 on
+            // desktop and y=100+lift on touch. ApplyLayoutTier positions this in the
+            // SAME two branches as the pips, off the same base numbers, so it cannot
+            // drift from what it labels.
+            _strikeKeyLabel = Label(dungeonRoot, 0, 0, 170, 20, "타격  SPACE", 15,
+                TextAnchor.MiddleRight);
+            var strikeKeyRect = _strikeKeyLabel.rectTransform;
+            strikeKeyRect.anchorMin = strikeKeyRect.anchorMax = new Vector2(0.5f, 0f);
+            strikeKeyRect.pivot = new Vector2(1f, 0f);   // x IS the right edge
+            _strikeKeyLabel.color = new Color(0.82f, 0.86f, 0.95f);
+
             // --- skill row: dash + Q/E/R/F --------------------------------------
             _skillOverlays = new Image[4];
             _skillGroups = new CanvasGroup[4];
@@ -3508,6 +3573,33 @@ namespace CinderCourt.View
                 rect.offsetMax = new Vector2(rect.offsetMax.x, textInset);
             return buttonObject;
         }
+
+        /// <summary>
+        /// Parks the strike legend immediately left of the pip row it labels, taking
+        /// the pip row's own left edge and y as arguments rather than re-deriving
+        /// them. Both tier branches call this with the numbers they just used for the
+        /// pips, so the label cannot end up describing a row that has moved — the
+        /// failure mode §4f records ("a static y is only right in one configuration",
+        /// where the growth panel lost 81.6% of itself when touch lifted the row).
+        ///
+        /// HIDDEN ON TOUCH, and that is not a size decision. Touch has a labelled
+        /// 110 u strike button already; a second name for the same action is the
+        /// over-explaining the survey found players punish. It is also why the phone
+        /// tier's left run does not have to clear the 260 u joystick catch box — the
+        /// only tier where this label is visible is the one with no joystick.
+        /// </summary>
+        void PlaceStrikeKeyLabel(float pipLeftX, float pipY)
+        {
+            if (_strikeKeyLabel == null) return;
+            _strikeKeyLabel.gameObject.SetActive(!_touchActive);
+            _strikeKeyLabel.rectTransform.anchoredPosition =
+                new Vector2(pipLeftX - StrikeKeyGap, pipY);
+        }
+
+        /// <summary>Gap between the legend's right edge and the first pip. 12 u is
+        /// the guidance card's minimum and the value the left stack already uses —
+        /// this joins that spacing rather than inventing a second one.</summary>
+        const float StrikeKeyGap = 12f;
 
         GameObject SkillCard(Transform parent, float offsetX, string key, string label,
                              UnityEngine.Events.UnityAction onClick,
