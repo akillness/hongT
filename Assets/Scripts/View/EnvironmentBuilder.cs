@@ -160,22 +160,22 @@ namespace CinderCourt.View
         /// <summary>
         /// Per-stage fresnel rim for every ToonLit surface the stage builds.
         ///
-        /// WHY THIS EXISTS (pale-ring-investigation.md, closed by the renderer
-        /// census + shader arithmetic): the arena boundary ring's VISIBLE color
-        /// was never its albedo. Its base term is tints.Stone × stone map ≈ 0.04
-        /// luma — near black — so the shader's rim term owns the pixel, and
-        /// _RimColor defaulted to a hardcoded cold blue (0.72, 0.78, 1.0) on
-        /// every stage. Measured on the live frame: ring RGB (60.0, 65.8, 84.5)
-        /// ÷ RimColor = 0.326/0.331/0.331 — ONE scalar across all channels, the
-        /// fingerprint of a pixel that is rim and almost nothing else. An
-        /// ember-orange stage wearing a constant ice-blue shell is exactly the
-        /// "이미지가 덧씌워진 느낌" the 2026-08-12/13 playtest named twice.
+        /// ATTRIBUTION, precisely: the PALE ring itself was the missing-normals
+        /// bug (bc799ee9 — N=(0,0,0) pinned rim=pow(1,x)=1 across whole faces;
+        /// the census-measured fingerprint ring÷RimColor = 0.326/0.331/0.331 is
+        /// rim(1.0) × strength(0.35) × (1−lighting.g), only possible with dead
+        /// normals). That fix collapses the rim to grazing angles. What THIS
+        /// function removes is the constant that remains after it: _RimColor
+        /// defaulted to one cold blue (0.72, 0.78, 1.0) on every stage, so every
+        /// silhouette edge on an ember stage still wore an ice-blue liner — a
+        /// small-area but stage-blind film, the same class the 2026-08-12/13
+        /// playtest named twice ("이미지가 덧씌워진 느낌").
         ///
         /// The hue moves toward the stage accent but STRONGLY desaturated first
         /// (same §E0.5 discipline as the Uncapped silhouette branch below:
         /// scenery must separate from telegraphs by VALUE, never borrow the
-        /// hazard's chroma). Luminance is normalized back to the old rim's so
-        /// the silhouette-separation job — the reason the rim exists — keeps
+        /// hazard's chroma). Luminance is normalized back to the default rim's
+        /// so the silhouette-separation job — the reason the rim exists — keeps
         /// its measured strength on every stage.
         /// </summary>
         internal static Color RimColorFor(Color accent)

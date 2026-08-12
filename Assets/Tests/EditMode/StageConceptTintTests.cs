@@ -1,12 +1,16 @@
-// EditMode gates for the stage-concept hue pass (pale-ring-investigation.md,
-// closed 2026-08-13 by the runtime renderer census).
+// EditMode gates for the stage-concept hue pass.
 //
-// The defect these pin: two stage-blind constants owned the dungeon outskirts —
-// ToonLit's default rim (0.72, 0.78, 1.0) on every boundary slab, and the
-// VoidFloor's baked purple-grey on 4.75% of the frame — so an ember stage and
-// an ice stage wore the same cold film ("이미지가 덧씌워진 느낌", 08-12/13
-// playtest, twice). The fix hues both per stage; these tests pin the two
-// properties the fix must not lose:
+// Lineage, precisely: pale-ring-investigation.md was closed by TWO findings on
+// 2026-08-13 — the renderer census named the ring's renderers (env-wall slabs,
+// env-stone), and bc799ee9 found the mechanism (procedural meshes had no
+// normals, so rim=pow(1,x)=1 covered whole faces). That commit fixes the PALE
+// ring. What remains after it — and what THESE tests gate — are two stage-blind
+// constants: ToonLit's default rim hue (0.72, 0.78, 1.0) on every silhouette
+// edge, and the VoidFloor's baked purple-grey outskirt (frame share disputed:
+// 0.25% CameraRig bake vs 4.75% investigation bake; per-release hue delta is
+// the decider). One cold film on an ember stage and an ice stage alike is the
+// "이미지가 덧씌워진 느낌" the 08-12/13 playtest named twice. The fix hues both
+// per stage; these tests pin the two properties the fix must not lose:
 //
 //   (a) the hue actually moves with the accent (a constant is the defect), and
 //   (b) the VALUE does not move (E0.5 reads by value contrast; the rim's

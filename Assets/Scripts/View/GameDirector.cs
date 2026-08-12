@@ -316,8 +316,9 @@ namespace CinderCourt.View
         /// plate serves this time — three plates cover nine stages, so the same
         /// mesh reappears under different accents. The plate's ToonLit rim is
         /// re-hued per logical stage (EnvironmentBuilder.RimColorFor — the
-        /// census-closed pale-ring fix); the key is the (plate, logical) PAIR
-        /// so a shared plate re-tints when a different stage borrows it.
+        /// stage-blind-constant removal that remains after bc799ee9's normals
+        /// fix); the key is the (plate, logical) PAIR so a shared plate
+        /// re-tints when a different stage borrows it.
         /// </summary>
         void SetStageTerrain(string stageId, string logicalStageId = null)
         {
