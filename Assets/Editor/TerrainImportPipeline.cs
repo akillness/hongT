@@ -1,10 +1,19 @@
 // Stage terrain import: Assets/Art/Terrain/*.fbx (from tools/blender/
-// convert_terrain.py) -> extracted textures -> URP/Unlit materials ->
+// convert_terrain.py) -> extracted textures -> CinderCourt/ToonLit materials ->
 // Resources/Terrain/<stage>.prefab for runtime Resources.Load.
 //
-// Unlit on purpose: the terrain GLBs are painted isometric plates (baked
-// lighting in the albedo). URP/Lit under the scene's directional light would
-// double-light them and shift the palette away from the court read.
+// HISTORY: these were URP/Unlit until 2026-08-12 — the terrain GLBs are painted
+// isometric plates (baked lighting in the albedo), and under the PBR art
+// direction a lit shader would have double-lit them. The 시안 02 toon direction
+// inverted that call: an unlit photographic plate sitting beside cel-banded kit
+// geometry is exactly the "이미지가 덧씌워진 느낌" the 2026-08-12 playtest
+// reported, and VfxDirector's hazard bodies already made this same move for the
+// same reason (an unlit override "silently undid the toon conversion" — see
+// VfxDirector kit-body material comment). ToonLit's flat band multiplies the
+// baked albedo by a CONSTANT per light band — posterization, not a second
+// lighting gradient — so the painted detail survives while the plate joins the
+// stage mood. Fallback stays Unlit: a stripped toon shader must degrade to the
+// shipped look, never to magenta.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -38,8 +47,11 @@ namespace CinderCourt.EditorTools
         {
             if (!Directory.Exists(ArtDir)) throw new InvalidOperationException($"{ArtDir} missing");
             Directory.CreateDirectory(ResourceDir);
-            var unlit = Shader.Find("Universal Render Pipeline/Unlit");
-            if (unlit == null) throw new InvalidOperationException("URP/Unlit shader missing");
+            // Toon first (시안 02), Unlit as the degrade path — mirrors
+            // ViewWorld.LitShader and DungeonKitImportPipeline.StoneShader.
+            var unlit = Shader.Find("CinderCourt/ToonLit")
+                ?? Shader.Find("Universal Render Pipeline/Unlit");
+            if (unlit == null) throw new InvalidOperationException("no terrain shader available");
 
             var count = 0;
             foreach (var path in Directory.GetFiles(ArtDir, "*.fbx").Select(p => p.Replace('\\', '/')))

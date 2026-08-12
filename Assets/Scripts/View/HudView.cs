@@ -3080,13 +3080,25 @@ namespace CinderCourt.View
         /// Room objective readout (dungeon-revival spec). An empty/null
         /// <paramref name="objective"/> hides the chip entirely — that is how arena,
         /// prologue and unknown stage ids opt out rather than showing a stale line
-        /// from the previous room. While the room boss is alive the same objective
-        /// is re-framed as the final beat and recolored amber, so the player sees
-        /// the room's win condition change shape instead of a second HUD element
-        /// appearing. Keyed on (objective, bossAlive) so the text is not rebuilt
-        /// every frame.
+        /// from the previous room.
+        ///
+        /// Playtest feedback (2026-08-12, 강신진): "정신없이 싸우고 있는데 나는
+        /// 무얼 해야 할지 모르겠다" — the chip used to show the room's FLAVOR
+        /// line all run long, which names the destination but never the next
+        /// step. The instruction was "단계별로 한개씩 목적 주면서 진행" — one
+        /// goal at a time. So the chip is a STEP TRACKER with three beats:
+        ///
+        ///   wave live (remaining &gt; 0)   목표 • 적을 처치하라 — 남은 N
+        ///   field clear (remaining ≤ 0)  목표 • {room line}
+        ///   boss alive                   최종 목표 • {room line}  (amber)
+        ///
+        /// remaining = living + pending, read from the same snapshot the 적 row
+        /// uses, so only kills move it down. remaining &lt; 0 means "no live
+        /// count" (non-wave surfaces, legacy callers) and keeps the flavor-only
+        /// behavior. Keyed on (objective, bossAlive, remaining) so the text is
+        /// rebuilt per kill — the 적 row's cadence — never per frame.
         /// </summary>
-        public void SyncRoomObjective(string objective, bool bossAlive)
+        public void SyncRoomObjective(string objective, bool bossAlive, int remaining = -1)
         {
             if (_roomObjectivePanel == null || _roomObjectiveText == null) return;
             var active = !string.IsNullOrEmpty(objective);
@@ -3098,13 +3110,23 @@ namespace CinderCourt.View
                 return;
             }
 
-            var key = objective.GetHashCode() * 2 + (bossAlive ? 1 : 0);
+            // The boss beat ignores the trash count on purpose: adds spawning
+            // during the boss wave must not demote the final goal back to
+            // "kill the remainder".
+            var shownRemaining = bossAlive ? -1 : remaining;
+            var key = unchecked(objective.GetHashCode() * 397
+                + shownRemaining * 2 + (bossAlive ? 1 : 0));
             if (key == _lastRoomObjectiveKey) return;
             _lastRoomObjectiveKey = key;
             if (bossAlive)
             {
                 _roomObjectiveText.text = "최종 목표 • " + objective;
                 _roomObjectiveText.color = new Color(1f, 0.83f, 0.45f);
+            }
+            else if (shownRemaining > 0)
+            {
+                _roomObjectiveText.text = $"목표 • 적을 처치하라 — 남은 {shownRemaining}";
+                _roomObjectiveText.color = new Color(0.82f, 0.88f, 0.96f);
             }
             else
             {

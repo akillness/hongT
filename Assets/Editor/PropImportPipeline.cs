@@ -91,7 +91,15 @@ namespace CinderCourt.EditorTools
         }
 
         /// <summary>Serialized URP Lit material per prop asset — readable body
-        /// color + band-coded emission (basic: faint, fine: strong signature).</summary>
+        /// color + band-coded emission (basic: faint, fine: strong signature).
+        ///
+        /// DELIBERATELY NOT CinderCourt/ToonLit (2026-08-12 toon sweep): the
+        /// fine/basic band difference IS the emission color, and ToonLit has no
+        /// emission term at all (no _EmissionColor property, no additive slot in
+        /// its fragment). Swapping these to toon would flatten every fine-band
+        /// glow to charcoal and erase the rank readout. If a future cycle wants
+        /// toon props, it must first add an emission term to the shader — a
+        /// shader edit, not a material swap.</summary>
         static Material BandMaterial(string propName)
         {
             var path = $"{PrefabDir}/{propName}.mat";

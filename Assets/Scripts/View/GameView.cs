@@ -857,8 +857,12 @@ namespace CinderCourt.View
 
                     // Room objective readout: the contiguous route never returns to the
                     // lobby between rooms, so BossAlive is what re-frames the same
-                    // objective as the room's final beat.
-                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive);
+                    // objective as the room's final beat. remaining = living + pending
+                    // (the whole wave, not just what is on screen) so the count only
+                    // moves DOWN, and every kill is visible progress — the step-tracker
+                    // beat the 2026-08-12 playtest asked for.
+                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive,
+                        _sim.LivingEnemies + _sim.PendingSpawns);
                 }
 
                 if (Vfx != null)

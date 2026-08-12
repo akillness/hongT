@@ -350,8 +350,15 @@ namespace CinderCourt.EditorTools
 
         static void RemapToUrpLit(ModelImporter importer, string path)
         {
-            var urpLit = Shader.Find("Universal Render Pipeline/Lit");
-            if (urpLit == null) { Debug.LogWarning("URP/Lit shader missing"); return; }
+            // Toon first: the 12 shipped character materials moved to
+            // CinderCourt/ToonLit (시안 02 stage 4, commit 892768d) by editing
+            // the serialized assets, and this generator recreates those assets
+            // on reimport — left on URP/Lit it would silently revert the whole
+            // cast to PBR the next time any character FBX is touched. Lit stays
+            // as the degrade path (same fallback the shader itself declares).
+            var urpLit = Shader.Find("CinderCourt/ToonLit")
+                ?? Shader.Find("Universal Render Pipeline/Lit");
+            if (urpLit == null) { Debug.LogWarning("no character shader available"); return; }
             var dir = Path.GetDirectoryName(path)!.Replace('\\', '/');
             var id = Path.GetFileNameWithoutExtension(path);
             // Textures were extracted into the per-character folder (see
