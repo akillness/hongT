@@ -1,0 +1,17 @@
+// W4: SkillRoll Implementation (New File)
+
+using UnityEngine;
+using System;
+
+// This file is part of Phase 1d implementation.
+// W4: SkillRoll(enemyId, wave, attackOrdinal) + 아키타입 임계·천장 정의.
+
+public class SkillRoll
+{
+    public static int Roll(int enemyId, int wave, int attackOrdinal)
+    {
+        // Placeholder: Implementation will be detailed in Phase 1d implementation phase.
+        // This method will handle the logic for SkillRoll.
+        return 1; 
+    }
+}
