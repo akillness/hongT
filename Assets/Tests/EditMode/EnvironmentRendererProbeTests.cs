@@ -179,6 +179,119 @@ namespace CinderCourt.Tests
         }
 
         /// <summary>
+        /// Every renderer inside the stage TERRAIN prefab, by material.
+        ///
+        /// The paint probes eliminated env-stone, env-floor, env-ember, CourtBackdrop,
+        /// VoidFloor and all six cinder-span terrain materials, and the pale ring
+        /// survived every one of them. Something is drawing it, and the terrain prefab
+        /// is the only spawned object left that this suite can open. If a renderer in
+        /// here carries a material NOT in Assets/Art/Terrain/Materials/*cinder-span*,
+        /// that is why painting those six missed it.
+        /// </summary>
+        [Test]
+        public void CinderSpanTerrainPrefab_ListsEveryRendererMaterial()
+        {
+            var prefab = Resources.Load<GameObject>("Terrain/terrain-cinder-span");
+            Assert.That(prefab, Is.Not.Null,
+                "Resources/Terrain/terrain-cinder-span missing — GameDirector loads "
+                + "exactly this path, so its absence would mean the dungeon has no terrain");
+
+            var renderers = prefab.GetComponentsInChildren<MeshRenderer>(true);
+            Assert.That(renderers.Length, Is.GreaterThan(0), "prefab has no renderers");
+
+            var byMaterial = new Dictionary<string, int>();
+            var detail = new Dictionary<string, string>();
+            foreach (var renderer in renderers)
+            {
+                foreach (var material in renderer.sharedMaterials)
+                {
+                    var name = material != null ? material.name : "(NULL MATERIAL)";
+                    byMaterial.TryGetValue(name, out var n);
+                    byMaterial[name] = n + 1;
+                    if (detail.ContainsKey(name)) continue;
+                    var shader = material != null && material.shader != null
+                        ? material.shader.name : "-";
+                    var tex = material != null && material.HasProperty("_BaseMap")
+                        ? material.GetTexture("_BaseMap") : null;
+                    var col = material != null && material.HasProperty("_BaseColor")
+                        ? material.GetColor("_BaseColor") : Color.clear;
+                    detail[name] = $"shader={shader}  tex={(tex != null ? tex.name : "NULL")}  "
+                        + $"_BaseColor=({col.r:F3},{col.g:F3},{col.b:F3})  eg='{renderer.name}'";
+                }
+            }
+
+            var report = new StringBuilder(
+                $"[terrain-cinder-span prefab: {renderers.Length} MeshRenderers, "
+                + $"{byMaterial.Count} materials]\n");
+            foreach (var pair in byMaterial)
+            {
+                report.AppendLine($"  x{pair.Value,-4} {pair.Key}");
+                report.AppendLine($"          {detail[pair.Key]}");
+            }
+            TestContext.WriteLine(report.ToString());
+        }
+
+        /// <summary>
+        /// Every renderer BAKED INTO THE SCENE, by material.
+        ///
+        /// Last candidate standing. Paint probes have eliminated every runtime-spawned
+        /// system — env-stone / env-floor / env-ember (MPB tint), the terrain prefab
+        /// (its six materials), CourtBackdrop and VoidFloor — and the pale ring
+        /// survived all of them. StageCatalog.DressingLibraryTerrainId is "cinder-span",
+        /// so dressing clones carry those same six and are eliminated with them.
+        ///
+        /// What is left is geometry that was never spawned: objects saved in
+        /// CinderCourt.unity by SceneBuilder. This enumerates them so the ring has a
+        /// name instead of a sixth hypothesis.
+        /// </summary>
+        [Test]
+        public void GameScene_ListsEveryBakedRendererMaterial()
+        {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/Scenes/CinderCourt.unity",
+                UnityEditor.SceneManagement.OpenSceneMode.Additive);
+            Assert.That(scene.IsValid(), Is.True, "CinderCourt.unity failed to open");
+
+            var byMaterial = new Dictionary<string, int>();
+            var detail = new Dictionary<string, string>();
+            var total = 0;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    total += 1;
+                    foreach (var material in renderer.sharedMaterials)
+                    {
+                        var name = material != null ? material.name : "(NULL MATERIAL)";
+                        byMaterial.TryGetValue(name, out var n);
+                        byMaterial[name] = n + 1;
+                        if (detail.ContainsKey(name)) continue;
+                        var shader = material != null && material.shader != null
+                            ? material.shader.name : "-";
+                        var tex = material != null && material.HasProperty("_BaseMap")
+                            ? material.GetTexture("_BaseMap") : null;
+                        var col = material != null && material.HasProperty("_BaseColor")
+                            ? material.GetColor("_BaseColor") : Color.clear;
+                        var b = renderer.bounds;
+                        detail[name] = $"shader={shader}  tex={(tex != null ? tex.name : "NULL")}  "
+                            + $"_BaseColor=({col.r:F3},{col.g:F3},{col.b:F3})  "
+                            + $"size=({b.size.x:F1},{b.size.y:F1},{b.size.z:F1})  eg='{renderer.name}'";
+                    }
+                }
+            }
+
+            var report = new StringBuilder(
+                $"[CinderCourt.unity: {total} baked MeshRenderers, {byMaterial.Count} materials]\n");
+            foreach (var pair in byMaterial)
+            {
+                report.AppendLine($"  x{pair.Value,-4} {pair.Key}");
+                report.AppendLine($"          {detail[pair.Key]}");
+            }
+            TestContext.WriteLine(report.ToString());
+            UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+        }
+
+        /// <summary>
         /// The same question one level out: what does the stage's TERRAIN carry? The
         /// boundary ring might not be an EnvironmentBuilder piece at all — that is the
         /// assumption every refuted hypothesis shared, and it has never been checked.
