@@ -2056,6 +2056,69 @@ namespace CinderCourt.View
         /// the mesh, not this code. EnvironmentBuilder.SpawnLibraryPart takes the same
         /// approach for the terrain library and for the same reason.
         /// </summary>
+        // ---- contact (blob) shadows --------------------------------------
+        //
+        // The dungeon runs four realtime POINT lights with LightShadows.None (§E6
+        // "caster 0"), and the URP asset ships m_AdditionalLightShadowsSupported: 0.
+        // So there is no shadow map to switch on without either adding a directional
+        // light — which flattens the "dark room, four warm pools" mood every stage is
+        // lit around — or paying for four cube shadow maps on WebGL.
+        //
+        // A blob buys the one thing a shadow is for at a 55 degree camera: telling the
+        // player where an object MEETS THE FLOOR. Without it a standing column and a
+        // column-shaped decal painted on the floor read the same.
+        //
+        // ONE shared material, not one per object: the mask and the tint never vary,
+        // so per-instance materials would only add draw-call batches.
+        static Material _blobMaterial;
+        static Texture2D _blobTexture;
+        static bool _blobProbed;
+
+        /// <summary>
+        /// A flat quad of soft shadow under <paramref name="parent"/>, sized PER AXIS.
+        ///
+        /// Per axis, not one radius: the stone walls are capsules several times longer
+        /// than they are thick, and a circular blob sized to the long axis would pool
+        /// shadow far past the wall on both sides. A missing texture means no shadow,
+        /// silently — nothing here may hard-depend on the asset.
+        /// </summary>
+        static void SpawnBlobShadow(Transform parent, float halfX, float halfZ)
+        {
+            if (halfX <= 1e-4f || halfZ <= 1e-4f) return;
+            if (!_blobProbed)
+            {
+                _blobTexture = Resources.Load<Texture2D>("Fx/blob-shadow");
+                _blobProbed = true;   // probe ONCE: a miss is a normal state, not an error
+            }
+            if (_blobTexture == null) return;
+
+            if (_blobMaterial == null)
+            {
+                // Through MakeUnlit's transparent path, NOT a fresh Material: a runtime
+                // material cannot summon a URP shader variant that build-time stripping
+                // removed, and a transparent surface created any other way renders
+                // OPAQUE in the WebGL build — a black square under every prop.
+                _blobMaterial = ViewWorld.MakeUnlit(new Color(0f, 0f, 0f, 0.42f), true);
+                _blobMaterial.SetTexture("_BaseMap", _blobTexture);
+                _blobMaterial.mainTexture = _blobTexture;
+            }
+
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(quad);
+            quad.name = "blob-shadow";
+            quad.transform.SetParent(parent, false);
+            // Lie flat, a hair above the floor. Coplanar would z-fight; the offset is
+            // far below what this camera can resolve.
+            quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            quad.transform.localPosition = new Vector3(0f, 0.012f, 0f);
+            quad.transform.localScale = new Vector3(halfX * 2f, halfZ * 2f, 1f);
+
+            var renderer = quad.GetComponent<Renderer>();
+            renderer.sharedMaterial = _blobMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
         static GameObject SpawnKitPart(string partName, Transform parent, Vector3 target, bool uniform)
         {
             if (!KitCache.TryGetValue(partName, out var prefab))
@@ -2110,6 +2173,18 @@ namespace CinderCourt.View
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
             }
+
+            // Footprint from the MEASURED bounds, never from the requested target: the
+            // uniform branch above rewrites the scale to preserve proportions, so a
+            // prop's real footprint is routinely smaller than what was asked for.
+            //
+            // FLAT PIECES GET NO SHADOW. A floor tile IS the floor and has nothing to
+            // cast onto. The altar is why this guard is not cosmetic: its sigil tile
+            // spans the CHANNEL disc, so shadowing it would lay a dark disc across the
+            // exact telegraph the player reads to stand in — dimming a hazard cue in
+            // order to decorate it (§E0.5).
+            if (bounds.size.y >= Mathf.Max(bounds.size.x, bounds.size.z) * 0.25f)
+                SpawnBlobShadow(parent, bounds.size.x * 0.525f, bounds.size.z * 0.525f);
             return clone;
         }
 
@@ -2295,6 +2370,10 @@ namespace CinderCourt.View
                         if (surfaceMaterial != null)
                             SetRendererSt(pillar.GetComponent<Renderer>(),
                                 SurfaceRepeatSt(r * 2f, 2.2f));
+                        // The kit path plants its own shadow from measured bounds; the
+                        // primitive fallback must plant one too, or a stage that happens
+                        // to miss a kit part loses its contact shading along with it.
+                        SpawnBlobShadow(root.transform, r * 1.05f, r * 1.05f);
                     }
                     else
                     {
