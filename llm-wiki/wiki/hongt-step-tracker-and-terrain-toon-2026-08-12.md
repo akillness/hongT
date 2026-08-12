@@ -54,10 +54,18 @@
 | 대상 | 이유 | 근거 위치 |
 |---|---|---|
 | equip 프롭 12장 (URP/Lit) | fine/basic 등급 구분이 `_EmissionColor`인데 ToonLit에는 에미션 항이 없다. 전환하면 등급 판독 소멸 | `PropImportPipeline.BandMaterial` 독스트링 |
-| CourtBackdrop / VoidFloor (URP/Unlit) | 로비 키아트·외곽 어둠 — 페인팅에 라이팅이 구워져 있고 무드 리그 밖 | `SceneBuilder.cs` |
+| CourtBackdrop / VoidFloor (URP/Unlit) | **던전 표면이다, 로비가 아니다** (첫 판은 "로비 키아트"로 오기했고 여기서 정정). 제외 근거는 측정된 미도달: VoidFloor는 프레임의 0.25%만 렌더하고 grain·tone 패스가 지배 색상 버킷을 0.0pt 움직였다(`CameraRig.cs:81-83`, 마젠타 베이크 실측) — 텍스처/톤 작업이 닿지 않는 표면이다. 배포 프레임 시임 실측: 최악 1.55x (결함 기록 4x, 수정 전 2.17x, 목표 ~1.6x) — 툰 전환 후에도 시임 보정 유효 | `SceneBuilder.cs:139-236`, `CameraRig.cs:81-83`, `tools/qa/measure_outskirt_seam.py` |
 
 프롭을 툰으로 옮기려면 셰이더에 에미션 항을 먼저 넣어야 한다 — 재질 스왑이
 아니라 셰이더 수정이 전제다.
+
+시임 후속 판정(2026-08-12, 배포 프레임): SceneBuilder의 VoidFloor 톤은 PBR
+에이프런 휘도(48.34)에 맞춰 보정됐고 툰 전환이 그 변수를 움직였으므로 재측정
+대상이었다. 실측 4밴드 최악 1.55x — 목표 대역 안. **툰 지형 옆에서도 외곽
+어둠은 절벽이 아니라 그라디언트로 읽힌다.** VoidFloorTexture가 Toon/이 아닌
+Env/ 세트를 가리키는 것은 사실이지만, 시임이 목표 안이고 표면이 측정상
+미도달이므로 SceneBuilder.Build 재실행(씬 재생성 + 커밋)을 정당화할 결함이
+없다. 다음 사이클이 이 수치를 넘는 시임을 재면 그때가 교체 시점이다.
 
 ## 4. 릴리스 게이트 실무 메모 [OBSERVED]
 
