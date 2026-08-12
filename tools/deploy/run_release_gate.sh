@@ -28,35 +28,33 @@ export PYTHONDONTWRITEBYTECODE=1
 
 step() { echo "=== STEP $* ==="; }
 fail() { echo "GATE-FAIL: $*"; exit 1; }
-
 case "${1:-}" in
 1)
-  step "1/5 import-only compile gate"
+  step "1/4 import-only compile gate"
   bash tools/unity_batch.sh import-only || fail "import-only"
 
-  step "2/5 shadow-focused EditMode"
-  # Source-mode evidence: the shadow contract alone, so a regression in it is
-  # legible without reading 992 results.
-  "$UNITY" -batchmode -projectPath "$(pwd)" -runTests -testPlatform EditMode \
-    -testFilter "*Shadow*" \
-    -testResults "$EVIDENCE_DIR/shadow-focused-results.xml" \
-    -logFile "$EVIDENCE_DIR/shadow-focused.log" -nographics
-  echo "shadow-focused EXIT=$?"
-  [ -f "$EVIDENCE_DIR/shadow-focused-results.xml" ] || fail "no shadow-focused results"
-
-  step "3/5 full EditMode"
+  step "2/4 full EditMode"
+  # One run, not two. `-testFilter "*Shadow*"` cannot be used here: the runner
+  # maps it to groupNames and FullNameFilter.Match throws an NRE walking the
+  # tree, so Unity exits 3 (RunError) and writes no results file at all
+  # (measured: shadow-focused.log, FilterTestTreeTask.cs:13). The shadow subset
+  # is extracted from this run's XML instead.
   bash tools/unity_batch.sh tests
   echo "full EditMode EXIT=$?"
+  RESULTS="$(ls -t "$LOG_DIR"/test-results-*.xml 2>/dev/null | head -1)"
+  [ -n "$RESULTS" ] || fail "no EditMode results"
+  echo "RESULTS=$RESULTS"
 
-  step "4/5 release payload unit tests"
+  step "3/4 release payload unit tests"
   python3 -B -m unittest -v tools.tests.test_release_payload 2>&1 | tail -20
   [ "${PIPESTATUS[0]}" -eq 0 ] || fail "test_release_payload"
 
-  step "5/5 Development WebGL build"
+  step "4/4 Development WebGL build"
   rm -rf build-development
   bash tools/unity_batch.sh build-development || fail "build-development"
   [ -f build-development/index.html ] || fail "no build-development/index.html"
   ;;
+
 2)
   step "1/1 Release WebGL build"
   # The provenance refuses to be created twice, so the release tree must be the
