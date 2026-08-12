@@ -487,6 +487,19 @@ namespace CinderCourt.View
         /// </summary>
         internal const string StageTexturePath = "Textures/Env/";
 
+        /// <summary>
+        /// The cel-shaded stage albedo set (tools/gen_toon_env_textures.sh), tried
+        /// BEFORE the PBR set above.
+        ///
+        /// Two directories rather than one, on purpose. They are different art
+        /// directions that have to coexist while stage 02 is staged, and overwriting
+        /// the PBR maps in place would destroy the set the shipped build still uses —
+        /// this repo has already lost 36 committed textures once to an in-flight
+        /// regeneration. Preferring Toon and falling back to Env means a partially
+        /// generated toon set degrades stage by stage instead of leaving holes.
+        /// </summary>
+        internal const string ToonTexturePath = "Textures/Toon/";
+
         static string _texturedStageId;
 
         /// <summary>
@@ -501,8 +514,10 @@ namespace CinderCourt.View
         {
             if (_texturedStageId == stageId) return;
             _texturedStageId = stageId;
-            var stone = Resources.Load<Texture2D>(StageTexturePath + stageId + "-stone");
-            var floor = Resources.Load<Texture2D>(StageTexturePath + stageId + "-floor");
+            var stone = Resources.Load<Texture2D>(ToonTexturePath + stageId + "-stone")
+                     ?? Resources.Load<Texture2D>(StageTexturePath + stageId + "-stone");
+            var floor = Resources.Load<Texture2D>(ToonTexturePath + stageId + "-floor")
+                     ?? Resources.Load<Texture2D>(StageTexturePath + stageId + "-floor");
             BindAlbedo(_stoneMaterial, stone);
             BindAlbedo(_floorMaterial, floor);
         }

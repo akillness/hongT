@@ -160,12 +160,30 @@ Shader "CinderCourt/ToonLit"
             // Quantise a 0..1 light term into flat bands with a floor under the
             // darkest one. Steps is a float property so it can be tuned per material
             // without a keyword; the extra rounding is one instruction.
-            half Bands(half lambert)
+            half Quantise(half lambert)
             {
                 half shifted = saturate((lambert - _StepThreshold) / max(1e-3, 1.0 - _StepThreshold));
                 half steps = max(2.0, floor(_Steps));
-                half quantised = floor(shifted * steps) / (steps - 1.0);
-                return lerp(_ShadowFloor, 1.0, saturate(quantised));
+                return saturate(floor(shifted * steps) / (steps - 1.0));
+            }
+
+            // MAIN light: the floor is the "ambient" term that keeps an unlit face from
+            // going pure black, because this project reads by value contrast and a
+            // silhouette lost against a dark floor is a readability defect (§E0.5).
+            half Bands(half lambert)
+            {
+                return lerp(_ShadowFloor, 1.0, Quantise(lambert));
+            }
+
+            // ADDITIONAL lights: NO floor. Each point light ADDS its term, so carrying
+            // the same 0.34 minimum would deposit it once per light — with four points
+            // that is +1.36 of flat light on every surface regardless of where the
+            // lights are. Measured: floors blew out to near-white and the whole arena
+            // washed to the fill light's hue. A floor is a property of the scene's
+            // ambient, not of each lamp in it.
+            half BandsAdditive(half lambert)
+            {
+                return Quantise(lambert);
             }
 
             half4 ToonFragment(Varyings input) : SV_Target
@@ -191,17 +209,28 @@ Shader "CinderCourt/ToonLit"
                 {
                     Light light = GetAdditionalLight(i, input.positionWS);
                     half point_ = saturate(dot(normalWS, light.direction));
-                    lighting += light.color * light.distanceAttenuation * Bands(point_);
+                    lighting += light.color * light.distanceAttenuation * BandsAdditive(point_);
                 }
                 #endif
 
-                half3 color = albedo.rgb * lighting;
+                // CLAMP before the albedo multiply. Banding throws away intensity: a
+                // face that merely points at the key snaps to the top band, so the sum
+                // of key + four points + rim can exceed 1 and a large upward slab
+                // renders pure white. Measured on abyss-chancel's accent panels, which
+                // read as flat white sheets until this line existed. URP/Lit hid the
+                // problem because its falloff is continuous — quantising is exactly
+                // what removes the headroom.
+                half3 color = albedo.rgb * saturate(lighting);
 
                 // Rim: the cheapest way to keep a dark prop off a dark floor once the
                 // midtones have been flattened away by banding.
                 float3 viewDir = normalize(GetWorldSpaceViewDir(input.positionWS));
                 half rim = pow(saturate(1.0 - saturate(dot(normalWS, viewDir))), _RimPower);
-                color += _RimColor.rgb * rim * _RimStrength;
+                // Rim AFTER the clamp, and scaled by how lit the surface already is:
+                // a rim added at full strength to an already-saturated slab is pure
+                // additive blowout, and the rim exists to separate a dark prop from a
+                // dark floor — it has no work to do on a bright one.
+                color += _RimColor.rgb * rim * _RimStrength * (1.0 - saturate(lighting.g));
 
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);

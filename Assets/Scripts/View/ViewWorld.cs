@@ -191,10 +191,23 @@ namespace CinderCourt.View
         {
             get
             {
+                if (_lit != null) return _lit;
+                // Toon first, URP/Lit as the fallback. This ONE accessor backs every
+                // lit environment surface (stone, floor, gates, terraces), so the
+                // stage-02 art direction switches here rather than at each call site —
+                // and a single place to switch is also a single place to switch back.
+                //
+                // Fallback is not politeness: Shader.Find returns null for a shader
+                // that failed to compile or was stripped from the build, and a null
+                // shader renders the whole dungeon magenta. Degrading to Lit keeps a
+                // broken toon pass from taking the environment with it.
+                _lit = Shader.Find(ToonLitShaderName);
                 if (_lit == null) _lit = Shader.Find("Universal Render Pipeline/Lit");
                 return _lit;
             }
         }
+
+        public const string ToonLitShaderName = "CinderCourt/ToonLit";
 
         /// <summary>
         /// Opaque LIT material with an optional albedo map. Used by the stage
