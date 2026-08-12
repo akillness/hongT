@@ -1,11 +1,11 @@
 {
   "evidenceId": "shadow-focused-editmode",
-  "candidateSourceSha": "4358a499b53f31d71328720371e1888b01282071",
+  "candidateSourceSha": "34710f1ad36018a17bf3a3cdf2b236551e0c4af8",
   "buildMode": "Source",
   "contentMarker": null,
   "result": "PASS",
   "method": "shadow subset extracted by full name from the full EditMode NUnit results",
-  "resultsFile": "_workspace/current/engineering/unity-logs/test-results-212950.xml",
+  "resultsFile": "_workspace/current/engineering/unity-logs/test-results-215036.xml",
   "shadowTestCount": 27,
   "shadowFailures": [],
   "shadowTests": [

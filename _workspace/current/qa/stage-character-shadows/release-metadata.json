@@ -1,60 +1,31 @@
 {
-  "baselineProbeSha": "94195cf4b9ffb44ad4b4af07a10cb5dee3ace3d3",
-  "candidateSourceSha": "713d95e9010d971cf18b5a42b5f0f081485d567e",
-  "cleanStatus": {
-    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre-713d95e9.json",
-    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post-713d95e9.json"
-  },
+  "releaseBaseSha": "713d95e9010d971cf18b5a42b5f0f081485d567e",
+  "baselineProbeSha": "713d95e9010d971cf18b5a42b5f0f081485d567e",
+  "candidateSourceSha": "34710f1ad36018a17bf3a3cdf2b236551e0c4af8",
+  "generatedAt": "2026-08-12T22:00:38+0900",
+  "sourceUpstream": "origin/akillness/main",
+  "unityVersion": "6000.5.6f1",
   "commands": [
+    "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-pre.json",
     "bash tools/deploy/run_release_gate.sh 1",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 390x844 --evidence-id browser-shadow-mobile",
-    "python3 tools/deploy/make_release_evidence.py editmode",
-    "python3 tools/deploy/make_release_evidence.py build --kind development",
+    "python3 tools/deploy/make_release_evidence.py editmode --results _workspace/current/engineering/unity-logs/test-results-215036.xml --candidate 34710f1ad36018a17bf3a3cdf2b236551e0c4af8 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log _workspace/current/engineering/unity-logs/build-development-215153.log --candidate 34710f1ad36018a17bf3a3cdf2b236551e0c4af8 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py marker --build-dir build-development  # 1e0b774f7fb1a09a",
+    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 34710f1ad36018a17bf3a3cdf2b236551e0c4af8 --content-marker 1e0b774f7fb1a09a --out _workspace/current/qa/stage-character-shadows",
+    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 34710f1ad36018a17bf3a3cdf2b236551e0c4af8 --content-marker 1e0b774f7fb1a09a --out _workspace/current/qa/stage-character-shadows",
     "bash tools/deploy/run_release_gate.sh 2",
-    "python3 tools/deploy/make_release_evidence.py build --kind release",
-    "probeHashes := sha256(sorted (path, blob-sha256) of StageShadowPolicy.cs, StageMood.cs, VfxDirector.cs, StageShadowReceiver.shader) at baselineProbeSha and candidateSourceSha",
-    "cleanStatus pre/post for THIS release bracket the provenance-creation step, NOT the build sequence. The build-bracketing pair could not be produced retroactively once the builds had run, and the previous release's frozen pair is immutable and belongs to candidate 1bd8eca. Stated rather than left to the filenames, because the pre/post convention is nowhere enforced or documented and a reader would otherwise assume the stronger claim. What IS enforced independently: validate_exact_candidate pins the working tree to candidateSourceSha at create time, and each build's evidence record carries the contentMarker of the bytes that build produced."
+    "python3 tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log _workspace/current/engineering/unity-logs/build-215746.log --candidate 34710f1ad36018a17bf3a3cdf2b236551e0c4af8 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-post.json",
+    "probeHashes := sha256(git show <sha>:Assets/Tests/EditMode/DungeonGoldenDigestTests.cs) per docs/release-deploy-procedure.md §5 — baseline==candidate: view-only release, sim behavior unchanged"
   ],
-  "evidence": [
-    {
-      "buildMode": "Source",
-      "contentMarker": null,
-      "evidenceId": "shadow-focused-editmode",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-shadow-focused-editmode.json"
-    },
-    {
-      "buildMode": "Source",
-      "contentMarker": null,
-      "evidenceId": "full-editmode",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-full-editmode.json"
-    },
-    {
-      "buildMode": "Source",
-      "contentMarker": null,
-      "evidenceId": "release-build",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-release-build.json"
-    },
-    {
-      "buildMode": "Development",
-      "contentMarker": "c5186668fef97377",
-      "evidenceId": "development-build",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json"
-    },
-    {
-      "buildMode": "Development",
-      "contentMarker": "c5186668fef97377",
-      "evidenceId": "browser-shadow-desktop",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json"
-    },
-    {
-      "buildMode": "Development",
-      "contentMarker": "c5186668fef97377",
-      "evidenceId": "browser-shadow-mobile",
-      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json"
-    }
-  ],
-  "generatedAt": "2026-08-12T11:35:55Z",
+  "probeHashes": {
+    "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
+    "candidate": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322"
+  },
+  "cleanStatus": {
+    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre.json",
+    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post.json"
+  },
   "outsideInputAllowList": [
     ".*",
     "_workspace/*",
@@ -74,13 +45,54 @@
     "node_modules",
     "skills",
     "skills-lock.json",
-    "tmp"
+    "tmp",
+    "Data",
+    "engineering",
+    "main.slnx",
+    "HongT.slnx",
+    "com.IvanMurzak.Unity.MCP.Installer.csproj",
+    "specs",
+    "README.md",
+    "WATCHDOG.yml",
+    "CLAUDE.md",
+    "AGENTS.md"
   ],
-  "probeHashes": {
-    "baseline": "1e19d32a07675f10d187a30e8d6a224102e3c68d9296f110c0c080010f2705cd",
-    "candidate": "8c10e9868f3f55eadbb86ab2488551981913e30fff72804bea08204b6694e2c3"
-  },
-  "releaseBaseSha": "94195cf4b9ffb44ad4b4af07a10cb5dee3ace3d3",
-  "sourceUpstream": "origin/akillness/main",
-  "unityVersion": "6000.5.6f1"
+  "evidence": [
+    {
+      "evidenceId": "shadow-focused-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-shadow-focused-editmode.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "full-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-full-editmode.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "release-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-release-build.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "development-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
+      "buildMode": "Development",
+      "contentMarker": "1e0b774f7fb1a09a"
+    },
+    {
+      "evidenceId": "browser-shadow-desktop",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
+      "buildMode": "Development",
+      "contentMarker": "1e0b774f7fb1a09a"
+    },
+    {
+      "evidenceId": "browser-shadow-mobile",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
+      "buildMode": "Development",
+      "contentMarker": "1e0b774f7fb1a09a"
+    }
+  ]
 }

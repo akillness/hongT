@@ -1,14 +1,14 @@
 {
   "evidenceId": "full-editmode",
-  "candidateSourceSha": "4358a499b53f31d71328720371e1888b01282071",
+  "candidateSourceSha": "34710f1ad36018a17bf3a3cdf2b236551e0c4af8",
   "buildMode": "Source",
   "contentMarker": null,
   "result": "PASS",
   "method": "bash tools/unity_batch.sh tests",
-  "resultsFile": "_workspace/current/engineering/unity-logs/test-results-212950.xml",
+  "resultsFile": "_workspace/current/engineering/unity-logs/test-results-215036.xml",
   "totals": {
-    "total": 1002,
-    "passed": 1000,
+    "total": 1006,
+    "passed": 1004,
     "failed": 0,
     "skipped": 2,
     "inconclusive": 0
