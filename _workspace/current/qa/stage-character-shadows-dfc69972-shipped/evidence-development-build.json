@@ -1,0 +1,21 @@
+{
+  "evidenceId": "development-build",
+  "candidateSourceSha": "dfc6997234483e6bb963b45eb1e4ac8e2d625287",
+  "buildMode": "Development",
+  "contentMarker": "b656b30bbb75d97d",
+  "result": "PASS",
+  "method": "bash tools/unity_batch.sh build-development",
+  "buildLog": "_workspace/current/engineering/unity-logs/build-development-224137.log",
+  "unityReported": {
+    "result": "Succeeded",
+    "sizeBytes": 194649424,
+    "errors": 0,
+    "warnings": 7
+  },
+  "measuredPayload": {
+    "path": "build-development",
+    "contentMarker": "b656b30bbb75d97d",
+    "fileCount": 25,
+    "byteLength": 173496743
+  }
+}

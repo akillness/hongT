@@ -3,6 +3,7 @@
 ## Reports
 - [[wiki/hongt-higgsfield-asset-refresh-2026-08-10]] — 힉스필드 자산 리프레시 첫 슬라이스: act1~3=kling 잡 지도, 모션 id 지도 위치, scorch 알파 착시 실측, 아이콘 로더 불일치, Resources 90% 무게 발견, 제거 7건 (2026-08-10)
 - [[wiki/hongt-step-tracker-and-terrain-toon-2026-08-12]] — 목표 칩 단계 추적기(남은 N 카운트다운) + 지형 19장 툰 전환 배포(34710f1): 의도된 Unlit 예외의 뒤집힘, 에미션 없는 ToonLit 제외 목록, 중단 릴리스 증거 아카이브 절차, guid 상충 판정 (2026-08-12)
+- [[wiki/hongt-pale-ring-closure-2026-08-13]] — 창백한 링 종결(법선 bc799ee9 × 렌더러 센서스) + 외곽 스테이지 색조(8f0ccd59): 색칠 프로브의 가산 항 맹점, 귀속은 베이스라인 선택, VoidFloor 훅 실측 ~0, 시임 가드 AND 게이트 교정 (2026-08-13)
 
 ## Concepts / Traps
 - [[wiki/concepts/hongt-companion-autonomy-tick-order-trap]] — 결정론 심 테스트 "앵커 오프바이원" 함정 (Amendment #7; 심은 정확, 하네스가 원인)

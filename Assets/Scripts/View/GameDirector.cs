@@ -507,16 +507,20 @@ namespace CinderCourt.View
         // VoidFloor is the scene-baked quad under everything past the apron. Two
         // magenta paint-bakes disagree on its frame share — CameraRig.cs records
         // 0.25% (2026-08 pull-in decision), pale-ring-investigation.md measured
-        // 61,510 px = 4.75% with its bbox reading "아레나 바깥 보라 영역"
-        // (2026-08-12, the fresher bake). This hook does not pick a winner:
-        // whether the hue landed is measured per release as a pre/post HUE
-        // delta on the outskirt band (mean R−B / saturation — this change
-        // holds luminance constant BY DESIGN, so the luma-only seam probe
-        // tools/qa/measure_outskirt_seam.py can only serve as the regression
-        // guard that the seam tuning survived, never as proof the hue moved).
-        // Either way a constant purple-grey is a stage-blind surface, same
-        // class as the constant blue rim: the "이미지가 덧씌워진 느낌" the
-        // 08-12/13 playtest named twice.
+        // 61,510 px = 4.75% ("아레나 바깥 보라 영역"). The decider named here —
+        // per-release pre/post HUE delta on the outskirt band — RAN on the first
+        // release that shipped this hook (2026-08-13, 8f0ccd59, cinder-span,
+        // tools/qa/measure_outskirt_seam.py --pre renderer-census frame):
+        // R−B moved +0.3..+3.1 and luma ~0 on every band. VERDICT: at the
+        // shipped orbit the CameraRig claim holds — the visible outskirt is
+        // fogged terrain/kit, not this quad (the 4.75% bake counted pixels the
+        // fog band owns). The hook stays because it is correct, tested, and
+        // ~free (one MPB per stage entry), and because the fog band is a LIVE
+        // tuning surface (CameraRig FogStart/EndOffset) — any future widening
+        // re-exposes this quad, already stage-hued instead of stage-blind. But
+        // no future cycle should credit visible outskirt change to it at
+        // today's camera: the visible fix was bc799ee9 (normals) + the rim hue
+        // on silhouette edges.
         //
         // The hue moves toward the stage accent; the VALUE stays the baked
         // tone's. SceneBuilder tuned that value against the apron seam by
