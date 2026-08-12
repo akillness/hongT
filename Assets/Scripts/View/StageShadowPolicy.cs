@@ -1,9 +1,23 @@
-// Dungeon-only realtime character-shadow policy.
+// Dungeon-only realtime shadow policy.
 //
 // This component owns the stage-scoped global rendering lease, the positive
-// character caster allow-list, the continuous floor receiver, and the one-way
-// WebGL quality ladder. It is presentation-only: no simulation value is read
-// or written, and caster membership never changes as a performance response.
+// caster allow-list, the continuous floor receiver, and the one-way WebGL
+// quality ladder. It is presentation-only: no simulation value is read or
+// written, and caster membership never changes as a performance response.
+//
+// SCOPE WIDENED 2026-08-12 (was "character-shadow"). Casters are now actors AND
+// the dungeon's STANDING SOLIDS — pillars, stone walls and cover, altar plinths,
+// pylon shells. The mechanism never was character-specific: TryConfigureCaster
+// accepts any MeshRenderer and simply puts it on the key light's shadow layer.
+// What was character-specific was the membership, and the reason to widen it is
+// that a solid the sim blocks on is exactly what the player must locate on the
+// floor to path around.
+//
+// The cost argument is that the shadow map ALREADY RENDERS every frame for the
+// actors, so a handful of standing solids reuse an existing pass rather than
+// adding one. Decoration stays off the list and uses the cheap blob quad in
+// VfxDirector instead — the sentence above still holds: membership is a
+// statement about what a thing IS, never a performance dial.
 using System;
 using System.Collections.Generic;
 using UnityEngine;

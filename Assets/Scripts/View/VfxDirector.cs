@@ -2119,7 +2119,13 @@ namespace CinderCourt.View
             renderer.receiveShadows = false;
         }
 
-        static GameObject SpawnKitPart(string partName, Transform parent, Vector3 target, bool uniform)
+        /// <param name="castsShadow">
+        /// True for a STANDING SOLID the sim also blocks on — pillar, stone wall, altar
+        /// plinth, pylon shell. Those join the key light's shadow-caster layer and get a
+        /// real directional shadow; everything else keeps the cheap blob.
+        /// </param>
+        static GameObject SpawnKitPart(string partName, Transform parent, Vector3 target,
+                                       bool uniform, bool castsShadow = false)
         {
             if (!KitCache.TryGetValue(partName, out var prefab))
             {
@@ -2168,10 +2174,19 @@ namespace CinderCourt.View
             var lift = parent.position.y - bounds.min.y;
             clone.transform.position += new Vector3(0f, lift, 0f);
 
+            // A solid the player collides with earns a REAL shadow; decoration does not.
+            // The shadow map is already rendered every frame for character casters
+            // (StageMood's key light is LightShadows.Hard), so promoting a handful of
+            // standing solids reuses a pass that exists rather than adding one — which
+            // is why this is cheaper than it looks and why blobs stay for the rest.
             foreach (var renderer in renderers)
             {
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                renderer.receiveShadows = false;
+                if (castsShadow) StageShadowPolicy.TryConfigureCaster(renderer);
+                else
+                {
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    renderer.receiveShadows = false;
+                }
             }
 
             // Footprint from the MEASURED bounds, never from the requested target: the
@@ -2183,7 +2198,10 @@ namespace CinderCourt.View
             // spans the CHANNEL disc, so shadowing it would lay a dark disc across the
             // exact telegraph the player reads to stand in — dimming a hazard cue in
             // order to decorate it (§E0.5).
-            if (bounds.size.y >= Mathf.Max(bounds.size.x, bounds.size.z) * 0.25f)
+            // Blob ONLY when there is no real shadow. Drawing both would double the
+            // contact darkness under exactly the objects that already read correctly.
+            if (!castsShadow
+                && bounds.size.y >= Mathf.Max(bounds.size.x, bounds.size.z) * 0.25f)
                 SpawnBlobShadow(parent, bounds.size.x * 0.525f, bounds.size.z * 0.525f);
             return clone;
         }
@@ -2352,7 +2370,7 @@ namespace CinderCourt.View
                     // does not answer that question.
                     var pillarPart = SpawnKitPart(
                         "kit-column-round", root.transform,
-                        new Vector3(r * 2f, 2.2f, r * 2f), uniform: false);
+                        new Vector3(r * 2f, 2.2f, r * 2f), uniform: false, castsShadow: true);
                     if (pillarPart == null)
                     {
                         // Missing part is a NORMAL state (the kit shipped 20 of 28), so
@@ -2452,7 +2470,8 @@ namespace CinderCourt.View
                     var plinthWorld = CampaignSpec.AltarBodyRadius * ViewWorld.Scale * 2f;
                     var plinth = SpawnKitPart(
                         "kit-altar-plinth", root.transform,
-                        new Vector3(plinthWorld, plinthWorld * 0.9f, plinthWorld), uniform: true);
+                        new Vector3(plinthWorld, plinthWorld * 0.9f, plinthWorld),
+                        uniform: true, castsShadow: true);
 
                     // Centre relic gem — the altar's identity read at a glance. It rides
                     // the plinth when one exists and floats at the old height otherwise,
@@ -2610,7 +2629,8 @@ namespace CinderCourt.View
                     // primitive stays the thing that tells the truth about state (§4k).
                     var shellWorld = r * 2.15f;
                     SpawnKitPart("kit-brazier-great", root.transform,
-                        new Vector3(shellWorld, shellWorld * 1.15f, shellWorld), uniform: true);
+                        new Vector3(shellWorld, shellWorld * 1.15f, shellWorld),
+                        uniform: true, castsShadow: true);
 
                     // Ember-orange band riding the upper body — child of the
                     // body so the destroyed state hides both in one SetActive.
@@ -2697,9 +2717,12 @@ namespace CinderCourt.View
                         ? new Vector3(lengthWorld, EnvironmentLayout.StoneWallHeightWorld,
                             radiusWorld * 2f)
                         : new Vector3(radiusWorld * 2f, radiusWorld * 1.6f, radiusWorld * 2f);
+                    // StoneWall is the sim's own blocker — walls and cover alike. It is
+                    // the clearest case for a real shadow: the player has to read where
+                    // a solid stands in order to path around it.
                     var part = SpawnKitPart(
                         isWall ? "kit-wall-straight" : CoverPartFor(hazard),
-                        root.transform, target, uniform: !isWall);
+                        root.transform, target, uniform: !isWall, castsShadow: true);
 
                     if (part != null)
                     {
