@@ -2219,7 +2219,21 @@ namespace CinderCourt.View
             if (_stageSurfaceMaterialCache.TryGetValue(key, out var material))
                 return material;
 
-            material = ViewWorld.MakeUnlit(Color.white, false);
+            // LIT, not unlit. This material is applied to the gimmick's SOLID BODY —
+            // the pillar, the stone wall, the altar plinth — which is the same geometry
+            // the kit gives a toon material to. An unlit override here silently undid
+            // the toon conversion on exactly the objects the art direction is about:
+            // they kept their texture but lost the banding and the outline, so a
+            // textured pillar sat next to a cel-shaded cover piece in two languages.
+            //
+            // MakeLit resolves through ViewWorld.LitShader, which is the single place
+            // the toon/PBR choice is made, so this follows the switch instead of
+            // pinning a second opinion about it.
+            //
+            // Readability is not weakened: these are BODIES, not telegraphs. The vent
+            // ring, the current band and the pylon aura are separate surfaces and stay
+            // exactly as they were — §E0.5 is about the cue, not about the rock.
+            material = ViewWorld.MakeLit(Color.white, result.Texture);
             material.SetTexture("_BaseMap", result.Texture);
             material.mainTexture = result.Texture;
             material.SetVector(BaseMapStId, FullTextureSt);
