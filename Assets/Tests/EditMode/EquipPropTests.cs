@@ -1,6 +1,14 @@
-// Lane P contract: six socket-prop prefabs exist with renderers, respect the
-// ≤800-triangle budget each, keep the character total under the §T4 25k cap,
-// and the tier→band mapping follows T0-1 none / T2-3 basic / T4-5 fine.
+// Lane P contract: TWELVE socket-prop prefabs exist with renderers, respect the
+// <=800-triangle budget each, keep the WORN TRIO under the §T4 25k character
+// cap, and the tier->band mapping follows T0-1 none / T2-3 basic / T4-5 fine.
+// Since 2026-08-13 they also carry the toon material, its texture, and a band
+// emission difference a player can see.
+//
+// "Six" until 2026-08-13, when an audit found the sweep was Slots x Bands and
+// therefore blind to the six ARCHETYPE props (dagger/bow/hammer) — the ones
+// ActorView:615-620 actually prefers wherever a stage supplies an archetype.
+// The untested half was the half most dungeons render.
+using System.Linq;
 using CinderCourt.View;
 using NUnit.Framework;
 using UnityEngine;
@@ -30,6 +38,14 @@ namespace CinderCourt.Tests
             "equip-weapon-hammer-basic", "equip-weapon-hammer-fine",
         };
 
+        /// <summary>The six prop families, derived from AllPropNames rather than
+        /// listed a second time — two hand-kept lists drift, and the drift is
+        /// silent because each one looks complete on its own.</summary>
+        static readonly string[] PropFamilies = AllPropNames
+            .Select(n => n.EndsWith("-fine") ? n[..^5] : n[..^6])
+            .Distinct()
+            .ToArray();
+
         const int TriBudgetPerProp = 800;
 
         static GameObject Load(string slot, string band)
@@ -52,46 +68,56 @@ namespace CinderCourt.Tests
         }
 
         [Test]
-        public void AllSixPropPrefabs_ExistWithRenderers()
+        public void AllTwelvePropPrefabs_ExistWithRenderers()
         {
-            foreach (var slot in Slots)
-            foreach (var band in Bands)
+            foreach (var propName in AllPropNames)
             {
-                var prefab = Load(slot, band);
-                Assert.That(prefab, Is.Not.Null, $"Props/equip-{slot}-{band} missing");
+                var prefab = LoadByName(propName);
+                Assert.That(prefab, Is.Not.Null, $"Props/{propName} missing");
                 Assert.That(prefab.GetComponentsInChildren<Renderer>(true), Is.Not.Empty,
-                    $"equip-{slot}-{band} has no renderer");
+                    $"{propName} has no renderer");
             }
         }
 
         [Test]
         public void EveryProp_RespectsTriangleBudget()
         {
-            var characterTotal = 0;
-            foreach (var slot in Slots)
+            foreach (var propName in AllPropNames)
+            {
+                var tris = TriangleCount(LoadByName(propName));
+                Assert.That(tris, Is.GreaterThan(0), $"{propName} has no triangles");
+                Assert.That(tris, Is.LessThanOrEqualTo(TriBudgetPerProp),
+                    $"{propName} over budget: {tris}");
+            }
+            // A character wears at most ONE band of three slots at a time, so the
+            // §T4 cap applies to that worn trio, not to the whole catalogue.
+            // Summing all twelve would grow with the asset count and stop meaning
+            // anything about a character.
+            var worstBandTotal = 0;
             foreach (var band in Bands)
             {
-                var tris = TriangleCount(Load(slot, band));
-                Assert.That(tris, Is.GreaterThan(0), $"equip-{slot}-{band} has no triangles");
-                Assert.That(tris, Is.LessThanOrEqualTo(TriBudgetPerProp),
-                    $"equip-{slot}-{band} over budget: {tris}");
-                characterTotal += tris;
+                var total = 0;
+                foreach (var slot in Slots) total += TriangleCount(Load(slot, band));
+                worstBandTotal = Mathf.Max(worstBandTotal, total);
             }
-            // Worst case a character wears one band of all three slots; even the
-            // whole six-prop set must stay far under the 25k §T4 character cap.
-            Assert.That(characterTotal, Is.LessThan(25000));
+            Assert.That(worstBandTotal, Is.LessThan(25000),
+                $"worst worn trio {worstBandTotal} tris exceeds the §T4 character cap");
         }
 
         [Test]
         public void EveryProp_HasCharacterScaleWorldSize()
         {
-            // FBX unit traps (cm vs m) make props microscopic or gigantic.
-            // Character is ~1.8 wu tall: every prop's longest world span must
-            // land in a wearable band.
-            foreach (var slot in Slots)
-            foreach (var band in Bands)
+            // FBX unit traps (cm vs m) make props microscopic or gigantic, and a
+            // Blender import/export round-trip can silently re-bake a 100x scale.
+            // Character is ~1.8 wu tall: every prop's longest world span must land
+            // in a wearable band. ALL TWELVE deliberately — the archetype six are
+            // the ones gen_weapon_props.py regenerates from scratch, so they are
+            // exactly the assets most exposed to this trap, and a Slots x Bands
+            // sweep never saw them.
+            foreach (var propName in AllPropNames)
             {
-                var prefab = Load(slot, band);
+                var prefab = LoadByName(propName);
+                Assert.That(prefab, Is.Not.Null, $"Props/{propName} missing");
                 var instance = Object.Instantiate(prefab);
                 try
                 {
@@ -101,7 +127,7 @@ namespace CinderCourt.Tests
                         bounds.Encapsulate(renderers[i].bounds);
                     var span = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
                     Assert.That(span, Is.InRange(0.15f, 1.6f),
-                        $"equip-{slot}-{band} world span {span:F4} is not wearable");
+                        $"{propName} world span {span:F4} is not wearable");
                 }
                 finally
                 {
@@ -179,29 +205,55 @@ namespace CinderCourt.Tests
                 + $"{AllPropNames.Length} props — the sweep found nothing to check");
         }
 
-        /// <summary>Band must be legible: the fine emission has to exceed basic
-        /// on every slot. This is the one property the whole toon conversion was
-        /// gated on (the earlier sweep skipped props precisely because ToonLit
-        /// had no emission term), and until now nothing failed if it regressed —
-        /// a reverted shader term or a flattened multiplier would have shipped
-        /// green.</summary>
+        /// <summary>Band must be legible: fine emission has to exceed basic on
+        /// every prop family, by a margin a player could actually see.
+        ///
+        /// This is the property the whole toon conversion was gated on — the
+        /// earlier sweep skipped props precisely because ToonLit had no emission
+        /// term — and until this test nothing failed if it regressed. A reverted
+        /// shader term or a flattened multiplier shipped green.
+        ///
+        /// FAMILIES, not Slots: `Slots x Bands` reaches only the legacy six, and
+        /// ActorView:615-620 prefers `equip-weapon-{archetype}-{band}` wherever a
+        /// stage supplies one, so dagger/bow/hammer are what most dungeons render.
+        /// Gating the band readout on the half that usually is NOT on screen would
+        /// have reproduced the coverage hole this cycle was fixing.
+        ///
+        /// MARGIN, not a bare `GreaterThan`: an inequality passes at a 0.001 gap,
+        /// which no player can see and is therefore not a readout.
+        ///
+        /// But a RATIO cannot carry the whole check, because one baseline is
+        /// legitimately zero — the cloak is 0.22 fine against 0 basic, so
+        /// `fine >= basic * 2` collapses to `fine >= 0`, which every value
+        /// satisfies including a flattened 0. That is the vacuous-assertion shape
+        /// this cycle removed twice already. So: an ABSOLUTE floor on fine always,
+        /// and the ratio only where a non-zero baseline makes it meaningful. The
+        /// tightest shipped non-zero pair is the lantern (0.70 vs 0.18, 3.9x), so
+        /// 2x sits under every current value while still rejecting a collapse.
+        /// </summary>
         [Test]
-        public void FineBandEmission_ExceedsBasic_OnEverySlot()
+        public void FineBandEmission_ExceedsBasic_OnEveryFamily()
         {
-            foreach (var slot in Slots)
+            foreach (var family in PropFamilies)
             {
-                var basic = BandEmission(slot, "basic");
-                var fine = BandEmission(slot, "fine");
-                Assert.That(fine, Is.GreaterThan(basic),
-                    $"equip-{slot}: fine emission {fine:F3} must exceed basic {basic:F3} — "
-                    + "the band readout is the emission difference");
+                var basic = BandEmission($"{family}-basic");
+                var fine = BandEmission($"{family}-fine");
+                Assert.That(fine, Is.GreaterThan(0.1f),
+                    $"{family}: fine emission {fine:F3} is not visible at all — "
+                    + "the band readout IS the emission");
+                if (basic > 0f)
+                {
+                    Assert.That(fine, Is.GreaterThanOrEqualTo(basic * 2f),
+                        $"{family}: fine {fine:F3} must clearly exceed basic {basic:F3} — "
+                        + "a hairline gap is not a readout");
+                }
             }
         }
 
-        static float BandEmission(string slot, string band)
+        static float BandEmission(string propName)
         {
             var peak = 0f;
-            foreach (var renderer in Load(slot, band).GetComponentsInChildren<Renderer>(true))
+            foreach (var renderer in LoadByName(propName).GetComponentsInChildren<Renderer>(true))
             foreach (var material in renderer.sharedMaterials)
             {
                 var e = material.GetColor("_EmissionColor");
