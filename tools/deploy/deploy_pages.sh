@@ -20,7 +20,13 @@ BASE_URL="${PAGES_BASE_URL:-https://akillness.github.io/hongT/}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 SEALER="tools/deploy/seal_pages_payload.py"
 MESSAGE="${1:-deploy: WebGL build $(date +%Y-%m-%dT%H:%M:%S)}"
-REMOTE_ATTEMPTS="${PAGES_REMOTE_ATTEMPTS:-12}"
+# 12x5s = 60s was under the observed Pages rebuild time: the 2026-08-13 release
+# exhausted every attempt, printed FATAL, and had ALREADY pushed gh-pages
+# successfully - the served bytes caught up ~45 s later and a standalone
+# verify-remote passed unchanged. A FATAL beside a working deploy is the most
+# expensive shape of failure here, because the obvious response is to re-run
+# deploy_pages.sh, which then dies on an existing staging path. 3 minutes.
+REMOTE_ATTEMPTS="${PAGES_REMOTE_ATTEMPTS:-36}"
 REMOTE_RETRY_SECONDS="${PAGES_REMOTE_RETRY_SECONDS:-5}"
 WORKTREE_CREATED=0
 STAGING_CREATED=0

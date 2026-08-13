@@ -192,3 +192,44 @@ git show "$CANDIDATE_SOURCE_SHA:$P" | shasum -a 256 | cut -d' ' -f1 # .candidate
 닫는 방법은 절차다: 브라우저 증거를 생산하기 전에 하네스를 커밋하고 그 sha를
 `metadata.commands`에 남긴다. 2026-08-12 릴리스의 하네스 sha는 `e2a44f6`이며,
 그 커밋이 뷰포트 의존 임계값 3개를 제거해 모바일 증거의 위양성 FAIL을 없앴다.
+
+### 전파 지연을 배포 실패로 오독하지 마라 (2026-08-13)
+
+`deploy_pages.sh`는 **푸시한 뒤에** 서빙 바이트를 검증한다. Pages 재빌드가
+재시도 창을 넘기면 배포가 성공했는데 FATAL이 찍힌다. 실제로 그랬다 —
+gh-pages는 `b7961e65`로 이동을 마쳤고 오류만 남았다.
+
+오류 문자열이 판정에 필요한 전부다 (`seal_pages_payload.py:548-551`):
+
+```
+remote byte mismatch ... sha={actual}/{expected}
+```
+
+**actual이 서빙된 바이트, expected가 씰이다.** 세 값을 비교하면 원인이 갈린다:
+
+```bash
+git show origin/gh-pages:<file> | shasum -a 256   # 커밋된 것
+shasum -a 256 <sealed copy>                        # 씰이 기대하는 것
+curl -s "<url>?x=$RANDOM" | shasum -a 256          # 지금 서빙되는 것
+```
+
+- 커밋 == 씰 != 서빙 -> **전파 지연**. 기다렸다가 `verify-remote`만 다시 돌린다.
+- 커밋 != 씰 -> 페이로드 불일치. 이건 진짜 결함이다.
+
+2026-08-13은 전자였고 (셋 다 `635d4a95`로 수렴, actual만 직전 배포본),
+45초 뒤 standalone `verify-remote`가 그대로 통과했다.
+
+**`deploy_pages.sh`를 다시 돌리지 마라.** 이미 푸시했으므로 재실행은 스테이징
+경로 충돌로 죽고, 성공한 배포 위에 실패를 하나 더 얹을 뿐이다. 복구는:
+
+```bash
+python3 tools/deploy/seal_pages_payload.py verify-remote \
+  --repo-root . --release-build build-webgl \
+  --manifest <manifest> --seal <seal> \
+  --remote-commit $(git rev-parse origin/gh-pages) \
+  --base-url https://akillness.github.io/hongT/ \
+  --report <OUT>/remote-served-file-hashes.json
+```
+
+재시도 기본값은 이 사이클에서 12->36회(3분)로 올렸다. 60초는 관측된 재빌드
+시간보다 짧았다.
