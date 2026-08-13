@@ -76,9 +76,12 @@ def main():
             print(f"{name:38s} tris={len(values):4d} spread={spread:7.2f}x {verdict}")
             if verdict == "SMEAR":
                 failures.append(f"{name}: {spread:.2f}x")
-    if failures:
-        print("OVER-SPREAD: " + "; ".join(failures))
+    # Blender's --python-exit-code only fires on an uncaught exception, so a
+    # `print` here would have reported SMEAR and exited 0 — a probe that cannot
+    # fail is a probe nobody can gate on. Raise so the exit code carries it.
     print(f"done ({len(failures)} over spread)")
+    if failures:
+        raise SystemExit("OVER-SPREAD: " + "; ".join(failures))
 
 
 if __name__ == "__main__":

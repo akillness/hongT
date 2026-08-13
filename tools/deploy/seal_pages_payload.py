@@ -447,6 +447,17 @@ def verify_sealed_payload(
         raise ReleaseError("seal Release content marker mismatch")
     if seal.get("releaseProvenanceSha256") != sha256_file(release_build / PROVENANCE_NAME):
         raise ReleaseError("seal provenance hash mismatch")
+    # HEAD-resolved, and that is correct HERE. `_verify` is the PRECOPY gate: it
+    # runs once from deploy_pages.sh immediately before the worktree is cut, and
+    # its whole question is present-tense — "did anything move between sealing and
+    # deploying". Line 442 already pins HEAD == candidate, so a candidate-anchored
+    # lookup would resolve the identical blobs and buy nothing.
+    #
+    # Historical re-verification of a frozen seal is verify-remote's job, and it
+    # does not recompute these at all — it copies seal["toolGitBlobs"] into the
+    # report. So nothing in this file re-checks tool pins against a past candidate,
+    # and adding the plumbing for a caller that does not exist would be generality
+    # nobody uses. Recorded in docs/release-deploy-procedure.md §5 instead.
     if seal.get("toolGitBlobs") != _tool_blobs(repo):
         raise ReleaseError("seal tool blob IDs mismatch")
     if provenance["committedWebTree"] != verify_working_tree_path(repo, "web"):

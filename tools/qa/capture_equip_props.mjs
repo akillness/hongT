@@ -149,3 +149,28 @@ for (const r of results) {
     + `errors=${r.pageErrors.length}`);
 }
 console.log(`artifacts: ${path.relative(ROOT, OUT)}`);
+
+// This harness is named as "the gate" for WebGL shader stripping in
+// EquipPropTests, and until now it printed errors=N and fell off the end with
+// exit 0 — it could not fail, so nothing could gate on it. Three ways to fail,
+// each tied to a failure that has actually happened here:
+//   * a page error at all (a stripped or broken shader usually throws first)
+//   * never reaching a dungeon, which means the frames show a menu and any
+//     visual conclusion drawn from them is about the wrong screen
+//   * no frames written, which is the "certified by having tested nothing"
+//     shape this repo already refuses elsewhere
+const failures = [];
+for (const r of results) {
+  if (r.pageErrors.length > 0)
+    failures.push(`${r.label}: ${r.pageErrors.length} page error(s): ${r.pageErrors[0]}`);
+  if (r.status?.reason !== "running")
+    failures.push(`${r.label}: never reached a running dungeon (reason=${r.status?.reason})`);
+}
+const shots = fs.readdirSync(OUT).filter((f) => f.endsWith("-closeup-2.png"));
+if (shots.length < results.length)
+  failures.push(`only ${shots.length} closeups for ${results.length} bands`);
+if (failures.length > 0) {
+  console.error("CAPTURE-FAILED:\n  " + failures.join("\n  "));
+  process.exit(1);
+}
+console.log("capture ok: both bands reached a dungeon with no page errors");

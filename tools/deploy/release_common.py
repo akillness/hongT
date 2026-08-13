@@ -336,6 +336,21 @@ def committed_tree(repo: Path, relative_path: str) -> str:
 
 
 def committed_blob(repo: Path, relative_path: str) -> str:
+    """Blob id of a committed tool, which must also match the working bytes.
+
+    HEAD-relative and present-tense on purpose: the only callers are the seal
+    (asserting "these are the tools I am about to run") and the precopy gate
+    (asserting "nothing moved between sealing and deploying"). Both hold HEAD ==
+    candidate by construction.
+
+    An `at=<sha>` variant was written and then removed on 2026-08-13: it had no
+    reachable caller. `_verify` pins HEAD == candidate two lines above the tool
+    check, so a candidate-anchored lookup resolves the identical blobs, and
+    verify-remote never recomputes tool pins at all — it copies them from the
+    seal. Generality with no caller is a claim the code cannot keep. The real
+    limitation (a frozen seal cannot be re-verified through `_verify` once HEAD
+    moves) is recorded in docs/release-deploy-procedure.md §5.
+    """
     relative_path = normalize_relative_path(relative_path, "tool path")
     blob = git_output(repo, "rev-parse", f"HEAD:{relative_path}")
     if not SHA_RE.fullmatch(blob) or git_output(repo, "cat-file", "-t", blob) != "blob":
