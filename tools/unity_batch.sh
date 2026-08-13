@@ -47,6 +47,18 @@ case "${1:-}" in
       -logFile "$LOG" -nographics
     CODE=$?
     ;;
+  method-gfx)
+    # Same as `method` but WITH a graphics device. Anything that renders -
+    # Camera.Render into a RenderTexture, ReadPixels - produces a uniform
+    # buffer under -nographics rather than failing, and a flat dark buffer is
+    # indistinguishable from this project's near-black-material defect. A mode
+    # that can only mislead is worse than one that refuses, so rendering probes
+    # get their own entry instead of quietly sharing `method`.
+    LOG="$LOG_DIR/${2##*.}-gfx-$STAMP.log"
+    "$UNITY" -batchmode -projectPath "$PROJECT" -executeMethod "$2" \
+      -logFile "$LOG"
+    CODE=$?
+    ;;
   tests)
     LOG="$LOG_DIR/tests-$STAMP.log"
     RESULTS="$LOG_DIR/test-results-$STAMP.xml"
@@ -77,6 +89,30 @@ case "${1:-}" in
   *)
     echo "usage: unity_batch.sh method <FQN> | tests | import-only | build-development | build"; exit 2 ;;
 esac
+
+# Belt-and-braces: fail if any assembly failed to compile, whatever Unity's own
+# exit code said. A compile error in ANY assembly - including a test assembly
+# the invoked mode never touches - makes -executeMethod a no-op, and the run
+# still produces a log that looks ordinary.
+#
+# WHAT IS ACTUALLY MEASURED (2026-08-13). Probed by appending a deliberate
+# CS0246 to a test file: both `import-only` and `method` exit 1 on their own, so
+# this branch does NOT fire for them and is redundant today. The real incident
+# was ImportAll-160031, which carries six CS0103 lines and no [PropImportPipeline]
+# output - the method did not run. It was reported as ok because the CALLER piped
+# the wrapper through `tail -2`, which hid the EXIT= line and made `&&` test
+# tail's status instead. So the failure was in how the wrapper was invoked, and
+# printing the CS lines here is what makes that visible at the call site.
+#
+# Checked after the case rather than inside one branch so every mode is covered,
+# `import-only` included - it is the mandated compile gate (CLAUDE.md §4), and a
+# gate that can pass on the failure it exists to detect is worse than no gate.
+# Every branch sets $LOG. Redundant for `tests`, which yields no XML anyway.
+if [ "$CODE" = "0" ] && grep -q "error CS" "$LOG"; then
+  echo "COMPILE-ERROR: assemblies failed to build - ${1:-} did not do its job"
+  grep -m5 "error CS" "$LOG"
+  CODE=1
+fi
 
 echo "EXIT=$CODE LOG=$LOG"
 if [ $CODE -ne 0 ]; then

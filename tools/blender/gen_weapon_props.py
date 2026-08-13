@@ -201,6 +201,30 @@ BUILDERS = {
 }
 
 
+def unwrap_uniform(obj):
+    """Smart-project a uniform-texel-density UV layout.
+
+    WHY (2026-08-13 texture pass): every part here is a Blender primitive, and a
+    primitive's default UV maps that part to the FULL 0..1 square. `obj.scale =
+    Vector(size)` then stretches the parts wildly non-uniformly — a hammer head
+    0.20 long and a dagger guard 0.014 thin both still carry 0..1 — so one
+    tiling sheet smears into bands on the blade and dissolves to noise on the
+    guard. A per-material _BaseMap_ST cannot fix that: the mismatch is INSIDE
+    one mesh. This is the defect EnvironmentBuilder solved with size-
+    proportional tiling; a mesh gets to solve it in its own UVs instead.
+
+    Runs AFTER decimation on purpose — decimating an unwrapped mesh shreds the
+    islands it just made.
+    """
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
 def export_fbx(obj, path):
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
@@ -222,6 +246,10 @@ def main():
         mesh = builder()
         normalize_grip_up(mesh, height=height)
         tris = decimate_to_budget(mesh)
+        # Uniform-density UVs BEFORE the first export — the fine variant is a
+        # uniform 1.22x scale below, which leaves the layout valid, so one call
+        # covers both bands.
+        unwrap_uniform(mesh)
         retint(mesh, charcoal)
         out = f"{args.outdir}/equip-weapon-{archetype}-basic.fbx"
         export_fbx(mesh, out)

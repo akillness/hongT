@@ -1,6 +1,7 @@
 // Lane P contract: six socket-prop prefabs exist with renderers, respect the
 // ≤800-triangle budget each, keep the character total under the §T4 25k cap,
 // and the tier→band mapping follows T0-1 none / T2-3 basic / T4-5 fine.
+using CinderCourt.View;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -88,8 +89,20 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>The shader has to be one that survives WebGL variant
+        /// stripping. What earns that is NOT the vendor prefix — it is being
+        /// reachable from a serialized material asset under Resources, which is
+        /// how CinderCourt/StageShadowReceiver already ships. The props moved to
+        /// CinderCourt/ToonLit on 2026-08-13 and their .mat files live in
+        /// Resources/Props, so the same argument covers them.
+        ///
+        /// Compared against ViewWorld.ToonLitShaderName rather than a literal:
+        /// the name is already spelled in ViewWorld, DungeonKitImportPipeline and
+        /// PropImportPipeline.PropShader, and a fourth loose copy here would let
+        /// a rename leave the prop pipeline silently falling through to URP/Lit
+        /// while this test still passed on the stale string.</summary>
         [Test]
-        public void PropMaterials_UseUrpShaders()
+        public void PropMaterials_UseShadersThatSurviveWebGlStripping()
         {
             foreach (var slot in Slots)
             foreach (var band in Bands)
@@ -98,8 +111,11 @@ namespace CinderCourt.Tests
                 foreach (var material in renderer.sharedMaterials)
                 {
                     Assert.That(material, Is.Not.Null, $"equip-{slot}-{band}: null material");
-                    Assert.That(material.shader.name, Does.StartWith("Universal Render Pipeline/"),
-                        $"equip-{slot}-{band}: non-URP shader {material.shader.name} strips on WebGL");
+                    Assert.That(material.shader.name,
+                        Is.EqualTo(ViewWorld.ToonLitShaderName)
+                            .Or.StartsWith("Universal Render Pipeline/"),
+                        $"equip-{slot}-{band}: shader {material.shader.name} is neither "
+                        + $"{ViewWorld.ToonLitShaderName} nor URP — it strips on WebGL");
                 }
             }
         }

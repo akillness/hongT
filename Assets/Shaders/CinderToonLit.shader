@@ -39,6 +39,13 @@ Shader "CinderCourt/ToonLit"
         _RimPower ("Rim Power", Range(1, 12)) = 4
         _RimStrength ("Rim Strength", Range(0, 1)) = 0.35
 
+        // Self-lit term, added AFTER the band clamp so a rank glow is not
+        // quantised away (2026-08-13: the equip props' fine/basic difference IS
+        // this colour, which is why they were the one family this shader could
+        // not take). Default BLACK: every ToonLit material shipped before this
+        // renders byte-identically.
+        _EmissionColor ("Emission", Color) = (0, 0, 0, 0)
+
         _OutlineColor ("Outline Colour", Color) = (0.03, 0.03, 0.05, 1)
         // World units, not screen pixels: a screen-constant outline needs the vertex
         // stage to know the projection scale, and this camera is fixed, so a world
@@ -70,11 +77,16 @@ Shader "CinderCourt/ToonLit"
             #pragma fragment OutlineFragment
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
+            // NOTE: this CBUFFER must stay field-for-field identical to the lit
+            // pass's below — a mismatch drops SRP Batcher compatibility for
+            // every ToonLit renderer in the game (19 terrain + 12 character +
+            // env stone/floor), which no test and no pixel probe would catch.
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _RimColor;
                 float4 _OutlineColor;
+                float4 _EmissionColor;
                 float _Steps, _StepThreshold, _ShadowFloor;
                 float _RimPower, _RimStrength, _OutlineWidth;
             CBUFFER_END
@@ -117,11 +129,13 @@ Shader "CinderCourt/ToonLit"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
+            // Field-for-field identical to the outline pass's CBUFFER above.
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _RimColor;
                 float4 _OutlineColor;
+                float4 _EmissionColor;
                 float _Steps, _StepThreshold, _ShadowFloor;
                 float _RimPower, _RimStrength, _OutlineWidth;
             CBUFFER_END
@@ -231,6 +245,24 @@ Shader "CinderCourt/ToonLit"
                 // additive blowout, and the rim exists to separate a dark prop from a
                 // dark floor — it has no work to do on a bright one.
                 color += _RimColor.rgb * rim * _RimStrength * (1.0 - saturate(lighting.g));
+
+                // Emission LAST, before fog: a rank glow must survive the band
+                // clamp above. Putting it inside `lighting` would quantise it
+                // into the same two steps as the key light, which is exactly
+                // how a fine-band weapon and a basic one would collapse onto
+                // one another. Zero by default, so materials that never set it
+                // pay one add of a black constant.
+                //
+                // MODULATED BY ALBEDO, not added flat. A constant add is the
+                // same value on every texel, so it raises the floor uniformly
+                // and the sheet's pattern goes with it: measured 2026-08-13, a
+                // fine hammer at emission (1.52, 0.56, 0.27) over albedo ~0.25
+                // clipped to a flat peach slab with no iron left in it. Scaling
+                // by albedo keeps the glow INSIDE the material — bright texels
+                // glow more than dark ones, so the weave still reads at full
+                // rank, and the basic/fine difference stays a difference in the
+                // same surface rather than one prop turning into a lamp.
+                color += _EmissionColor.rgb * albedo.rgb;
 
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);

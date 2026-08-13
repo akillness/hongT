@@ -1,0 +1,34 @@
+[
+  {
+    "label": "basic",
+    "tier": 2,
+    "status": {
+      "done": false,
+      "success": false,
+      "failed": false,
+      "reason": "running"
+    },
+    "canvas": {
+      "backing": 2560,
+      "css": 1280,
+      "dpr": 3
+    },
+    "pageErrors": []
+  },
+  {
+    "label": "fine",
+    "tier": 4,
+    "status": {
+      "done": false,
+      "success": false,
+      "failed": false,
+      "reason": "running"
+    },
+    "canvas": {
+      "backing": 2560,
+      "css": 1280,
+      "dpr": 3
+    },
+    "pageErrors": []
+  }
+]
