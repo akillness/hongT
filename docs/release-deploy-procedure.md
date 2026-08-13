@@ -259,3 +259,43 @@ python3 tools/deploy/release_provenance.py snapshot-clean --output ...
 
 pre·post 두 스냅샷 모두 앞에 둔다. 두 인터프리터 태그가 보이면 원인은 이
 저장소 도구가 아니라 외부에서 온 import다.
+
+### 동결 아티팩트를 HEAD에 묶지 마라 (2026-08-13, 감사)
+
+동결 프로비넌스는 **배포된 산출물**을 서술한다. HEAD가 그 후보를 지나가는 것은
+비정상이 아니라 정상 상태다 - 배포 증거 자체가 배포 *뒤에* 커밋되므로 매번
+그렇게 된다. 그런데 검증 함수들이 HEAD를 읽고 있었다.
+
+**고친 것 (`require_live_candidate` 플래그).** `verify_provenance`가 세 가지
+생존성 단언을 무조건 수행했다: `validate_exact_candidate`(HEAD==후보),
+`verify_working_tree_path(repo,"web")`(작업트리 web/ == HEAD:web), 현재
+outside allow-list. 기본은 엄격이고 `create`·`seal`·`_verify`는 그대로 쓴다.
+비엄격은 둘뿐이다:
+
+- `verify_remote_payload` - 전 단언이 동결 씰과 원격에만 걸려 있다
+  (씰 -> payloadManifestSha256 -> 매니페스트 엔트리 -> 원격 blob -> 서빙 바이트,
+  그리고 seal.expectedGitTreeId -> 원격 트리). `candidateSourceSha` 한 필드
+  때문에 전체 생존성 계약을 지불하고 있었다.
+- `show` - 동결 파일에서 스칼라 하나를 찍는다. 살아있는 트리를 요구할 이유가 없다.
+
+web/ 결합은 더 미묘한 쪽이었다. 후보 검사만 고쳤으면 살아남았을 것이다 -
+2026-08-13에 통과한 건 web/이 마침 안 움직였기 때문이다(양쪽 트리 ff46d3a2).
+원격 목적으로는 중복이기도 하다: web 출신 페이로드 3종은 이미 씰 매니페스트에
+sha256으로 고정돼 원격 blob과 대조된다.
+
+**아직 안 고친 것 (`_verify`의 tool blob).** `_tool_blobs()` ->
+`committed_blob()`이 `HEAD:<path>`를 읽고(`release_common.py:340`) 작업 바이트
+일치까지 요구한다(`:343-348`). 그래서 네 개의 핀된 `tools/deploy/` 스크립트 중
+하나라도 HEAD가 지나가면 **과거 씰을 영영 재검증할 수 없다** - 동결의 목적을
+정면으로 부순다.
+
+여기엔 플래그가 오답이다. 도구 핀은 씰이 주장하는 내용의 일부이므로, 건너뛰면
+더 적게 검사하고 통과하는 셈이 된다. 정답은 **리다이렉트**다:
+`committed_blob(repo, path, at=<sha>)`로 만들고 `_verify`가
+`seal["candidateSourceSha"]`를 넘긴다. 그러면 과거 씰이 *자기가 봉인될 때의*
+도구와 web 트리를 상대로 영원히 검증된다. `verify-remote`가
+`seal["expectedGitTreeId"]`를 쓰는 방식이 이미 그 형태이므로, 씰 기준이 의도한
+설계이고 HEAD 읽기가 사고다.
+
+지금은 잠복이다 - `_verify`는 `deploy_pages.sh:107`에서 인라인으로만 돌고
+거기선 HEAD==후보가 성립한다. 다음 레인이 이 클래스를 닫을 때 마지막 항목이다.
