@@ -25,9 +25,14 @@ from typing import Any
 # nothing - and a bare call is exactly what the propagation-lag recovery in
 # docs/release-deploy-procedure.md instructs.
 #
-# This guard was already here and correct. seal_pages_payload.py was MISSING it,
-# which is what actually wrote the .pyc that blocked a snapshot on 2026-08-13 -
-# so the fix belonged there, and this one only needed the explanation.
+# THIS GUARD IS NOT SUFFICIENT, and the 2026-08-13 incident shows why. All four
+# entry scripts here already had it, yet snapshot-clean still refused the tree
+# over release_common.cpython-310.pyc AND .cpython-314.pyc. Two interpreter tags
+# is the signature: no single invocation of this repo's tooling produces both,
+# so an EXTERNAL process imported release_common directly and bypassed every
+# entry-point guard. Nothing a script in this directory can do prevents that.
+# The procedural answer lives in docs/release-deploy-procedure.md: sweep
+# tools/deploy/__pycache__ immediately before snapshot-clean.
 sys.dont_write_bytecode = True
 
 from release_common import (

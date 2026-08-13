@@ -233,3 +233,29 @@ python3 tools/deploy/seal_pages_payload.py verify-remote \
 
 재시도 기본값은 이 사이클에서 12->36회(3분)로 올렸다. 60초는 관측된 재빌드
 시간보다 짧았다.
+
+### snapshot-clean 전에 `tools/deploy/__pycache__`를 쓸어라 (2026-08-13)
+
+`tools/deploy`는 INPUT_ROOT이고 `release_common.py:199`는 **gitignore된 경로까지
+포함해** 검사한다. `.gitignore:118`에 `tools/**/__pycache__/`가 있어도 소용없다:
+
+```
+FATAL: cannot freeze dirty source snapshot (ignoredInputs):
+  ['tools/deploy/__pycache__/release_common.cpython-310.pyc', ...]
+```
+
+네 진입 스크립트는 전부 `release_common` import 전에
+`sys.dont_write_bytecode = True`를 갖고 있다. **그런데도 막혔다.** .pyc가 두
+인터프리터(310/314)로 찍힌 게 단서다 - 이 저장소 도구는 한 파이썬으로 도니까,
+`release_common`을 **직접 import한 외부 프로세스**가 만든 것이다. 진입점 가드는
+자기 프로세스만 지킬 수 있고, 외부 import는 그 밖에 있다.
+
+그러므로 스크립트로는 닫히지 않는다. 절차로 닫는다:
+
+```bash
+rm -rf tools/deploy/__pycache__
+python3 tools/deploy/release_provenance.py snapshot-clean --output ...
+```
+
+pre·post 두 스냅샷 모두 앞에 둔다. 두 인터프리터 태그가 보이면 원인은 이
+저장소 도구가 아니라 외부에서 온 import다.
