@@ -1,22 +1,23 @@
 {
-  "releaseBaseSha": "dfc6997234483e6bb963b45eb1e4ac8e2d625287",
-  "baselineProbeSha": "dfc6997234483e6bb963b45eb1e4ac8e2d625287",
-  "candidateSourceSha": "8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca",
-  "generatedAt": "2026-08-13T08:00:54+0900",
+  "releaseBaseSha": "8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca",
+  "baselineProbeSha": "8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca",
+  "candidateSourceSha": "c0fa5c410b482633859ce3439041c746127436c7",
+  "generatedAt": "2026-08-13T13:28:26+0900",
   "sourceUpstream": "origin/akillness/main",
   "unityVersion": "6000.5.6f1",
   "commands": [
     "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-pre.json",
     "bash tools/deploy/run_release_gate.sh 1",
-    "python3 tools/deploy/make_release_evidence.py editmode --results _workspace/current/engineering/unity-logs/test-results-075120.xml --candidate 8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca --out _workspace/current/qa/stage-character-shadows",
-    "python3 tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log _workspace/current/engineering/unity-logs/build-development-075200.log --candidate 8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca --out _workspace/current/qa/stage-character-shadows",
-    "python3 tools/deploy/make_release_evidence.py marker --build-dir build-development  # 3dbe7c2268231fc3",
-    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca --content-marker 3dbe7c2268231fc3 --out _workspace/current/qa/stage-character-shadows",
-    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca --content-marker 3dbe7c2268231fc3 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py editmode --results _workspace/current/engineering/unity-logs/test-results-131842.xml --candidate c0fa5c410b482633859ce3439041c746127436c7 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log _workspace/current/engineering/unity-logs/build-development-131942.log --candidate c0fa5c410b482633859ce3439041c746127436c7 --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py marker --build-dir build-development  # 1af0f8bd24deb3c7",
+    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate c0fa5c410b482633859ce3439041c746127436c7 --content-marker 1af0f8bd24deb3c7 --out _workspace/current/qa/stage-character-shadows",
+    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 375x667 --evidence-id browser-shadow-mobile --candidate c0fa5c410b482633859ce3439041c746127436c7 --content-marker 1af0f8bd24deb3c7 --out _workspace/current/qa/stage-character-shadows",
     "bash tools/deploy/run_release_gate.sh 2",
-    "python3 tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log _workspace/current/engineering/unity-logs/build-075749.log --candidate 8f0ccd599b1a2fe3ace0e9dd7bb1dc529598eeca --out _workspace/current/qa/stage-character-shadows",
+    "python3 tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log _workspace/current/engineering/unity-logs/build-132525.log --candidate c0fa5c410b482633859ce3439041c746127436c7 --out _workspace/current/qa/stage-character-shadows",
     "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-post.json",
-    "probeHashes := sha256(git show <sha>:Assets/Tests/EditMode/DungeonGoldenDigestTests.cs) per docs/release-deploy-procedure.md §5 — baseline==candidate: view-only release, sim behavior unchanged"
+    "probeHashes := sha256(git show <sha>:Assets/Tests/EditMode/DungeonGoldenDigestTests.cs) per docs/release-deploy-procedure.md §5 — baseline==candidate: view-only release (shot tracers + lobby court), sim behavior unchanged",
+    "shot-tracer browser proof: SMOKE_URL=http://127.0.0.1:8788/ node tools/qa/capture_companion_tracer.mjs — 4/24 comet frames, bestCount 117"
   ],
   "probeHashes": {
     "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
@@ -80,19 +81,19 @@
       "evidenceId": "development-build",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
       "buildMode": "Development",
-      "contentMarker": "3dbe7c2268231fc3"
+      "contentMarker": "1af0f8bd24deb3c7"
     },
     {
       "evidenceId": "browser-shadow-desktop",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
       "buildMode": "Development",
-      "contentMarker": "3dbe7c2268231fc3"
+      "contentMarker": "1af0f8bd24deb3c7"
     },
     {
       "evidenceId": "browser-shadow-mobile",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
       "buildMode": "Development",
-      "contentMarker": "3dbe7c2268231fc3"
+      "contentMarker": "1af0f8bd24deb3c7"
     }
   ]
 }
