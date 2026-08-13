@@ -43,6 +43,7 @@ from release_common import (
     clean_status_record,
     committed_tree,
     forbid_downstream_identity_fields,
+    git_output,
     load_json,
     normalize_relative_path,
     repo_relative,
@@ -336,32 +337,40 @@ def verify_provenance(
 ) -> dict[str, Any]:
     """Validate a frozen release provenance.
 
-    `require_live_candidate` gates the three assertions that describe the LOCAL
-    WORKING TREE rather than the frozen artifact: HEAD == candidate, working
-    web/ == HEAD:web, and the current outside-input allow list. Callers that are
-    about to act on the local tree (create, seal, deploy) need them. Remote
-    verification does not: its entire chain is anchored in the frozen seal and
-    the remote (seal -> payloadManifestSha256 -> 28 manifest entries -> remote
-    git blobs -> served HTTP bytes, plus seal.expectedGitTreeId -> remote tree),
-    and it calls this function for exactly ONE field, candidateSourceSha at the
-    single call site in verify_remote_payload.
+    `require_live_candidate` gates the assertions that describe the LOCAL WORKING
+    TREE rather than the frozen artifact. Callers about to act on the local tree
+    (create, seal, deploy) need them; remote verification does not — its entire
+    chain is anchored in the frozen seal and the remote (seal ->
+    payloadManifestSha256 -> 28 manifest entries -> remote git blobs -> served
+    HTTP bytes, plus seal.expectedGitTreeId -> remote tree), and it calls this
+    function for exactly ONE field, candidateSourceSha.
 
-    Why this flag exists (2026-08-13, proven by an isolated subprocess run with
-    only these gates stubbed: RESULT=PASS, every remote assertion still real).
+    Dropped when False:
+      * HEAD == candidate (validate_exact_candidate)
+      * INPUT_ROOTS clean — fused into the SAME call, so it is dropped whether or
+        not you meant to. See the caveat below; it is not free.
+      * the current-tree outside-input allow list
+    NOT dropped, redirected instead: the frozen committedWebTree still has to
+    equal the candidate's web tree, resolved at the candidate commit. That half
+    is artifact binding, not liveness.
+
+    Why this exists (2026-08-13, proven by an isolated subprocess run with only
+    these gates stubbed: RESULT=PASS, every remote assertion still real).
     verify-remote normally runs inline in deploy_pages.sh right after the push,
     where HEAD == candidate holds by construction, so the coupling is free and
-    invisible. It only misfires on the STANDALONE recovery path — and that path
-    is exactly what docs/release-deploy-procedure.md now prescribes when Pages
+    invisible. It only misfires on the STANDALONE recovery path — which is
+    exactly what docs/release-deploy-procedure.md prescribes when Pages
     propagation outlasts the retry window. Deploy evidence is committed AFTER a
     deploy, so HEAD is always ahead by then and the documented recovery could
     never run. The commit that wrote the recovery down is the one that broke it.
 
-    The web/ coupling is the subtler half and would have survived a fix aimed
-    only at the candidate check: it passed on 2026-08-13 solely because web/
-    happened not to move (tree ff46d3a2 at both commits). web/ does move in this
-    repo. It is also redundant for remote purposes — the three web-origin payload
-    entries are already pinned by sha256 in the sealed manifest and re-checked
-    against the remote blobs.
+    CAVEAT, found in review and OBSERVED this session: dropping the INPUT_ROOTS
+    clean check means a standalone verify-remote run with a dirty Assets/ passes
+    and produces a report byte-indistinguishable from a clean-tree run. Strict
+    mode refused that. The payload is unaffected — it is already deployed and
+    every byte is checked against the remote — but the REPORT then says less than
+    a reader will assume. Treat a standalone recovery report as evidence about
+    the remote only, never about the tree it was run from.
     """
 
     repo = repo.resolve()
@@ -386,10 +395,30 @@ def verify_provenance(
     require_ancestor(repo, baseline_probe, candidate, "baselineProbeSha -> candidateSourceSha")
     if provenance.get("inputRoots") != list(INPUT_ROOTS):
         raise ReleaseError("provenance input roots mismatch")
-    if require_live_candidate and provenance.get("committedWebTree") != verify_working_tree_path(
-        repo, "web"
-    ):
-        raise ReleaseError("committed web tree mismatch")
+    # This check fuses TWO properties, and only one of them is liveness:
+    #   (a) the working web/ matches HEAD:web           -> liveness, droppable
+    #   (b) the frozen committedWebTree is the web tree  -> ARTIFACT BINDING,
+    #       the candidate actually shipped                  never droppable
+    # Dropping the pair wholesale would have let a frozen provenance name any
+    # web tree at all once HEAD moved - reviewed 2026-08-13 and caught. Non-strict
+    # resolves the tree at the CANDIDATE commit rather than HEAD, so the binding
+    # holds forever while the working-tree demand goes away.
+    #
+    # Same decomposition applies to seal_pages_payload._tool_blobs, which is
+    # STILL DEFERRED: committed_blob fuses (a) working bytes match HEAD, liveness,
+    # with (b) the pinned tool blob is what the candidate sealed, binding. The fix
+    # there is the same one-argument redirect (at=<sha>), not a flag, and
+    # docs/release-deploy-procedure.md §5 records it. The class is not closed.
+    if require_live_candidate:
+        if provenance.get("committedWebTree") != verify_working_tree_path(repo, "web"):
+            raise ReleaseError("committed web tree mismatch")
+    else:
+        candidate_web = git_output(repo, "rev-parse", f"{candidate}:web")
+        if provenance.get("committedWebTree") != candidate_web:
+            raise ReleaseError(
+                "committed web tree mismatch against the candidate: "
+                f"{provenance.get('committedWebTree')} != {candidate_web}"
+            )
     builds = _require_mapping(provenance.get("builds"), "builds")
     development_stored = _require_mapping(builds.get("development"), "builds.development")
     release_stored = _require_mapping(builds.get("release"), "builds.release")
