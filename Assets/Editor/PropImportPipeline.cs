@@ -417,12 +417,37 @@ namespace CinderCourt.EditorTools
             // exactly 0, so it had nothing to add the light back and rendered as
             // a pure black silhouette. That is the same near-black failure this
             // pipeline exists to fix, arriving through the texture channel.
+            //
+            // PRECISION CAVEAT (audited 2026-08-13): this compensation is exact
+            // in GAMMA space, and the project renders LINEAR
+            // (m_ActiveColorSpace 1). Colour properties are gamma->linear
+            // converted while _BaseMap is sRGB-sampled, so the realised product
+            // lands 0.78x-1.20x off the named tint per channel (worst measured:
+            // lantern R 0.45 -> 0.491, cloak-fine B 0.10 -> 0.085). It does NOT
+            // clip — the largest compensated component is 0.92 — and it does not
+            // reintroduce near-black, so this is a precision note, not a defect.
+            // Do not read "lands back on the intended tint" as exact.
             built.SetColor("_BaseColor", new Color(
                 body.r / SheetMeanLuminance,
                 body.g / SheetMeanLuminance,
                 body.b / SheetMeanLuminance,
                 1f));
             built.SetColor("_EmissionColor", new Color(glow.r, glow.g, glow.b, 1f));
+            // `new Material(shader)` defaults globalIlluminationFlags to
+            // EmissiveIsBlack, and BandMaterial never overrode it — so all
+            // twelve props declared "my emission is black" while eleven of them
+            // carry a non-black one. Inert today (no baked GI in this project:
+            // zero LightingData assets), and a false declaration that only
+            // becomes wrong later is exactly the kind that ships. Realtime
+            // rather than BakedEmissive: these props move with the character.
+            // Keyed on the glow ALONE, never on the band. `fine ||` would have
+            // been dead today (every fine multiplier is non-zero) and actively
+            // wrong later: a future tune setting a fine multiplier to 0 would
+            // then declare RealtimeEmissive over a black emission — the same
+            // false declaration this line exists to remove, inverted.
+            built.globalIlluminationFlags = glow.maxColorComponent > 0f
+                ? MaterialGlobalIlluminationFlags.RealtimeEmissive
+                : MaterialGlobalIlluminationFlags.EmissiveIsBlack;
             built.SetFloat("_OutlineWidth", OutlineWidthFor(thinnestPart, propName));
             BindPropTexture(built, propName);
 

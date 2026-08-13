@@ -310,7 +310,42 @@ def _verify_file_record(repo: Path, record: Any, field: str) -> None:
         raise ReleaseError(f"frozen file changed: {relative}")
 
 
-def verify_provenance(repo: Path, release_build: Path) -> dict[str, Any]:
+def verify_provenance(
+    repo: Path,
+    release_build: Path,
+    *,
+    require_live_candidate: bool = True,
+) -> dict[str, Any]:
+    """Validate a frozen release provenance.
+
+    `require_live_candidate` gates the three assertions that describe the LOCAL
+    WORKING TREE rather than the frozen artifact: HEAD == candidate, working
+    web/ == HEAD:web, and the current outside-input allow list. Callers that are
+    about to act on the local tree (create, seal, deploy) need them. Remote
+    verification does not: its entire chain is anchored in the frozen seal and
+    the remote (seal -> payloadManifestSha256 -> 28 manifest entries -> remote
+    git blobs -> served HTTP bytes, plus seal.expectedGitTreeId -> remote tree),
+    and it calls this function for exactly ONE field, candidateSourceSha at the
+    single call site in verify_remote_payload.
+
+    Why this flag exists (2026-08-13, proven by an isolated subprocess run with
+    only these gates stubbed: RESULT=PASS, every remote assertion still real).
+    verify-remote normally runs inline in deploy_pages.sh right after the push,
+    where HEAD == candidate holds by construction, so the coupling is free and
+    invisible. It only misfires on the STANDALONE recovery path — and that path
+    is exactly what docs/release-deploy-procedure.md now prescribes when Pages
+    propagation outlasts the retry window. Deploy evidence is committed AFTER a
+    deploy, so HEAD is always ahead by then and the documented recovery could
+    never run. The commit that wrote the recovery down is the one that broke it.
+
+    The web/ coupling is the subtler half and would have survived a fix aimed
+    only at the candidate check: it passed on 2026-08-13 solely because web/
+    happened not to move (tree ff46d3a2 at both commits). web/ does move in this
+    repo. It is also redundant for remote purposes — the three web-origin payload
+    entries are already pinned by sha256 in the sealed manifest and re-checked
+    against the remote blobs.
+    """
+
     repo = repo.resolve()
     release_build = release_build.resolve()
     path = release_build / DEFAULT_OUTPUT
@@ -326,12 +361,16 @@ def verify_provenance(repo: Path, release_build: Path) -> dict[str, Any]:
     candidate = require_sha(provenance.get("candidateSourceSha"), "candidateSourceSha")
     release_base = require_sha(provenance.get("releaseBaseSha"), "releaseBaseSha")
     baseline_probe = require_sha(provenance.get("baselineProbeSha"), "baselineProbeSha")
-    current_status = validate_exact_candidate(repo, candidate)
+    current_status = (
+        validate_exact_candidate(repo, candidate) if require_live_candidate else None
+    )
     require_ancestor(repo, release_base, baseline_probe, "releaseBaseSha -> baselineProbeSha")
     require_ancestor(repo, baseline_probe, candidate, "baselineProbeSha -> candidateSourceSha")
     if provenance.get("inputRoots") != list(INPUT_ROOTS):
         raise ReleaseError("provenance input roots mismatch")
-    if provenance.get("committedWebTree") != verify_working_tree_path(repo, "web"):
+    if require_live_candidate and provenance.get("committedWebTree") != verify_working_tree_path(
+        repo, "web"
+    ):
         raise ReleaseError("committed web tree mismatch")
     builds = _require_mapping(provenance.get("builds"), "builds")
     development_stored = _require_mapping(builds.get("development"), "builds.development")
@@ -358,7 +397,14 @@ def verify_provenance(repo: Path, release_build: Path) -> dict[str, Any]:
     stored_outside = _require_mapping(
         provenance.get("outsideInputState"), "outsideInputState"
     )
-    validate_outside_allow_list(current_status.get("outsideCandidates", []), allow_list)
+    # Third liveness assertion: `current_status` describes TODAY's tree, so it
+    # is None when the caller asked not to require a live candidate. The pre/post
+    # allow-list checks below read the FROZEN snapshots instead and stay
+    # unconditional - those are part of the artifact. (require_ancestor above is
+    # also unconditional and correctly so: it walks committed history, which is
+    # HEAD-independent, and a sealed lineage should verify forever.)
+    if require_live_candidate:
+        validate_outside_allow_list(current_status.get("outsideCandidates", []), allow_list)
     for label in ("pre", "post"):
         record = _require_mapping(clean.get(label), f"cleanStatus.{label}")
         _verify_file_record(repo, record, f"cleanStatus.{label}")

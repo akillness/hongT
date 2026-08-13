@@ -576,7 +576,17 @@ def verify_remote_payload(
 ) -> dict[str, Any]:
     repo = repo.resolve()
     seal = _load_seal(seal_path)
-    provenance = verify_provenance(repo, release_build.resolve())
+    # Non-strict: every assertion below is anchored in the frozen seal and the
+    # REMOTE (seal -> payloadManifestSha256 -> manifest entries -> remote git
+    # blobs -> served bytes, plus seal.expectedGitTreeId -> remote tree). None
+    # of it reads the local working tree, and this call exists for exactly one
+    # field - candidateSourceSha, cross-checked on the next line. Requiring a
+    # live candidate here made the standalone recovery path in
+    # docs/release-deploy-procedure.md unrunnable, because deploy evidence is
+    # always committed AFTER the deploy that produced it.
+    provenance = verify_provenance(
+        repo, release_build.resolve(), require_live_candidate=False
+    )
     if seal.get("candidateSourceSha") != provenance.get("candidateSourceSha"):
         raise ReleaseError("remote verification candidate mismatch")
     remote_commit = require_sha(
@@ -746,7 +756,15 @@ def main(argv: list[str] | None = None) -> int:
             if args.seal:
                 source = _load_seal(Path(args.seal).resolve())
             else:
-                source = verify_provenance(repo, (repo / args.release_build).resolve())
+                # `show` prints ONE scalar from a frozen file; demanding a live
+                # tree would make a historical provenance unreadable the moment
+                # HEAD moves. deploy_pages.sh calls it inline where HEAD ==
+                # candidate holds anyway, so strictness bought nothing there.
+                source = verify_provenance(
+                    repo,
+                    (repo / args.release_build).resolve(),
+                    require_live_candidate=False,
+                )
             if args.field not in source or isinstance(source[args.field], (dict, list)):
                 raise ReleaseError(f"field is missing or not scalar: {args.field}")
             print(source[args.field])
