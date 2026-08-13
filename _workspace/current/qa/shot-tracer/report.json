@@ -1,0 +1,22 @@
+{
+  "cometFrames": 4,
+  "framesSampled": 24,
+  "bestCount": 117,
+  "fires": 28,
+  "fireSample": [
+    "[TracerProbe] fire from=(10.91, 1.00, -10.03) to=(12.38, 0.90, -12.02) width=0.070\n",
+    "[TracerProbe] fire from=(10.91, 1.00, -10.03) to=(12.04, 0.90, -11.33) width=0.070\n",
+    "[TracerProbe] fire from=(10.88, 1.00, -10.00) to=(8.65, 0.90, -11.69) width=0.070\n",
+    "[TracerProbe] fire from=(10.88, 1.00, -10.00) to=(9.52, 0.90, -11.25) width=0.070\n",
+    "[TracerProbe] fire from=(10.88, 1.00, -10.00) to=(10.34, 0.90, -10.78) width=0.070\n"
+  ],
+  "states": [
+    "[TracerProbe] state count=1 attacking=0 lock=7\n",
+    "[TracerProbe] state count=1 attacking=1 lock=7\n",
+    "[TracerProbe] state count=1 attacking=0 lock=9\n",
+    "[TracerProbe] state count=1 attacking=0 lock=9\n",
+    "[TracerProbe] state count=1 attacking=1 lock=9\n",
+    "[TracerProbe] state count=1 attacking=0 lock=9\n"
+  ],
+  "pageErrors": []
+}

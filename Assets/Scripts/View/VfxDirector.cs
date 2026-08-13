@@ -102,6 +102,7 @@ namespace CinderCourt.View
             public Material Material;
             public Vector3 From, To;
             public float Age, Flight, Fade;
+            public float TailLag;   // per-shot: 1 (short swing, full line) .. 0.45 (long-bolt comet)
             public float BaseAlpha;
             public bool Arrived;
             public ParticleSystem ArrivalSparks;   // optional; emitted once on arrival
@@ -124,6 +125,9 @@ namespace CinderCourt.View
         // is what lets the comet land on the corpse instead of vanishing on
         // exactly the most-watched hit.
         readonly int[] _companionLastTargetId = new int[3];
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        float _tracerProbeTimer;   // [TracerProbe] once-per-second state line
+#endif
         // --- V3 element particles (interview lane; interjection: 파티클 도입) --
         // 4 pre-created pooled systems, Emit(count) only — no per-cast objects.
         // Materials clone the PROVEN unlit transparent seed (MakeUnlit): the
@@ -1330,7 +1334,7 @@ namespace CinderCourt.View
         /// than one percept (~100 ms) would visibly arrive after its own
         /// impact.</summary>
         const float TracerFlightSeconds = 0.09f;
-        const float TracerFadeSeconds = 0.14f;
+        const float TracerFadeSeconds = 0.18f;
         /// <summary>Tail lag as a fraction of the flight — the comet body.</summary>
         const float TracerTailLag = 0.45f;
 
@@ -1340,6 +1344,12 @@ namespace CinderCourt.View
         void FireTracer(Vector3 from, Vector3 to, Color color, float width,
                         ParticleSystem arrivalSparks = null, int arrivalCount = 0)
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Diagnostic breadcrumb for the browser harness ([TracerProbe] in
+            // the console): separates "never fired" from "fired but invisible/
+            // undetected" — the two hypotheses a 0/N pixel count cannot split.
+            Debug.Log($"[TracerProbe] fire from={from:F2} to={to:F2} width={width:F3}");
+#endif
             ref var tracer = ref _tracers[_tracerCursor];
             _tracerCursor = (_tracerCursor + 1) % _tracers.Length;
             if (tracer.Line == null)
@@ -1366,13 +1376,30 @@ namespace CinderCourt.View
             tracer.Flight = ViewPrefs.ReducedMotion ? 0f : TracerFlightSeconds;
             tracer.Fade = TracerFadeSeconds;
             tracer.BaseAlpha = color.a;
+            // Adaptive comet body. In this parameterization TailLag = 1 pins
+            // the tail at the muzzle (FULL line: tailT = clamp(Age/flight - 1)
+            // = 0, cap 1-1 = 0) and 0.45 is the long-bolt comet; 0 would
+            // collapse tail onto head — a moving DOT. The first draft had the
+            // lerp inverted exactly that way, so point-blank swings (0.9-world
+            // shots, measured ~20 px at the fixed 45%) rendered as dots. Short
+            // shots draw their whole line; the comet look returns by 2.0 world.
+            var shotLength = Vector3.Distance(from, to);
+            tracer.TailLag = Mathf.Lerp(1f, TracerTailLag,
+                Mathf.InverseLerp(0.8f, 2.0f, shotLength));
             tracer.Arrived = false;
             tracer.ArrivalSparks = arrivalSparks;
             tracer.ArrivalCount = arrivalCount;
-            // Head and tail both start at the muzzle — the first Update draws
-            // the launch, so a one-frame cast still shows a shot, not a pop.
+            // Launch stub, drawn NOW: head one flight-step ahead of the muzzle.
+            // A comet that fires on the frame a guidance card freezes the run
+            // (timeScale 0 — deltaTime 0, so UpdateTracers cannot stretch it)
+            // must still read as a shot leaving the muzzle, not as nothing.
+            // The first-run card storm hits exactly this: cards open on combat
+            // beats, combat beats are when swings fire. Measured: 24 fires,
+            // 0 visible in a card-heavy first-run capture before this stub.
+            var step = Vector3.LerpUnclamped(from, to,
+                Mathf.Max(0.5f, 1f - tracer.TailLag));   // TailLag=1 must still stub
             tracer.Line.SetPosition(0, from);
-            tracer.Line.SetPosition(1, from);
+            tracer.Line.SetPosition(1, tracer.Flight <= 0f ? to : step);
             tracer.Line.enabled = true;
         }
 
@@ -1386,8 +1413,18 @@ namespace CinderCourt.View
 
                 var flight = Mathf.Max(tracer.Flight, 1e-4f);   // 0 = reduced motion
                 var headT = Mathf.Clamp01(tracer.Age / flight);
-                var tailT = Mathf.Clamp01(
-                    (tracer.Age - flight * TracerTailLag) / flight);
+                // Tail STOPS at (1 - TailLag) of the path once the head
+                // arrives: the fade must fade a LINE, not a point. The first
+                // draft let the tail chase to 1.0, so from Age ~0.13 s the
+                // segment was zero-length and the whole fade rendered nothing.
+                // TailLag is PER SHOT (0 on point-blank swings — the measured
+                // browser proof had 0.9-world swings drawing ~20 px stubs at
+                // the fixed 45%; a short shot draws its whole line instead).
+                var tailT = tracer.Flight <= 0f
+                    ? 0f   // reduced motion: the full-length streak, no race
+                    : Mathf.Min(
+                        Mathf.Clamp01((tracer.Age - flight * tracer.TailLag) / flight),
+                        1f - tracer.TailLag);
                 tracer.Line.SetPosition(0, Vector3.LerpUnclamped(tracer.From, tracer.To, tailT));
                 tracer.Line.SetPosition(1, Vector3.LerpUnclamped(tracer.From, tracer.To, headT));
 
@@ -1404,8 +1441,14 @@ namespace CinderCourt.View
                 var fadeAge = tracer.Age - tracer.Flight;
                 if (fadeAge >= 0f)
                 {
-                    var life = 1f - fadeAge / tracer.Fade;
-                    if (life <= 0f) { tracer.Line.enabled = false; continue; }
+                    // Hold full alpha through the first third of the fade —
+                    // the comet's whole life is ~16 frames, and a decay that
+                    // starts on frame 6 leaves it dim for most of them. The
+                    // hold is what makes the landed bolt READ; the decay is
+                    // just the exit.
+                    var life = 1f - Mathf.Clamp01(
+                        (fadeAge - tracer.Fade * 0.33f) / (tracer.Fade * 0.67f));
+                    if (fadeAge >= tracer.Fade) { tracer.Line.enabled = false; continue; }
                     var color = tracer.Material.color;
                     color.a = tracer.BaseAlpha * life;
                     tracer.Material.color = color;
@@ -1460,6 +1503,19 @@ namespace CinderCourt.View
         {
             if (!(sim is IHackSnapshot hack)) return;
             var count = Mathf.Min(hack.CompanionCount, _companionWasAttacking.Length);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Once-per-second state breadcrumb ([TracerProbe]): CompanionCount 0
+            // here means NOTHING downstream can ever fire — the first question a
+            // zero-comet browser run must answer before blaming geometry.
+            _tracerProbeTimer -= Time.unscaledDeltaTime;
+            if (_tracerProbeTimer <= 0f)
+            {
+                _tracerProbeTimer = 1f;
+                Debug.Log($"[TracerProbe] state count={hack.CompanionCount}"
+                    + $" attacking={(count > 0 && hack.CompanionAttackingAt(0) ? 1 : 0)}"
+                    + $" lock={(count > 0 ? hack.CompanionTargetIdAt(0) : -1)}");
+            }
+#endif
             for (var slot = 0; slot < count; slot++)
             {
                 var liveTargetId = hack.CompanionTargetIdAt(slot);
@@ -1471,12 +1527,31 @@ namespace CinderCourt.View
                 _companionWasAttacking[slot] = attacking;
                 if (attacking && !wasAttacking)
                 {
+                    // Aim priority mirrors the sim's own swing rule (A7.4):
+                    // the locked target when it is in range, else the nearest
+                    // enemy in range — "a lock can never cost the slot a
+                    // swing", so lock==0 does NOT mean no swing happened. An
+                    // id-only aim skips exactly those fallback swings; the
+                    // first browser proof (24 frames of live combat) drew
+                    // nothing, consistent with the lock rarely being published
+                    // mid-brawl. (That run's detector also had an additive-
+                    // blend blind spot, so the 0/24 alone does not isolate the
+                    // cause — the A7.4 reading above stands on the sim source.)
+                    var companionX = hack.CompanionXAt(slot);
+                    var companionY = hack.CompanionYAt(slot);
                     var aimId = liveTargetId > 0 ? liveTargetId : _companionLastTargetId[slot];
-                    if (aimId > 0 && TryFindEnemy(sim, aimId, out var aimX, out var aimY))
+                    float aimX = 0f, aimY = 0f;
+                    var aimed = aimId > 0
+                        && TryFindEnemy(sim, aimId, out aimX, out aimY)
+                        && WithinCompanionRange(companionX, companionY, aimX, aimY);
+                    if (!aimed)
+                        aimed = TryNearestLivingEnemy(sim, companionX, companionY,
+                            HackSpec.CompanionAttackRange, out aimX, out aimY);
+                    if (aimed)
                         FireTracer(
-                            ViewWorld.ToWorld(hack.CompanionXAt(slot), hack.CompanionYAt(slot), 1.0f),
+                            ViewWorld.ToWorld(companionX, companionY, 1.0f),
                             ViewWorld.ToWorld(aimX, aimY, 0.9f),
-                            new Color(0.62f, 0.95f, 1f, 0.75f), 0.045f);
+                            new Color(0.62f, 0.95f, 1f, 0.9f), 0.07f);
                 }
 
                 // --- signature skill: rising edge over the 0.35 s flash ------
@@ -1528,6 +1603,51 @@ namespace CinderCourt.View
             x = 0f;
             y = 0f;
             return false;
+        }
+
+        /// <summary>The sim's own reach test for a companion swing — iso metric
+        /// against HackSpec.CompanionAttackRange, so the comet can only claim a
+        /// shot the sim could legally have taken. Slight slack (1.15x) absorbs
+        /// the one-frame drift between the swing tick and this sync.</summary>
+        static bool WithinCompanionRange(float fromX, float fromY, float toX, float toY)
+        {
+            var dx = toX - fromX;
+            var dy = (toY - fromY) * SimConfig.IsoY;
+            var reach = HackSpec.CompanionAttackRange * 1.15f;
+            return dx * dx + dy * dy <= reach * reach;
+        }
+
+        /// <summary>Nearest living enemy inside <paramref name="range"/> (iso
+        /// metric) — the sim's A7.4 fallback swing rule, mirrored for aim.</summary>
+        static bool TryNearestLivingEnemy(
+            ISimSnapshot sim, float fromX, float fromY, float range,
+            out float x, out float y)
+        {
+            var enemies = sim.Enemies;
+            var bestSq = range * range;
+            var best = -1;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                // Fresh corpses count: the swing that killed resolves here one
+                // frame later (same rule as TryFindEnemy).
+                if (enemy.Dead && enemy.FadeTime < SimConfig.EnemyFade * 0.5f) continue;
+                var dx = enemy.X - fromX;
+                var dy = (enemy.Y - fromY) * SimConfig.IsoY;
+                var dSq = dx * dx + dy * dy;
+                if (dSq > bestSq) continue;
+                bestSq = dSq;
+                best = i;
+            }
+            if (best < 0)
+            {
+                x = 0f;
+                y = 0f;
+                return false;
+            }
+            x = enemies[best].X;
+            y = enemies[best].Y;
+            return true;
         }
 
         /// <summary>Volley comet fan: up to 3 shots from the caster to the
