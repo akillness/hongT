@@ -193,6 +193,25 @@ namespace CinderCourt.Tests
                         $"{propName}: _BaseMap unbound — prop is flat-tinted");
                     Assert.That(material.GetColor("_BaseColor"), Is.Not.EqualTo(Color.white),
                         $"{propName}: _BaseColor is white — the tint never landed");
+                    // _OutlineWidth had 130 lines of derivation (union-find weld,
+                    // connected components, 2V/A characteristic thickness, a 20%
+                    // area budget) and ZERO assertions until now — a mesh
+                    // re-export moved all twelve values with nothing to notice.
+                    // The band is deliberately wide: this gates the two failures
+                    // that actually shipped once, a stone-tuned width swallowing
+                    // a thin blade and a zero leaving no outline at all. It does
+                    // NOT pin the derivation's output, which would just restate
+                    // the algorithm in a second place.
+                    var outline = material.GetFloat("_OutlineWidth");
+                    Assert.That(outline, Is.InRange(0.0005f, 0.018f),
+                        $"{propName}: outline {outline:F4} is outside the readable "
+                        + "band — 0 draws nothing, house weight swallows a thin prop");
+                    // tiles=1 is the whole payoff of the uniform-density unwrap:
+                    // a repeat here means someone re-tiled a sheet that no longer
+                    // needs it.
+                    Assert.That(material.GetTextureScale("_BaseMap"), Is.EqualTo(Vector2.one),
+                        $"{propName}: _BaseMap_ST scale must stay (1,1) — the UVs "
+                        + "are uniform-density, so a repeat re-smears them");
                     checkedMaterials++;
                 }
             }

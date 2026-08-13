@@ -30,10 +30,10 @@ step() { echo "=== STEP $* ==="; }
 fail() { echo "GATE-FAIL: $*"; exit 1; }
 case "${1:-}" in
 1)
-  step "1/4 import-only compile gate"
+  step "1/5 import-only compile gate"
   bash tools/unity_batch.sh import-only || fail "import-only"
 
-  step "2/4 full EditMode"
+  step "2/5 full EditMode"
   # One run, not two. `-testFilter "*Shadow*"` cannot be used here: the runner
   # maps it to groupNames and FullNameFilter.Match throws an NRE walking the
   # tree, so Unity exits 3 (RunError) and writes no results file at all
@@ -45,11 +45,30 @@ case "${1:-}" in
   [ -n "$RESULTS" ] || fail "no EditMode results"
   echo "RESULTS=$RESULTS"
 
-  step "3/4 release payload unit tests"
+  # Prop sheet contract. Pure Python, sub-second, no Unity lock. The two
+  # properties are a mean the .mat tints divide by and a contrast floor below
+  # which a "textured" prop is the flat tint it replaced. Both were enforced
+  # only inside the generator, so a hand-edited or re-exported sheet reached a
+  # release with nothing checking it. Also pins the cross-file constant:
+  # normalize_prop_sheets.TARGET must equal PropImportPipeline.SheetMeanLuminance
+  # or every prop ships at the wrong tint, and until now that agreement lived in
+  # two comments saying "must equal" and zero assertions.
+  step "3/5 prop sheet luminance + contrast"
+  python3 -B tools/qa/normalize_prop_sheets.py --check || fail "prop sheets off contract"
+  CS_TARGET="$(grep -oE 'SheetMeanLuminance = [0-9.]+f' Assets/Editor/PropImportPipeline.cs \
+    | grep -oE '[0-9.]+' | head -1)"
+  PY_TARGET="$(grep -oE '^TARGET = [0-9.]+' tools/qa/normalize_prop_sheets.py \
+    | grep -oE '[0-9.]+' | head -1)"
+  [ -n "$CS_TARGET" ] && [ -n "$PY_TARGET" ] || fail "could not read the sheet-mean constant from both files"
+  awk -v a="$CS_TARGET" -v b="$PY_TARGET" 'BEGIN { exit (a == b) ? 0 : 1 }' \
+    || fail "sheet-mean constant drift: C# $CS_TARGET vs python $PY_TARGET"
+  echo "sheet-mean constant agrees: $CS_TARGET"
+
+  step "4/5 release payload unit tests"
   python3 -B -m unittest -v tools.tests.test_release_payload 2>&1 | tail -20
   [ "${PIPESTATUS[0]}" -eq 0 ] || fail "test_release_payload"
 
-  step "4/4 Development WebGL build"
+  step "5/5 Development WebGL build"
   rm -rf build-development
   bash tools/unity_batch.sh build-development || fail "build-development"
   [ -f build-development/index.html ] || fail "no build-development/index.html"

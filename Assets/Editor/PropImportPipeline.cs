@@ -256,41 +256,38 @@ namespace CinderCourt.EditorTools
             return driving;
         }
 
-        /// <summary>
-        /// CinderToonLit's inverted hull extrudes in OBJECT space
-        /// (positionOS + normalOS * width) with NO size normalisation anywhere,
-        /// so 0.018 on a 3 m column and 0.018 on a 0.42 m dagger draw the same
-        /// screen-space line at the same depth. 0.018 is therefore the HOUSE
-        /// line weight — it is the shader default and what every kit material
-        /// carries — and a prop that quietly picks its own thinner number reads
-        /// as under-outlined beside a fully outlined character and floor in the
-        /// same frame.
+        /// <summary>Outline width = 30% of the part thickness that DrivingThickness
+        /// returned, capped at the house weight.
         ///
-        /// So: start at house weight and clamp DOWN only where the geometry
-        /// forces it. The hull grows a part of thickness t to t + 2*width, so
-        /// the part's own surface keeps t/(t+2*width) of its silhouette; at
-        /// width = 0.3*t that is 62%, still clearly a body with an edge, while
-        /// the shipped 0.018 on a 0.055 m dagger blade leaves 60% black.
+        /// The hull grows a part of thickness t to t + 2*width, so the part keeps
+        /// t/(t+2w) of its own silhouette. At w = 0.3t that is 62% — a body with
+        /// an edge. The house 0.018 on the dagger's measured 0.0119 leaves 25%,
+        /// i.e. three quarters of the blade is outline: the solid-black-stick
+        /// failure this function exists to prevent.
         ///
-        /// WHAT THIS RULE DOES NOT DO: check that the resulting line is VISIBLE.
-        /// It optimises one side only — the part keeps enough of its silhouette
-        /// — and is silent about the other. For a thin shell the two goals are
-        /// in direct conflict: the cloak's wall is 0.012, so house weight would
-        /// swallow it whole, and the width that does not swallow it is 0.0033.
+        /// THE HOUSE CAP IS DEAD CODE TODAY, and saying otherwise would be the
+        /// claim-without-measurement this repo forbids. 0.018 is the shader
+        /// default and all 20 non-prop ToonLit materials carry exactly it; the 12
+        /// props land 0.0011-0.0081, so the geometry term wins every single time
+        /// and Mathf.Min never binds. It stays as a ceiling for a future prop fat
+        /// enough to need one — not as a behaviour anything currently exercises.
         ///
-        /// Measured on the isolated renders before assuming that means "no
-        /// outline": the cloak's boundary ring is just as dark as the hammer's
-        /// (0.035 vs 0.037) and the same ~3 px band, so the line is drawn. What
-        /// differs is CONTRAST against the body — cloak interior 0.096 against
-        /// hammer 0.290, so the same black edge separates far less. And the
-        /// line's darkness is a CONSTANT: _OutlineColor is never set here, so
-        /// every prop carries the shader default (0.03, 0.03, 0.05) while the
-        /// interior behind it varies 3x. The cloak therefore reads as
-        /// under-outlined for a reason no width change can fix — a darker line
-        /// is already black, and widening a near-black edge against a near-black
-        /// surface adds nothing. If it must read harder the lever is CONTRAST:
-        /// lift the body tint, or set _OutlineColor per prop. Not this clamp.
-        /// </summary>
+        /// The consequence is that props ARE under-outlined next to the rest of
+        /// the cast: 2.2x thinner at best, 16.5x at worst. That is forced, not
+        /// chosen — these meshes are thin, and any width that reads at house
+        /// weight swallows them.
+        ///
+        /// WHAT THIS RULE DOES NOT CHECK: whether the resulting line is VISIBLE.
+        /// It optimises the part keeping its silhouette and is silent about the
+        /// other side. Measured on the isolated renders: the cloak's boundary
+        /// ring is as dark as the hammer's (0.035 vs 0.037) at the same ~3 px, so
+        /// the line IS drawn — what differs is contrast against the body (cloak
+        /// interior 0.096 vs hammer 0.290). _OutlineColor is never set here, so
+        /// every prop carries the shader default while the interior behind it
+        /// varies 3x. No width change fixes that; the lever is contrast.
+        ///
+        /// UNGATED: no test asserts _OutlineWidth. A mesh re-export moves all 12
+        /// values with nothing to notice.</summary>
         static float OutlineWidthFor(float thinnestPart, string propName)
         {
             const float HouseWidth = 0.018f;
