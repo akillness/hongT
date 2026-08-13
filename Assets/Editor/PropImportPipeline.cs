@@ -271,6 +271,25 @@ namespace CinderCourt.EditorTools
         /// the part's own surface keeps t/(t+2*width) of its silhouette; at
         /// width = 0.3*t that is 62%, still clearly a body with an edge, while
         /// the shipped 0.018 on a 0.055 m dagger blade leaves 60% black.
+        ///
+        /// WHAT THIS RULE DOES NOT DO: check that the resulting line is VISIBLE.
+        /// It optimises one side only — the part keeps enough of its silhouette
+        /// — and is silent about the other. For a thin shell the two goals are
+        /// in direct conflict: the cloak's wall is 0.012, so house weight would
+        /// swallow it whole, and the width that does not swallow it is 0.0033.
+        ///
+        /// Measured on the isolated renders before assuming that means "no
+        /// outline": the cloak's boundary ring is just as dark as the hammer's
+        /// (0.035 vs 0.037) and the same ~3 px band, so the line is drawn. What
+        /// differs is CONTRAST against the body — cloak interior 0.096 against
+        /// hammer 0.290, so the same black edge separates far less. And the
+        /// line's darkness is a CONSTANT: _OutlineColor is never set here, so
+        /// every prop carries the shader default (0.03, 0.03, 0.05) while the
+        /// interior behind it varies 3x. The cloak therefore reads as
+        /// under-outlined for a reason no width change can fix — a darker line
+        /// is already black, and widening a near-black edge against a near-black
+        /// surface adds nothing. If it must read harder the lever is CONTRAST:
+        /// lift the body tint, or set _OutlineColor per prop. Not this clamp.
         /// </summary>
         static float OutlineWidthFor(float thinnestPart, string propName)
         {
