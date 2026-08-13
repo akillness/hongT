@@ -15,6 +15,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# BEFORE the release_common import below. tools/deploy/ is an INPUT_ROOT
+# (release_common.INPUT_ROOTS), so importing a sibling writes
+# tools/deploy/__pycache__/, and release_common.py:199 scopes the clean check to
+# INPUT_ROOTS INCLUDING gitignored paths - the next `snapshot-clean` then
+# refuses with "cannot freeze dirty source snapshot (ignoredInputs)" over a
+# directory nobody knowingly created. run_release_gate.sh and deploy_pages.sh
+# export PYTHONDONTWRITEBYTECODE, but a bare `python3 tools/deploy/...` inherits
+# nothing - and a bare call is exactly what the propagation-lag recovery in
+# docs/release-deploy-procedure.md instructs.
+#
+# This guard was already here and correct. seal_pages_payload.py was MISSING it,
+# which is what actually wrote the .pyc that blocked a snapshot on 2026-08-13 -
+# so the fix belonged there, and this one only needed the explanation.
 sys.dont_write_bytecode = True
 
 from release_common import (
