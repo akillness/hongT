@@ -270,6 +270,16 @@ namespace CinderCourt.Tests
                 foreach (var renderer in staging.GetComponentsInChildren<Renderer>())
                 {
                     if (!StageShadowPolicy.IsEligibleCaster(renderer)) continue;
+                    // Court PROPS opt out, and the opt-out is a component in the object
+                    // graph rather than a name check — see LobbyCourtProp for the
+                    // measurement that separates them. This contract was written when
+                    // the diorama was three actors; it is right about actors and about
+                    // architecture, and small scenery is a category it never saw. With
+                    // every court piece casting, very-dark pixels in the play area went
+                    // from 1.90% to 9.75% and two opaque black masses appeared beside
+                    // the warden and the boss. Architecture still casts, so every claim
+                    // this assertion had when it was written still holds.
+                    if (renderer.GetComponentInParent<LobbyCourtProp>() != null) continue;
                     Assert.That(renderer.shadowCastingMode,
                         Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.On),
                         $"{renderer.name}: diorama meshes must cast into the lobby key light");

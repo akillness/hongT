@@ -42,6 +42,17 @@ from PIL import Image, ImageFilter
 
 TEXTURE_DIR = Path("Assets/Art/Environment/Textures")
 
+# The same transform serves the TERRAIN albedos, and for the same reason. Measured
+# 2026-08-13: the arena's apron map (albedo-mat-cinder-span-apron.png) is a
+# photographic charcoal-and-lava plate — continuous grain, baked lighting variation,
+# a soft corner vignette — and the other session moved terrain onto the toon SHADER
+# without touching those TEXTURES. A photo under a cel shader reads as a photo pasted
+# on the ground, which is the concept break the user named as "the overlaid image on
+# the stage floor". These maps are baked to the terrain's own unwrap exactly like the
+# kit's, so a prompt-generated tile cannot replace them and a transform is again the
+# only operation that respects the UV.
+TERRAIN_GLOB = "Assets/Art/Terrain/**/albedo*.png"
+
 # Four steps, not two. The SHADER already quantises light into two bands; if the
 # albedo also collapsed to two, a whole part could land on a single flat colour and
 # lose its silhouette against the floor. Four keeps material variation while removing
@@ -101,12 +112,27 @@ def toonify(image: Image.Image) -> Image.Image:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--terrain", action="store_true",
+                        help="operate on the terrain albedos instead of the kit's")
+    parser.add_argument("--out", type=Path,
+                        help="write to this directory instead of in place. STRONGLY "
+                             "preferred: this tool destroyed 20 committed textures "
+                             "once by writing in place before anyone had looked at "
+                             "the output.")
     args = parser.parse_args()
 
-    albedos = sorted(TEXTURE_DIR.glob("kit-*-albedo.png"))
+    if args.terrain:
+        albedos = sorted(Path(".").glob(TERRAIN_GLOB))
+        label = "terrain"
+    else:
+        albedos = sorted(TEXTURE_DIR.glob("kit-*-albedo.png"))
+        label = "kit"
     if not albedos:
-        print(f"no kit albedo maps under {TEXTURE_DIR}")
+        print(f"no {label} albedo maps found")
         return 1
+
+    if args.out:
+        args.out.mkdir(parents=True, exist_ok=True)
 
     for path in albedos:
         with Image.open(path) as image:
@@ -114,10 +140,11 @@ def main() -> int:
         if args.dry_run:
             print(f"would write {path.name} ({result.size[0]}^2)")
             continue
-        result.save(path, optimize=True)
-        print(f"{path.name}  {path.stat().st_size / 1024:.0f} KB")
+        target = (args.out / path.name) if args.out else path
+        result.save(target, optimize=True)
+        print(f"{target}  {target.stat().st_size / 1024:.0f} KB")
 
-    print(f"\n{len(albedos)} albedo maps toonified")
+    print(f"\n{len(albedos)} {label} albedo maps toonified")
     return 0
 
 

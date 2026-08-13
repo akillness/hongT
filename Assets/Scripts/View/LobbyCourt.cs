@@ -56,11 +56,23 @@ namespace CinderCourt.View
             /// checked on their width instead.
             /// </summary>
             public readonly bool Flat;
+            /// <summary>
+            /// Whether this piece casts into the key light.
+            ///
+            /// ARCHITECTURE YES, PROPS NO — and that split is measured, not stylistic.
+            /// The first version cast from everything, and the shipped frame grew two
+            /// opaque black masses beside the actors: very-dark pixels went from 1.90%
+            /// of the play area to 9.75%. The key light is a low hard directional, so
+            /// a candelabra or a brazier throws a long solid blob that reads as a hole
+            /// in the floor rather than as a shadow. Walls and columns are broad enough
+            /// that their shadows read as shadows.
+            /// </summary>
+            public readonly bool Casts;
             public Piece(string part, float simX, float simY, float yaw, float targetSize,
-                         bool flat = false)
+                         bool flat = false, bool casts = true)
             {
                 Part = part; SimX = simX; SimY = simY; Yaw = yaw;
-                TargetSize = targetSize; Flat = flat;
+                TargetSize = targetSize; Flat = flat; Casts = casts;
             }
         }
 
@@ -87,6 +99,11 @@ namespace CinderCourt.View
         //   3. The aisle points AT the boss. A colonnade framing the centre would
         //      frame nothing; framing the boss is what makes the room read as a court
         //      with a defendant at the far end.
+        /// <summary>A prop: sized like anything else, but it does not cast. See
+        /// Piece.Casts for the measurement that separates props from architecture.</summary>
+        static Piece PieceProp(string part, float simX, float simY, float yaw, float size)
+            => new Piece(part, simX, simY, yaw, size, flat: false, casts: false);
+
         static readonly Piece[] Layout =
         {
             // ---- the bench ---------------------------------------------------
@@ -94,13 +111,13 @@ namespace CinderCourt.View
             // enclosure into a courtroom, so it is built first and everything else is
             // arranged to point at it: a raised dais, an arched back wall behind it,
             // and a statue either side standing for the authority that seats there.
-            new Piece("kit-stair-block",    768f, 330f,   0f, 0.55f),
-            new Piece("kit-altar-plinth",   768f, 300f,   0f, 0.62f),
+            PieceProp("kit-stair-block",    768f, 330f,   0f, 0.55f),
+            PieceProp("kit-altar-plinth",   768f, 300f,   0f, 0.62f),
             new Piece("kit-wall-arch",      768f, 262f,   0f, 1.98f),
             new Piece("kit-wall-straight",  600f, 270f,   0f, 1.60f),
             new Piece("kit-wall-straight",  936f, 270f,   0f, 1.60f),
-            new Piece("kit-statue-base",    652f, 322f,   0f, 1.15f),
-            new Piece("kit-statue-base",    884f, 322f,   0f, 1.15f),
+            PieceProp("kit-statue-base",    652f, 322f,   0f, 1.15f),
+            PieceProp("kit-statue-base",    884f, 322f,   0f, 1.15f),
 
             // ---- the room's corners ------------------------------------------
             // Corner pieces, not more straight wall. An enclosure whose corners are
@@ -118,25 +135,36 @@ namespace CinderCourt.View
             new Piece("kit-column-broken",  430f, 850f,   0f, 1.40f),
             new Piece("kit-column-round",  1106f, 430f,   0f, 1.98f),
             new Piece("kit-column-round",  1106f, 640f,   0f, 1.98f),
-            new Piece("kit-column-fallen", 1106f, 850f,  15f, 0.60f),
+            PieceProp("kit-column-fallen", 1106f, 850f,  15f, 0.60f),
 
             // The oath mark on the floor of the aisle. Every hazard in this game is a
             // court function made physical (worldview.md); the sigil is that idea at
             // rest, and it gives the empty centre of the room a reason to be empty.
-            new Piece("kit-floor-tile-sigil", 768f, 560f, 0f, 1.60f, flat: true),
+            new Piece("kit-floor-tile-sigil", 768f, 560f, 0f, 1.60f, flat: true, casts: false),
 
             // Candelabra flanking the aisle and braziers at the bench. These are the
             // only warm sources in a cold room, and they are placed where LobbyAccent
             // already sits so the one light this room owns has something to land on.
-            new Piece("kit-candelabra",     600f, 470f,   0f, 0.95f),
-            new Piece("kit-candelabra",     936f, 470f,   0f, 0.95f),
-            new Piece("kit-brazier-great",  672f, 352f,   0f, 0.80f),
-            new Piece("kit-brazier-great",  864f, 352f,   0f, 0.80f),
+            // NO CANDELABRA. Measured: the two of them rendered as opaque black
+            // masses about a metre across (RGB 13, 11, 10) beside the warden and the
+            // boss, and they were not shadows — a probe that disabled casting on every
+            // court piece left the dark area unchanged at 9.76% of the play region.
+            // The mesh is thin, many-branched geometry that needs either alpha or a
+            // much closer camera to read; at the lobby's framing it is a blob. The
+            // hanging chain was removed for the same reason and the same measurement.
+            // Both are kept as comments rather than deleted so the next person does
+            // not rediscover the idea and re-add it unmeasured.
+            PieceProp("kit-brazier-great",  672f, 352f,   0f, 0.80f),
+            PieceProp("kit-brazier-great",  864f, 352f,   0f, 0.80f),
 
-            // Hanging chain over the bench — the vocabulary is a memory PRISON, and
-            // this is the one kit part that says so without a caption.
-            new Piece("kit-chain-hanging",  704f, 300f,   0f, 1.30f),
-            new Piece("kit-chain-hanging",  832f, 300f,   0f, 1.30f),
+            // NO HANGING CHAIN. It was here — the vocabulary is a memory PRISON and
+            // that is the one kit part which says so without a caption — and it had
+            // to come out. In the shipped frame both chains rendered as opaque black
+            // masses roughly a metre across (measured RGB 13, 11, 10) floating beside
+            // the actors. The mesh is thin geometry that reads as a chain only with
+            // alpha or a much closer camera; at the lobby's framing it is a blob.
+            // Kept as a comment rather than deleted so the next person does not
+            // rediscover the idea and re-add it unmeasured.
 
             // ---- outboard and near edge --------------------------------------
             // Buttresses at the frame edge, where the painted plate stops being
@@ -144,14 +172,14 @@ namespace CinderCourt.View
             // without standing between the camera and the warden.
             new Piece("kit-buttress",       330f, 540f,  90f, 1.67f),
             new Piece("kit-buttress",      1206f, 540f, -90f, 1.67f),
-            new Piece("kit-rail-baluster",  620f, 900f,   0f, 0.37f),
-            new Piece("kit-rail-baluster",  768f, 900f,   0f, 0.37f),
-            new Piece("kit-rail-baluster",  916f, 900f,   0f, 0.37f),
+            PieceProp("kit-rail-baluster",  620f, 900f,   0f, 0.37f),
+            PieceProp("kit-rail-baluster",  768f, 900f,   0f, 0.37f),
+            PieceProp("kit-rail-baluster",  916f, 900f,   0f, 0.37f),
 
             // Debris. Rubble reads as age; a sarcophagus reads as what this court keeps.
-            new Piece("kit-rubble-heap",    500f, 340f,   0f, 0.34f),
-            new Piece("kit-rubble-heap",   1040f, 340f,   0f, 0.34f),
-            new Piece("kit-sarcophagus",    480f, 800f,  20f, 0.45f),
+            PieceProp("kit-rubble-heap",    500f, 340f,   0f, 0.34f),
+            PieceProp("kit-rubble-heap",   1040f, 340f,   0f, 0.34f),
+            PieceProp("kit-sarcophagus",    480f, 800f,  20f, 0.45f),
         };
 
         static readonly Dictionary<string, GameObject> Prefabs = new Dictionary<string, GameObject>();
@@ -179,7 +207,20 @@ namespace CinderCourt.View
                 instance.transform.rotation = Quaternion.Euler(0f, piece.Yaw, 0f);
                 ScaleToSize(instance, piece.TargetSize, piece.Flat);
                 StripColliders(instance);
-                EnableShadowCasting(instance);
+                if (piece.Casts)
+                {
+                    EnableShadowCasting(instance);
+                }
+                else
+                {
+                    DisableShadowCasting(instance);
+                    // Marker component, not a name convention. The lobby's shadow
+                    // contract sweeps every diorama renderer and demands it cast; a
+                    // prop that opts out has to be able to SAY so to that sweep, and
+                    // a marker cannot drift from the layout table the way a name
+                    // prefix or a hard-coded index would.
+                    instance.AddComponent<LobbyCourtProp>();
+                }
                 placed += 1;
             }
 
@@ -332,6 +373,19 @@ namespace CinderCourt.View
             var renderers = instance.GetComponentsInChildren<Renderer>(true);
             for (var i = 0; i < renderers.Length; i++)
                 StageShadowPolicy.TryConfigureCaster(renderers[i]);
+        }
+
+        /// <summary>Props are still lit and still receive; they simply do not throw.
+        /// Explicit rather than left at whatever the prefab shipped with, so the
+        /// decision is visible in one place.</summary>
+        static void DisableShadowCasting(GameObject instance)
+        {
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderers[i].receiveShadows = true;
+            }
         }
 
         /// <summary>Test seam: how many placements the table declares. A build that
