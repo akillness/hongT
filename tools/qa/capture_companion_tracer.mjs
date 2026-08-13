@@ -126,10 +126,20 @@ console.log(`comet frames ${cometFrames}/${FRAMES} bestCount=${bestCount} `
 console.log(`last state: ${stateLines[stateLines.length - 1] ?? "none"}`);
 console.log(`artifacts: ${path.relative(ROOT, OUT)}`);
 if (cometFrames === 0) {
-  // The breadcrumb splits the two 0/N hypotheses.
-  console.error(fireLines.length === 0
-    ? "ZERO FIRES: FireTracer never ran — aim/edge path is the suspect"
-    : `fired ${fireLines.length}x but never detected — geometry/detector is the suspect`);
+  // The breadcrumbs split the two 0/N hypotheses — but ONLY on a Development
+  // build. [TracerProbe] is #if DEVELOPMENT_BUILD, so a Release capture has
+  // zero fire lines by construction; reading that as "FireTracer never ran"
+  // would send the next person hunting an aim bug that does not exist. The
+  // state line is the tell: it comes from the same #if block, so no state
+  // lines = no instrumentation = the hypotheses cannot be split here.
+  const instrumented = stateLines.length > 0;
+  console.error(
+    !instrumented
+      ? "no breadcrumbs — Release build, cannot split the hypotheses. "
+        + "Re-run against build-development to diagnose."
+      : fireLines.length === 0
+        ? "ZERO FIRES: FireTracer never ran — aim/edge path is the suspect"
+        : `fired ${fireLines.length}x but never detected — geometry/detector is the suspect`);
   process.exit(1);
 }
 await browser.close();
