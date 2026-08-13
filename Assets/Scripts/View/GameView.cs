@@ -792,6 +792,13 @@ namespace CinderCourt.View
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
             if (Vfx != null) Vfx.SyncActiveAttackThreats(_sim.Player, _sim.Enemies);
+            // 2026-08-13 "쏘는 무엇인가": companion shot comets. Per-frame like
+            // its siblings above, NOT event-driven — the basic swing has no
+            // SimEvents bit, and the skill flash is a 0.35 s window whose
+            // rising edge the view must latch itself (VfxDirector owns both
+            // latches; they update every frame or the window-close is missed
+            // and every cast after the first is suppressed).
+            if (Vfx != null) Vfx.SyncCompanionTracers(_sim);
             if (Hud != null) Hud.Sync(_sim);
             // AMENDMENT #10: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.

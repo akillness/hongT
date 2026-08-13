@@ -1,5 +1,6 @@
 // Code-generated effects only: nova ring, ward shell, pickup gems.
 // Stage hazard surfaces are optional assets; gameplay VFX survives missing resources.
+using System;
 using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
@@ -80,9 +81,49 @@ namespace CinderCourt.View
         // §W wave warnings live on a DEDICATED RING pool declared with the other
         // Burst pools below: a warning must READ as a ring outline, and sharing
         // any live pool would evict a skill visual mid-play.
-        LineRenderer _boltStreak;
-        Material _boltStreakMaterial;
-        float _boltStreakTime;
+        // --- shot tracers (2026-08-13 사용자: "명중 이펙트만 있고 쏘는
+        // 무엇인가는 없는데") ------------------------------------------------
+        // Every ranged hit in this game is sim-side HITSCAN: damage, hit flash
+        // and knockback land on the cast tick, and the only in-between the
+        // player ever saw was a hit spark teleporting onto the target. These
+        // comets are the missing middle: a bright head races origin -> target
+        // in under a tenth of a second (fast enough that cause and effect stay
+        // one percept — a slower "projectile" would visibly arrive AFTER its
+        // own impact), the tail chases, then the line fades in place.
+        //
+        // POOLED, never per-cast objects (§E7 grammar): 8 lines covers the
+        // worst legal burst — 3 companions + a Volley fan (3) + the player's
+        // bolt — with headroom, and eviction picks the oldest, which by then
+        // is a fading remnant. Materials ride MakeAdditive (the proven seed
+        // clone), one per pooled line so alpha fades never fight each other.
+        struct Tracer
+        {
+            public LineRenderer Line;
+            public Material Material;
+            public Vector3 From, To;
+            public float Age, Flight, Fade;
+            public float BaseAlpha;
+            public bool Arrived;
+            public ParticleSystem ArrivalSparks;   // optional; emitted once on arrival
+            public int ArrivalCount;
+        }
+        readonly Tracer[] _tracers = new Tracer[8];
+        int _tracerCursor;
+        // Companion basic attacks have NO SimEvents bit (the show flag is a
+        // 0.25 s display window, not an edge) — so the tracer trigger is a
+        // per-frame rising-edge latch over CompanionAttackingAt. The skill
+        // flash (0.35 s window) gets the same treatment, and BOTH latches are
+        // updated every frame in SyncCompanionTracers: an event-gated update
+        // never sees the window CLOSE, so every cast after the first would
+        // read as still-casting and be suppressed.
+        readonly bool[] _companionWasAttacking = new bool[3];   // sim MaxCompanions
+        readonly bool[] _companionWasSkillCasting = new bool[3];
+        // Last locked target id per slot, cached while the lock lives. The sim
+        // clears the lock in the SAME tick a swing kills (A7.1), so on the
+        // killing swing CompanionTargetIdAt already reads 0 — the remembered id
+        // is what lets the comet land on the corpse instead of vanishing on
+        // exactly the most-watched hit.
+        readonly int[] _companionLastTargetId = new int[3];
         // --- V3 element particles (interview lane; interjection: 파티클 도입) --
         // 4 pre-created pooled systems, Emit(count) only — no per-cast objects.
         // Materials clone the PROVEN unlit transparent seed (MakeUnlit): the
@@ -579,24 +620,16 @@ namespace CinderCourt.View
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
                 _pickupCollectedFlag = true;
-            // AMENDMENT #8: a companion signature skill fired. The event is a run-wide
-            // mask, so the per-slot flash flag on the snapshot says WHICH slot cast —
-            // reading it here is what keeps two simultaneous casts from collapsing into
-            // one burst. Colour is per skill so the four archetypes stay tellable apart
-            // at a glance, which is the whole point of giving each one its own skill.
-            if ((events & SimEvents.CompanionSkillCast) != 0 && sim is IHackSnapshot hackSkills)
-            {
-                for (var slot = 0; slot < hackSkills.CompanionCount; slot++)
-                {
-                    if (!hackSkills.CompanionSkillCastingAt(slot)) continue;
-                    SpawnBurst(
-                        hackSkills.CompanionXAt(slot),
-                        hackSkills.CompanionYAt(slot),
-                        CompanionSkillColor(hackSkills.CompanionSkillIdAt(slot)),
-                        CompanionSkillBurstRadius(hackSkills.CompanionSkillIdAt(slot)),
-                        0.4f);
-                }
-            }
+            // AMENDMENT #8 companion signature-skill visuals moved to
+            // SyncCompanionTracers (2026-08-13). The SimEvents.CompanionSkillCast
+            // bit is a single-tick run-wide mask while the per-slot flash flag is
+            // a 0.35 s display WINDOW — gating the per-slot loop on the event bit
+            // meant (a) slot B's cast replayed slot A's still-open window as a
+            // duplicate burst, and (b) an event-gated latch never saw a window
+            // CLOSE, so with one companion every cast after the first would have
+            // been suppressed. A per-frame rising edge over the window has
+            // neither problem, and the basic-attack tracer needs that per-frame
+            // walk anyway (the swing has no event bit at all).
             // AMENDMENT #9: a momentum promotion. Edge-triggered in the sim, so this is
             // exactly one burst per tier gained — the burst grows and brightens with the
             // tier so the player reads "stronger", not merely "something happened".
@@ -1261,24 +1294,12 @@ namespace CinderCourt.View
             }
         }
 
-        /// <summary>Bolt streak: 2-point line from the player toward the nearest
-        /// living enemy (mirrors the sim's bolt targeting); facing-direction
-        /// fallback at full range. 0.16 s fade.</summary>
+        /// <summary>Bolt shot: comet from the player toward the nearest living
+        /// enemy (mirrors the sim's bolt targeting); facing-direction fallback
+        /// at full range. Arrival sparks ride the tracer so they fire when the
+        /// head lands, not when the cast begins.</summary>
         void FireBoltStreak(ISimSnapshot sim)
         {
-            if (_boltStreak == null)
-            {
-                var streakObject = new GameObject("BoltStreak");
-                streakObject.transform.SetParent(transform, false);
-                _boltStreak = streakObject.AddComponent<LineRenderer>();
-                _boltStreak.positionCount = 2;
-                _boltStreak.useWorldSpace = true;
-                _boltStreak.startWidth = 0.07f;
-                _boltStreak.endWidth = 0.015f;
-                _boltStreakMaterial = ViewWorld.MakeAdditive(new Color(0.75f, 0.55f, 1f, 0.9f));
-                _boltStreak.sharedMaterial = _boltStreakMaterial;
-                _boltStreak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
             var player = sim.Player;
             const float BoltRange = 420f;   // HackSpec.BoltRange (view copy — decoration)
             var bestSq = BoltRange * BoltRange;
@@ -1296,26 +1317,264 @@ namespace CinderCourt.View
                 targetX = e.X;
                 targetY = e.Y;
             }
-            _boltStreak.SetPosition(0, ViewWorld.ToWorld(player.X, player.Y, 1.1f));
-            _boltStreak.SetPosition(1, ViewWorld.ToWorld(targetX, targetY, 0.9f));
-            _boltStreakTime = 0.16f;
-            _boltStreak.enabled = true;
-            // V3: violet pierce sparks at the streak's landing point.
-            if (_boltSparks != null)
+            FireTracer(
+                ViewWorld.ToWorld(player.X, player.Y, 1.1f),
+                ViewWorld.ToWorld(targetX, targetY, 0.9f),
+                new Color(0.75f, 0.55f, 1f, 0.9f), 0.07f,
+                _boltSparks, ViewPrefs.ReducedMotion ? 7 : 14);
+        }
+
+        // ------------------------------------------------------ shot tracers --
+        /// <summary>Comet flight seconds. Under a tenth of a second: the sim is
+        /// hitscan, so the hit flash lands on the CAST tick and anything slower
+        /// than one percept (~100 ms) would visibly arrive after its own
+        /// impact.</summary>
+        const float TracerFlightSeconds = 0.09f;
+        const float TracerFadeSeconds = 0.14f;
+        /// <summary>Tail lag as a fraction of the flight — the comet body.</summary>
+        const float TracerTailLag = 0.45f;
+
+        /// <summary>Launches one pooled comet. <paramref name="arrivalSparks"/>
+        /// (optional) emits <paramref name="arrivalCount"/> once, when the head
+        /// reaches the target — the "it landed" beat.</summary>
+        void FireTracer(Vector3 from, Vector3 to, Color color, float width,
+                        ParticleSystem arrivalSparks = null, int arrivalCount = 0)
+        {
+            ref var tracer = ref _tracers[_tracerCursor];
+            _tracerCursor = (_tracerCursor + 1) % _tracers.Length;
+            if (tracer.Line == null)
             {
-                _boltSparks.transform.position = ViewWorld.ToWorld(targetX, targetY, 0.8f);
-                _boltSparks.Emit(ViewPrefs.ReducedMotion ? 7 : 14);
+                var tracerObject = new GameObject("ShotTracer");
+                tracerObject.transform.SetParent(transform, false);
+                tracer.Line = tracerObject.AddComponent<LineRenderer>();
+                tracer.Line.positionCount = 2;
+                tracer.Line.useWorldSpace = true;
+                tracer.Line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                tracer.Material = ViewWorld.MakeAdditive(Color.white);
+                tracer.Line.sharedMaterial = tracer.Material;
+            }
+            tracer.Line.startWidth = width;
+            tracer.Line.endWidth = width * 0.2f;
+            tracer.Material.color = color;
+            tracer.From = from;
+            tracer.To = to;
+            tracer.Age = 0f;
+            // ReducedMotion: no racing head — the comet collapses to the old
+            // streak grammar (full-length line, fade only), which is exactly
+            // what that pref bought before this system existed. Arrival sparks
+            // still fire (frame one), so the landing beat survives.
+            tracer.Flight = ViewPrefs.ReducedMotion ? 0f : TracerFlightSeconds;
+            tracer.Fade = TracerFadeSeconds;
+            tracer.BaseAlpha = color.a;
+            tracer.Arrived = false;
+            tracer.ArrivalSparks = arrivalSparks;
+            tracer.ArrivalCount = arrivalCount;
+            // Head and tail both start at the muzzle — the first Update draws
+            // the launch, so a one-frame cast still shows a shot, not a pop.
+            tracer.Line.SetPosition(0, from);
+            tracer.Line.SetPosition(1, from);
+            tracer.Line.enabled = true;
+        }
+
+        void UpdateTracers(float deltaTime)
+        {
+            for (var i = 0; i < _tracers.Length; i++)
+            {
+                ref var tracer = ref _tracers[i];
+                if (tracer.Line == null || !tracer.Line.enabled) continue;
+                tracer.Age += deltaTime;
+
+                var flight = Mathf.Max(tracer.Flight, 1e-4f);   // 0 = reduced motion
+                var headT = Mathf.Clamp01(tracer.Age / flight);
+                var tailT = Mathf.Clamp01(
+                    (tracer.Age - flight * TracerTailLag) / flight);
+                tracer.Line.SetPosition(0, Vector3.LerpUnclamped(tracer.From, tracer.To, tailT));
+                tracer.Line.SetPosition(1, Vector3.LerpUnclamped(tracer.From, tracer.To, headT));
+
+                if (!tracer.Arrived && headT >= 1f)
+                {
+                    tracer.Arrived = true;
+                    if (tracer.ArrivalSparks != null)
+                    {
+                        tracer.ArrivalSparks.transform.position = tracer.To;
+                        tracer.ArrivalSparks.Emit(tracer.ArrivalCount);
+                    }
+                }
+
+                var fadeAge = tracer.Age - tracer.Flight;
+                if (fadeAge >= 0f)
+                {
+                    var life = 1f - fadeAge / tracer.Fade;
+                    if (life <= 0f) { tracer.Line.enabled = false; continue; }
+                    var color = tracer.Material.color;
+                    color.a = tracer.BaseAlpha * life;
+                    tracer.Material.color = color;
+                }
             }
         }
 
-        void UpdateBoltStreak(float deltaTime)
+        /// <summary>QA seam: live comet count (launch/flight/fade all count).</summary>
+        internal int ActiveTracerCountForTest
         {
-            if (_boltStreak == null || !_boltStreak.enabled) return;
-            _boltStreakTime -= deltaTime;
-            if (_boltStreakTime <= 0f) { _boltStreak.enabled = false; return; }
-            var c = _boltStreakMaterial.color;
-            c.a = 0.9f * Mathf.Clamp01(_boltStreakTime / 0.16f);
-            _boltStreakMaterial.color = c;
+            get
+            {
+                var live = 0;
+                for (var i = 0; i < _tracers.Length; i++)
+                    if (_tracers[i].Line != null && _tracers[i].Line.enabled) live++;
+                return live;
+            }
+        }
+
+        /// <summary>QA seam: raw pool entry, for exhaustion/wrap tests only —
+        /// production callers go through the aimed launchers above.</summary>
+        internal void FireTracerForTest(Vector3 from, Vector3 to)
+            => FireTracer(from, to, new Color(1f, 1f, 1f, 0.8f), 0.05f);
+
+        /// <summary>QA seam: advances only the comet clock — EditMode never
+        /// runs LateUpdate, so expiry is otherwise unreachable in tests.</summary>
+        internal void StepTracersForTest(float deltaTime) => UpdateTracers(deltaTime);
+
+        /// <summary>
+        /// Companion shot visuals — basic-attack comets AND signature-skill
+        /// bursts/fans. Per-frame, not event-driven: the swing has no SimEvents
+        /// bit at all, and the skill flash is a 0.35 s display WINDOW whose
+        /// close no event reports — both need a view-side rising edge that is
+        /// updated EVERY frame (an event-gated latch reads still-casting
+        /// forever and suppresses every cast after the first).
+        ///
+        /// The swing gap is the user-reported one: the sim damages from up to
+        /// 200 px away on the cast tick ("명중 이펙트만 있고 쏘는 무엇인가는
+        /// 없는데" — hit sparks with no visible cause). One comet per swing,
+        /// aimed at the slot's own locked target (CompanionTargetIdAt — ids are
+        /// never reused, so this survives enemy-array compaction; a nearest
+        /// rescan would mis-aim whenever the 2 s lock holds a farther enemy).
+        ///
+        /// THE KILLING SWING IS THE SPECIAL CASE: A7.1 clears the lock in the
+        /// same tick the target dies, so on exactly the most-watched hit the
+        /// live id already reads 0. _companionLastTargetId (cached every frame
+        /// while the lock lives) re-aims that comet at the corpse — freshly
+        /// dead enemies keep their position for the 0.34 s fade, which is
+        /// longer than the comet's whole flight.
+        /// </summary>
+        public void SyncCompanionTracers(ISimSnapshot sim)
+        {
+            if (!(sim is IHackSnapshot hack)) return;
+            var count = Mathf.Min(hack.CompanionCount, _companionWasAttacking.Length);
+            for (var slot = 0; slot < count; slot++)
+            {
+                var liveTargetId = hack.CompanionTargetIdAt(slot);
+                if (liveTargetId > 0) _companionLastTargetId[slot] = liveTargetId;
+
+                // --- basic swing: rising edge over the 0.25 s show window ----
+                var attacking = hack.CompanionAttackingAt(slot);
+                var wasAttacking = _companionWasAttacking[slot];
+                _companionWasAttacking[slot] = attacking;
+                if (attacking && !wasAttacking)
+                {
+                    var aimId = liveTargetId > 0 ? liveTargetId : _companionLastTargetId[slot];
+                    if (aimId > 0 && TryFindEnemy(sim, aimId, out var aimX, out var aimY))
+                        FireTracer(
+                            ViewWorld.ToWorld(hack.CompanionXAt(slot), hack.CompanionYAt(slot), 1.0f),
+                            ViewWorld.ToWorld(aimX, aimY, 0.9f),
+                            new Color(0.62f, 0.95f, 1f, 0.75f), 0.045f);
+                }
+
+                // --- signature skill: rising edge over the 0.35 s flash ------
+                var casting = hack.CompanionSkillCastingAt(slot);
+                var wasCasting = _companionWasSkillCasting[slot];
+                _companionWasSkillCasting[slot] = casting;
+                if (casting && !wasCasting)
+                {
+                    var skillId = hack.CompanionSkillIdAt(slot);
+                    SpawnBurst(
+                        hack.CompanionXAt(slot),
+                        hack.CompanionYAt(slot),
+                        CompanionSkillColor(skillId),
+                        CompanionSkillBurstRadius(skillId),
+                        0.4f);
+                    // Volley is the SHOOTING skill (scout-echo, up to 3 hits) —
+                    // burst-only it read as "hit sparks on three enemies,
+                    // nothing was fired". Hex/Quake/Flare stay field-shaped —
+                    // auras/eruptions, not shots.
+                    if (skillId == CompanionSkillId.Volley)
+                        FireVolleyTracers(sim,
+                            hack.CompanionXAt(slot), hack.CompanionYAt(slot));
+                }
+            }
+        }
+
+        /// <summary>Position of the enemy with <paramref name="id"/>, dead or
+        /// alive. Dead is deliberate: the swing/volley that KILLED its target
+        /// resolves here one frame later, and the fresh corpse (0.34 s fade) is
+        /// the honest aim point — skipping it would drop the tracer on exactly
+        /// the killing blow.</summary>
+        static bool TryFindEnemy(ISimSnapshot sim, int id, out float x, out float y)
+        {
+            var enemies = sim.Enemies;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy.Id != id) continue;
+                // A long-faded corpse is a stale memory, not a target. The
+                // killing swing resolves here ONE FRAME after death (~0.017 s),
+                // so accept the corpse through the first half of its fade —
+                // anchored to the sim constant, not retyped, so a fade retune
+                // moves this window with it (§4j discipline).
+                if (enemy.Dead && enemy.FadeTime < SimConfig.EnemyFade * 0.5f) break;
+                x = enemy.X;
+                y = enemy.Y;
+                return true;
+            }
+            x = 0f;
+            y = 0f;
+            return false;
+        }
+
+        /// <summary>Volley comet fan: up to 3 shots from the caster to the
+        /// nearest enemies inside the skill radius, nearest-first — mirrors the
+        /// sim's own pick order (CompanionSkillTests pins it as nearest-first).
+        /// FRESH CORPSES COUNT: the sim already killed its picks on this very
+        /// tick, so a living-only scan would re-aim the fan at survivors the
+        /// volley never hit. View copy of the A8.2 radius, decoration only.</summary>
+        void FireVolleyTracers(ISimSnapshot sim, float casterX, float casterY)
+        {
+            const float VolleyRadius = 240f;   // HackSpec.CompanionSkill(Scout) — view copy
+            const int VolleyShots = 3;
+            var enemies = sim.Enemies;
+            Span<int> picked = stackalloc int[VolleyShots];
+            var pickedCount = 0;
+            for (var shot = 0; shot < VolleyShots; shot++)
+            {
+                var bestSq = VolleyRadius * VolleyRadius;
+                var best = -1;
+                for (var i = 0; i < enemies.Count; i++)
+                {
+                    var e = enemies[i];
+                    // Fresh = died within ~3 frames (FadeTime counts DOWN from
+                    // EnemyFade). Tighter than TryFindEnemy's half-fade window
+                    // on purpose: that lookup is keyed by id (a stale corpse
+                    // can only be THE target), while this scan is positional —
+                    // a looser window would let some OTHER recent kill nearby
+                    // steal a fan slot from a live target.
+                    if (e.Dead && e.FadeTime < SimConfig.EnemyFade - 0.05f) continue;
+                    var already = false;
+                    for (var p = 0; p < pickedCount; p++)
+                        if (picked[p] == i) { already = true; break; }
+                    if (already) continue;
+                    var dx = e.X - casterX;
+                    var dy = (e.Y - casterY) * SimConfig.IsoY;
+                    var dSq = dx * dx + dy * dy;
+                    if (dSq >= bestSq) continue;
+                    bestSq = dSq;
+                    best = i;
+                }
+                if (best < 0) break;
+                picked[pickedCount++] = best;
+                FireTracer(
+                    ViewWorld.ToWorld(casterX, casterY, 1.0f),
+                    ViewWorld.ToWorld(enemies[best].X, enemies[best].Y, 0.9f),
+                    new Color(0.98f, 0.85f, 0.35f, 0.8f), 0.05f);
+            }
         }
 
         void UpdateBursts(float deltaTime)
@@ -1327,7 +1586,7 @@ namespace CinderCourt.View
             StepShardPool(_shards, deltaTime);           // §S1 cracks + eruptions
             UpdateScorches(deltaTime);
             UpdateCrackDecals(deltaTime);
-            UpdateBoltStreak(deltaTime);
+            UpdateTracers(deltaTime);
         }
 
         static void StepRingPool(Burst[] pool, float deltaTime)
@@ -1683,7 +1942,18 @@ namespace CinderCourt.View
                 if (_shards[i].Line != null) _shards[i].Line.enabled = false;
                 if (_shards[i].Quad != null) _shards[i].Quad.gameObject.SetActive(false);
             }
-            if (_boltStreak != null) _boltStreak.enabled = false;
+            // Shot tracers: retire live comets AND drop the attack latches — a
+            // stale true here would swallow the next run's first companion
+            // tracer (the rising edge never fires), the same survive-the-run
+            // class as the idle arrow below.
+            for (var i = 0; i < _tracers.Length; i++)
+                if (_tracers[i].Line != null) _tracers[i].Line.enabled = false;
+            for (var i = 0; i < _companionWasAttacking.Length; i++)
+            {
+                _companionWasAttacking[i] = false;
+                _companionWasSkillCasting[i] = false;
+                _companionLastTargetId[i] = 0;
+            }
             for (var i = 0; i < ActiveThreatCueCount; i++)
                 SetActiveThreatCueEnabled(i, false);
             // §3.6: the idle arrow must not survive into the lobby; reset the
