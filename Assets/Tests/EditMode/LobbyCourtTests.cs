@@ -56,6 +56,7 @@ namespace CinderCourt.Tests
 
             var report = new System.Text.StringBuilder();
             var measured = 0;
+            var index = 0;
             var offenders = new System.Collections.Generic.List<string>();
             foreach (Transform child in court.transform)
             {
@@ -70,8 +71,20 @@ namespace CinderCourt.Tests
                 // frame and hid all three actors. Under 0.15 u nothing is visible at
                 // all. Both ends of this band come from the camera, so the assertion
                 // moves if and only if the framing does.
-                if (height > LobbyFrameHeight / 3f || height < 0.15f)
+                // Floor pieces are exempt from the STANDING band and judged on
+                // their own terms below. A sigil laid in the floor is supposed to be
+                // almost flat; failing it for that is the test asking the wrong
+                // question, which is what the first version of this bound did.
+                if (LobbyCourt.IsFlatPlacementForTest(index))
+                {
+                    if (height > 0.35f)
+                        offenders.Add($"{child.name} = {height:F2} u (floor piece standing up)");
+                }
+                else if (height > LobbyFrameHeight / 3f || height < 0.15f)
+                {
                     offenders.Add($"{child.name} = {height:F2} u");
+                }
+                index += 1;
             }
 
             TestContext.WriteLine($"[lobby court: {pieces} pieces, {measured} measured]\n" + report);

@@ -44,10 +44,23 @@ namespace CinderCourt.View
         readonly struct Piece
         {
             public readonly string Part;
-            public readonly float SimX, SimY, Yaw, TargetHeight;
-            public Piece(string part, float simX, float simY, float yaw, float targetHeight)
+            public readonly float SimX, SimY, Yaw, TargetSize;
+            /// <summary>
+            /// A piece that LIES ON the floor rather than standing on it.
+            ///
+            /// Declared, not inferred from the part name. A floor tile is read by its
+            /// FOOTPRINT and is correctly almost flat, so scaling it to a height and
+            /// then judging it by that height asks the wrong question twice — the
+            /// first version of the size test failed the sigil tile at 0.10 u for
+            /// being exactly what a floor tile should be. Flat pieces are scaled and
+            /// checked on their width instead.
+            /// </summary>
+            public readonly bool Flat;
+            public Piece(string part, float simX, float simY, float yaw, float targetSize,
+                         bool flat = false)
             {
-                Part = part; SimX = simX; SimY = simY; Yaw = yaw; TargetHeight = targetHeight;
+                Part = part; SimX = simX; SimY = simY; Yaw = yaw;
+                TargetSize = targetSize; Flat = flat;
             }
         }
 
@@ -76,44 +89,68 @@ namespace CinderCourt.View
         //      with a defendant at the far end.
         static readonly Piece[] Layout =
         {
-            // The bench — back wall behind the boss, arch in the middle so the eye has
-            // somewhere to go instead of hitting a flat slab.
-            new Piece("kit-wall-straight",  600f, 300f,   0f, 1.60f),
-            new Piece("kit-wall-arch",      768f, 292f,   0f, 1.98f),
-            new Piece("kit-wall-straight",  936f, 300f,   0f, 1.60f),
+            // ---- the bench ---------------------------------------------------
+            // A court is a room with a SEAT at one end. This is what turns an
+            // enclosure into a courtroom, so it is built first and everything else is
+            // arranged to point at it: a raised dais, an arched back wall behind it,
+            // and a statue either side standing for the authority that seats there.
+            new Piece("kit-stair-block",    768f, 330f,   0f, 0.55f),
+            new Piece("kit-altar-plinth",   768f, 300f,   0f, 0.62f),
+            new Piece("kit-wall-arch",      768f, 262f,   0f, 1.98f),
+            new Piece("kit-wall-straight",  600f, 270f,   0f, 1.60f),
+            new Piece("kit-wall-straight",  936f, 270f,   0f, 1.60f),
+            new Piece("kit-statue-base",    652f, 322f,   0f, 1.15f),
+            new Piece("kit-statue-base",    884f, 322f,   0f, 1.15f),
 
-            // Colonnade, three a side, receding toward the bench. Broken columns are
-            // mixed in on purpose: a prison of memory that is perfectly maintained
-            // reads as a lobby set, not as a place with a history.
+            // ---- the room's corners ------------------------------------------
+            // Corner pieces, not more straight wall. An enclosure whose corners are
+            // open reads as a stage flat seen from the wings; closing them is what
+            // makes the camera's ±6° orbit feel like it is inside something.
+            new Piece("kit-wall-corner",    452f, 288f,   0f, 1.60f),
+            new Piece("kit-wall-corner",   1084f, 288f, -90f, 1.60f),
+
+            // ---- the aisle ---------------------------------------------------
+            // Colonnade, three a side, receding toward the bench. Broken and fallen
+            // columns are mixed in deliberately: a prison of memory that is perfectly
+            // maintained reads as a lobby set, not as a place with a history.
             new Piece("kit-column-round",   430f, 430f,   0f, 1.98f),
             new Piece("kit-column-round",   430f, 640f,   0f, 1.98f),
             new Piece("kit-column-broken",  430f, 850f,   0f, 1.40f),
-
             new Piece("kit-column-round",  1106f, 430f,   0f, 1.98f),
             new Piece("kit-column-round",  1106f, 640f,   0f, 1.98f),
-            new Piece("kit-column-broken", 1106f, 850f,   0f, 1.40f),
+            new Piece("kit-column-fallen", 1106f, 850f,  15f, 0.60f),
 
-            // Buttresses outboard of the colonnade — depth cue at the frame edge,
-            // where the painted backdrop stops being convincing.
+            // The oath mark on the floor of the aisle. Every hazard in this game is a
+            // court function made physical (worldview.md); the sigil is that idea at
+            // rest, and it gives the empty centre of the room a reason to be empty.
+            new Piece("kit-floor-tile-sigil", 768f, 560f, 0f, 1.60f, flat: true),
+
+            // Candelabra flanking the aisle and braziers at the bench. These are the
+            // only warm sources in a cold room, and they are placed where LobbyAccent
+            // already sits so the one light this room owns has something to land on.
+            new Piece("kit-candelabra",     600f, 470f,   0f, 0.95f),
+            new Piece("kit-candelabra",     936f, 470f,   0f, 0.95f),
+            new Piece("kit-brazier-great",  672f, 352f,   0f, 0.80f),
+            new Piece("kit-brazier-great",  864f, 352f,   0f, 0.80f),
+
+            // Hanging chain over the bench — the vocabulary is a memory PRISON, and
+            // this is the one kit part that says so without a caption.
+            new Piece("kit-chain-hanging",  704f, 300f,   0f, 1.30f),
+            new Piece("kit-chain-hanging",  832f, 300f,   0f, 1.30f),
+
+            // ---- outboard and near edge --------------------------------------
+            // Buttresses at the frame edge, where the painted plate stops being
+            // convincing; the gallery rail across the near edge, low enough to frame
+            // without standing between the camera and the warden.
             new Piece("kit-buttress",       330f, 540f,  90f, 1.67f),
             new Piece("kit-buttress",      1206f, 540f, -90f, 1.67f),
-
-            // Plinth on the aisle, flanked by braziers. The braziers are where
-            // LobbyAccent's warmth finally lands on something — before this room had
-            // standing geometry, its only light had no lit surface to touch.
-            new Piece("kit-altar-plinth",   768f, 380f,   0f, 0.49f),
-            new Piece("kit-brazier-great",  660f, 350f,   0f, 0.80f),
-            new Piece("kit-brazier-great",  876f, 350f,   0f, 0.80f),
-
-            // Gallery rail across the near edge, low enough to frame without standing
-            // between the camera and the warden.
             new Piece("kit-rail-baluster",  620f, 900f,   0f, 0.37f),
             new Piece("kit-rail-baluster",  768f, 900f,   0f, 0.37f),
             new Piece("kit-rail-baluster",  916f, 900f,   0f, 0.37f),
 
             // Debris. Rubble reads as age; a sarcophagus reads as what this court keeps.
-            new Piece("kit-rubble-heap",    500f, 330f,   0f, 0.34f),
-            new Piece("kit-rubble-heap",   1040f, 330f,   0f, 0.34f),
+            new Piece("kit-rubble-heap",    500f, 340f,   0f, 0.34f),
+            new Piece("kit-rubble-heap",   1040f, 340f,   0f, 0.34f),
             new Piece("kit-sarcophagus",    480f, 800f,  20f, 0.45f),
         };
 
@@ -140,7 +177,7 @@ namespace CinderCourt.View
                 instance.name = $"court-{i:D2}-{piece.Part}";
                 instance.transform.position = ViewWorld.ToWorld(piece.SimX, piece.SimY);
                 instance.transform.rotation = Quaternion.Euler(0f, piece.Yaw, 0f);
-                ScaleToHeight(instance, piece.TargetHeight);
+                ScaleToSize(instance, piece.TargetSize, piece.Flat);
                 StripColliders(instance);
                 EnableShadowCasting(instance);
                 placed += 1;
@@ -170,7 +207,7 @@ namespace CinderCourt.View
         /// table of magic multipliers would be a second, unverifiable source for a
         /// fact the mesh already knows (§4i).
         /// </summary>
-        static void ScaleToHeight(GameObject instance, float targetHeight)
+        static void ScaleToSize(GameObject instance, float targetSize, bool flat)
         {
             // MESH bounds, not Renderer.bounds.
             //
@@ -186,9 +223,18 @@ namespace CinderCourt.View
             // Composing it by hand also keeps the two passes below honest: the same
             // local box drives both the scale and the re-seat, so they cannot disagree.
             if (!TryLocalBounds(instance, out var local)) return;
-            if (local.size.y <= 0.0001f) return;   // flat piece: leave its authored scale
 
-            var factor = targetHeight / (local.size.y * instance.transform.localScale.y);
+            // Standing pieces are sized by height, floor pieces by width. Choosing the
+            // axis from the piece's declared role rather than from whichever extent
+            // happens to be largest keeps a wide, low bench from being treated as a
+            // floor and a tall narrow tile from being treated as a wall.
+            var extent = flat ? local.size.x : local.size.y;
+            var current = flat
+                ? extent * instance.transform.localScale.x
+                : extent * instance.transform.localScale.y;
+            if (current <= 0.0001f) return;   // degenerate: leave the authored scale
+
+            var factor = targetSize / current;
             instance.transform.localScale *= factor;
 
             // Re-seat on the floor AFTER scaling. Scaling happens about the transform
@@ -240,6 +286,12 @@ namespace CinderCourt.View
             height = local.size.y * instance.transform.localScale.y;
             return true;
         }
+
+        /// <summary>Test seam: the declared role of the i-th placement, so the size
+        /// test can judge a floor tile on its footprint and a column on its height
+        /// instead of applying one band to both.</summary>
+        public static bool IsFlatPlacementForTest(int index)
+            => index >= 0 && index < Layout.Length && Layout[index].Flat;
 
         /// <summary>
         /// Same guard LobbyStaging and VfxDirector use: Destroy is a no-op outside
