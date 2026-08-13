@@ -299,3 +299,31 @@ sha256으로 고정돼 원격 blob과 대조된다.
 
 지금은 잠복이다 - `_verify`는 `deploy_pages.sh:107`에서 인라인으로만 돌고
 거기선 HEAD==후보가 성립한다. 다음 레인이 이 클래스를 닫을 때 마지막 항목이다.
+
+### 빌드 콜백에서 `report.summary.result`를 믿지 마라 (2026-08-13)
+
+`IPostprocessBuildWithReport.OnPostprocessBuild`는 `BuildPipeline.BuildPlayer`
+**안에서** 실행된다. 그 시점 `report.summary.result`는 아직 `Unknown`이다.
+
+```csharp
+if (report.summary.result != BuildResult.Succeeded) return;  // 매 빌드 참
+```
+
+`ToonShaderRetentionGate`가 이 가드로 **두 빌드 동안 무력**했다. 단언이 통째로
+건너뛰어졌고 게이트는 아무것도 찍지 않으면서 통과했다. 무조건 진입 로그를
+넣기 전까지 보이지 않았다.
+
+대안은 **증거로 분기**하는 것이다 - "셰이더가 하나라도 컴파일됐는가"는 실패·취소
+빌드와 정상 빌드를 정확히 가르고, 콜백 시점에 이미 확정돼 있다.
+
+**그리고 게이트의 부재는 조용하다.** 게이트는 빌드를 크게 실패시킬 수 있지만,
+안 돌았다는 사실은 아무 데도 안 남는다. 빈 스캔이 위반 0건으로 통과하는 것과
+같은 형태다. 그래서 2단계가 릴리스 빌드 로그에서 게이트 출력 줄을 직접 찾는다:
+
+```bash
+grep -qE "ToonShaderRetentionGate.*variants retained" "$BUILD_LOG" \
+  || fail "stripping gate did not run — ToonLit retention is UNVERIFIED"
+```
+
+불변식과 그것을 깨뜨릴 수 있는 것이 서로 다른 도구에 살면 그 차집합은 영원히
+사각이다(§4b). 게이트가 돌았다는 것 자체를 검사 대상으로 만든다.

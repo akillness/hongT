@@ -75,12 +75,24 @@ case "${1:-}" in
   ;;
 
 2)
-  step "1/1 Release WebGL build"
+  step "1/2 Release WebGL build"
   # The provenance refuses to be created twice, so the release tree must be the
   # one this candidate produced — not a leftover from an earlier commit.
   rm -rf build-webgl
   bash tools/unity_batch.sh build || fail "build"
   [ -f build-webgl/index.html ] || fail "no build-webgl/index.html"
+
+  # ToonShaderRetentionGate can FAIL the build loudly, but its ABSENCE is silent:
+  # it was inert for two builds (an early return on a not-yet-populated
+  # report.summary.result) and every one of them reported green. "Found nothing"
+  # and "checked nothing" are indistinguishable from outside — the same shape
+  # this repo already refuses for empty scans. Assert the gate actually ran.
+  step "2/2 shader retention gate ran"
+  BUILD_LOG="$(ls -t "$LOG_DIR"/build-*.log 2>/dev/null | grep -v development | head -1)"
+  [ -n "$BUILD_LOG" ] || fail "no release build log to check the retention gate against"
+  grep -qE "ToonShaderRetentionGate.*variants retained" "$BUILD_LOG" \
+    || fail "stripping gate did not run — ToonLit retention is UNVERIFIED in $BUILD_LOG"
+  grep -oE "ToonShaderRetentionGate\] .*variants retained.*" "$BUILD_LOG" | tail -1
   ;;
 *)
   echo "usage: run_release_gate.sh 1|2"
