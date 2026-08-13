@@ -1,22 +1,23 @@
 {
-  "releaseBaseSha": "f9123656cd679adcf10087f729134467b0de18fb",
-  "baselineProbeSha": "f9123656cd679adcf10087f729134467b0de18fb",
-  "candidateSourceSha": "af3df15d3c65857d90cec257f6324e89bdcf47bc",
-  "generatedAt": "2026-08-13T18:37:25+0900",
+  "releaseBaseSha": "af3df15d3c65857d90cec257f6324e89bdcf47bc",
+  "baselineProbeSha": "af3df15d3c65857d90cec257f6324e89bdcf47bc",
+  "candidateSourceSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
+  "generatedAt": "2026-08-13T21:07:50+0900",
   "sourceUpstream": "origin/akillness/main",
   "unityVersion": "6000.5.6f1",
   "commands": [
     "rm -rf tools/deploy/__pycache__",
-    "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-pre.json",
-    "bash tools/deploy/run_release_gate.sh 1",
-    "python3 tools/deploy/make_release_evidence.py editmode --results _workspace/current/engineering/unity-logs/test-results-183024.xml --candidate af3df15d --out _workspace/current/qa/stage-character-shadows",
-    "python3 tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log _workspace/current/engineering/unity-logs/build-development-183104.log --candidate af3df15d --out _workspace/current/qa/stage-character-shadows",
-    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate af3df15d --content-marker 67de2df4b4583d4b (harness blob be4af6fe6aef4ecfec7095ddaba9cdbf932cd805ce1802a2d5c571a1b8082c50)",
-    "node tools/qa/run_shadow_browser_evidence.mjs --url http://127.0.0.1:8783/ --viewport 375x667 --evidence-id browser-shadow-mobile --candidate af3df15d --content-marker 67de2df4b4583d4b",
+    "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-pre.json",
+    "bash tools/deploy/run_release_gate.sh 1   # now 5 steps: +prop sheet luminance/contrast + cross-file constant",
+    "python3 -B tools/deploy/make_release_evidence.py editmode --results .../test-results-205957.xml --candidate 3c9d8dc4 --out ...",
+    "python3 -B tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log .../build-development-210043.log --candidate 3c9d8dc4 --out ...",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 3c9d8dc4 --content-marker f9884b3ee63d969b (harness blob be4af6fe6aef4ecfec7095ddaba9cdbf932cd805ce1802a2d5c571a1b8082c50)",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 3c9d8dc4 --content-marker f9884b3ee63d969b",
     "bash tools/deploy/run_release_gate.sh 2",
-    "python3 tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log _workspace/current/engineering/unity-logs/build-183419.log --candidate af3df15d --out _workspace/current/qa/stage-character-shadows",
-    "python3 tools/deploy/release_provenance.py snapshot-clean --output _workspace/current/qa/stage-character-shadows/candidate-clean-post.json",
-    "python3 tools/deploy/release_provenance.py create --metadata _workspace/current/qa/stage-character-shadows/release-metadata.json --development-build build-development --release-build build-webgl"
+    "python3 -B tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log .../build-210149.log --candidate 3c9d8dc4 --out ...",
+    "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-post.json",
+    "python3 -B tools/deploy/release_provenance.py create --metadata .../release-metadata.json --development-build build-development --release-build build-webgl",
+    "# ToonShaderRetentionGate measured CinderCourt/ToonLit: 5 variants retained across 93 shaders in BOTH builds (build-development-210043.log, build-210149.log)"
   ],
   "probeHashes": {
     "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
@@ -80,19 +81,19 @@
       "evidenceId": "development-build",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
       "buildMode": "Development",
-      "contentMarker": "67de2df4b4583d4b"
+      "contentMarker": "f9884b3ee63d969b"
     },
     {
       "evidenceId": "browser-shadow-desktop",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
       "buildMode": "Development",
-      "contentMarker": "67de2df4b4583d4b"
+      "contentMarker": "f9884b3ee63d969b"
     },
     {
       "evidenceId": "browser-shadow-mobile",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
       "buildMode": "Development",
-      "contentMarker": "67de2df4b4583d4b"
+      "contentMarker": "f9884b3ee63d969b"
     }
   ]
 }
