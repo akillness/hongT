@@ -286,11 +286,11 @@ namespace CinderCourt.Tests
             }
 
             RunDigest digest = sim.Digest;
-            Assert.That(digest.Score, Is.EqualTo(3350), "dungeon score");
+            Assert.That(digest.Score, Is.EqualTo(3600), "W1 aimed launcher dungeon score");
             Assert.That(digest.Wave, Is.EqualTo(3), "dungeon wave");
             Assert.That(digest.Kills, Is.EqualTo(13), "dungeon kills");
-            Assert.That(digest.Relics, Is.EqualTo(3), "dungeon relics");
-            Assert.That(digest.HealthRemaining, Is.EqualTo(71.5f).Within(Tolerance), "dungeon health");
+            Assert.That(digest.Relics, Is.EqualTo(4), "W1 aimed launcher dungeon relics");
+            Assert.That(digest.HealthRemaining, Is.EqualTo(112f).Within(Tolerance), "W1 aimed launcher dungeon health");
             Assert.That(digest.Reason, Is.EqualTo(string.Empty), "dungeon end reason");
         }
 

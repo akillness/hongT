@@ -562,7 +562,7 @@ namespace CinderCourt.View
                 var iconObject = new GameObject("CodexIcon" + i);
                 iconObject.transform.SetParent(_codexStatsTab.transform, false);
                 var image = iconObject.AddComponent<Image>();
-                var sprite = Resources.Load<Sprite>("Icons/" + icons[i]);
+                var sprite = IconSprites.Load(icons[i]);
                 // A missing sprite renders as a white quad; disabling the Image
                 // is the honest fallback.
                 if (sprite != null) image.sprite = sprite;
@@ -686,7 +686,7 @@ namespace CinderCourt.View
             var iconObject = new GameObject("ChipIcon");
             iconObject.transform.SetParent(parent, false);
             var image = iconObject.AddComponent<Image>();
-            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            var sprite = IconSprites.Load(iconId);
             if (sprite != null) { image.sprite = sprite; image.preserveAspect = true; }
             else image.enabled = false;
             image.raycastTarget = false;

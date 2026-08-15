@@ -1,0 +1,132 @@
+{
+  "asset": "story VO (narration for StoryCatalog beats)",
+  "date": "2026-08-09",
+  "directive": "User 2026-08-09 asked for 연출용 영상·음성·사운드, amending the 2026-08-04 'SFX + BGM only, NO voice narration' rule. The amendment covers STORY NARRATION only; cue-* sound effects still forbid vocals.",
+  "tool": "Higgsfield CLI @higgsfield/cli 1.1.23, model inworld_text_to_speech",
+  "whyNotElevenLabs": "The committed ELEVENLABS_API_KEY returned HTTP 401 on 2026-08-09, so the existing SFX/BGM pipeline could not be used. Higgsfield's qwen_audio_tts lists ko as a supported language and was provisioned by the operator the same day.",
+  "generator": "tools/audio/gen_voice.py (incremental; existing files are skipped)",
+  "lineSource": "Assets/Scripts/View/StoryCatalog.cs (frozen catalog — transcribed, never rewritten)",
+  "speakerMapping": {
+    "Ambient": {
+      "voice": "Yoona (ko)",
+      "role": "watcher narration — detached, outside the fight"
+    },
+    "Boss": {
+      "voice": "Hyunwoo (ko)",
+      "role": "boss taunts — the heavier male read"
+    },
+    "Warden": {
+      "voice": "Seojun (ko)",
+      "role": "Dusk Warden retrospectives — separable from the boss"
+    }
+  },
+  "consumer": "AudioDirector.PlayVoice(key) loads Audio/vo-{key}; GameDirector.DispatchStory builds key = storyKey + '-' + beatKind beside the _speech.Show that renders the same line as text.",
+  "outputs": [
+    {
+      "file": "Assets/Resources/Audio/vo-cinder-span-stageStart.mp3",
+      "storyKey": "cinder-span",
+      "beat": "stageStart",
+      "speakerClass": "Ambient",
+      "text": "서쪽 불씨를 버티고 사슬의 진실을 확인하세요.",
+      "voice": "Yoona (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "785eeff2-b3d6-47db-aae6-f8083df8ac97",
+      "bytes": 43929,
+      "durationSeconds": 3.63,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-cinder-span-bossEntry.mp3",
+      "storyKey": "cinder-span",
+      "beat": "bossEntry",
+      "speakerClass": "Boss",
+      "text": "등불을 내려라. 네가 찾는 길은 내 사슬 아래서 끝난다.",
+      "voice": "Hyunwoo (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "b2eb179b-2dfe-4280-9bcd-8fc4f5bf6bd3",
+      "bytes": 49572,
+      "durationSeconds": 4.1,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-cinder-span-bossPhase3.mp3",
+      "storyKey": "cinder-span",
+      "beat": "bossPhase3",
+      "speakerClass": "Boss",
+      "text": "사슬이 끊긴다면… 다리도, 너도, 나와 함께 재가 된다!",
+      "voice": "Hyunwoo (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "c38c77de-463c-4e2e-9d15-b8591e2131f6",
+      "bytes": 51139,
+      "durationSeconds": 4.23,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-cinder-span-completion.mp3",
+      "storyKey": "cinder-span",
+      "beat": "completion",
+      "speakerClass": "Warden",
+      "text": "그는 문을 지킨 게 아니었다. 문이 올라오지 못하게 묶고 있었다.",
+      "voice": "Seojun (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "5ddf278f-6ca5-4811-99cb-5bdb10e70579",
+      "bytes": 56782,
+      "durationSeconds": 4.7,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-abyss-chancel-bossEntry.mp3",
+      "storyKey": "abyss-chancel",
+      "beat": "bossEntry",
+      "speakerClass": "Boss",
+      "text": "또 같은 등불, 또 같은 서약.",
+      "voice": "Hyunwoo (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "6a6ebbfe-68a8-4e26-ad48-1ad0b6dda264",
+      "bytes": 27942,
+      "durationSeconds": 2.3,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-echo-throne-bossEntry.mp3",
+      "storyKey": "echo-throne",
+      "beat": "bossEntry",
+      "speakerClass": "Boss",
+      "text": "마침내 내가 놓았던 등불을 네가 들고 왔다.",
+      "voice": "Hyunwoo (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "80804ac8-080e-4d4c-b530-5370ef0b8d2d",
+      "bytes": 38914,
+      "durationSeconds": 3.21,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-echo-throne-bossPhase3.mp3",
+      "storyKey": "echo-throne",
+      "beat": "bossPhase3",
+      "speakerClass": "Boss",
+      "text": "왕좌가 무너져도 마지막 명령은 남는다 — 꿇어라!",
+      "voice": "Hyunwoo (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "3b8766fa-5292-4bb1-890a-e2f57bbab2e4",
+      "bytes": 42675,
+      "durationSeconds": 3.53,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    },
+    {
+      "file": "Assets/Resources/Audio/vo-echo-throne-completion.mp3",
+      "storyKey": "echo-throne",
+      "beat": "completion",
+      "speakerClass": "Warden",
+      "text": "왕좌는 비었다. 그런데 명령은 내 등불 안에서 계속된다.",
+      "voice": "Seojun (ko)",
+      "model": "inworld_text_to_speech",
+      "jobId": "85e74588-5a70-4537-8374-ed6dec23aa4a",
+      "bytes": 60857,
+      "durationSeconds": 5.04,
+      "encoding": "mp3 96 kbps mono 44.1 kHz (transcoded from the API's 48 kHz PCM)"
+    }
+  ],
+  "modelChoice": "qwen_audio_tts was tried FIRST because it advertises `ko` and exposes speech_rate/pitch_rate/instruction knobs. Every voice id from `higgsfield voices list` is rejected by it at generate time with 'Voice preset is not available for Qwen Audio' [OBSERVED 2026-08-09] — the shared 114-voice catalog and that model's voice_id parameter are different namespaces, and the CLI surfaces no qwen-compatible ids. inworld_text_to_speech carries its own voice enum with four Korean voices and works, at the cost of exposing prompt+voice only (no rate/pitch/style).",
+  "postProcessing": "The API returns 48 kHz mono PCM WAV under a .mp3 filename (codec pcm_s16le, 768 kbps — the extension lies about the contents). Each file was transcoded to real MP3 at 96 kbps mono / 44.1 kHz, matching the per-channel budget of the existing 128 kbps stereo cues: 3,145,536 -> 371,810 bytes, 88.2% smaller with no audible loss on speech. Everything under Resources/ ships in the WebGL build, so the raw PCM would have cost 3 MB of the 120 MB cap for 30 seconds of dialogue."
+}

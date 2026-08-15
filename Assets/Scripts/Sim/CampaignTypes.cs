@@ -18,6 +18,13 @@ namespace CinderCourt.Sim
         TideCurrent = 3,
         EmberPylon = 4,
         AshWall = 5,
+        /// <summary>
+        /// AMENDMENT #17: capsule hard blocker — the segment form of
+        /// <see cref="ObsidianPillar"/>. Appended, never reordered: the enum value IS
+        /// the serialized identity in every hazard table (same rule as the save-bit
+        /// indices in CLAUDE.md §4h).
+        /// </summary>
+        StoneWall = 6,
     }
 
     /// <summary>Equipment shard slot. Index order is the drop modulus order.</summary>
@@ -25,9 +32,18 @@ namespace CinderCourt.Sim
 
     /// <summary>
     /// Deterministic placement record for one gimmick. Phase is vent/current/wall
-    /// cycle offset. <see cref="HalfW"/>/<see cref="HalfH"/>/<see cref="PushX"/>/
-    /// <see cref="PushY"/> are current-only; <see cref="Hp"/> is pylon-only
-    /// (amendment #5 fields default to 0 and are inert on the original kinds).
+    /// cycle offset. <see cref="PushX"/>/<see cref="PushY"/> are current-only;
+    /// <see cref="Hp"/> is pylon-only (amendment #5 fields default to 0 and are inert
+    /// on the original kinds).
+    ///
+    /// <see cref="HalfW"/>/<see cref="HalfH"/> carry TWO meanings, disambiguated by
+    /// <see cref="Kind"/> and never both live on one record:
+    ///   <see cref="HazardKind.TideCurrent"/> — the push band's half-extents (amendment #5).
+    ///   <see cref="HazardKind.StoneWall"/>   — the capsule's segment HALF-VECTOR (#17).
+    /// Reusing the pair rather than appending two more floats keeps the struct's field
+    /// count frozen, which matters because every hazard table is a positional
+    /// initializer. A circle is the special case with a zero half-vector, so
+    /// <see cref="HazardKind.ObsidianPillar"/> and StoneWall share one collision routine.
     /// </summary>
     public struct HazardConfig
     {
@@ -66,7 +82,16 @@ namespace CinderCourt.Sim
             Phase = 0f,
         };
 
-        /// <summary>Tide-current push band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 1).</summary>
+        /// <summary>
+        /// Tide-current push band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 1).
+        ///
+        /// One band height for both playfields, deliberately. #17 briefly gave this an
+        /// optional per-call height so the Training trial could keep the frozen 110
+        /// while the dungeon widened to 160 — then nothing passed it. The trial exists
+        /// to practise the shipped gimmick, so a trial tuned to a height the dungeon no
+        /// longer uses teaches the wrong corridor. Both tables now carry the same
+        /// centres and read the same height.
+        /// </summary>
         public static HazardConfig Current(float x, float y, float pushX, float phase) => new HazardConfig
         {
             Kind = HazardKind.TideCurrent,
@@ -90,9 +115,34 @@ namespace CinderCourt.Sim
         };
 
         /// <summary>
+        /// AMENDMENT #17 capsule blocker. <paramref name="halfVecX"/>/<paramref name="halfVecY"/>
+        /// is the segment's half-vector from its centre, so a horizontal wall running
+        /// x 81..277.5 at y 466 is <c>Stone(179.25, 466, 98.25, 0)</c>. A zero half-vector
+        /// degenerates to a circle, which is exactly <see cref="Pillar"/>.
+        /// </summary>
+        public static HazardConfig Stone(
+            float x, float y, float halfVecX, float halfVecY,
+            float radius = CampaignSpec.StoneWallRadius) => new HazardConfig
+        {
+            Kind = HazardKind.StoneWall,
+            X = x,
+            Y = y,
+            HalfW = halfVecX,
+            HalfH = halfVecY,
+            Radius = radius,
+        };
+
+        /// <summary>Axis-aligned convenience for the lane spines: a segment on one y.</summary>
+        public static HazardConfig StoneSpan(
+            float x0, float x1, float y,
+            float radius = CampaignSpec.StoneWallRadius)
+            => Stone((x0 + x1) * 0.5f, y, (x1 - x0) * 0.5f, 0f, radius);
+
+        /// <summary>
         /// Ash-wall timetable crush band (docs/SIM_SPEC_DUNGEONS.md §Gimmick 3 v1.1).
         /// Edge encoding rides the existing PushX field: +1 advances from the left
-        /// edge (x 248) rightward, -1 advances from the right edge (x 1288) leftward.
+        /// edge rightward, -1 advances from the right edge leftward. The edges follow
+        /// the playfield (#17: x 33 / x 1503, was 248 / 1288).
         /// </summary>
         public static HazardConfig Wall(float phase, bool fromRight = false) => new HazardConfig
         {
@@ -122,6 +172,15 @@ namespace CinderCourt.Sim
         public bool Active;         // current push window / wall band live
         public float FrontX;        // wall leading edge (EdgeX when idle)
         public float Hp;            // pylon remaining hp
+        /// <summary>
+        /// AMENDMENT #17, appended: the capsule segment half-vector for
+        /// <see cref="HazardKind.StoneWall"/>, mirroring
+        /// <see cref="HazardConfig.HalfW"/>/<see cref="HazardConfig.HalfH"/>. Zero on
+        /// every other kind. Without it the View knows a wall's centre and radius but
+        /// not its length, so it can only draw the blocker as a circle — the sim would
+        /// stop an actor along a 200 px segment while the screen showed a 24 px post.
+        /// </summary>
+        public float HalfW, HalfH;
     }
 
     /// <summary>
@@ -180,10 +239,64 @@ namespace CinderCourt.Sim
         public const float PlayerPushRadius = 26f;
         public const float EnemyPushRadius = 22f;
 
+        // --- AMENDMENT #17 (design/dungeon-interior-spec.md §3, §4.2-4.3) ----------
+
+        /// <summary>
+        /// Capsule half-thickness for the lane spines. Deliberately equal to the View's
+        /// <c>EnvironmentLayout.WallThicknessPx</c> so the collision surface and the
+        /// drawn wall are the same object — a new constant here would be a second source
+        /// for one fact (CLAUDE.md §4i).
+        /// </summary>
+        public const float StoneWallRadius = 24f;
+
+        /// <summary>
+        /// Minimum clear width of a lane passage, in sim px. 205 = 2 grid modules
+        /// (1 module = 1.28 world u = 102.4 px), which is 3.94× the player's own
+        /// diameter (2 × <see cref="PlayerPushRadius"/> = 52). Published so the layout
+        /// tables and the probe's passage-width gate read ONE number.
+        /// </summary>
+        public const float LanePassageWidth = 205f;
+
+        /// <summary>
+        /// #17 §4.3 enemy tangent steering. An enemy whose straight line to the player
+        /// is intercepted by a blocker steers to the blocker's tangent instead of
+        /// walking into it. This is the clearance added to the blocker radius when
+        /// deciding "intercepted": the enemy's own push radius plus a small bias so it
+        /// commits to a side BEFORE it is already scraping the surface. At 0 the enemy
+        /// only reacts once touching, which reproduces the stall this amendment fixes.
+        /// </summary>
+        public const float SteerClearanceBias = 10f;
+
         public const float AltarRadius = 70f;
         public const float AltarHoldSeconds = 1.2f;
         public const float AltarOilBurst = 18f;
         public const float AltarCooldown = 6f;
+
+        /// <summary>
+        /// AMENDMENT #17c: the altar's SOLID plinth. A DIFFERENT quantity from
+        /// <see cref="AltarRadius"/>, and the two must never collapse into one.
+        ///
+        /// <see cref="AltarRadius"/> is the CHANNEL range — the sim only advances the
+        /// hold while the player's centre is iso-within it. Blocking at that radius
+        /// would wall the player out of the exact ring the gimmick requires them to
+        /// stand in, so the altar would become impossible rather than physical. One
+        /// radius cannot answer both questions.
+        ///
+        /// The usable ring is what fixes the value. A blocker holds an actor's centre
+        /// at <c>body + PlayerPushRadius</c>, so channelling is possible iff
+        ///     body + PlayerPushRadius &lt; AltarRadius,
+        /// i.e. body &lt; 70 - 26 = 44. At 24 the ring is 20 iso px deep, which the
+        /// warden crosses in 0.09 s at 218 u/s — steerable, not a pixel-hunt.
+        /// AltarReachability asserts THE INEQUALITY against these constants rather
+        /// than restating 20, so no later edit to either side can silently close the
+        /// ring (CLAUDE.md §4i).
+        ///
+        /// #17b implemented this, measured the player parking at y 639 instead of 604
+        /// (= 604 + 50/1.42, exactly), and reverted because three signed tests channel
+        /// from the centre. #17c re-applies it WITH those contracts amended — the
+        /// revert was about sequence, not about the number.
+        /// </summary>
+        public const float AltarBodyRadius = 24f;
 
         public const int EquipSlotCount = 3;
         public const int MaxEquipRank = 5;
@@ -206,9 +319,41 @@ namespace CinderCourt.Sim
         // Retune rationale: gimmicks must bite the combat convergence point
         // (768,604) — see design/gimmick-retune-spec.md.
 
-        /// <summary>Tide-current push band (§Gimmick 1). Rect test, NOT iso-weighted.</summary>
-        public const float CurrentHalfW = 520f;
-        public const float CurrentHalfH = 110f;   // bands y 360-580/630-850: safe corridor 50px
+        /// <summary>
+        /// Tide-current push band (§Gimmick 1). Rect test, NOT iso-weighted.
+        ///
+        /// AMENDMENT #17: DERIVED from the playfield half-width instead of restating it.
+        /// #15 froze the bounds at 554 precisely because this number was a literal 520
+        /// that would not follow — the wall and the currents stopped covering the
+        /// playfield and the gimmicks became avoidable. Deriving makes that class of
+        /// drift impossible: widen the arena and the band widens with it, by
+        /// construction rather than by remembering.
+        /// </summary>
+        public const float CurrentHalfW = DungeonBoundsSpec.ExpandedHalfWidth;
+
+        /// <summary>
+        /// #17: 110 -> 160, with the band centres moving 470/740 -> 420/788 in the stage
+        /// tables. The pair is chosen to PRESERVE the safe corridor, which is the whole
+        /// design of this gimmick: bands now cover y 260..580 and 628..948 against a
+        /// playfield of y 214..994, leaving the mid corridor at 48 px (was 50).
+        /// Leaving 110/470/740 alone would have opened 146 px shelves at the top and
+        /// bottom of the taller arena and the currents would simply be walked around.
+        /// </summary>
+        public const float CurrentHalfH = 160f;
+
+        /// <summary>
+        /// Tide-band centres. Promoted to constants by AMENDMENT #17 because the move
+        /// from 470/740 to 420/788 had to be repeated by hand in the stage table, the
+        /// trial table and eleven assertions across two test files — the exact shape
+        /// of a fact with several sources (CLAUDE.md §4i). Now the tables and the
+        /// tests read the same two names, and the next retune moves one line.
+        ///
+        /// Chosen with <see cref="CurrentHalfH"/> to preserve the safe corridor: bands
+        /// cover y 260..580 and 628..948 against a playfield of y 214..994, leaving
+        /// 48 px in the middle (was 50 at the frozen bounds).
+        /// </summary>
+        public const float CurrentNorthBandY = 420f;
+        public const float CurrentSouthBandY = 788f;
         public const float CurrentPeriod = 6f;
         public const float CurrentTelegraph = 0.8f;
         public const float CurrentActive = 3.2f;  // threat duty 53%
@@ -220,17 +365,44 @@ namespace CinderCourt.Sim
         public const float PylonHp = 300f;
         public const float PylonAuraDamageTakenMult = 0.40f;  // -60%: unmissable shield
 
-        /// <summary>Ash-wall timetable (§Gimmick 3). Cycle 23.0 s, both edges cross centre.</summary>
-        public const float WallEdgeX = 248f;
-        public const float WallEdgeRightX = 1288f;
-        public const float WallDepthMax = 560f;   // left max x808 / right max x728 — past centre 768
+        /// <summary>
+        /// Ash-wall timetable (§Gimmick 3). Cycle 23.0 s, both edges cross centre.
+        ///
+        /// AMENDMENT #17 chose option W2 — PRESERVE THE PERIOD, pay in closing speed.
+        /// The alternative (keep speed 80, let the advance stretch 7 s -> 9.69 s) would
+        /// have pushed the cycle to 28.4 s and dropped the threat duty, and duty is a
+        /// contracted value in the balance sheet while closing speed is not.
+        /// The cost is explicit and must be re-measured with the dual-bot protocol
+        /// (CLAUDE.md §4y): the wall now closes at 110.7 against the player's 218, so
+        /// the escape margin falls 138 -> 107 u/s. That IS a difficulty increase.
+        /// </summary>
+        public const float WallEdgeX = SimConfig.ArenaX - DungeonBoundsSpec.ExpandedHalfWidth;
+        public const float WallEdgeRightX = SimConfig.ArenaX + DungeonBoundsSpec.ExpandedHalfWidth;
+
+        /// <summary>
+        /// How far past the arena centre each edge travels at full depth. Held at the
+        /// frozen 40 px so "both edges cross centre" survives the widening — that
+        /// overlap is what makes the closing jaws inescapable by standing still.
+        /// </summary>
+        public const float WallOvershoot = 40f;
+
+        /// <summary>Depth that puts the leading edge <see cref="WallOvershoot"/> past centre: 775.</summary>
+        public const float WallDepthMax = SimConfig.ArenaX + WallOvershoot - WallEdgeX;
+
         public const float WallRest = 4.5f;
         public const float WallTelegraph = 1.5f;
         public const float WallAdvance = 7f;
         public const float WallHold = 3f;
         public const float WallRecede = 7f;
         public const float WallPeriod = WallRest + WallTelegraph + WallAdvance + WallHold + WallRecede;
-        public const float WallSpeed = 80f;
+
+        /// <summary>
+        /// 110.714 px/s. DERIVED so the advance phase always ends exactly at full depth.
+        /// As a literal it was a third number that had to agree with the other two, and
+        /// the recede phase reads it as well — a hand-edited speed silently leaves the
+        /// wall short of, or past, its own edge at the end of a phase.
+        /// </summary>
+        public const float WallSpeed = WallDepthMax / WallAdvance;
         public const float WallTickDamage = 10f;
         public const float WallTickPeriod = 0.6f;
 
@@ -265,55 +437,84 @@ namespace CinderCourt.Sim
             CinderSpan, AbyssChancel, EchoThrone, CinderSluice, EmberBastion, AshMarch,
         };
 
-        private static readonly HazardConfig[] CinderSpanHazards =
-        {
-            HazardConfig.Vent(560f, 480f, 0f),
-            HazardConfig.Vent(980f, 720f, 1.2f),
-        };
+        // AMENDMENT #17. Every anchor table is GIMMICKS composed with the stage's lane
+        // layout (DungeonLayoutSpec).
+        //
+        // The gimmick COORDINATES ARE UNCHANGED, and a first pass that re-spread them
+        // across the wider playfield was reverted. They are anchored to the arena
+        // CENTRE, and the centre did not move — the expansion adds room at the rim.
+        // Moving them broke four contracts at once: pylons must sit iso 220..280 from
+        // the spawn convergence (a re-spread one measured 451), the ash-march pylon
+        // must keep the corridor altar inside its aura, and two pairs fell under the
+        // radial no-overlap floor. Widening a room is not a reason to rearrange its
+        // furniture.
 
-        private static readonly HazardConfig[] AbyssChancelHazards =
-        {
-            HazardConfig.Pillar(640f, 500f),
-            HazardConfig.Pillar(900f, 700f),
-            HazardConfig.Pillar(768f, 604f),
-            HazardConfig.Vent(1100f, 450f, 0.6f),
-        };
+        private static readonly HazardConfig[] CinderSpanHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                HazardConfig.Vent(560f, 480f, 0f),
+                HazardConfig.Vent(980f, 720f, 1.2f),
+            }, CinderSpan);
 
-        private static readonly HazardConfig[] EchoThroneHazards =
-        {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Vent(500f, 700f, 0f),
-            HazardConfig.Vent(1030f, 480f, 1.2f),
-        };
+        private static readonly HazardConfig[] AbyssChancelHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                HazardConfig.Pillar(640f, 500f),
+                HazardConfig.Pillar(900f, 700f),
+                HazardConfig.Pillar(768f, 604f),
+                HazardConfig.Vent(1100f, 450f, 0.6f),
+            }, AbyssChancel);
 
-        private static readonly HazardConfig[] CinderSluiceHazards =
-        {
-            HazardConfig.Current(768f, 470f, CampaignSpec.CurrentPush, 0f),
-            HazardConfig.Current(768f, 740f, -CampaignSpec.CurrentPush, 3f),
-            HazardConfig.Vent(500f, 604f, 0.9f),   // v1.1: bomb the only safe corridor
-            HazardConfig.Vent(1030f, 604f, 2.1f),
-            HazardConfig.Pillar(768f, 604f),
-        };
+        private static readonly HazardConfig[] EchoThroneHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                HazardConfig.Altar(768f, 604f),    // focal point — stays dead centre
+                HazardConfig.Vent(500f, 700f, 0f),
+                HazardConfig.Vent(1030f, 480f, 1.2f),
+            }, EchoThrone);
 
-        private static readonly HazardConfig[] EmberBastionHazards =
-        {
-            HazardConfig.Pylon(560f, 500f),
-            HazardConfig.Pylon(980f, 700f),
-            HazardConfig.Pylon(768f, 430f),        // v1.1: third pylon — aura covers spawn
-            HazardConfig.Pillar(640f, 650f),
-            HazardConfig.Pillar(900f, 560f),
-            HazardConfig.Vent(768f, 604f, 0.6f),
-        };
+        private static readonly HazardConfig[] CinderSluiceHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                // Bands follow CurrentHalfH 160: y 260..580 and 628..948 against a
+                // playfield of 214..994, so the safe corridor stays 48 px (was 50).
+                HazardConfig.Current(768f, CampaignSpec.CurrentNorthBandY, CampaignSpec.CurrentPush, 0f),
+                HazardConfig.Current(768f, CampaignSpec.CurrentSouthBandY, -CampaignSpec.CurrentPush, 3f),
+                HazardConfig.Vent(500f, 604f, 0.9f),   // v1.1: bomb the only safe corridor
+                HazardConfig.Vent(1030f, 604f, 2.1f),
+                HazardConfig.Pillar(768f, 604f),
+            }, CinderSluice);
 
-        private static readonly HazardConfig[] AshMarchHazards =
-        {
-            HazardConfig.Wall(0f),
-            HazardConfig.Wall(11.5f, fromRight: true),  // v1.1: closing jaws, half-period offset
-            HazardConfig.Altar(768f, 604f),             // v1.1: corridor reward, periodically engulfed
-            HazardConfig.Pylon(768f, 520f),             // v1.2 finale: bastion guards the corridor altar
-            HazardConfig.Vent(560f, 760f, 0.6f),
-            HazardConfig.Vent(980f, 450f, 1.8f),
-        };
+        private static readonly HazardConfig[] EmberBastionHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                HazardConfig.Pylon(560f, 500f),
+                HazardConfig.Pylon(980f, 700f),
+                HazardConfig.Pylon(768f, 430f),        // v1.1: third pylon — aura covers spawn
+                HazardConfig.Pillar(640f, 650f),
+                HazardConfig.Pillar(900f, 560f),
+                HazardConfig.Vent(768f, 604f, 0.6f),
+            }, EmberBastion);
+
+        private static readonly HazardConfig[] AshMarchHazards = DungeonLayoutSpec.Compose(
+            new[]
+            {
+                HazardConfig.Wall(0f),
+                HazardConfig.Wall(WallPhaseOffset, fromRight: true),
+                HazardConfig.Altar(768f, 604f),         // v1.1: corridor reward, periodically engulfed
+                HazardConfig.Pylon(768f, 520f),         // v1.2 finale: bastion guards the corridor altar
+                HazardConfig.Vent(560f, 760f, 0.6f),
+                HazardConfig.Vent(980f, 450f, 1.8f),
+            }, AshMarch);
+
+        /// <summary>
+        /// Half a wall period, so the two jaws close alternately. DERIVED — the literal
+        /// 11.5 it replaces was exactly half of the period as it stood, and #17 does not
+        /// change the period, but a hand-written half is a second source for a number
+        /// the timetable already owns (CLAUDE.md §4i). The trial table next door already
+        /// wrote it as <c>WallPeriod * 0.5f</c>; these two are now the same expression.
+        /// </summary>
+        private const float WallPhaseOffset = CampaignSpec.WallPeriod * 0.5f;
 
         /// <summary>Stage ids in campaign order.</summary>
         public static IReadOnlyList<string> Ids => AllIds;
@@ -436,12 +637,20 @@ namespace CinderCourt.Sim
 
         private static readonly HazardConfig[] CurrentTrial =
         {
-            // Band centres match the shipped cinder-sluice geometry (y 360-580 /
-            // 630-850, a 50 px safe corridor). The first draft used 484/724,
-            // which leaves 20 px — the browser showed the player vanishing
-            // between two overlays at the spawn point.
-            HazardConfig.Current(768f, 470f, CampaignSpec.CurrentPush, 0f),
-            HazardConfig.Current(768f, 740f, -CampaignSpec.CurrentPush, 3f),
+            // Band centres match the shipped cinder-sluice geometry, which is the
+            // whole point of the trial — practise the stage, not a variant of it.
+            // AMENDMENT #17 moved both: 470/740 -> 420/788 alongside CurrentHalfH
+            // 110 -> 160, so the bands are y 260-580 and 628-948 and the safe corridor
+            // is 48 px (was 50).
+            //
+            // These two lines are NOT optional to update. Leaving the old centres with
+            // the new band height gives 310-630 and 628-948 — the bands OVERLAP by
+            // 2 px and the corridor the trial exists to teach stops existing. The
+            // first draft of this table had the same class of bug at 484/724 (20 px
+            // corridor) and the browser showed the player vanishing between two
+            // overlays at the spawn point.
+            HazardConfig.Current(768f, CampaignSpec.CurrentNorthBandY, CampaignSpec.CurrentPush, 0f),
+            HazardConfig.Current(768f, CampaignSpec.CurrentSouthBandY, -CampaignSpec.CurrentPush, 3f),
         };
 
         private static readonly HazardConfig[] PylonTrial =

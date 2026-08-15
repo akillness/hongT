@@ -56,7 +56,93 @@ relic +250 점수, 수명 12 s, 자력 78. 아이소 거리 `hypot(dx, dy*1.42)`
 | 2D 스프라이트/시트 | perfectpixel | `ppgen -provider god-tibo-imagen -desc "..." -json` |
 | 3D 리스킨/애니메이션 | Blender 5.x headless | `blender -b -P tools/blender/<script>.py -- ...` |
 | SFX | ElevenLabs sound-generation API | `python3 tools/audio/gen_sfx.py` (키: env `ELEVENLABS_API_KEY`, 커밋 금지) |
+| BGM | ElevenLabs Music API | `python3 tools/audio/gen_bgm.py` (같은 키) |
+| **VO(스토리 내레이션)** | **Higgsfield `inworld_text_to_speech`** | `python3 tools/audio/gen_voice.py --all` (키: `higgsfield auth login`) |
+| **연출 스틸/시네마틱 프레임** | **Higgsfield `nano_banana_flash`** | `higgsfield generate create nano_banana_flash --prompt "..." --image <ref-id>` → ffmpeg 조립 |
+| **시네마틱 클립(인트로·막)** | **Higgsfield `kling2_6`/`seedance_2_0`** | `higgsfield generate create kling2_6 --prompt "..." --start-image <ref> --wait` → ffmpeg 1280×854 재인코딩 → `Assets/StreamingAssets/Video/` |
+| **휴머노이드 모션 클립** | **Higgsfield `3d_rigging`** | `higgsfield generate create 3d_rigging --model_url <glb> --enable_animation true --animation_action_id <id> --wait` → `tools/blender/clip_from_glb.py` → `Assets/Art/Motion/` |
 
+**2026-08-09 개정.** 두 행이 추가됐고 이유가 각각 다르다.
+
+- **VO는 지시 변경**이다. 2026-08-04 지시는 "SFX + BGM만, 음성 내레이션 금지"였고,
+  2026-08-09 사용자가 *"연출용 영상, 음성, 사운드등도 추가해"*로 개정했다. 개정 범위는
+  **스토리 내레이션 한정**이다 — cue-* 효과음 프롬프트는 여전히 vocals를 금지한다.
+  효과음에 목소리를 구워 넣으면 따로 음소거·더킹·번역할 수 없기 때문이다.
+- **연출 스틸이 god-tibo-imagen이 아닌 이유는 능력 차이**다. `gti`의 codex-cli
+  프로바이더는 **이미지 입력을 거부**한다(`docs/provenance/intro-video.json`
+  frames.provider_findings). 그래서 인트로 릴 beat 6은 텍스트 STYLE 접미사만으로
+  일관성을 유지하려다 피사체가 과일처럼 읽혀 컷됐다. nano_banana_flash는 참조
+  이미지를 받으므로 같은 beat가 한 번에 통과했다. **참조가 필요 없는 신규 컨셉은
+  계속 gti를 쓴다** — 이 행은 gti를 대체하지 않는다.
+- ElevenLabs 키는 2026-08-09에 **HTTP 401로 판정돼 "실행 불가"로 기록됐으나, 그
+  판정이 틀렸다.** 2026-08-11 `.env.game-audio`의 같은 키로 엔드포인트별 실측:
+
+  | 엔드포인트 | 결과 |
+  |---|---|
+  | `/v1/user/subscription` | 401 (`user_read` 권한 없음) |
+  | `/v1/voices` | 401 (`voices_read` 권한 없음) |
+  | **`/v1/sound-generation`** | **200** — SFX·기합 생성 경로 |
+  | **`/v1/text-to-speech`** | **200** (voice_id를 직접 지정할 때) |
+
+  즉 **키가 죽은 게 아니라 스코프가 좁은 것**이고, 정작 쓰는 두 엔드포인트는
+  살아 있다. 권한 오류를 키 무효로 읽어 파이프라인 전체를 이월 블로커로 만든
+  사례다 — §4z가 말하는 "불가가 도구의 한계인지 대상의 성질인지"를 구분하지
+  않으면 이렇게 된다. **키 상태를 판정할 때는 쓰지도 않을 메타 엔드포인트가
+  아니라 실제로 호출할 엔드포인트로 재라.**
+
+  VO가 Higgsfield로 간 것은 이 오판정 시점의 결정이며, 그 자체는 유지한다
+  (내레이션은 이미 그 경로로 출하됨). 신규 SFX·기합은 ElevenLabs를 쓴다.
+
+**2026-08-10 개정.** 사용자 지시 *"힉스필드 이용해서 3d 리소스, mesh, 모션,
+vfx, 인트로/컷씬 영상 업데이트"*로 두 행이 추가됐다. 둘 다 이미 측정으로
+증명된 경로의 성문화다 — 신규 실험이 아니다.
+
+- **시네마틱 클립**: cycle-12의 막 시네마틱 3편(act1~3)이 kling2_6 산출
+  (1764×1176 5s)을 1280×854로 재인코딩해 출하한 실적이다. 스타일 게이트:
+  픽셀아트 계열(seedance_2_0_mini 테스트, 잡 5f9618cb)은 실사 고딕 톤과
+  충돌해 기각됐다 — 새 클립은 기존 출하 클립을 참조 이미지로 줘라.
+  **캐릭터가 나오는 비트(컨셉·위협)를 환경 온리 클립으로 갈지 마라** —
+  서사가 빠진다.
+- **모션 클립**: cycle-11이 6종 교체로 증명. `animation_action_id`는 enum
+  없는 불투명 정수라 **샘플링 지도**가 유일한 문서다 — 전투 190~260,
+  아이들 243~252 대역. 지도와 잡 이력은
+  `_workspace/current/engineering/mesh-gen/manifest.json` 참조.
+  `clip_from_glb.py`가 테이크 명명·프레임 범위 절단(씬 기본 1-250 함정)을
+  처리한다. 3d_rigging 리그는 리네임 없이 Unity 휴머노이드 15/15 매핑된다.
+- **`model_url`은 반드시 우리 출하 메시다. 벤더 기본 프록시 바디로 리깅하지
+  마라.** 2026-08-10 실측(`mesh-gen/rig-diagnosis.json`): 프록시 리그는
+  무릎이 골격 높이의 **35.0%**인데 출하 캐릭터는 **28.9%**이고, rest pose가
+  **좌우 비대칭**(왼발 4.8% / 오른발 9.6%)이며 A-pose다. 휴머노이드 리타겟은
+  이 차이를 흡수하지 못해 **다리가 구겨진 채 모든 프레임에 상수 오차로
+  실린다** — 사용자가 "리깅이 개판"이라고 제보한 상태가 이것이다. 같은
+  액션을 출하 메시로 재리깅하면 무릎 27.9/28.0%·대칭·T-pose로 복귀한다
+  (오차 7pp → 1pp).
+  - 절차: `human-command-boss.fbx`에서 아마추어·모디파이어를 벗긴 raw 메시를
+    GLB로 내보내 gh-pages(`assets/player-mesh.glb`)에 올리고 그 URL을
+    `--model_url`로 넘긴다. **CLI `upload create`는 `.glb`를 거부한다**
+    (`Cannot detect media type from extension`) — URL 경유가 유일한 경로다.
+  - 프록시 리깅은 **탐사 전용**이다. 불투명 id가 무슨 동작인지 알아내는
+    데는 싸고 유효하지만, 그 산출물을 그대로 출하하면 안 된다. 당선된 id만
+    출하 메시로 재리깅한다.
+  - **isHuman 15/15는 이 결함을 못 잡는다.** 매핑은 성공하고 트림도 옳다.
+    물어야 하는 질문은 "매핑되는가"가 아니라 **"이 리그가 대상과 같은
+    몸인가"**이며, 좌표계는 골격 span 정규화 관절 높이다(§4m).
+  - **`.meta`는 `.fbx`보다 오래 산다.** 다른 리그로 만든 테이크로 교체하면
+    이전 아바타의 명시적 본 매핑(`humanDescription.human/skeleton`)이 메타에
+    남고, `avatarSetup = CreateFromThisModel`은 **그것을 버리지 않는다.**
+    새 리그에 없는 이름으로 휴먼 본을 해석하려다 아바타가 실패하고
+    **클립이 0개 생성된다** — FBX는 멀쩡한데(249 fcurve 실측) 게임에는
+    아무 모션도 없다. `ReimportClips`가 `human`·`skeleton`을 빈 배열로
+    덮어써 자동 매퍼를 강제한다. 실패는 원인의 모양으로 나타나지 않았다:
+    로그 경고 한 줄뿐이고 테스트는 "클립이 없다"·"손이 안 움직인다"로만
+    보고했다. **자산을 바꾸면 그 자산을 설명하는 메타도 바꿀 대상이다.**
+  - **`importer.defaultClipAnimations`는 파일이 아니라 직전 import 결과를
+    말한다.** 깨진 아바타로 한 번 임포트된 뒤에는 테이크 목록이 빈 채로
+    캐시되고, 설정을 바꿔도 `SaveAndReimport()` 전에는 반영되지 않는다.
+    그 상태로 읽으면 **249 fcurve가 실측되는 파일을 "no animation takes"로
+    보고한다.** 설정 적용 → `SaveAndReimport()` → 그 다음에 읽어라.
+    파생 프로퍼티는 소스가 아니라 마지막 계산을 말한다(§4i가 한 객체 안에서
+    일어난 형태).
 - 캐릭터 스키닝 계약: 소스 메시(Abyssal-Surge 모션 라이브러리)를
   **mixamo 표준 휴머노이드 스켈레톤에 자동 웨이트로 재바인딩**하고 FBX로
   내보낸 뒤 Unity Humanoid 아바타로 리타겟한다. 원작의 절차적 영역분할
@@ -435,8 +521,8 @@ cycle-7에서 아이콘 2개를 추가하려고 `mat_icons.py`를 돌렸더니 *
 - `build-webgl/index.html`은 두 밴드를 만든다. 어느 밴드에서 재는지 밝히지
   않은 px 수치는 무의미하다:
   ```
-  밴드 A  CSS >= 501   aspect-locked 1280:853   최악 0.4261 px/u
-  밴드 B  CSS <= 500   fill                     최악 0.4383 (지원 내)
+  밴드 A  CSS 폭 >= 501 && !((max-height: 500px) and (orientation: landscape))   aspect-locked 1280:853   최악 0.4261 px/u
+  밴드 B  CSS 폭 <= 500 || ((max-height: 500px) and (orientation: landscape))    fill                     최악 0.4383 (지원 내)
   ```
 - **단위(u)가 계약이고 px는 파생이다.** 배포 프레임 1.0884 px/u에서 px 단언은
   `44/1.0884 = 40.4u` 이상만 요구한다 — 92×92 계약이 84×44로 바뀌어도 통과한다.

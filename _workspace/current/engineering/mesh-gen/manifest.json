@@ -1,0 +1,205 @@
+{
+  "written": "2026-08-10",
+  "purpose": "Higgsfield 3d_rigging animation_action_id 샘플링 지도 + 2026-08-10 잡 처분 기록. id는 enum 없는 불투명 정수라 이 지도가 유일한 문서다 (CLAUDE.md §3 2026-08-10 개정).",
+  "base_mesh": {
+    "file": "shade-echo.glb",
+    "source_model_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3HaZuH3UivCvNs7JsnnYaOB72Rx/hf_20260810_013208_a03d04c5-ef2c-4c94-8370-1d8f7e9a0feb.glb",
+    "note": "[OBSERVED] 리깅 GLB 기준 302 tris / 22 bones (WebGL ≤25k 계약 내)"
+  },
+  "action_id_map": {
+    "_cycle11_shipped": {
+      "190": "Knock_Down_1 (bighit)",
+      "195": "Right_Upper_Hook_from_Guard (attack2, 이후 교체됨)",
+      "200": "Punch_Combo_1 (attack, 이후 교체됨)",
+      "205": "Punch_Combo_5 (attack3, 이후 교체됨)",
+      "220": "Shield_Push_Left (defence)",
+      "240": "Thrust_Slash (critical)"
+    },
+    "_20260810_sweep": {
+      "230": {
+        "action": "Walk_Backward_with_Bow_Aimed",
+        "seconds": 1.5
+      },
+      "235": {
+        "action": "Forward_Roll_and_Fire",
+        "seconds": 3.37
+      },
+      "236": {
+        "action": "Draw_and_Shoot_Left",
+        "seconds": 5.33
+      },
+      "237": {
+        "action": "Charged_Axe_Chop",
+        "seconds": 7.67
+      },
+      "238": {
+        "action": "Axe_Spin_Attack",
+        "seconds": 2.5,
+        "shipped": "attack2 (1742c10)"
+      },
+      "239": {
+        "action": "Crouch_Pull_and_Throw",
+        "seconds": 5.8
+      },
+      "241": {
+        "action": "Weapon_Combo_2",
+        "seconds": 4.53,
+        "shipped": "attack3 (1742c10)"
+      },
+      "242": {
+        "action": "Charged_Slash",
+        "seconds": 2.23,
+        "shipped": "attack (1742c10)"
+      },
+      "243": {
+        "action": "Idle_3",
+        "seconds": 9.97
+      },
+      "244": {
+        "action": "Idle_4",
+        "seconds": 13.97
+      },
+      "245": {
+        "action": "Idle_5",
+        "seconds": 1.87
+      },
+      "248": {
+        "action": "Idle_8",
+        "seconds": 8.0
+      },
+      "252": {
+        "action": "Idle_12",
+        "seconds": 6.0
+      },
+      "255": {
+        "action": "Angry_Ground_Stomp",
+        "seconds": 1.4
+      },
+      "265": {
+        "action": "Groan_Holding_Stomach_in_Sleep",
+        "seconds": 2.17
+      },
+      "270": {
+        "action": "Toss_and_Turn",
+        "seconds": 17.63
+      }
+    },
+    "bands": "[INFERENCE] 전투 190~242 · 아이들 243~252 · 감정/수면 255~270. 활/투척(230/235/236/239)이 전투 대역에 섞여 있으므로 대역만 믿지 말고 잡 1개로 검증 후 배치할 것."
+  },
+  "video_jobs_20260810": {
+    "disposition": "kling2_6 3편은 cycle-12(74ec491)에서 act1~3으로 이미 출하됨 — 본 디렉터리의 mp4는 원본(1764×1176) 보관본. seedance_2_0_mini(5f9618cb)는 픽셀아트 스타일 이질로 기각.",
+    "act1": "1e12dc12-983f-4b9f-b655-e372c52c71d9 (보라 성당)",
+    "act2": "091bd2d7-c829-4314-99f4-659224a1863a (고딕 홀·낙진)",
+    "act3": "dede82fe-c5bb-4ba2-820a-f58098dab6c7 (재폭풍 성채)",
+    "rejected": "5f9618cb-22e6-47c4-84ba-2c2994ec25b7 (픽셀아트 공성)"
+  },
+  "leftover_value": "미소비 리깅 GLB 13종 로컬 보관(shade-echo-anim*.glb). 소비 시 clip_from_glb.py 경유.",
+  "visual_triage_20260810": {
+    "method": "Blender headless 3프레임(25/50/75%) 렌더 육안 분류 — 액션 id가 불투명하므로 산술(SwingArcProbe)과 별개로 가족(무장/비무장) 판정은 눈이 한다",
+    "fit": {
+      "252": "Idle_12 — 전투 준비 오픈 스탠스. 무장 idle 1순위 후보",
+      "243": "Idle_3 — 이완 스탠드. idle 변주 후보",
+      "255": "Angry_Ground_Stomp — 스톰프+팔 스윙. show/도발 후보",
+      "237": "Charged_Axe_Chop — 크라우치→오버헤드 대공격. 대형 타격 연출 후보 (7.67s, 강트림 필수)"
+    },
+    "reject": {
+      "236": "활 계열(측면 사격) — 검 캐릭터 부적합",
+      "230/235/239": "활/투척 문맥 — avoid 용도로도 사격 모션이 섞여 위험",
+      "244/245/248": "특성 약하거나 비무장 유휴 — 보류",
+      "265/270": "수면/뒤척임 — die 대용 부적절"
+    },
+    "gap": "hit/bighit/die/move/run의 무기 가족 후보 없음 → id 탐사 배치로 해소 시도"
+  },
+  "sample_batch_20260810b": {
+    "purpose": "무기 가족 피격/사망/이동 후보 탐사 — 미지 대역 10개 id",
+    "jobs": "sample-batch-20260810b.txt (id 180 185 188 210 215 218 225 228 250 260 → 잡ID 매핑)",
+    "harvested_20260810": {
+      "180": {
+        "action": "Shot_in_the_Back_and_Fall",
+        "seconds": 4.67,
+        "triage": "FIT — die 1순위: 스탠드→휘청→완전 도복 아크가 깨끗"
+      },
+      "185": {
+        "action": "Shot_and_Slow_Fall_Backward",
+        "seconds": 4.43,
+        "triage": "FIT — die 변주/bighit 후보 (후방 붕괴)"
+      },
+      "188": {
+        "action": "Fall_Dead_from_Abdominal_Injury",
+        "seconds": 3.5,
+        "triage": "FIT — bighit 후보: 복부 클러치 리액션이 전반부"
+      },
+      "210": {
+        "action": "Boxing_Guard_Prep_Straight_Punch",
+        "triage": "REJECT 복싱"
+      },
+      "215": {
+        "action": "High_Kick",
+        "triage": "REJECT 킥"
+      },
+      "218": {
+        "action": "Step_in_High_Kick",
+        "triage": "REJECT 킥"
+      },
+      "225": {
+        "action": "Archery_Shot_1",
+        "triage": "REJECT 활"
+      },
+      "228": {
+        "action": "Walk_Forward_with_Bow_Aimed",
+        "triage": "REJECT 활 보행 (일반 보행 아님)"
+      },
+      "250": {
+        "action": "Idle_10",
+        "seconds": 3.67,
+        "triage": "idle 변주 보류"
+      },
+      "260": {
+        "action": "Push_Forward_and_Stop",
+        "seconds": 2.6,
+        "triage": "defence/스태거 대안 보류"
+      }
+    },
+    "band_map_updated": "사망/리액션 180~188 · 펀치 195~210 · 킥 215~218 · 방패 220 · 활 225~236 · 무기 237~242 · 아이들 243~252 · 스톰프 255 · 푸시 260 · 수면 265~270",
+    "remaining_gaps": "작은 hit(flinch) — 170~179 대역 탐사 후보. 무기 move/run — 대역 미상, 추가 탐사 필요"
+  },
+  "sample_batch_20260810c": {
+    "purpose": "hit flinch(170대)·무기 보행 탐사(130~165)",
+    "jobs": "sample-batch-20260810c.txt",
+    "harvested": {
+      "130": "mage_soell_cast_1 3.53s — FIT cast 대안(양팔 캐스트)",
+      "140": "Block3 1.50s — FIT defence 대안(가드 자세)",
+      "150": "Hit_Reaction_with_Bow — REJECT 활",
+      "160": "Roll_Dodge_2 2.03s — 후보(롤 확인)이나 루트 이동 큼, 인플레이스 투영 후 인게임 확인 필요",
+      "165": "Kneeling_Reload — REJECT 총기",
+      "170": "Standing_Reload — REJECT 총기",
+      "172": "Electrocution_Reaction — 보류(특수 피격)",
+      "175": "Face_Punch_Reaction_1 4.50s — hit 변주 보류(강트림 필요)",
+      "178": "Hit_Reaction 1.63s — FIT hit flinch 1순위"
+    },
+    "band_note": "130~178 = 캐스트/가드/리로드/피격 리액션 대역. 무기 보행/주행은 여전히 미발견 — 100 미만 대역 후보로 남김",
+    "next": "hit←178 · defence←140 · cast←130 스왑은 트림 실측+§4q 핀+§4c 스모크의 정규 사이클로 진행"
+  },
+  "player_mesh_rerig_20260810": {
+    "why": "벤더 프록시 리그가 출하 메시와 다른 몸이라 리타겟 후 다리가 구겨졌다 — rig-diagnosis.json 참조.",
+    "source_mesh": "human-command-boss.fbx의 아마추어·모디파이어를 벗긴 raw 메시 → player-mesh.glb (5.9MB) → gh-pages assets/player-mesh.glb 로 호스팅",
+    "model_url": "https://akillness.github.io/hongT/assets/player-mesh.glb",
+    "height_meters": 1.76,
+    "jobs_action_id_to_job_id": {
+      "252": "28475e3a-a8c0-4ed0-91bd-4458935fa150",
+      "130": "b6a8cc6d-99ad-4768-b6b4-1c94f530601b",
+      "140": "ca738383-d118-4d04-9aa1-94f11407d1d5",
+      "178": "7ab31317-b375-4d59-a3c7-2fd5e02ca956",
+      "180": "082429df-8286-457f-b58a-a8cc34355b97",
+      "188": "978714ee-48cf-4f3c-b9a6-f66d4ad481a4",
+      "238": "c0018834-bbb0-4543-a2a0-93aa3fa50151",
+      "240": "dbaf24ba-c08b-434b-9ee4-d0172d5656ea",
+      "241": "9a8057bc-39ec-465d-afc2-d26a229232cc",
+      "242": "1e13f435-0f0a-4bf6-afd2-7552926cc85c",
+      "255": "5b9b6a40-ab2f-4833-8a67-bede28ba58eb"
+    },
+    "outputs": "player-rig/anim{id}.glb (45MB, 미커밋 — 위 잡ID로 재다운로드 가능). 11종 전부 clip_from_glb.py로 Assets/Art/Motion/에 변환 완료, 본 24개로 검증.",
+    "verified": "무릎 27.9/28.0%(대상 28.9) · 발 대칭 0.1pp · T-pose · EditMode 891/890 · 아바타 경고 0",
+    "reproduce": "tools/blender/mesh_to_glb.py로 raw GLB를 재생성한다(바이너리는 미커밋). gh-pages 호스팅은 **일시적**이며 잡 제출 후 제거했다 — 배포가 어차피 지우고, 배포 스크립트는 그 삭제를 스테이징하지 못해 배포가 실패한다(2026-08-10 실측)."
+  }
+}

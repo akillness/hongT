@@ -1,0 +1,208 @@
+[
+  {
+    "issue_code": "input_latency",
+    "source": "rating_criterion",
+    "category": "技术稳定性与性能表现",
+    "title": "按下操作后，游戏响应得太慢",
+    "description": "该项当前评分为 0.9/5.0。大多数操作中的较慢响应约为 2818 毫秒。这说明生存肉鸽在“按下操作后，游戏响应得太慢”方面存在可复现的不足。",
+    "severity": "major",
+    "priority": "P1",
+    "recommendation": "建议目标：缩短操作响应时间。具体做法：避免在输入回调里执行大量计算，把画面更新安排到下一帧并及时确认输入已经接收。验收方法：关键操作的较慢响应应低于 150 毫秒。",
+    "score": 0.9,
+    "problem_id": "quality_technical_quality_input_latency",
+    "selected_attempt_number": 1,
+    "selected_attempt_mode": "baseline",
+    "selected_attempt_id": "attempt_01_baseline",
+    "occurrence_attempts": [
+      1
+    ],
+    "occurrence_attempt_count": 1,
+    "occurrence_label": "出现于 1/1 次尝试",
+    "evidence_conclusion": "证据充分",
+    "evidence_sufficient": true,
+    "evidence": {
+      "available": true,
+      "evidence_id": "attempt_01_baseline_step_8_27790fc5",
+      "attempt_number": 1,
+      "attempt_mode": "baseline",
+      "attempt_id": "attempt_01_baseline",
+      "step": 8,
+      "related_steps": [
+        1,
+        2,
+        3,
+        4,
+        7,
+        8
+      ],
+      "state_snapshot": {
+        "player.hp": 0,
+        "player.max_hp": 100,
+        "player.level": 1,
+        "player.exp": 0,
+        "player.position": {
+          "x": 804.334,
+          "y": 601.528
+        },
+        "enemy_count": 5,
+        "combat.kills": 4,
+        "resources.exp_orbs": 0,
+        "upgrade": {
+          "is_selecting_upgrade": false,
+          "options": []
+        },
+        "boss": {
+          "exists": false,
+          "hp": 0,
+          "max_hp": 0,
+          "phase": 0,
+          "phase_count": 3
+        },
+        "world.elapsed": 32.219,
+        "status": {
+          "done": true,
+          "success": false,
+          "failed": true,
+          "reason": "overrun"
+        },
+        "_available_field_count": 12,
+        "_raw_state_available": true
+      },
+      "changed_fields": [
+        {
+          "field": "player.hp",
+          "before": 34,
+          "after": 0,
+          "change_type": "decreased"
+        },
+        {
+          "field": "player.position",
+          "before": {
+            "x": 768,
+            "y": 601.528
+          },
+          "after": {
+            "x": 804.334,
+            "y": 601.528
+          },
+          "change_type": "changed"
+        },
+        {
+          "field": "status",
+          "before": {
+            "done": false,
+            "success": false,
+            "failed": false,
+            "reason": "running"
+          },
+          "after": {
+            "done": true,
+            "success": false,
+            "failed": true,
+            "reason": "overrun"
+          },
+          "change_type": "changed"
+        },
+        {
+          "field": "world.elapsed",
+          "before": 28.345,
+          "after": 32.219,
+          "change_type": "increased"
+        }
+      ],
+      "recording_clip": null,
+      "screenshot": null,
+      "evaluation": {
+        "done": true,
+        "success": false,
+        "failed": true,
+        "score": 650,
+        "reason": "overrun",
+        "api_available": true,
+        "standard_api_available": true,
+        "mode": "standard_api"
+      },
+      "evidence_conclusion": "证据充分",
+      "validation": "ok",
+      "validation_detail": {
+        "ok": true,
+        "error": null,
+        "selected_attempt_number": 1,
+        "cross_attempt_mixing": false
+      }
+    },
+    "evidence_confidence": {
+      "problem_id": "quality_technical_quality_input_latency",
+      "evidence_id": "attempt_01_baseline_step_8_27790fc5",
+      "score": 61,
+      "level": "medium",
+      "evidence_sufficient": true,
+      "confidence_threshold": 60,
+      "raw_score": 61,
+      "penalty_score": 0,
+      "factors": {
+        "state_snapshot": {
+          "score": 20,
+          "max_score": 20,
+          "field_count": 22,
+          "available": true
+        },
+        "changed_fields": {
+          "score": 20,
+          "max_score": 20,
+          "changed_count": 4,
+          "available": true
+        },
+        "recording": {
+          "score": 0,
+          "max_score": 20,
+          "mode": "missing",
+          "clip_path": null,
+          "clip_exists": false,
+          "recording_path": null,
+          "recording_exists": false,
+          "recording_url": null,
+          "start_ms": null,
+          "end_ms": null,
+          "valid_time_range": false,
+          "invalid_time_range": false
+        },
+        "screenshot": {
+          "score": 0,
+          "max_score": 10,
+          "mode": "missing",
+          "path": null,
+          "path_exists": false,
+          "url": null
+        },
+        "source": {
+          "score": 11,
+          "max_score": 20,
+          "mode": "evidence_reference",
+          "source_text": "rating_criterion",
+          "direct_api": false,
+          "direct_state": false,
+          "used_fallback": false
+        },
+        "integrity": {
+          "score": 10,
+          "max_score": 10,
+          "status": "complete",
+          "valid": true,
+          "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json",
+          "exists": true
+        }
+      },
+      "strengths": [
+        "存在结构化状态快照。",
+        "检测到关键状态字段变化。",
+        "证据文件完整性状态正常。"
+      ],
+      "risks": [
+        "缺少可用录像证据。",
+        "缺少截图证据。"
+      ],
+      "recommendation": "证据链较完整，可作为自动测评结论。"
+    }
+  }
+]

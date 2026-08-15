@@ -13,11 +13,49 @@ namespace CinderCourt.EditorTools
     public static class SceneBuilder
     {
         const string ScenePath = "Assets/Scenes/CinderCourt.unity";
-        const string BackdropTexture = "Assets/Art/Textures/cinder-court-backdrop.png";
-        /// <summary>Grain for the out-of-arena dark. Reuses a stage stone map -
-        /// they are generated seamless-tileable, so no new asset is needed.</summary>
+        /// <summary>
+        /// The court floor plate — a FLOOR, tiled, not a picture of a room.
+        ///
+        /// This used to be Assets/Art/Textures/cinder-court-backdrop.png: a fully
+        /// painted isometric SCENE with its own stairs, columns, braziers, an arched
+        /// doorway and hanging lanterns drawn into it, stretched across one UV 0-1 quad
+        /// covering the whole 1536 x 1024 sim world. That was defensible when the world
+        /// had no standing geometry. It broke the concept three ways once it did
+        /// (design/concept-gap-check-20260813.md):
+        ///
+        ///   1. STYLE — a painted, photoreal-leaning scene under cel-shaded geometry.
+        ///   2. DOUBLE ARCHITECTURE — the image already contains columns, braziers and
+        ///      rails; LobbyCourt places real ones on top. The room was drawn twice,
+        ///      once flat and once solid, and the two did not agree.
+        ///   3. PERSPECTIVE — the painting is locked to one isometric viewpoint while
+        ///      the lobby camera orbits +/-6 degrees, so the ground slid under a room
+        ///      that stayed still.
+        ///
+        /// A tiled toon floor fixes all three at once and needed no new asset: the
+        /// stage floor maps are already seamless, already cel-shaded, and already in
+        /// the payload. abyss-chancel-floor is the chancel's dark slabs with violet
+        /// inlaid sigil lines — the court's own floor, in the court's own vocabulary.
+        ///
+        /// TILING LIVES ON THE MATERIAL (_BaseMap_ST = 6 x 4), which at 19.2 x 12.8
+        /// world units puts one texture instance every 3.2 u — flagstone scale rather
+        /// than one stretched picture.
+        ///
+        /// The painted scene is NOT deleted. It is the only record of the art
+        /// direction this room was first imagined in, and a texture is cheaper to keep
+        /// than to re-derive.
+        /// </summary>
+        const string BackdropTexture = "Assets/Resources/Textures/Toon/abyss-chancel-floor.png";
+        /// <summary>Grain for the out-of-arena dark. Reuses a stage stone map —
+        /// they are generated seamless-tileable, so no new asset is needed.
+        ///
+        /// TOON, not Env. This pointed at the PBR set and stayed there while every
+        /// other lit surface in the game moved to the cel-shaded direction, so the
+        /// one thing framing the arena was the last photographic texture on screen.
+        /// EnvironmentBuilder already prefers Textures/Toon over Textures/Env for the
+        /// same maps (ApplyStageTextures); this is that preference applied to the one
+        /// surface that never went through it.</summary>
         const string VoidFloorTexture =
-            "Assets/Resources/Textures/Env/abyss-chancel-stone.png";
+            "Assets/Resources/Textures/Toon/abyss-chancel-stone.png";
         // World mapping: sim (x, y) px -> Unity (x*S, 0, -y*S).
         //
         // S is DERIVED, never a literal. It was hardcoded 0.01f, and when the

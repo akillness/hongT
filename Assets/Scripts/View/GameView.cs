@@ -71,12 +71,12 @@ namespace CinderCourt.View
         /// knockback (see ActorView.SyncPlayer).</summary>
         float _simDelta;
 
-        // --- dungeon progression gate (AMENDMENTS #13/#14/#15) ---------------
+        // --- dungeon progression gate (AMENDMENTS #13–#18) ------------------
         /// <summary>
         /// The ONE place the view decides which dungeon amendments are armed.
         /// <c>Everything</c> = #13 adaptive waves + #14 graded loot + #15
-        /// expanded movement bounds. It is a static readonly rather than a call
-        /// site literal because the sim is not the only reader: the environment
+        /// expanded movement bounds + #16 boss variety + #18 companion cohesion. It is a
+        /// static readonly rather than a call site literal because the sim is not the only reader: the environment
         /// ring, the camera follow clamp and the ash-wall visuals must all be
         /// laid out against the SAME half-axes the sim clamps to, and they are
         /// built BEFORE the sim exists (GameDirector.SetStageEnvironment runs at
@@ -260,6 +260,7 @@ namespace CinderCourt.View
             _dungeonPresentation = _isDungeon || _isTraining;
             EndRun();
             _logicalStageId = logicalStageId ?? string.Empty;
+            if (Vfx != null) Vfx.SetStageContext(_logicalStageId);
             // Arena/prologue resolve to "" and the HUD chip stays hidden; a dungeon
             // room resolves to its own catalog objective.
             _roomObjective = _isDungeon ? StageCatalog.ObjectiveFor(_logicalStageId) : string.Empty;
@@ -357,6 +358,7 @@ namespace CinderCourt.View
 
             if (_playerView != null) _playerView.gameObject.SetActive(false);
             if (Vfx != null) Vfx.ClearTransient();
+            if (Vfx != null) Vfx.SetStageContext(string.Empty);
             ClearDamageNumbers();
             // Presentation timers must not leak into the lobby (spec #1).
             _hitStopTimer = 0f;
@@ -433,6 +435,13 @@ namespace CinderCourt.View
         /// </summary>
         void ApplyTimeScale()
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (GameFlowAgentBridge.DiagnosticCaptureFrozen)
+            {
+                Time.timeScale = 0f;
+                return;
+            }
+#endif
             // AMENDMENT #9: a guidance card holds the run at a hard 0, and it
             // takes precedence over everything below — including the smoothing
             // ease-back, which would otherwise walk the scale up to 1 under an
@@ -782,6 +791,14 @@ namespace CinderCourt.View
             // §3.6 (#9): idle threat hint — arrow appears after 0.4 s of no
             // player movement, points at the nearest living enemy.
             if (Vfx != null) Vfx.SyncThreatArrow(_sim.Player, _sim.Enemies);
+            if (Vfx != null) Vfx.SyncActiveAttackThreats(_sim.Player, _sim.Enemies);
+            // 2026-08-13 "쏘는 무엇인가": companion shot comets. Per-frame like
+            // its siblings above, NOT event-driven — the basic swing has no
+            // SimEvents bit, and the skill flash is a 0.35 s window whose
+            // rising edge the view must latch itself (VfxDirector owns both
+            // latches; they update every frame or the window-close is missed
+            // and every cast after the first is suppressed).
+            if (Vfx != null) Vfx.SyncCompanionTracers(_sim);
             if (Hud != null) Hud.Sync(_sim);
             // AMENDMENT #10: the surge window is readable for EVERY player, sigils
             // or not — the beat is the narrative (G1), the clause is the payoff.
@@ -847,8 +864,12 @@ namespace CinderCourt.View
 
                     // Room objective readout: the contiguous route never returns to the
                     // lobby between rooms, so BossAlive is what re-frames the same
-                    // objective as the room's final beat.
-                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive);
+                    // objective as the room's final beat. remaining = living + pending
+                    // (the whole wave, not just what is on screen) so the count only
+                    // moves DOWN, and every kill is visible progress — the step-tracker
+                    // beat the 2026-08-12 playtest asked for.
+                    Hud.SyncRoomObjective(_roomObjective, _sim.BossAlive,
+                        _sim.LivingEnemies + _sim.PendingSpawns);
                 }
 
                 if (Vfx != null)
@@ -872,8 +893,7 @@ namespace CinderCourt.View
                     var companionY = hack.CompanionYAt(slot);
                     // G1: nearest living enemy inside the companion's attack
                     // range owns the gaze between strikes (iso-weighted metric,
-                    // same as the sim's targeting). Near the player with no
-                    // target -> rest Idle instead of treadmilling Move.
+                    // same as the sim's targeting).
                     var gazeYaw = float.NaN;
                     var bestSq = HackSpec.CompanionAttackRange * HackSpec.CompanionAttackRange;
                     for (var i = 0; i < enemies.Count; i++)
@@ -889,13 +909,16 @@ namespace CinderCourt.View
                             Mathf.Atan2(deltaX, -(enemy.Y - companionY))
                             * Mathf.Rad2Deg / 22.5f) * 22.5f;
                     }
-                    var playerDeltaX = _sim.Player.X - companionX;
-                    var playerDeltaY = _sim.Player.Y - companionY;
-                    var restIdle = float.IsNaN(gazeYaw) && !hack.CompanionAttackingAt(slot)
-                        && playerDeltaX * playerDeltaX + playerDeltaY * playerDeltaY
-                           < HackSpec.CompanionFollowOffset * HackSpec.CompanionFollowOffset * 2.25f;
-                    view.SyncCompanion(companionX, companionY, hack.CompanionFacingAt(slot),
-                        hack.CompanionAttackingAt(slot), gazeYaw, restIdle);
+                    // Idle vs Move is ActorView's call: it reads the actual
+                    // per-step displacement. The old player-proximity guess
+                    // posed AMENDMENT #18's in-band wander legs as Idle, so a
+                    // walking companion slid with no walk cycle. _simDelta (not
+                    // Time.deltaTime) drives the hold window - a zero-step
+                    // frame must not age it.
+                    var companionAttacking = hack.CompanionAttackingAt(slot);
+                    view.SyncCompanion(companionX, companionY,
+                        hack.CompanionFacingAt(slot), companionAttacking,
+                        gazeYaw, _simDelta);
                 }
 
             }
@@ -1093,6 +1116,11 @@ namespace CinderCourt.View
                 return;
             }
             var visual = marker != null ? marker.Visual : EnemyVisual.EmberCohort;
+            // Shadow-caster diagnostics must not retain late equipment while
+            // this view sits inactive in the pool. Rent resets again after
+            // enable; this pre-disable reset makes the pool boundary itself
+            // clean rather than relying on the next tenant to repair it.
+            view.ResetForPool();
             view.gameObject.SetActive(false);
             _pools[(int)visual].Push(view);
         }

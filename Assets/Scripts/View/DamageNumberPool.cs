@@ -35,21 +35,18 @@ namespace CinderCourt.View
             _initialized = true;
             // Same font contract as HudView: bundled Hangul-capable font with
             // the builtin as editor fallback (WebGL has no OS font fallback).
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
             for (var i = 0; i < PoolSize; i++)
             {
                 var slot = new GameObject("DamageNumber");
                 slot.transform.SetParent(transform, false);
                 var text = slot.AddComponent<TextMesh>();
-                text.font = _font;
+                ViewTypography.Configure(text, _font);
                 text.fontSize = 46;
                 text.characterSize = 0.045f;
                 text.anchor = TextAnchor.MiddleCenter;
                 text.alignment = TextAlignment.Center;
                 var renderer = slot.GetComponent<MeshRenderer>();
-                renderer.sharedMaterial = _font.material;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
                 slot.SetActive(false);

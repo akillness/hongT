@@ -12,21 +12,29 @@ lang: ko
 > 마지막 등불을 든 Dusk Warden이 되어 심연의 재의 법정을 지켜내는 전투 게임 —
 > **Unity 6000.5.6f1 / URP / WebGL** 기반의 3D 캐릭터 빌드입니다.
 
-브라우저 링크 하나로 실행되며 설치·로그인·계정이 필요 없습니다. 이번 빌드는
-원작 Canvas 2.5D 프로토타입의 수치 계약을 보존하는 아레나와, 6단계 3D 던전
-캠페인을 하나의 Unity 씬 상태머신으로 제공합니다.
+브라우저 링크 하나로 실행되며 설치·로그인·계정이 필요 없습니다. 게임 자산과
+구현물은 자체 AI 생성·AI 에이전트 제작 파이프라인으로 제작했고, Unity 빌드에는
+팀의 선행 AI 생성 자산을 재가공해 사용했습니다. 외부 레퍼런스는 아이디어 구상 단계에서만 참고했습니다.
 
-## 페이지 구성
+## 1.1 플레이 문법 요약
 
-| 페이지 | 내용 |
-|---|---|
-| `/` (index) | 기본 진입점 — 로비에서 프롤로그와 6단계 캠페인을 선택 |
-| `/?mode=arena` | 원작 Cinder Court 규칙의 무한 웨이브 아레나 |
-| `/campaign.html` | 이전 링크 호환용 — `/` 로 즉시 리다이렉트 |
+이 빌드의 전투 문법은 “맞히는 게임”보다 **판단하는 게임**에 가깝습니다.
 
-캠페인은 프롤로그를 마친 뒤 순서대로 해금되는 6개 논리 스테이지입니다. 진행도·
-장비·메타 성장 데이터만 localStorage에 저장되며, Ember Rest 선택은 저장되지
-않는 다음 방 전용 준비 효과입니다.
+- `[TARGET]` **Read**: 활성 공격자, 방의 룰, 수호자 위치, 안전한 통로를 먼저 읽습니다.
+- `[TARGET]` **Commit**: Committed Strike, Lantern Dodge, Witness Guard 중 하나를 고르고 다른 답을 포기합니다.
+- `[TARGET]` **Turn**: current, wall, pylon, altar, guardian angle 같은 코트 장치로 국면을 바꿉니다.
+- `[TARGET]` **Adjudicate**: 처치·정화·보상·다음 방 선택으로 판결을 닫습니다.
+
+이 구조는 단순한 액션 숫자 싸움이 아니라, 매 교전마다 “왜 이 답을 골랐는가”를 읽게 만드는 것을 목표로 합니다.
+
+## 1.2 콘텐츠 구성
+
+- **프롤로그**: 세계관과 기본 조작을 익히는 도입부
+- **캠페인**: 순서대로 해금되는 9개 던전과 다음 방 준비 단계인 Ember Rest
+- **아레나**: 원작 Cinder Court 수치 규칙을 보존한 무한 웨이브 모드
+
+진행도·장비·메타 성장 데이터만 브라우저 localStorage에 저장되며, Ember Rest
+선택은 다음 방에만 적용됩니다.
 
 ---
 
@@ -36,7 +44,8 @@ lang: ko
 
 **아레나**: 끝없이 증원되는 Ember Cohort를 격파하며 웨이브를 최대한 깊게
 밀어내는 것. **캠페인**: 프롤로그 뒤 Cinder Span → Ember Gallery → Abyss
-Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화하는 것.
+Chancel → Witness Well → Echo Throne → Ash Verdict → Cinder Sluice →
+Ember Bastion → Ash March를 순서대로 정화하는 것.
 
 핵심 긴장은 **등불 기름(Lantern oil)의 배분**에 있습니다. 기름은 초당 7씩
 자동 회복되고 처치당 6이 추가로 들어오지만, 두 개의 권능이 그 기름을
@@ -87,7 +96,7 @@ Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화�
 거리(`hypot(dx, dy × 1.42)`)를 씁니다. 타격은 워든이 바라보는 방향
 (`dx × facing ≥ -18`)에서만 성립합니다.
 
-## 2.4 캠페인 — 6단계·Ember Rest·장비
+## 2.4 캠페인 — 9단계·Ember Rest·장비
 
 | 순서 | 스테이지 | 보스 | 던전 기믹 |
 |---|---|---|---|
@@ -97,13 +106,16 @@ Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화�
 | 4 | Witness Well | Veil Tactician | 유물 제단 ×1 + 흑요석 기둥 ×2 + 잿불 분출구 ×1 |
 | 5 | Echo Throne | Gate Sovereign | 유물 제단 ×1 + 잿불 분출구 ×2 |
 | 6 | Ash Verdict | Gate Sovereign | 유물 제단 ×1 + 잿불 분출구 ×3 |
+| 7 | Cinder Sluice | Sluice Keeper | 조류 레인 + 해류 숙달 |
+| 8 | Ember Bastion | Bastion Sentinel | 적 보호 불씨 기둥 + 방벽 숙달 |
+| 9 | Ash March | Ash Magistrate | 수렴 잿벽 + 최종 집행 |
 
 - 보스 웨이브는 각 스테이지의 고정 수치 계약을 계승하며, 보스는 체력 ×6,
   접촉 피해 ×2, 이동 ×0.7, 크기 ×1.6과 호위대를 사용합니다.
-- **Ember Rest**: 1–5단계 정화 뒤 결과 패널 없이 즉시 제시되는 결정론적 준비
+- **Ember Rest**: 1–8단계 정화 뒤 결과 패널 없이 즉시 제시되는 결정론적 준비
   제안 3개 중 하나를 선택하거나 건너뛸 수 있습니다. 선택한 효과는 바로 다음
   던전 한 방에만 적용되고, 저장·재도전·이후 스테이지로 이월되지 않습니다.
-- 6번째이자 마지막 스테이지인 Ash Verdict 정화 뒤에는 Ember Rest를 열지 않고
+- 9번째이자 마지막 스테이지인 Ash March 정화 뒤에는 Ember Rest를 열지 않고
   최종 결과 오버레이를 표시합니다. 이 패널에서 재도전 또는 명시적 로비 복귀를
   선택합니다.
 - **장비 3슬롯** — 무기(공격 +6 %/티어), 랜턴(기름 재생 +8 %/티어),
@@ -114,8 +126,8 @@ Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화�
 ## 2.5 종료 조건
 
 체력이 0이 되면 런이 종료됩니다. 결과 오버레이는 점수·처치·획득 요약과
-재도전·로비 복귀를 제공합니다. 1–5단계 보스 처치는 결과 요약을 표시하지 않고
-즉시 Ember Rest로 이어집니다. Ash Verdict 정화만 최종 결과 오버레이를 표시하며,
+재도전·로비 복귀를 제공합니다. 1–8단계 보스 처치는 결과 요약을 표시하지 않고
+즉시 Ember Rest로 이어집니다. Ash March 정화만 최종 결과 오버레이를 표시하며,
 로비 전환은 플레이어가 그 패널에서 선택할 때만 발생합니다.
 
 캠페인 진행·장비·메타 데이터는 localStorage의
@@ -128,59 +140,19 @@ Chancel → Witness Well → Echo Throne → Ash Verdict를 순서대로 정화�
 
 ## 3.1 플레이 링크 (권장)
 
-<https://akillness.github.io/hongT/> — 로비 / 프롤로그 / 6단계 캠페인
+<https://akillness.github.io/hongT/> — 로비 / 프롤로그 / 9단계 캠페인
 <https://akillness.github.io/hongT/?mode=arena> — 무한 웨이브 아레나
 
 최신 Chrome / Edge / Safari / Firefox에서 동작하며, 모바일 브라우저에서는
 화면 방향 패드와 타격 버튼으로 조작합니다.
 
-## 3.2 소스에서 직접 빌드
-
-```bash
-git clone https://github.com/akillness/hongT.git
-cd hongT
-# Unity 6000.5.6f1 필요
-bash tools/unity_batch.sh method CinderCourt.EditorTools.CharacterImportPipeline.ImportAll
-bash tools/unity_batch.sh method CinderCourt.EditorTools.SceneBuilder.Build
-bash tools/unity_batch.sh build          # build-webgl/ 생성
-python3 -m http.server 4173 --directory build-webgl
-# 브라우저에서 http://127.0.0.1:4173/ 열기
-```
-
-## 3.3 검증 실행
-
-```bash
-bash tools/unity_batch.sh tests   # EditMode 테스트 166/166 통과, 실패 0
-```
-Unity 6000.5.6f1 WebGL 빌드도 통과했습니다.
-
-결정론 심(순수 C#)은 Unity 밖에서도 `dotnet test`로 동일하게 검증됩니다.
 
 ---
 
 # 4. 플레이 영상
 
-- **저장소 원본**: `docs/nan2026/assets/video/nan2026-cinder-court-unity-play.mp4`
-  — H.264 1440×900 30 fps, 58초
-- **YouTube**: 업로드 예정 (제출 시 링크 기재)
-
-영상은 **배포된 GitHub Pages 빌드를 실제 브라우저에서 실제 키·마우스 입력으로
-플레이한 화면을 그대로 녹화**한 것입니다 (`tools/video/capture-unity-play.mjs`,
-Playwright 녹화 + CDP 입력, 1단계 클리어·T4 장비 저장 시드 후 복귀 플레이어
-시점). 프레임 합성·보간·재생성이 없으며, 로비(성장/장비/군단 탭·6단계 출정
-카드) → **캠페인 2단계 Ember Gallery 강하**(드레싱 유적·벤트 3기 임박도 fill·
-T4 본 소켓 장비 프롭·블룸 포스트)로 진입한 뒤, §2.2 조작표의 세 가지 입력
-계열을 순서대로 시연합니다:
-
-1. **일반 공격** — `Space` 콤보로 근접 코호트를 정리합니다.
-2. **스킬 핫키 로테이션** — `Q`(Rift Bolt) → `E`(Grave Pulse) →
-   `Shift`(던전 대시) → `F`(Void Aegis) → `R`(Ash Nova) 순서로 시전합니다.
-3. **텍스트 커맨드 콘솔** — `Enter`로 콘솔을 연 뒤 수호자에게 집중공격·방어
-   명령을 내리고, 이어서 `결계`/`노바` 스킬 시전 명령으로 Void Aegis·잿불
-   노바를 발동합니다.
-
-headless 캡처 환경은 한글 IME 조합이 불가해 콘솔 명령은 파서의 영문 별칭을
-사용했습니다 — 화면 피드백("잿불 노바 시전" 등)은 한국어 그대로입니다.
+**YouTube**: [abyssal lantern HongT](https://www.youtube.com/watch?v=u2o0DA3Gqcs)  
+YouTube 표시 길이: **1분 20초**
 
 
 
@@ -196,7 +168,7 @@ headless 캡처 환경은 한글 IME 조합이 불가해 콘솔 명령은 파서
 | 경로 | 역할 |
 |---|---|
 | `Assets/Scripts/Sim/CinderSim.cs` | 결정론 시뮬레이션 (60 Hz, 순수 C#) |
-| `Assets/Scripts/View/StageCatalog.cs` | 6단계 캠페인 카탈로그와 해금 순서 |
+| `Assets/Scripts/View/StageCatalog.cs` | 9단계 캠페인 카탈로그와 해금 순서 |
 | `Assets/Scripts/View/` | 로비·HUD·Ember Rest·프레젠테이션 |
 | `Assets/Editor/` | 휴머노이드 캐릭터 임포트·씬 생성·WebGL 빌드 자동화 |
 | `Assets/Tests/EditMode/CharacterRosterAnimationTests.cs` | 유효 Humanoid Avatar·공유 컨트롤러·공격 오른손 모션 게이트 |

@@ -97,6 +97,7 @@ namespace CinderCourt.Tests
 
         readonly List<GameObject> _roots = new List<GameObject>();
         readonly HashSet<GameObject> _preexisting = new HashSet<GameObject>();
+        readonly Dictionary<string, object> _statics = new Dictionary<string, object>();
 
         bool _hadReducedMotionPref;
         int _reducedMotionPrefValue;
@@ -110,6 +111,14 @@ namespace CinderCourt.Tests
             _hadReducedMotionPref = PlayerPrefs.HasKey("al:reduced-motion");
             _reducedMotionPrefValue = PlayerPrefs.GetInt("al:reduced-motion");
             ViewPrefs.ReducedMotion = false;
+            // This fixture measures the legacy LineRenderer fallback geometry.
+            // Runtime texture coverage lives in VfxRuntimeSheetTests; pin these
+            // optional resources absent here so generated art landing in
+            // Resources/Fx cannot silently turn this geometry test into a
+            // "no Shard lines exist" failure.
+            InjectTexture("_eruptionSheet", "_eruptionSheetProbed", null);
+            InjectTexture("_crackFanMask", "_crackFanMaskProbed", null);
+            InjectTexture("_shardStreakMask", "_shardStreakMaskProbed", null);
 
             // VfxDirector.Awake builds _wardShell with GameObject.CreatePrimitive
             // and never parents it, so every director leaves one extra ROOT
@@ -158,6 +167,9 @@ namespace CinderCourt.Tests
             else
                 PlayerPrefs.DeleteKey("al:reduced-motion");
             PlayerPrefs.Save();
+            foreach (var pair in _statics)
+                StaticField(pair.Key).SetValue(null, pair.Value);
+            _statics.Clear();
         }
 
         // ---------------------------------------------------------- tests --
@@ -652,6 +664,27 @@ namespace CinderCourt.Tests
                 Assert.That(Mathf.Sign(alongX), Is.EqualTo(expectedSign),
                     $"dash shard {i} rakes toward {(alongX > 0f ? "+x" : "-x")}: {why}");
             }
+        }
+
+        void InjectTexture(string textureField, string probedField, Texture2D texture)
+        {
+            SetStatic(textureField, texture);
+            SetStatic(probedField, true);
+        }
+
+        void SetStatic(string name, object value)
+        {
+            var field = StaticField(name);
+            if (!_statics.ContainsKey(name)) _statics.Add(name, field.GetValue(null));
+            field.SetValue(null, value);
+        }
+
+        static FieldInfo StaticField(string name)
+        {
+            var field = typeof(VfxDirector).GetField(name,
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"VfxDirector.{name} is gone");
+            return field;
         }
 
         /// <summary>

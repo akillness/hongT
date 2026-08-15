@@ -1,0 +1,98 @@
+{
+  "releaseBaseSha": "713d95e9010d971cf18b5a42b5f0f081485d567e",
+  "baselineProbeSha": "713d95e9010d971cf18b5a42b5f0f081485d567e",
+  "candidateSourceSha": "dfc6997234483e6bb963b45eb1e4ac8e2d625287",
+  "generatedAt": "2026-08-12T13:47:45Z",
+  "sourceUpstream": "origin/akillness/main",
+  "unityVersion": "6000.5.6f1",
+  "commands": [
+    "python3 tools/deploy/release_provenance.py snapshot-clean  (BEFORE stage 1)",
+    "bash tools/deploy/run_release_gate.sh 1",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 390x844 --evidence-id browser-shadow-mobile",
+    "python3 tools/deploy/make_release_evidence.py editmode",
+    "python3 tools/deploy/make_release_evidence.py build --kind development",
+    "bash tools/deploy/run_release_gate.sh 2",
+    "python3 tools/deploy/release_provenance.py snapshot-clean  (AFTER stage 2)",
+    "python3 tools/deploy/make_release_evidence.py build --kind release",
+    "cleanStatus pre/post bracket the BUILD SEQUENCE for this release: pre before stage 1, post after stage 2",
+    "probeHashes := sha256(sorted (path, blob-sha256) of StageShadowPolicy.cs, StageMood.cs, VfxDirector.cs, StageShadowReceiver.shader) at baselineProbeSha and candidateSourceSha"
+  ],
+  "probeHashes": {
+    "baseline": "1e19d32a07675f10d187a30e8d6a224102e3c68d9296f110c0c080010f2705cd",
+    "candidate": "8c10e9868f3f55eadbb86ab2488551981913e30fff72804bea08204b6694e2c3"
+  },
+  "cleanStatus": {
+    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre-dfc69972.json",
+    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post-dfc69972.json"
+  },
+  "outsideInputAllowList": [
+    ".*",
+    "_workspace/*",
+    "docs/*.DS_Store",
+    "graphify-out/*",
+    "llm-wiki/*",
+    "tools/*",
+    "Library",
+    "Logs",
+    "Temp",
+    "obj",
+    "UserSettings",
+    "*.csproj",
+    "build-development*",
+    "build-webgl*",
+    "mono_crash.*.json",
+    "node_modules",
+    "skills",
+    "skills-lock.json",
+    "tmp",
+    "Data",
+    "engineering",
+    "main.slnx",
+    "HongT.slnx",
+    "com.IvanMurzak.Unity.MCP.Installer.csproj",
+    "specs",
+    "README.md",
+    "WATCHDOG.yml",
+    "CLAUDE.md",
+    "AGENTS.md"
+  ],
+  "evidence": [
+    {
+      "evidenceId": "shadow-focused-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-shadow-focused-editmode.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "full-editmode",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-full-editmode.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "release-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-release-build.json",
+      "buildMode": "Source",
+      "contentMarker": null
+    },
+    {
+      "evidenceId": "development-build",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
+      "buildMode": "Development",
+      "contentMarker": "b656b30bbb75d97d"
+    },
+    {
+      "evidenceId": "browser-shadow-desktop",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
+      "buildMode": "Development",
+      "contentMarker": "b656b30bbb75d97d"
+    },
+    {
+      "evidenceId": "browser-shadow-mobile",
+      "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
+      "buildMode": "Development",
+      "contentMarker": "b656b30bbb75d97d"
+    }
+  ]
+}

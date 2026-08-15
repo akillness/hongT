@@ -1,0 +1,159 @@
+{
+  "exporter": "MemoryEnabledEvidenceExporter",
+  "exporter_version": "5.0",
+  "session_id": "evidence_6b81e3be2467",
+  "exported_at": "2026-08-09T15:28:51.127669+09:00",
+  "output_dir": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467",
+  "game": {
+    "title": "Cinder Court",
+    "game_type": "survivor_like",
+    "url": "http://127.0.0.1:8766/?mode=arena&intro=off"
+  },
+  "rating": {
+    "score": null,
+    "five_star": null,
+    "confidence": null
+  },
+  "evidence": {
+    "quality_score": 65,
+    "quality_level": "medium",
+    "step_evidence_count": 8,
+    "scenario_evidence_count": 0,
+    "problem_count": 1
+  },
+  "confidence": {
+    "overall_score": 61,
+    "overall_level": "medium",
+    "confidence_threshold": 60,
+    "evidence_sufficient": true,
+    "low_confidence_count": 0
+  },
+  "integrity": {
+    "enabled": true,
+    "status": "complete",
+    "algorithm": "sha256",
+    "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json"
+  },
+  "recording_path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/gameplay.webm",
+  "recording_exists": true,
+  "screenshot_count": 8,
+  "screenshots": [
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_7c5000c35b",
+      "step": 1,
+      "label": "attempt_01_baseline_step_1",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0002_step_0001_action_attack_1786256898077.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_bd87aa03cb",
+      "step": 2,
+      "label": "attempt_01_baseline_step_2",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0003_step_0002_action_attack_1786256902959.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_fff610ede8",
+      "step": 3,
+      "label": "attempt_01_baseline_step_3",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0004_step_0003_action_move_left_1786256905709.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_b6addcfeaf",
+      "step": 4,
+      "label": "attempt_01_baseline_step_4",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0005_step_0004_action_attack_1786256908559.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_a558f4970d",
+      "step": 5,
+      "label": "attempt_01_baseline_step_5",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0006_step_0005_action_move_up_1786256911977.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_56c47f230f",
+      "step": 6,
+      "label": "attempt_01_baseline_step_6",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0007_step_0006_action_move_right_1786256914790.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_80a5fb5fbf",
+      "step": 7,
+      "label": "attempt_01_baseline_step_7",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0008_step_0007_action_attack_1786256920722.png",
+      "exists": true
+    },
+    {
+      "screenshot_id": "attempt_01_baseline_screenshot_cbb21e08f3",
+      "step": 8,
+      "label": "attempt_01_baseline_step_8",
+      "path": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/evidence/game_test_20260809_152738_ff6f6d98/screenshots/0009_step_0008_action_move_right_1786256926702.png",
+      "exists": true
+    }
+  ],
+  "clips": {
+    "ffmpeg_available": true,
+    "output_dir": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/clips",
+    "exported_count": 0,
+    "failed_count": 0,
+    "skipped_count": 1,
+    "items": [
+      {
+        "problem_id": "quality_technical_quality_input_latency",
+        "evidence_id": "attempt_01_baseline_step_8_27790fc5",
+        "selected_attempt_number": 1,
+        "selected_attempt_mode": "baseline",
+        "occurrence_label": "出现于 1/1 次尝试",
+        "related_steps": [
+          1,
+          2,
+          3,
+          4,
+          7,
+          8
+        ],
+        "clip_path": null,
+        "clip_exists": false,
+        "clip_start_ms": null,
+        "clip_end_ms": null,
+        "clip_exported": false,
+        "clip_error": null
+      }
+    ]
+  },
+  "files": {
+    "result_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/result.json",
+    "evidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/evidence_report.json",
+    "problem_cards_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/problem_cards.json",
+    "confidence_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/confidence_report.json",
+    "markdown_report": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/report.md",
+    "manifest_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/manifest.json",
+    "integrity_json": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/qa/wai-play/post/reports/evidence_6b81e3be2467/integrity.json"
+  },
+  "export_policy": {
+    "name": "single_best_attempt_per_problem",
+    "problem_fact_source": "aggregated_problem_cards",
+    "all_attempt_raw_evidence_preserved": true,
+    "one_problem_id_once": true,
+    "one_selected_attempt_per_problem": true,
+    "cross_attempt_evidence_mixing": false,
+    "strict_final_report_preserved": true,
+    "ai_raw_report_preserved": true,
+    "attempt_count": 1,
+    "problem_count": 1
+  },
+  "attempts": {
+    "attempt_count": 1,
+    "selected_attempt_number": 1,
+    "completion_success": false,
+    "success_attempt": null
+  },
+  "reports": {
+    "strict_final_report_preserved": true,
+    "ai_raw_report_preserved": true
+  }
+}

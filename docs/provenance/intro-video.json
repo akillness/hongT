@@ -12,16 +12,16 @@
       "2. Spark becomes the ember lantern, held aloft",
       "3. Dusk Warden silhouette rises with the lantern",
       "4. Wide reveal of the abyssal court of obsidian pillars",
-      "5. Molten cinders surge through the court (final hold, carries the title lockup)"
+      "5. Molten cinders surge through the court",
+      "6. Heroic brand hold — Warden raises the lantern in the colonnade (final hold, carries the title lockup)"
     ],
-    "dropped_beat": "6. Heroic brand hold — the render (frame06.png, 1254x1254) was rejected on review because the central subject read as a piece of fruit instead of the lantern-bearing Warden. The beat was cut rather than regenerated; the title lockup moved onto beat 5."
-
+    "dropped_beat": "6. Heroic brand hold — the ORIGINAL render (frame06.png, 1254x1254, god-tibo-imagen/codex-cli) was rejected on review because the central subject read as a piece of fruit instead of the lantern-bearing Warden. The beat was cut and the title lockup moved onto beat 5. RESTORED 2026-08-09 (see revisions): regenerated on Higgsfield nano_banana_flash with frame03+frame05 as image references."
   },
   "frames": {
-    "tool": "god-tibo-imagen",
+    "tool": "god-tibo-imagen (frames 01-05); Higgsfield nano_banana_flash (frame 06, 2026-08-09 — see beat6_restoration)",
     "cli": "gti --provider codex-cli --prompt \"<beat prompt + shared STYLE suffix>\" --output frames/frameNN.png",
     "script": "_workspace/current/design/intro-video/gen.sh",
-    "outputs": "_workspace/current/design/intro-video/frames/frame01..05.png (frame06.png generated, then removed from the repo)",
+    "outputs": "_workspace/current/design/intro-video/frames/frame01..06.png (all six on disk; frame06 is the 2026-08-09 Higgsfield regeneration, not the rejected 2026-08-06 render)",
     "provider_findings": [
       "The default private-codex backend returned HTTP 429 (image quota exhausted on this account) for every attempt, including an 8-attempt backoff run that produced zero frames.",
       "The codex-cli provider succeeds, but rejects image input (\"The codex-cli provider does not support image input\"), so cross-frame consistency is carried by a shared STYLE suffix appended to every prompt instead of a reference image."
@@ -29,13 +29,13 @@
     "observed_sizes": [
       "frame01-04: 1536x1024",
       "frame05: 1672x941",
-      "frame06: 1254x1254 (removed — rejected render)"
+      "frame06: 1264x848 (2026-08-09 Higgsfield regeneration; the rejected 2026-08-06 render was 1254x1254)"
     ]
   },
   "assembly": {
     "tool": "ffmpeg 7.1.1",
     "script": "_workspace/current/design/intro-video/assemble.sh",
-    "frame_count": 5,
+    "frame_count": 6,
     "pipeline": "scale-to-cover + centre-crop to 16:9 -> per-frame Ken-Burns (zoompan, alternating push-in / pull-out, 1.8 s each) -> 0.6 s fade cross-transitions -> burned-in title lockup -> fade in/out",
     "title_lockup": {
       "line1": "ABYSSAL LANTERN",
@@ -47,9 +47,9 @@
       "width": 1280,
       "height": 720,
       "fps": 30,
-      "duration_seconds": 6.6,
-      "bytes": 1432004,
-      "audio": "none"
+      "duration_seconds": 7.8,
+      "bytes": 1709867,
+      "audio": "none — deliberate. WebGL browsers block unmuted video autoplay, so IntroVideoView.cs:256 sets audioOutputMode=None and bgm-intro plays underneath from Unity instead."
     },
     "pitfall": "Feeding the stills as looped streams (-loop 1 -t 1.8) makes zoompan emit d frames per input frame; the first assembled reel was 87 s. Inputs must be single still frames so zoompan's d= alone sets segment length."
   },
@@ -66,7 +66,19 @@
     "title_render_check": "signalstats YAVG over the title band rises 33.3 -> 79.6 and over the Korean subtitle band 29.1 -> 64.4 between t=3.0 s and t=7.2 s, confirming both lockup lines rasterised (Hangul glyphs present in HudKorean.otf). [6-frame cut]",
     "title_render_check_5frame": "Re-measured after the frame06 cut: bright neutral pixels (r>200,g>195,b>180, saturation<40) inside the 1280x200 title band at y=225 count 7051 at t=5.5 s versus 1 at t=2.0 s, so the lockup still rasterises over the new final hold."
   },
+  "beat6_restoration": {
+    "date": "2026-08-09",
+    "tool": "Higgsfield CLI @higgsfield/cli 1.1.23 (npm -g), model nano_banana_flash (Nano Banana 2, image)",
+    "cli": "higgsfield upload create frames/frame03.png; higgsfield upload create frames/frame05.png; higgsfield generate create nano_banana_flash --prompt \"<brand-hold prompt>\" --image <id03> --image <id05> --aspect-ratio 3:2 --resolution 1k",
+    "why_this_tool": "The blocker on the original beat was cross-frame consistency: the codex-cli provider REJECTS image input (see frames.provider_findings), so style had to ride a text-only STYLE suffix and the subject drifted into still-life. nano_banana_flash accepts image references, so frame03 (Warden silhouette) + frame05 (court + ember palette) anchor both subject and palette.",
+    "job_id": "b9b5b099-b47d-4f94-961e-62ccfcd15b82",
+    "cost_credits": 1.5,
+    "observed_output": "frames/frame06.png 1264x848 (1.491 aspect — matches frames 01-04 at 1.500 more closely than frame05 at 1.777), 1253874 bytes",
+    "review": "PASS on the exact axis that failed before — full-body hooded Warden, both arms raising the ember lantern, visible cloak/legs/boots, obsidian colonnade, clean near-black top third.",
+    "title_lockup_move": "Restoring beat 6 put the lantern flare under the old y=h*0.34 lockup band and the gold Korean sub-line sat on the flare. Measured the cropped 1280x720 luma of frame06 per candidate y: title band 35.5 -> 17.4 and sub band 56.8 -> 28.2 moving to y=h*0.18. assemble.sh now draws at h*0.18 and records the measurement method."
+  },
   "revisions": [
-    "2026-08-06 — cut beat 6 (rejected \"apple-looking\" brand-hold render): frames/frame06.png deleted, assemble.sh made frame-list driven (FRAMES array), reel re-assembled at 5 frames / 6.6 s / 1432004 bytes."
+    "2026-08-06 — cut beat 6 (rejected \"apple-looking\" brand-hold render): frames/frame06.png deleted, assemble.sh made frame-list driven (FRAMES array), reel re-assembled at 5 frames / 6.6 s / 1432004 bytes.",
+    "2026-08-09 — restored beat 6 via Higgsfield nano_banana_flash image-reference generation; title lockup moved h*0.34 -> h*0.18 on measured luma; reel re-assembled at 6 frames / 7.8 s / 1709867 bytes (+277863 B, still 1.4% of the 120 MB build cap)."
   ]
 }

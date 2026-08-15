@@ -1110,13 +1110,14 @@ Amends §0, §12 and adds §16 only as specified. §13(결정론), §14(돌발),
 | (미정) | **각인 (Sigils)** — 원문 헤딩 "# AMENDMENT #6 — 각인"으로 도착(레인 번호 충돌, conflicts.md 2026-08-07 기록). 내부 §13.x는 이 증보 로컬 번호이며 본문 §13 결정론과 무관 | 본 문서 "# AMENDMENT #6 — 각인 (Sigils)" | frozen(내용) — **canonical 번호는 D13 오퍼레이터 결정 대기.** 제안: "10-b" (#10/#11이 코드·커밋에 박혀 밀 수 없음). L440 노트의 "동료=#6 확정 시 각인=#7" 경로는 #7이 이미 동료 자율성에 소비되어 무효 |
 | 11 | 난이도 + 적 그룹 AI | 본 문서 "Amendment #11" (로컬 절 번호 **§16**) | frozen |
 | 12 | 던전 환경 (모듈러 타일, View 전용) | SIM_SPEC_ENVIRONMENT.md | **frozen** (2026-08-07 §E8 전부 초록 — EditMode 571/571 test-results-183453.xml · WebGL 0 error · 라이브 gh-pages 6c163b5) |
-| 13 | 웨이브 포인트 예산 + DDA (시드 W4) | 본 문서 "Amendment #13" (로컬 절 번호 **§17**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 232/232, 4레인 pre/post 다이제스트 224행 무이동). 시드 문서가 지칭한 "#10"은 훈련장·돌발이 이미 점유 |
-| 14 | 아이템 등급 드롭 + bad-luck protection (시드 W5) | 본 문서 "Amendment #14" (로컬 절 번호 **§18**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료. 시드 문서가 지칭한 "#11"은 난이도·적 그룹 AI가 이미 점유 |
-| 15 | 던전 이동 한계 (W-MV) | 본 문서 "Amendment #15" (로컬 절 번호 **§19**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 240/240). **뷰 결합 있음**: 게이트를 켜려면 EnvironmentBuilder 의 링 파생을 §19.5 접점으로 바꿔야 한다 |
-| 16 | 보스 아키타입 다양화 (시드 W6) | 본 문서 "Amendment #16" (로컬 절 번호 **§20**) | **DRAFT — 오퍼레이터 서명 대기.** 구현·증명 완료(순수-Sim EditMode 216/216, pre/post 다이제스트 34행 무이동). FROZEN 파일 무수정. **뷰 결합 있음**: 텔레그래프 리듬·아키타입별 연출이 없으면 플레이어에게 보이지 않으므로 `All` 이 아니라 `Everything` 에만 포함 |
+| 13 | 웨이브 포인트 예산 + DDA (시드 W4) | 본 문서 "Amendment #13" (로컬 절 번호 **§17**) | **구현·배포 완료, 서명 대기.** 순수-Sim EditMode 232/232, 4레인 pre/post 다이제스트 224행 무이동. `GameView.cs:91` 이 `DungeonProgressionConfig.Everything` 을 출하하므로 **라이브에서 켜져 있다** — 원장이 "DRAFT"만 말하던 상태는 출하본과 어긋났다. 2026-08-10 §17.4 캠페인 항 추가(아래). 시드 문서가 지칭한 "#10"은 훈련장·돌발이 이미 점유 |
+| 14 | 아이템 등급 드롭 + bad-luck protection (시드 W5) | 본 문서 "Amendment #14" (로컬 절 번호 **§18**) | **구현·배포 완료, 서명 대기.** `Everything` 에 포함되어 라이브 가동 중. 시드 문서가 지칭한 "#11"은 난이도·적 그룹 AI가 이미 점유 |
+| 15 | 던전 이동 한계 (W-MV) | 본 문서 "Amendment #15" (로컬 절 번호 **§19**) | **구현·배포 완료, 서명 대기.** 순수-Sim EditMode 240/240. `Everything` 이 `Bounds = DungeonBoundsSpec.Expanded` 를 실어 라이브에서 켜져 있다(`DungeonProgressionSpec.cs:72`). **뷰 결합 주의**: §19.5 접점 없이는 EnvironmentBuilder 의 링 파생이 심의 클램프와 다른 값을 그린다 |
+| 16 | 보스 아키타입 다양화 (시드 W6) | 본 문서 "Amendment #16" (로컬 절 번호 **§20**) | **구현·배포 완료, 서명 대기.** 순수-Sim EditMode 216/216, pre/post 다이제스트 34행 무이동, FROZEN 파일 무수정. `All` 이 아니라 `Everything` 에만 포함되며 그 `Everything` 이 출하 중이다 |
 | 17 | 진행 네비게이션 (아코디언 · 잠금 사유 · 다음 재판 · 각인 컨텍스트) | 본 문서 "AMENDMENT #8 — 진행 네비게이션" (로컬 절 번호 **§16–§20**) | frozen — 순수 뷰. 신규 저장 필드 0, 신규 심 수치 0, 골든 무이동. 도착 번호 #8은 동료 시그니처가 점유 |
 | 18 | 인게임 안내 (23종 · 정지 8 · 토스트 15 · 코덱스) | 본 문서 "AMENDMENT #9 — 인게임 안내" (로컬 절 번호 **§21–§27**) | frozen — 저장 필드 1개 추가(`GuidanceSeen`, v6 additive). 도착 번호 #9는 모멘텀 게이지가 점유 |
 | 19 | 안내 탭 가독성 (게임설명 · 그룹 페이징 · 스택 아이콘) | 코드 주석 "AMENDMENT #10" (`View/HudViewCodex.cs`, `View/HudView.cs`) — 스펙 절 없음 | frozen — 순수 뷰, 심·저장 무변경. 도착 번호 #10은 훈련장·돌발이 점유 |
+| 20 | 동료 결속 | 본 문서 "Frozen Contract Amendment #20" (로컬 절 번호 **§21**) | **구현·배포 완료.** 도착 헤딩 **#18**은 인게임 안내가 이미 canonical #18을 점유하므로 그대로 보존하고, 이 원장에서 canonical #20으로 배정한다. `DungeonProgressionConfig.Everything` 이 `CompanionCohesion` 을 켜며 `GameView.DungeonProgression` 이 그 `Everything` 을 써서 던전 빌드에 출하된다. 게이트: `Assets/Tests/EditMode/CompanionCohesionTests.cs` |
 
 <!-- 이 세 행은 첫 등록 때 16·17·18이었다. 같은 PR이 리뷰되는 동안 main이
      Amendment #16(보스 아키타입)을 올려서 17·18·19로 밀었다. 도착 헤딩
@@ -1598,6 +1599,77 @@ relic 점수는 `(int)(250 · mul)` 절삭. 장비 파편은 `RaiseRank` 를
   Tactician < 0.85, Sovereign 1.02..1.25, 3종 상호 분리.
 - 결정론: 4개 아키타입 스테이지 각각 동일 입력 2런 락스텝 + digest 동일.
 - 아키타입 런 중 불변 + Restart 후 불변.
+
+
+# Frozen Contract Amendment #20 — 동료 결속 (2026-08-11)
+
+> **번호 배정.** 이 기능은 코드에서 `AMENDMENT #18` 헤딩으로 도착했다. 그러나
+> canonical #18은 이미 인게임 안내가 점유한다. 도착 헤딩은 인용 호환성을 위해
+> 그대로 보존하고, 다음 가용 canonical 번호인 **#20**으로 배정한다. 로컬 절 번호는
+> **§21**이다.
+
+**Status: implemented and proven.** `DungeonProgressionConfig.CompanionCohesion` 과
+`CompanionCohesionSpec`, `CinderSim.UpdateCompanionCohesion` 으로 구현되어 있으며
+`Assets/Tests/EditMode/CompanionCohesionTests.cs` 가 게이트한다.
+
+## §21.0 게이트·범위·동결 경로
+
+- `DungeonProgressionConfig.CompanionCohesion`의 기본값은 `false`다. 단일 인자
+  생성자와 `default(DungeonProgressionConfig)`는 기존 hard-anchor follower를 그대로
+  탄다.
+- `DungeonProgressionConfig.Everything`은 이 게이트를 `true`로 싣는다. `GameView`의
+  `DungeonProgression`은 `Everything`이므로 던전 게임플레이에서는 이 경로가
+  출하되어 있다.
+- `CinderSim` 생성자는 `config.Mode == GameMode.Dungeon`일 때만 progression을 받고,
+  그 밖의 모드는 `default`로 버린다. 따라서 아레나·프롤로그·훈련장에는 이 증보가
+  들어가지 않는다.
+
+## §21.1 수치 계약 (`CompanionCohesionSpec`)
+
+| 상수 | 값 | 의미 |
+|---|---:|---|
+| `ComfortRadius` | 128 | 이 거리 이하에서 recovery latch 해제 |
+| `RecoveryRadius` | 200 | 이 거리 초과에서 recovery latch 시작 |
+| `RecoverySpeedScale` | 1.25 | 복귀 이동 속도 배율 |
+| `WanderStride` | 24 | idle-route 한 leg의 world pixel 길이 |
+| `WanderDwellSeconds` | 0.35 | 다음 idle leg 전 정지 시간(초) |
+
+거리 판정은 플레이어 상대 iso 거리다. 128/200의 분리로 경계에서 recovery가
+토글되지 않는다.
+
+## §21.2 no-target 결속 동작
+
+- recovery latch는 거리 > 200에서 세워지고 거리 <= 128에서만 풀린다. latch 동안은
+  플레이어를 향해 `playerSpeed × 1.25`로 복귀하며, 기존 target pursuit보다 recovery가
+  우선한다.
+- latch가 없을 때 target이 있으면 기존 target pursuit가 우선한다. idle route는
+  **no-target 슬롯만** 소유한다.
+- latch 없는 no-target 슬롯은 dwell 뒤 현재 위치 기준의 결정론적 사각 leg
+  (`+X`, `+Y`, `-X`, `-Y`, 각각 24)을 순서대로 돈다. 이 경로는 anchor를 다시
+  쫓지 않으며 target lock이나 engagement를 만들지 않는다.
+
+## §21.3 결정론·리셋·공개 스냅샷 경계
+
+RNG·해시·시간 난수는 없다. 고정 tick, 슬롯별 phase, 상수 표만이 leg와 recovery를
+결정한다. `Restart()`는 roam target·dwell·recovery latch를 초기화하고 phase를
+slot 값으로 되돌린다.
+
+새 공개 cohesion 상태는 추가하지 않는다. 관측 경계는 기존 `IHackSnapshot`의
+`CompanionXAt`/`CompanionYAt` 및 no-target 검증용
+`CompanionTargetIdAt`/`CompanionEngagedAt`까지이며, 내부 latch·route 상태는
+공개하지 않는다.
+
+## §21.4 검증 계약
+
+`Assets/Tests/EditMode/CompanionCohesionTests.cs`는 다음을 고정한다.
+
+- 기본 progression은 inert이고 `Everything`만 `CompanionCohesion`을 켠다.
+- no-target comfort 및 recovery 경로는 target lock `0`, engagement `false`를
+  유지한다.
+- recovery는 iso 분리를 줄이되 `playerSpeed × RecoverySpeedScale × FixedStep`보다
+  크게 이동하거나 comfort로 teleport하지 않는다.
+- comfort 안의 no-target 슬롯은 `WanderDwellSeconds` 뒤 bounded idle route를
+  시작하며, 첫 이동은 `WanderStride`를 넘지 않는다.
 
 ---
 

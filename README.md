@@ -1,112 +1,157 @@
-# Abyssal Lantern — Hold the Cinder Court
+<div align="center">
 
-[![Play](https://img.shields.io/badge/Play-akillness.github.io%2FhongT-ff9a52?style=flat-square&logo=googlechrome&logoColor=white)](https://akillness.github.io/hongT/)
+![Abyssal Lantern — 잿불의 법정을 지켜라](docs/assets/readme/title.png)
+
+[![Play](https://img.shields.io/badge/▶%20지금%20플레이-akillness.github.io%2FhongT-ff9a52?style=for-the-badge&logo=googlechrome&logoColor=white)](https://akillness.github.io/hongT/)
+
 [![Version](https://img.shields.io/badge/version-v0.2.0-2cadd6?style=flat-square)](docs/RELEASE_NOTES.md)
-[![Unity](https://img.shields.io/badge/Unity-6000.5.6f1-000000?style=flat-square&logo=unity)](https://unity.com)
+[![Unity](https://img.shields.io/badge/Unity-6000.5.6f1%20URP-000000?style=flat-square&logo=unity)](https://unity.com)
 [![WebGL](https://img.shields.io/badge/target-WebGL-8f67ff?style=flat-square)](https://akillness.github.io/hongT/)
-[![Tests](https://img.shields.io/badge/EditMode%20tests-195%20passed-3fb950?style=flat-square)](Assets/Tests/EditMode)
+[![Tests](https://img.shields.io/badge/EditMode-890%20passed-3fb950?style=flat-square)](Assets/Tests/EditMode)
 [![Deploy](https://img.shields.io/badge/Pages-gh--pages-24292f?style=flat-square&logo=github)](https://github.com/akillness/hongT/deployments)
 
-> 마지막 등불을 든 **Dusk Warden**이 되어, 등불의 기름을 태워 잿불 군단의
-> 파도를 밀어내고 심연의 세 구역을 정화하는 **2.5D 핵앤슬래시 아레나 디펜스**.
-> 브라우저 링크 하나로 즉시 실행 — 설치·로그인·서버 없음.
+</div>
+
+마지막 등불을 든 **황혼의 파수꾼**이 되어, 등불의 기름을 태워 잿불 군단의 파도를
+밀어내고 심연의 세 구역을 정화하는 **2.5D 핵앤슬래시 아레나 디펜스**입니다.
+링크 하나로 즉시 시작 — 설치도, 로그인도, 서버도 없습니다.
+
+<div align="center">
+
+![게임플레이](docs/assets/readme/gameplay.gif)
+
+*Ember Gallery · 웨이브 2/5 — 현재 빌드 실제 플레이*
+
+**[▶ 전체 플레이 영상 (55초)](docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4)** ·
+[인트로 시네마틱](docs/nan2026/assets/video/cinder-court-intro.mp4)
+
+</div>
+
+---
+
+## 한눈에 보기
 
 | | |
 |---|---|
-| **플레이** | <https://akillness.github.io/hongT/> |
-| **원작** | [Abyssal-Lantern](https://github.com/jellyggumi/Abyssal-Lantern) (Canvas 2.5D, NAN 2026 제출본) — 수치 계약을 보존한 Unity 재구현 |
+| **장르** | 2.5D 핵앤슬래시 아레나 디펜스 (싱글플레이) |
+| **플랫폼** | 브라우저 (WebGL) · 데스크톱 + 모바일 터치 |
+| **분량** | 9구역 3막 · 스테이지당 5웨이브 · 막마다 3페이즈 보스 |
+| **핵심 재미** | 기름을 태워 화력을 사는 자원 압박 + 3타 콤보 · 대시 · 스킬 4종 |
+| **원작** | [Abyssal-Lantern](https://github.com/jellyggumi/Abyssal-Lantern) (Canvas 2.5D, NAN 2026) — 수치 계약을 보존한 Unity 재구현 |
 
-## 게임 구조 (v0.2.0)
+## 어떻게 노는 게임인가
 
-![게임 구조](docs/assets/diagrams/game-flow.svg)
+**등불은 무기이자 자원입니다.** 기름은 초당 7씩만 차오르고 적을 처치하면 6이
+추가됩니다. 노바 한 방이 45, 방벽이 30 — 지금 쓸지 아낄지가 매 웨이브의 결정입니다.
 
-<!-- 원본: docs/assets/diagrams/game-flow.mmd — 재생성:
-     mmdc -i docs/assets/diagrams/game-flow.mmd \
-          -o docs/assets/diagrams/game-flow.svg \
-          -c docs/assets/diagrams/config.json -b transparent -->
-
-- **로비** — 라이브 3D 배경(워든·동료·보스 대치) 위 성장/장비/군단 패널.
-- **프롤로그** — 탑다운 오소그래픽 "2D 디펜스"로 조작·기름 경제를 학습.
-  클리어하면 카메라가 55°로 내려오며 2.5D 던전이 열린다.
-- **던전 (본편)** — 3콤보·대시·스킬 4종·원소 상성·정예 추출·동료 동행·
-  보스 3페이즈·장비 드롭·레벨업. 스테이지 6구역:
-  Cinder Span → Ember Gallery → Abyss Chancel → Witness Well →
-  Echo Throne → Ash Verdict.
+1. **로비** — 라이브 3D 배경 위에서 성장·장비·동료를 정비하고 강하합니다.
+2. **프롤로그** — 탑다운 시점으로 조작과 기름 경제를 익힙니다. 클리어하면
+   카메라가 55°로 내려오며 2.5D 던전이 열립니다.
+3. **던전** — 3타 콤보와 대시로 붙고, 원소 상성으로 약점을 찌르고, 정예를 처치해
+   **동료로 추출**합니다. 각 막의 끝에는 3페이즈 보스가 기다립니다.
 
 ## 조작
 
-| 입력 | 아레나/프롤로그 | 던전 |
+| 입력 | 던전 | 아레나 / 프롤로그 |
 |---|---|---|
-| `WASD`/방향키 | 이동 | 이동 |
-| `Space` | 타격 | **3타 콤보** (3타 넉백) |
-| `Shift` | — | **대시** (무적 0.22 s, 기름 8) |
-| `Q` | Ember Nova | **균열 화살** (원거리 볼트) |
-| `E` | Lantern Ward | **묘지 파동** (지속 필드) |
-| `R` | 재시작 | **잿불 노바** (360° 폭발) |
-| `F` | — | **공허 방패** (흡수 40) |
-| 터치 | 가상 패드 + 버튼 | 가상 패드 + 스킬 카드 |
+| `WASD` · 방향키 | 이동 | 이동 |
+| `Space` | **3타 콤보** (3타에 넉백) | 타격 |
+| `Shift` | **대시** — 무적 0.22초, 기름 8 | — |
+| `Q` `E` `R` `F` | 균열 화살 · 묘지 파동 · 잿불 노바 · 공허 방패 | `Q` 노바 · `E` 방벽 · `R` 재시작 |
+| 터치 | 가상 패드 + 스킬 카드 | 가상 패드 + 버튼 |
 
-## 시스템 (원작 이식 + 확장)
+## 수치 계약
 
-- **결정론 시뮬레이션** — 60 Hz 고정스텝 순수 C# (`CinderCourt.Sim`,
-  UnityEngine 비참조). RNG 없음: 같은 입력 → 같은 결과.
-- **원소 상성** — `ember > frost > veil > void > ember` (+20 % / −15 %),
-  스킬에만 적용.
-- **정예 추출** — 7번째 스폰마다 정예(HP×3). 처치 후 시체 곁 2 s 채널로
-  **적을 동료로 추출** (`<visual>-echo`).
-- **던전 기믹** — 잿불 분출구(주기 AoE) · 흑요석 기둥(이동 차단) ·
-  유물 제단(스탠드 버프). 배치는 스테이지별 결정적.
-- **메타 성장** — 스탯 포인트(공격/체력/이속), 장비 T0–T5(유물 구매),
-  동료 로스터. localStorage 저장, 서버 전송 없음.
-- **보스 연출** — 월드공간 말풍선(원작 스토리 대사), 2페이즈 전환,
-  Monarch 호위 소환.
-- **난이도 4단계** (AMENDMENT #11) — 입문 / 보통 / 어려움 / 악몽. 받는 피해
-  배수, 적 공격 간격 배수, 동시 공격 인원 상한, 그룹 AI on/off 를 함께 움직인다.
-  로비 → 성소 정비 → **성장** 탭의 "난이도" 버튼으로 순환 선택하며 즉시 저장된다
-  (던전 강하에만 적용, 아레나·프롤로그는 항상 보통). 수치표는
-  [docs/SIM_SPEC_HACKSLASH.md §16.2](docs/SIM_SPEC_HACKSLASH.md).
-- **적 그룹 협동 AI** — **어려움 이상**에서만 켜진다. 공격 차례를 못 받은 적은
-  플레이어에게 몰려들지 않고 8슬롯 포위 링으로 물러나 대기하고, 방금 휘두른 적이
-  차례를 넘기며 교대한다. 측·후방의 적이 차례를 먼저 받아 첫 타가 등 뒤에서
-  들어온다. RNG 없이 id 기반 결정론으로 동작한다.
-- **타격감** — 일반 적중 0.028 s · 처치 0.045 s · 콤보 피니셔 0.075 s 의 히트스톱
-  티어와 카메라 펀치가 하나의 예산(`ImpactBudget`)에서 해소된다. 일반 적중에는
-  0.14 s 재발동 간격이 있어 다수의 적을 연타해도 화면이 늘어지지 않는다.
-  모션 약함 설정에서는 시간 효과가 꺼진다.
+시뮬레이션은 **60 Hz 고정스텝 순수 C#** 이며 난수를 쓰지 않습니다. 같은 입력은
+언제나 같은 결과를 냅니다 — 아래 식이 그 계약의 전부입니다.
 
-## 빌드 & 검증
+**아이소메트릭 거리** — 화면이 기울어져 있으므로 세로 거리를 $1.42$ 배로 셉니다.
+사거리 판정은 모두 이 거리로 이뤄집니다.
+
+$$d(A,B)=\sqrt{(x_A-x_B)^2+\bigl(1.42\,(y_A-y_B)\bigr)^2}$$
+
+**전방 판정** — 타격은 바라보는 쪽으로만 들어갑니다. $f=\pm 1$ 은 바라보는 방향,
+$-18$ 은 등 뒤 약간까지 허용하는 여유값입니다.
+
+$$(x_{\text{target}}-x_{\text{self}})\cdot f \;\ge\; -18$$
+
+**등불 기름** — 시간당 회복과 처치 보상이 함께 차오르고 $100$ 에서 멈춥니다.
+$k$ 는 누적 처치 수입니다.
+
+$$O(t)=\min\bigl(100,\; O_0 + 7t + 6k\bigr)$$
+
+**원소 상성** — `ember → frost → veil → void → ember` 순환입니다. 스킬 피해에만
+적용되며 평타에는 적용되지 않습니다.
+
+$$
+\text{dmg} = \text{base}\times
+\begin{cases}
+1.20 & \text{advantage}\\
+1.00 & \text{neutral}\\
+0.85 & \text{disadvantage}
+\end{cases}
+$$
+
+우위 $+20\%$ · 열세 $-15\%$ 입니다.
+
+**타격 활성 구간** — 공격 모션 전체가 아니라 이 구간에 있는 적만 맞습니다.
+$12\,\text{fps}$ 포즈 기준 2–4프레임, 즉 $0.167\text{–}0.333$ 초입니다.
+
+$$t_{\text{active}} \in \left[\tfrac{2}{12},\ \tfrac{4}{12}\right]\ \text{s}$$
+
+전체 수치표는 [docs/SIM_SPEC.md](docs/SIM_SPEC.md) · [캠페인 증보](docs/SIM_SPEC_CAMPAIGN.md) ·
+[핵앤슬래시 증보](docs/SIM_SPEC_HACKSLASH.md).
+
+## 지표
+
+| 항목 | 값 | 계약 |
+|---|---:|---|
+| EditMode 테스트 | **890 통과 / 891** | 실패 0 (1건 명시적 skip) |
+| WebGL 빌드 크기 | **85 MB** | ≤ 120 MB |
+| 시뮬레이션 틱 | **60 Hz** 고정스텝 | 결정론 · RNG 없음 |
+| 동시 적 상한 | **20** | `EnemyCap` |
+| 아레나 반경 | **520 × 270** | 중심 (768, 604) |
+| 캐릭터 폴리곤 | ≤ **25k** tri | WebGL 예산 |
+| 텍스처 상한 | **1024** px | WebGL 예산 |
+| 스테이지 | **9** 구역 · 3막 | 보스 3종 |
+| 모션 클립 | **14** 종 | Humanoid 리타겟 |
+| 저장 | localStorage | 서버 전송 없음 |
+
+## 시스템 하이라이트
+
+- **결정론 시뮬레이션** — `CinderCourt.Sim` 은 UnityEngine을 참조하지 않는 순수
+  C# 어셈블리라 Unity 없이 `dotnet` 만으로도 전체 검증이 가능합니다.
+- **정예 추출** — 7번째 스폰마다 나오는 정예를 처치하고 시체 곁에서 2초 채널하면
+  **적이 동료가 됩니다**.
+- **던전 기믹** — 잿불 분출구(주기 AoE) · 흑요석 기둥(이동 차단) · 유물 제단(버프).
+  배치는 스테이지별로 결정적입니다.
+- **난이도 4단계** — 받는 피해, 적 공격 간격, 동시 공격 인원, 그룹 AI가 함께
+  움직입니다. **어려움 이상**에서 적은 8슬롯 포위 링으로 교대하며 측·후방에서
+  먼저 들어옵니다.
+- **타격감** — 적중 0.028초 · 처치 0.045초 · 피니셔 0.075초의 히트스톱과 카메라
+  펀치가 하나의 예산에서 해소됩니다. 모션 약함 설정에서는 꺼집니다.
+
+자세한 스테이지별 공략은 [docs/DUNGEON_GUIDE.md](docs/DUNGEON_GUIDE.md).
+
+## 빌드
 
 ```bash
-# Unity 6000.5.6f1 필요 (URP 17.5)
+# Unity 6000.5.6f1 (URP 17.5) 필요
 bash tools/unity_batch.sh method CinderCourt.EditorTools.CharacterImportPipeline.ImportAll
-bash tools/unity_batch.sh method CinderCourt.EditorTools.SceneBuilder.Build
-bash tools/unity_batch.sh tests     # EditMode 195 (아레나 20 + 캠페인 11 + 핵앤슬래시 46 + 뷰/QA 118)
-bash tools/unity_batch.sh build     # build-webgl/
+bash tools/unity_batch.sh tests      # EditMode 전체
+bash tools/unity_batch.sh build      # → build-webgl/
 python3 -m http.server 4173 --directory build-webgl
 ```
 
-심 어셈블리는 Unity 없이도 검증된다: `dotnet test` 임시 프로젝트로 동일
-테스트 전부 실행 가능 (순수 C#).
-
-### 자산 파이프라인
-
-| 자산 | 도구 | 스크립트 |
-|---|---|---|
-| 3D 캐릭터 재스키닝 | Blender 5.x headless | `tools/blender/reskin_all.sh` |
-| 애니메이션 | Mixamo FBX → Unity Humanoid 리타겟 | `Assets/Editor/CharacterImportPipeline.cs` |
-| SFX/BGM | ElevenLabs sound-generation | `tools/audio/gen_sfx.py` |
-| 한국어 폰트 서브셋 | fontTools | `tools/gen_hud_font.sh` |
-| 배포 | gh-pages worktree | `tools/deploy/deploy_pages.sh` |
+자산 파이프라인(캐릭터 리깅·모션·오디오·폰트·배포)은
+[CLAUDE.md §3](CLAUDE.md) 의 자산 클래스별 도구 표를 따릅니다.
 
 ## 문서
 
-- [docs/DUNGEON_GUIDE.md](docs/DUNGEON_GUIDE.md) — **던전 9종 가이드**:
-  스테이지별 배치·기믹·버전별 변경 (자연어)
-- [docs/SIM_SPEC.md](docs/SIM_SPEC.md) — 동결 수치 계약 (아레나)
-- [docs/SIM_SPEC_CAMPAIGN.md](docs/SIM_SPEC_CAMPAIGN.md) — 캠페인 증보 (v0.1)
-- [docs/SIM_SPEC_HACKSLASH.md](docs/SIM_SPEC_HACKSLASH.md) — 핵앤슬래시 증보 (v0.2)
-- [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) — 릴리즈 노트
-- [docs/nan2026/](docs/nan2026/) — NAN 2026 해커톤 제출 문서
+[릴리즈 노트](docs/RELEASE_NOTES.md) ·
+[던전 가이드](docs/DUNGEON_GUIDE.md) ·
+[수치 계약](docs/SIM_SPEC.md) ·
+[NAN 2026 제출 문서](docs/nan2026/)
 
 ## 팀
 

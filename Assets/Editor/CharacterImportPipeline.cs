@@ -33,21 +33,32 @@ namespace CinderCourt.EditorTools
         // ClipTableTests pins the alignment.
         static readonly (string action, string file, bool loop)[] Clips =
         {
-            ("idle", "Unarmed Idle", true),
+            // 2026-08-10 weapon-family pass (interview-directed): the character
+            // carries a weapon, so unarmed takes read as the wrong FAMILY even
+            // when their arcs measure fine (same root as the boxing-attack
+            // defect fixed at 1742c10). idle/bighit/die/show swapped to
+            // generated takes triaged VISUALLY from rendered previews —
+            // action ids are opaque, so the eye does family judgement and the
+            // probes do fit judgement. Map: mesh-gen/manifest.json.
+            // move/run stay: no weapon-family locomotion found in any sampled
+            // band (bow-flavored walks only) — sub-100 ids are the remaining
+            // unexplored space. hit/defence/cast joined the family pass on
+            // 2026-08-10 via the 130-178 band harvest (mesh-gen manifest).
+            ("idle", "Combat Idle", true),
             ("move", "Walking", true),
             ("run", "Running", true),
-            ("hit", "Standing React Small From Left", false),
-            ("bighit", "Receive Uppercut To The Face", false),
-            ("attack", "Standing Melee Attack Horizontal", false),
-            ("critical", "Illegal Elbow Punch", false),
+            ("hit", "Hit Reaction", false),
+            ("bighit", "Abdominal Hit Fall", false),
+            ("attack", "Charged Slash", false),
+            ("critical", "Thrust Slash", false),
             ("avoid", "Dodging", false),
-            ("defence", "Body Block", false),
-            ("die", "Dying", false),
-            ("show", "Mutant Roaring", false),
+            ("defence", "Block Three", false),
+            ("die", "Shot In The Back", false),
+            ("show", "Angry Ground Stomp", false),
             // --- View-only substates (index > ActorAction range) ---
-            ("attack2", "Hook Punch", false),                        // #9 combo 2nd
-            ("attack3", "Standing Melee Combo Attack Ver. 2", false), // #9 combo 3rd
-            ("cast", "Standing 2H Magic Attack 01", false),           // #4 skill cast
+            ("attack2", "Axe Spin Attack", false),                   // #9 combo 2nd
+            ("attack3", "Weapon Combo 2", false),                    // #9 combo 3rd
+            ("cast", "Mage Cast", false),                            // #4 skill cast
         };
 
         // --- clip trims -------------------------------------------------------
@@ -67,9 +78,171 @@ namespace CinderCourt.EditorTools
         // at 1.2x, and it places the contact frames at 0.17-0.31 s of the pose,
         // inside the sim's own active window (SimConfig.AttackActiveFrom/To =
         // 0.167..0.333 s). Actions with no row here import whole.
+        //
+        // show / cast (2026-08-09). ActorView.cs claimed for months that these
+        // two states were "fitted to this window (CharacterImportPipeline)" —
+        // they were not: no ClipTrims row, no baked state speed, m_Speed 1 in
+        // the controller. Mutant Roaring imported whole (130 f / 5.42 s) into
+        // RoarDuration's 1.1 s, so the boss entrance showed ~20% of a roar and
+        // cut mid-bellow; the cast clip (65 f / 2.71 s) into CastPoseDuration's
+        // 0.30 s showed ~11%. Measured with Assets/Editor/ClipWindowProbe.cs —
+        // the same SampleAnimation rig described above, now checked in:
+        //   Mutant Roaring   peak f21, motion f15-28 -> trim 8..34  = 1.083 s
+        //   2H Magic Attack  peak f27, motion f26-28 -> trim 23..30 = 0.292 s
+        // Both windows CONTAIN the measured motion and land within 17 ms of
+        // their targets, so each plays at speed 1 and simply ends when the
+        // window does. Trimming beats retiming here: a speed fit would have to
+        // reach 4.9x for the roar, past MaxPoseSpeed, and a 5x roar is a chirp.
+        //
+        // Reaction clips were measured too. hit (f0-2, preamble 2.2%) stays
+        // untrimmed — already tight. The bighit numbers that used to sit here
+        // (f2-3, 5.3%) were measured on Knock Down 1, which the 2026-08-10
+        // weapon-family pass DISPLACED; bighit now carries a measured row
+        // below — see the ClipTrims comment for the current mechanism.
+        // Dodging (46.2%) and Body Block (28.3%) carry preamble but play at
+        // their authored pace, so trimming them would change established feel
+        // for no measured defect. Listed so the next reader knows each
+        // omission is a decision, not an oversight.
+        //
+        // 2026-08-10. Six combat takes were replaced with generated ones
+        // (Higgsfield 3d_rigging; docs/provenance/motion.json):
+        //   attack attack2 attack3 critical defence bighit
+        // attack's old 16..28 row was peak f21-25 of "Standing Melee Attack
+        // Horizontal". Those numbers cut a DIFFERENT swing at arbitrary points
+        // and would have done it silently (a short window always passes the
+        // length guard below), so the row was dropped and re-measured.
+        //
+        // Re-measured with ClipWindowProbe against the new takes. The pose the
+        // sim holds is 5 f @12 fps = 0.4167 s = 10 f at the clips' own 24 fps,
+        // and the damage-active span inside it is 0.167..0.333 s
+        // (SimConfig.AttackActiveFrom/To). Each window below is 10 frames, so
+        // ResolvePoseSpeed lands on 1.00x — no retime — and each places its
+        // measured motion inside the active span:
+        //   attack   Punch Combo 1  motion f17-21 peak f18 -> 13..23,
+        //                           motion at 0.167..0.333 s of the pose
+        //   critical Thrust Slash   motion f62-63 peak f62 -> 58..68,
+        //                           motion at 0.167..0.208 s
+        // Thrust Slash is the reason critical needs a row at all: 86.7% of its
+        // 3.00 s is windup and the strike is the last 2 frames, so untrimmed it
+        // would be clamped to MaxPoseSpeed 4x and still show only the windup.
+        //
+        // attack2 / attack3 ALSO need rows, and the claim that they did not was
+        // wrong. It compared PREAMBLE against the takes they replaced (22.3 vs
+        // 39.2, 32.6 vs 57.8 percent) — the right comparison for "is this take
+        // better", the wrong one for "does it fit". Both are combo swings and
+        // ActorView.ResolvePoseSpeed squeezes them into HackSpec.ComboSwing:
+        //   attack2  1.79 s into 0.30 s -> 4.00x (MaxPoseSpeed clamp), 93% shown
+        //   attack3  3.83 s into 0.42 s -> 4.00x clamp,                43% shown
+        // A 4x swing is a twitch, and the clamp means it does not even finish.
+        // The takes they displaced were in the same state (Hook Punch 4.00x,
+        // Standing Melee Combo 4.00x) so this is inherited, not introduced —
+        // it is still wrong. MEASURED 2026-08-10 by ClipWindowProbe.
+        //
+        // Windows are per combo index, not the arena's 0.4167:
+        //   hit 2  ComboSwing[1] 0.30 s = 7 f, active 0.10..0.22 s
+        //     Right Upper Hook motion f10-14 peak f13 -> 8..15,
+        //     motion at 0.083..0.250 s, pose speed 0.97x
+        //   hit 3  ComboSwing[2] 0.42 s = 10 f, active 0.14..0.30 s
+        //     Punch Combo 5 motion f30-34 peak f33 -> 27..37,
+        //     motion at 0.125..0.292 s, pose speed 0.99x
+        // Each window is centred on the sim's own active span, so the strike is
+        // live while the arm is actually travelling.
+        //
+        // defence stays untrimmed: not squeezed into a fixed pose window
+        // (PoseValueForClip returns -1, pose speed stays 1), plays at its
+        // authored pace. bighit USED to sit in this list; the 2026-08-10
+        // take swap gave it a measured row below — a to-death take cannot
+        // represent a survival reaction whole.
+        // 2026-08-10, SECOND PASS — the first one picked the wrong FAMILY.
+        //
+        // attack/attack2/attack3 were swapped to Punch_Combo_1 /
+        // Right_Upper_Hook / Punch_Combo_5. Those are boxing takes, and the
+        // player carries a weapon bound to RightHand (ActorView.cs:390-392),
+        // so the character jabbed with a sword in its fist. The user reported
+        // it as "휘두르지 않는다" and they were right.
+        //
+        // Nothing measured caught it because every measurement was LINEAR.
+        // A punch has real hand speed — it just travels out and back along one
+        // ray instead of crossing an arc. Assets/Editor/SwingArcProbe.cs was
+        // written for this: it measures the hand's swept ANGLE about the
+        // shoulder, in the hips' frame so body rotation does not count.
+        //
+        //   peak hand speed      punches 4.67 / 3.54 / 5.74
+        //                        weapons 37.2 / 37.7 / 48.4     (8-10x)
+        //   swept arc, untrimmed punches 136.7 / 67.6 / 106.5 deg
+        //                        weapons 720 / 1007 / 2245 deg
+        //
+        // The library's weapon cluster is ids 237-242 (Charged_Axe_Chop,
+        // Axe_Spin_Attack, Thrust_Slash, Weapon_Combo_2, Charged_Slash) —
+        // narrow, and 40 ids away from the punch cluster at 195-205 where the
+        // first pass sampled. docs/provenance/motion-generated.json carries the
+        // map.
+        //
+        // Re-measured trims. Windows are per combo index (HackSpec.ComboSwing)
+        // and each is centred on the sim's active span:
+        //   attack   Charged Slash    motion f26 peak f26 -> 22..29, 0.97x
+        //   attack2  Axe Spin Attack  motion f33-34 peak f34 -> 30..37, 0.97x
+        //   attack3  Weapon Combo 2   motion f50-51 peak f51 -> 45..55, 0.99x
         static readonly (string action, int firstFrame, int lastFrame)[] ClipTrims =
         {
-            ("attack", 16, 28),
+            // attack2/attack3 windows RE-MEASURED 2026-08-10 in WORLD space
+            // (mesh-gen/swing-windows.json). The hips-relative probe that
+            // picked the old attack2 row is blind on a spin — the whole body
+            // rotates, so hand-relative-to-hips speed is high everywhere and
+            // the chosen window (30..37) was actually post-sweep FOOTWORK
+            // (world hand/foot ratio 1.8; user-visible as "legs move,
+            // no swing"). The blade sweep of Axe Spin Attack is 20..27
+            // (ratio 5.1). Weapon Combo 2 carries three swings; 47..57 keeps
+            // the biggest with the cleanest feet (6.7 vs 5.3 at 45..55).
+            // 2026-08-10 THIRD measurement, after re-rigging every generated
+            // take onto the shipped player mesh. Windows are re-derived on the
+            // NEW rig by swept ANGLE about the right shoulder in the hips'
+            // frame (mesh-gen/swing-windows.json) — the quantity SwingArcProbe
+            // and ClipTrimFitTests judge a swing by. Every row moved except
+            // attack2, and the ones that moved were not marginal:
+            //   attack   22..29  91.9 deg  ->  26..33  187.1 deg
+            //   attack2  20..27 160.5 deg  (kept; the 30..37 it replaced
+            //                               sweeps 32.5 deg — the footwork)
+            //   attack3  47..57 176.3 deg  ->  45..55  219.5 deg
+            //   critical 58..68  61.2 deg  ->  31..41  181.6 deg
+            // A window measured on one rig does not survive a rig change:
+            // same frames, different body, different arc.
+            ("attack", 26, 33),
+            ("attack2", 20, 27),
+            ("attack3", 45, 55),
+            ("critical", 31, 41),
+            // show 8..34 is RE-MEASURED for Angry Ground Stomp (2026-08-10),
+            // not inherited from Mutant Roaring: ClipWindowProbe motion
+            // f22-24 sits inside it and 26 f = 1.083 s fits RoarDuration.
+            // That the numbers coincide with the old row is coincidence —
+            // a stale trim on a swapped take is the trap 1742c10 hit.
+            ("show", 8, 34),
+            // bighit displays for at most 0.26 s: the state is View-driven
+            // knockback only (ActorView.cs — _knockbackTime's two writers are
+            // BossSlamKnockbackTime 0.26 / ComboKnockbackTime 0.18; the sim
+            // never emits ActorAction.BigHit), and PoseValueForClip returns
+            // -1 so nothing retimes. A trim can therefore choose WHICH ~6
+            // frames of the take are ever seen. Abdominal Hit Fall's most
+            // expressive span is the impact recoil — hips-height curve
+            // (mesh-gen/hips-height.json): rise to 1.18 at f8-10, crumple
+            // from f22, FIRST floor contact f28 (0.33), final floor f50+.
+            // 4..11 shows exactly that recoil and, as a guard, sits 17
+            // frames clear of the earliest floor contact even if the
+            // knockback window ever grows.
+            ("bighit", 4, 11),
+            // die must fit ENEMY death, not the player's: enemies despawn
+            // after SimConfig.EnemyFade = 0.34 s (8 f) of shrink-fade, so an
+            // untrimmed 4.67 s Shot In The Back showed 7.3% — all standing
+            // preamble, no collapse (the Mutant Roaring defect, worse ratio).
+            // Hips-height curve (mesh-gen/hips-height.json): stand ~1.10 to
+            // f34, collapse f36-70, floor f72+. 62..70 is the final fall
+            // (0.40 -> 0.20), 8 f = 0.333 s <= EnemyFade, so the whole
+            // kneel-to-prone arc lands inside the fade window. The player's
+            // death holds the prone last frame under the GameOver panel.
+            ("die", 62, 70),
+            // cast re-measured for Mage Cast (swing-windows.json): strike
+            // 27..34 = 7 f = 0.292 s = CastPoseDuration fit, speed 1.
+            ("cast", 27, 34),
         };
 
         /// <summary>Index of the first View-only substate — everything below is
@@ -77,6 +250,10 @@ namespace CinderCourt.EditorTools
         internal const int SimActionCount = 11;
         internal static string ActionNameAt(int index) => Clips[index].action;
         internal static int ClipCount => Clips.Length;
+        /// <summary>Source take behind an action. ClipWindowProbe reads this so
+        /// the clip table stays the single source of truth — a probe with its
+        /// own copy of the list measures whatever the table used to say.</summary>
+        internal static string ClipFileAt(int index) => Clips[index].file;
 
         [MenuItem("CinderCourt/Import All Characters And Clips")]
         public static void ImportAll()
@@ -173,8 +350,15 @@ namespace CinderCourt.EditorTools
 
         static void RemapToUrpLit(ModelImporter importer, string path)
         {
-            var urpLit = Shader.Find("Universal Render Pipeline/Lit");
-            if (urpLit == null) { Debug.LogWarning("URP/Lit shader missing"); return; }
+            // Toon first: the 12 shipped character materials moved to
+            // CinderCourt/ToonLit (시안 02 stage 4, commit 892768d) by editing
+            // the serialized assets, and this generator recreates those assets
+            // on reimport — left on URP/Lit it would silently revert the whole
+            // cast to PBR the next time any character FBX is touched. Lit stays
+            // as the degrade path (same fallback the shader itself declares).
+            var urpLit = Shader.Find("CinderCourt/ToonLit")
+                ?? Shader.Find("Universal Render Pipeline/Lit");
+            if (urpLit == null) { Debug.LogWarning("no character shader available"); return; }
             var dir = Path.GetDirectoryName(path)!.Replace('\\', '/');
             var id = Path.GetFileNameWithoutExtension(path);
             // Textures were extracted into the per-character folder (see
@@ -265,8 +449,30 @@ namespace CinderCourt.EditorTools
                     throw new InvalidOperationException($"missing clip fbx {path}");
                 importer.animationType = ModelImporterAnimationType.Human;
                 importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+                // The .meta OUTLIVES the .fbx. Replacing a take with one built
+                // on a different rig leaves the previous avatar's explicit
+                // bone map behind, and CreateFromThisModel does NOT discard it
+                // — Unity keeps resolving human bones against names the new
+                // skeleton does not have ("Transform 'Spine1' for human bone
+                // 'Neck' not found"), fails the avatar, and emits NO clip at
+                // all. MEASURED 2026-08-10: every re-rigged take imported to
+                // zero clips while its FBX carried 249 fcurves, and the four
+                // tests that caught it reported "no imported clip" and "hand
+                // moves 0.0" — never "bad avatar". Clearing both arrays forces
+                // the auto-mapper to read the rig that is actually there.
+                var human = importer.humanDescription;
+                human.human = Array.Empty<HumanBone>();
+                human.skeleton = Array.Empty<SkeletonBone>();
+                importer.humanDescription = human;
                 importer.importAnimation = true;
                 importer.materialImportMode = ModelImporterMaterialImportMode.None;
+                // defaultClipAnimations is DERIVED FROM THE LAST IMPORT, not from
+                // the file on disk. Replacing an FBX while its meta still held a
+                // foreign avatar produced an import with zero takes, and reading
+                // the property here then reported "no animation takes" about a
+                // file that carries 249 fcurves. Settings above only reach the
+                // importer on SaveAndReimport — so reimport first, then ask.
+                importer.SaveAndReimport();
                 var takes = importer.defaultClipAnimations;
                 if (takes.Length == 0)
                     throw new InvalidOperationException($"no animation takes in {path}");

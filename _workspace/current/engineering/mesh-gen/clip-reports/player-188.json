@@ -1,0 +1,43 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/player-rig/anim188.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Abdominal Hit Fall.fbx",
+  "sourceAction": "Fall_Dead_from_Abdominal_Injury",
+  "keyframeRange": [
+    0.8000000715255737,
+    84.80000305175781
+  ],
+  "sceneRange": [
+    0,
+    84
+  ],
+  "seconds": 3.5,
+  "takeName": "Abdominal Hit Fall",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "Spine02",
+    "Spine01",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "neck",
+    "Head",
+    "head_end",
+    "headfront"
+  ],
+  "exported": true,
+  "exportedBytes": 687820
+}

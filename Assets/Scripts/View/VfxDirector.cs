@@ -1,5 +1,6 @@
 // Code-generated effects only: nova ring, ward shell, pickup gems.
-// No asset dependencies; everything survives missing-prefab scaffolding.
+// Stage hazard surfaces are optional assets; gameplay VFX survives missing resources.
+using System;
 using System.Collections.Generic;
 using CinderCourt.Sim;
 using UnityEngine;
@@ -17,6 +18,9 @@ namespace CinderCourt.View
 
         GameObject _wardShell;
         Material _wardMaterial;
+        // Cached, not a string per frame: SyncWard runs every view frame.
+        // Shader.PropertyToID is stable for the process lifetime.
+        static readonly int WardPulseId = Shader.PropertyToID("_PulseAmplitude");
 
         readonly Dictionary<int, Transform> _pickupViews = new Dictionary<int, Transform>(16);
         readonly List<int> _stale = new List<int>(16);
@@ -65,23 +69,97 @@ namespace CinderCourt.View
         }
         readonly Scorch[] _scorches = new Scorch[4];
         int _scorchCursor;
+        struct StaticDecal
+        {
+            public Transform Quad;
+            public Material Material;
+            public float Life, MaxLife;
+            public Color Color;
+        }
+        readonly StaticDecal[] _crackDecals = new StaticDecal[4];
+        int _crackDecalCursor;
         // §W wave warnings live on a DEDICATED RING pool declared with the other
         // Burst pools below: a warning must READ as a ring outline, and sharing
         // any live pool would evict a skill visual mid-play.
-        LineRenderer _boltStreak;
-        Material _boltStreakMaterial;
-        float _boltStreakTime;
+        // --- shot tracers (2026-08-13 사용자: "명중 이펙트만 있고 쏘는
+        // 무엇인가는 없는데") ------------------------------------------------
+        // Every ranged hit in this game is sim-side HITSCAN: damage, hit flash
+        // and knockback land on the cast tick, and the only in-between the
+        // player ever saw was a hit spark teleporting onto the target. These
+        // comets are the missing middle: a bright head races origin -> target
+        // in under a tenth of a second (fast enough that cause and effect stay
+        // one percept — a slower "projectile" would visibly arrive AFTER its
+        // own impact), the tail chases, then the line fades in place.
+        //
+        // POOLED, never per-cast objects (§E7 grammar): 8 lines covers the
+        // worst legal burst — 3 companions + a Volley fan (3) + the player's
+        // bolt — with headroom, and eviction picks the oldest, which by then
+        // is a fading remnant. Materials ride MakeAdditive (the proven seed
+        // clone), one per pooled line so alpha fades never fight each other.
+        struct Tracer
+        {
+            public LineRenderer Line;
+            public Material Material;
+            public Vector3 From, To;
+            public float Age, Flight, Fade;
+            public float TailLag;   // per-shot: 1 (short swing, full line) .. 0.45 (long-bolt comet)
+            public float BaseAlpha;
+            public bool Arrived;
+            public ParticleSystem ArrivalSparks;   // optional; emitted once on arrival
+            public int ArrivalCount;
+        }
+        readonly Tracer[] _tracers = new Tracer[8];
+        int _tracerCursor;
+        // Companion basic attacks have NO SimEvents bit (the show flag is a
+        // 0.25 s display window, not an edge) — so the tracer trigger is a
+        // per-frame rising-edge latch over CompanionAttackingAt. The skill
+        // flash (0.35 s window) gets the same treatment, and BOTH latches are
+        // updated every frame in SyncCompanionTracers: an event-gated update
+        // never sees the window CLOSE, so every cast after the first would
+        // read as still-casting and be suppressed.
+        readonly bool[] _companionWasAttacking = new bool[3];   // sim MaxCompanions
+        readonly bool[] _companionWasSkillCasting = new bool[3];
+        // Last locked target id per slot, cached while the lock lives. The sim
+        // clears the lock in the SAME tick a swing kills (A7.1), so on the
+        // killing swing CompanionTargetIdAt already reads 0 — the remembered id
+        // is what lets the comet land on the corpse instead of vanishing on
+        // exactly the most-watched hit.
+        readonly int[] _companionLastTargetId = new int[3];
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        float _tracerProbeTimer;   // [TracerProbe] once-per-second state line
+#endif
         // --- V3 element particles (interview lane; interjection: 파티클 도입) --
         // 4 pre-created pooled systems, Emit(count) only — no per-cast objects.
         // Materials clone the PROVEN unlit transparent seed (MakeUnlit): the
         // URP Particles shader has zero material references in this build and
         // would be variant-stripped on WebGL (pink/opaque) — spec §V3 contract.
-        ParticleSystem _boltSparks, _pulseRipple, _novaDebris, _aegisFlash;
+        ParticleSystem _boltSparks, _pulseRipple, _novaDebris, _aegisFlash, _deathMotes;
         float _pulseNextEmit;   // 0.5 s resonance cadence while the field lives
+        // Death-mote latch. SimEvents.EnemyKilled is a bare flag with no victim
+        // identity, so the emitter has to find the corpse itself — and a value
+        // window on FadeTime is not safe: at 60 Hz a countdown can satisfy
+        // "just died" on two consecutive frames (double burst) or, if the view
+        // batches several sim ticks, on none (silent miss). So we latch on the
+        // enemy ID instead. CinderSim.cs:266 guarantees "indices are reused
+        // while ids from _nextEnemyId never are", which makes the id a stable
+        // key for exactly as long as a run lasts — the same reason the
+        // companion target lock is id-keyed (CinderSim.cs:267).
+        // Restart() resets _nextEnemyId to 1 (CinderSim.cs:924), so ids DO
+        // repeat across runs; ClearTransient wipes this ring or run N+1's first
+        // kills would read as already-emitted and lose their particles.
+        // A ring, not a HashSet: 20 simultaneous enemies (§2) means 32 slots
+        // cover any single frame's kills many times over, with zero allocation.
+        const int DeathLatchSlots = 32;
+        readonly int[] _deathLatch = new int[DeathLatchSlots];
+        int _deathLatchCursor;
         // --- campaign hazards (built once on first SyncHazards call) ---------
         struct HazardView
         {
             public Transform Root;
+            public Transform Surface;   // stage-specific physical bed/body below state layers
+            public Renderer SurfaceRenderer;
+            public Material SurfaceMaterial;
+            public MaterialPropertyBlock SurfaceProperties;
             public Renderer Ring;       // vent telegraph / altar glow / pylon aura
             public Material RingMaterial;
             public float PrevCycleT;    // eruption wrap detection (#17)
@@ -99,9 +177,14 @@ namespace CinderCourt.View
             public Transform Edge;
             public Material EdgeMaterial;
             public float PushSign;      // current flow direction (anchor lookup)
+            public bool SurfaceFromRight;
             public bool Down;           // pylon destroyed — one-shot fired
         }
         HazardView[] _hazardViews;
+        string _stageContext = string.Empty;
+        StageHazardTextureResolver _stageHazardTextureResolver;
+        readonly Dictionary<string, Material> _stageSurfaceMaterialCache =
+            new Dictionary<string, Material>(16);
         // Chevron repeat pitch inside the tide-current flow row (world units).
         // The scroll offset wraps at this pitch so the row reads endless.
         const float ChevronSpacingWorld = 1.3f;
@@ -115,6 +198,17 @@ namespace CinderCourt.View
         // arena and prologue curtains are unchanged.
         static float _wallSpanWorld = SimConfig.ArenaHalfHeight * 2f * ViewWorld.Scale;
         static float WallSpanWorld => _wallSpanWorld;
+        static float AshWallMaxDepthWorld => CampaignSpec.WallDepthMax * ViewWorld.Scale;
+
+        public void SetStageContext(string stageId)
+        {
+            var next = stageId ?? string.Empty;
+            if (_stageContext == next) return;
+
+            _stageContext = next;
+            if (_hazardViews != null)
+                DestroyHazardViews();
+        }
 
         /// <summary>
         /// AMENDMENT #15 (W-MV): adopt the dungeon sim's active clamp half-axes.
@@ -237,7 +331,7 @@ namespace CinderCourt.View
             RemovePrimitiveCollider(_wardShell);
             _wardShell.name = "WardShell";
             _wardShell.transform.localScale = Vector3.one * 1.7f;
-            _wardMaterial = ViewWorld.MakeUnlit(new Color(0.45f, 0.85f, 1f, 0.28f), true);
+            _wardMaterial = ViewWorld.MakeWardShell(new Color(0.45f, 0.85f, 1f, 1f));
             _wardShell.GetComponent<Renderer>().sharedMaterial = _wardMaterial;
             _wardShell.SetActive(false);
 
@@ -276,6 +370,33 @@ namespace CinderCourt.View
             _aegisFlash = BuildElementParticles("AegisFlash",
                 new Color(0.56f, 0.85f, 1f, 0.85f), 0.05f, 0.4f, -2.0f,
                 gravity: 0f, shapeRadius: 0.55f);
+            // Death motes: the kill is the most FREQUENT reward beat in the
+            // game and, before this, the only effect-less one — ActorView's
+            // shrink+pop (ActorView.cs:865-886) carried it alone. Warm ash
+            // rising off the corpse, not an explosion: the finisher already
+            // owns the loud read (gold ring, 2x, 75 ms hit-stop), so this must
+            // stay quieter than a nova and quieter than a pylon teardown.
+            // Slight upward speed + light gravity = a lift that settles, which
+            // is the opposite arc from _novaDebris (0.9 gravity, 낙하 파편).
+            _deathMotes = BuildElementParticles("DeathMotes",
+                new Color(1f, 0.66f, 0.34f, 0.8f), 0.045f, 0.55f, 1.1f,
+                gravity: 0.22f, shapeRadius: 0.3f);
+
+            for (var i = 0; i < ActiveThreatCueCount; i++)
+                EnsureActiveThreatCue(i);
+        }
+
+        void OnDestroy()
+        {
+            foreach (var pair in _stageSurfaceMaterialCache)
+            {
+                if (pair.Value == null) continue;
+                if (Application.isPlaying)
+                    Destroy(pair.Value);
+                else
+                    DestroyImmediate(pair.Value);
+            }
+            _stageSurfaceMaterialCache.Clear();
         }
 
         ParticleSystem BuildElementParticles(
@@ -503,24 +624,16 @@ namespace CinderCourt.View
             // vanished pickup was collected (vs expired) this tick batch.
             if ((events & SimEvents.PickupCollected) != 0)
                 _pickupCollectedFlag = true;
-            // AMENDMENT #8: a companion signature skill fired. The event is a run-wide
-            // mask, so the per-slot flash flag on the snapshot says WHICH slot cast —
-            // reading it here is what keeps two simultaneous casts from collapsing into
-            // one burst. Colour is per skill so the four archetypes stay tellable apart
-            // at a glance, which is the whole point of giving each one its own skill.
-            if ((events & SimEvents.CompanionSkillCast) != 0 && sim is IHackSnapshot hackSkills)
-            {
-                for (var slot = 0; slot < hackSkills.CompanionCount; slot++)
-                {
-                    if (!hackSkills.CompanionSkillCastingAt(slot)) continue;
-                    SpawnBurst(
-                        hackSkills.CompanionXAt(slot),
-                        hackSkills.CompanionYAt(slot),
-                        CompanionSkillColor(hackSkills.CompanionSkillIdAt(slot)),
-                        CompanionSkillBurstRadius(hackSkills.CompanionSkillIdAt(slot)),
-                        0.4f);
-                }
-            }
+            // AMENDMENT #8 companion signature-skill visuals moved to
+            // SyncCompanionTracers (2026-08-13). The SimEvents.CompanionSkillCast
+            // bit is a single-tick run-wide mask while the per-slot flash flag is
+            // a 0.35 s display WINDOW — gating the per-slot loop on the event bit
+            // meant (a) slot B's cast replayed slot A's still-open window as a
+            // duplicate burst, and (b) an event-gated latch never saw a window
+            // CLOSE, so with one companion every cast after the first would have
+            // been suppressed. A per-frame rising edge over the window has
+            // neither problem, and the basic-attack tracer needs that per-frame
+            // walk anyway (the swing has no event bit at all).
             // AMENDMENT #9: a momentum promotion. Edge-triggered in the sim, so this is
             // exactly one burst per tier gained — the burst grows and brightens with the
             // tier so the player reads "stronger", not merely "something happened".
@@ -533,6 +646,33 @@ namespace CinderCourt.View
                     MomentumTierColor(tier),
                     0.5f + 0.25f * tier,
                     0.28f + 0.06f * tier);
+            }
+
+            // Kill motes. Scans for corpses this event batch has not emitted
+            // for yet — see the _deathLatch comment for why identity, not a
+            // FadeTime window, decides "fresh". Bosses are excluded: their
+            // death owns a separate staged beat, and a boss corpse would
+            // re-arm every frame it stays on the field.
+            if ((events & SimEvents.EnemyKilled) != 0 && _deathMotes != null)
+            {
+                var corpses = sim.Enemies;
+                for (var i = 0; i < corpses.Count; i++)
+                {
+                    var corpse = corpses[i];
+                    if (!corpse.Dead || corpse.IsBoss) continue;
+                    if (DeathAlreadyEmitted(corpse.Id)) continue;
+                    LatchDeath(corpse.Id);
+                    // Elites read bigger because they ARE bigger (Scale > 1.2
+                    // is the same elite predicate the corpse marker uses two
+                    // blocks below); the count follows the silhouette so the
+                    // effect never claims more than the kill was worth.
+                    var elite = corpse.Scale > 1.2f;
+                    var count = elite ? 16 : 8;
+                    if (ViewPrefs.ReducedMotion) count /= 2;
+                    _deathMotes.transform.position =
+                        ViewWorld.ToWorld(corpse.X, corpse.Y, 0.45f);
+                    _deathMotes.Emit(count);
+                }
             }
 
             // Extraction corpse marker (#16): cache the freshest dead elite
@@ -575,6 +715,51 @@ namespace CinderCourt.View
             }
         }
 
+        // The ring is split into static helpers taking the array explicitly so
+        // EditMode can test the SHIPPED logic instead of a copy of it. A
+        // fixture that re-implements the algorithm proves nothing: break the
+        // real ring and the mirror stays green, which is the §4m trap this
+        // whole latch exists to avoid. InternalsVisibleTo already exposes them
+        // (AssemblyInfo.cs:6) — the same reason AudioDirector.NextPitch is
+        // internal static.
+
+        /// <summary>
+        /// True when this enemy id already got its death motes. Linear scan of
+        /// 32 ints is cheaper than the hash it replaces and, unlike a HashSet,
+        /// allocates nothing on a path that runs inside the kill event.
+        /// </summary>
+        internal static bool DeathAlreadyEmitted(int[] ring, int enemyId)
+        {
+            for (var i = 0; i < ring.Length; i++)
+                if (ring[i] == enemyId) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Record an id in the ring, evicting the oldest. Eviction is safe
+        /// because a corpse leaves the published list well inside 32 kills
+        /// (EnemyFade is 0.34 s, SimTypes.cs:215) — an evicted id cannot come
+        /// back to be double-emitted.
+        /// </summary>
+        internal static void LatchDeath(int[] ring, ref int cursor, int enemyId)
+        {
+            ring[cursor] = enemyId;
+            cursor = (cursor + 1) % ring.Length;
+        }
+
+        /// <summary>Wipe a latch ring — ids restart at 1 every run.</summary>
+        internal static void ClearDeathLatch(int[] ring, ref int cursor)
+        {
+            for (var i = 0; i < ring.Length; i++) ring[i] = 0;
+            cursor = 0;
+        }
+
+        bool DeathAlreadyEmitted(int enemyId)
+            => DeathAlreadyEmitted(_deathLatch, enemyId);
+
+        void LatchDeath(int enemyId)
+            => LatchDeath(_deathLatch, ref _deathLatchCursor, enemyId);
+
         /// <summary>
         /// One-shot pylon destruction: pooled burst + debris, body/aura off,
         /// scorch ring on. Idempotent via HazardView.Down — reachable from
@@ -592,6 +777,7 @@ namespace CinderCourt.View
                 _novaDebris.Emit(ViewPrefs.ReducedMotion ? 8 : 18);
             }
             if (view.Body != null) view.Body.gameObject.SetActive(false);  // body + band
+            if (view.Surface != null) view.Surface.gameObject.SetActive(false);  // physical aura gone
             if (view.Ring != null) view.Ring.enabled = false;              // aura gone
             if (view.FillDisc != null) view.FillDisc.gameObject.SetActive(true); // scorch stays
         }
@@ -641,7 +827,24 @@ namespace CinderCourt.View
                 slot.Color = color;
                 slot.MaxRadius = radius;
                 slot.MaxLife = slot.Life = 0.9f;
-                slot.Ring.enabled = true;
+                var sheet = ShockwaveSheet();
+                if (sheet != null)
+                {
+                    EnsureBurstQuad(ref slot, sheet, "WaveWarningQuad");
+                    slot.Quad.position = slot.Center;
+                    slot.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    var span = radius * 2f;
+                    slot.Quad.localScale = new Vector3(span, span, 1f);
+                    slot.QuadMaterial.color = color;
+                    slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                    slot.Quad.gameObject.SetActive(true);
+                    slot.Ring.enabled = false;
+                }
+                else
+                {
+                    if (slot.Quad != null) slot.Quad.gameObject.SetActive(false);
+                    slot.Ring.enabled = true;
+                }
             }
         }
 
@@ -653,11 +856,30 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var warning = ref pool[i];
-                if (warning.Ring == null || !warning.Ring.enabled) continue;
+                var ringLive = warning.Ring != null && warning.Ring.enabled;
+                var quadLive = warning.Quad != null && warning.Quad.gameObject.activeSelf;
+                if (!ringLive && !quadLive) continue;
                 warning.Life -= deltaTime;
-                if (warning.Life <= 0f) { warning.Ring.enabled = false; continue; }
+                if (warning.Life <= 0f)
+                {
+                    if (warning.Ring != null) warning.Ring.enabled = false;
+                    if (warning.Quad != null) warning.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - warning.Life / warning.MaxLife;
                 var radius = warning.MaxRadius * Mathf.Lerp(1f, 0.15f, progress);
+                if (warning.Quad != null && warning.Quad.gameObject.activeSelf)
+                {
+                    warning.Quad.position = warning.Center;
+                    warning.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                    var span = radius * 2f;
+                    warning.Quad.localScale = new Vector3(span, span, 1f);
+                    warning.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(1f - progress));
+                    var quadColor = warning.Color;
+                    quadColor.a = warning.Color.a * Mathf.Clamp01((1f - progress) * 3f);
+                    warning.QuadMaterial.color = quadColor;
+                    continue;
+                }
                 for (var s = 0; s < 28; s++)
                 {
                     var angle = (Mathf.PI * 2f * s) / 28f;
@@ -680,11 +902,17 @@ namespace CinderCourt.View
             public float Life, MaxLife, MaxRadius;
             public Vector3 Center;
             public Color Color;
+            // Optional textured flipbook, used only by the hit-spark pool. The
+            // other two pools leave these null and StepRingPool's ring path is
+            // then exactly what it was.
+            public Transform Quad;
+            public Material QuadMaterial;
         }
         readonly Burst[] _bursts = new Burst[8];
         int _burstCursor;
         // §C3 hit sparks: dedicated pool — sharing _bursts would let a nova
         // volley (up to 6 sparks/frame) evict live skill rings mid-play.
+        static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
         readonly Burst[] _sparks = new Burst[12];
         int _sparkCursor, _sparkBudget;
         // §W wave warnings: dedicated pool, exactly one ring per spawn point.
@@ -748,7 +976,52 @@ namespace CinderCourt.View
             slot.Color = color;
             slot.MaxRadius = maxRadiusWorld;
             slot.MaxLife = slot.Life = life;
+
+            // Textured shockwave when the sheet shipped. The tint is untouched,
+            // and that matters more here than for the spark: §S1 records that
+            // NINE distinct events funnel through this one call and are told
+            // apart only by colour and radius. A coloured sheet would collapse
+            // that vocabulary — dash, ward, nova and a vent eruption would all
+            // become the same orange ring.
+            var sheet = ShockwaveSheet();
+            if (sheet != null)
+            {
+                EnsureBurstQuad(ref slot, sheet, "KitBurstQuad");
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, 0f, 0f);
+                var span = maxRadiusWorld * 2.2f;
+                slot.Quad.localScale = new Vector3(span, span, 1f);
+                slot.QuadMaterial.color = color;
+                slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                slot.Quad.gameObject.SetActive(true);
+                slot.Ring.enabled = false;
+                return;
+            }
+
             slot.Ring.enabled = true;
+        }
+
+        /// <summary>
+        /// Lazily builds the flipbook quad for a pooled burst slot. Shared by the
+        /// shockwave and the hit spark because they differ only in which sheet
+        /// they bind — the geometry, the additive material and the
+        /// collider-stripping are identical, and duplicating them would give the
+        /// two effects two places to drift apart.
+        /// </summary>
+        void EnsureBurstQuad(ref Burst slot, Texture2D sheet, string name)
+        {
+            if (slot.Quad != null) return;
+            var quadObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(quadObject);
+            quadObject.name = name;
+            quadObject.transform.SetParent(transform, false);
+            slot.QuadMaterial = ViewWorld.MakeAdditive(Color.white);
+            slot.QuadMaterial.mainTexture = sheet;
+            var quadRenderer = quadObject.GetComponent<Renderer>();
+            quadRenderer.sharedMaterial = slot.QuadMaterial;
+            quadRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            quadRenderer.receiveShadows = false;
+            slot.Quad = quadObject.transform;
         }
 
         /// <summary>§C3: small contact ring at the struck enemy. Budgeted at
@@ -777,12 +1050,160 @@ namespace CinderCourt.View
                 : new Color(0.953f, 0.349f, 0.173f, 0.75f);
             slot.MaxRadius = finisher ? 0.6f : 0.3f;
             slot.MaxLife = slot.Life = 0.18f;
+
+            // Textured burst when the sheet shipped, expanding ring when it did
+            // not. The tint is the SAME Color either way — ember for a hit, gold
+            // for a finisher — because the sheet is a grayscale mask and identity
+            // has always lived in the tint (the split SpawnScorch documents).
+            var sheet = ImpactSheet();
+            if (sheet != null)
+            {
+                EnsureBurstQuad(ref slot, sheet, "HitSparkQuad");
+
+                // Spin varies per spawn rather than being baked into the sheet:
+                // sixteen frames of a fixed burst replayed at a fixed angle makes
+                // every hit in the game the same picture. Derived from the impact
+                // point so it stays deterministic — the View must not introduce a
+                // second source of randomness the sim cannot reproduce.
+                var spin = (Mathf.Abs(simX * 37.1f + simY * 91.7f) % 360f);
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, spin, 0f);
+                var span = slot.MaxRadius * 2.6f;
+                slot.Quad.localScale = new Vector3(span, span, 1f);
+                slot.QuadMaterial.color = slot.Color;
+                slot.QuadMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                slot.Quad.gameObject.SetActive(true);
+                slot.Ring.enabled = false;
+                return;
+            }
+
             slot.Ring.enabled = true;
         }
 
+        // Impact flipbook (tools/gen_combat_fx_sheets.py). Same probe-once guard
+        // as the scorch decal below, and the same absent-asset contract: without
+        // it the spark is exactly the ring it has always been.
+        static Texture2D _impactSheet;
+        static bool _impactSheetProbed;
+
+        static Texture2D _shockwaveSheet;
+        static bool _shockwaveSheetProbed;
+        static Texture2D _eruptionSheet;
+        static bool _eruptionSheetProbed;
+        static Texture2D _telegraphRingSheet;
+        static bool _telegraphRingSheetProbed;
+        static Texture2D _crackFanMask;
+        static bool _crackFanMaskProbed;
+        static Texture2D _shardStreakMask;
+        static bool _shardStreakMaskProbed;
+
+        static Texture2D ShockwaveSheet()
+        {
+            return LoadFxFlipbookOnce(ref _shockwaveSheet, ref _shockwaveSheetProbed,
+                "Fx/shockwave-sheet");
+        }
+
+        static Texture2D ImpactSheet()
+        {
+            return LoadFxFlipbookOnce(ref _impactSheet, ref _impactSheetProbed,
+                "Fx/impact-sheet");
+        }
+
+        static Texture2D EruptionSheet()
+        {
+            return LoadFxFlipbookOnce(ref _eruptionSheet, ref _eruptionSheetProbed,
+                "Fx/eruption-sheet");
+        }
+
+        static Texture2D TelegraphRingSheet()
+        {
+            return LoadFxFlipbookOnce(ref _telegraphRingSheet, ref _telegraphRingSheetProbed,
+                "Fx/telegraph-ring-sheet");
+        }
+
+        static Texture2D CrackFanMask()
+        {
+            return LoadFxMaskOnce(ref _crackFanMask, ref _crackFanMaskProbed,
+                "Fx/crack-fan");
+        }
+
+        static Texture2D ShardStreakMask()
+        {
+            return LoadFxMaskOnce(ref _shardStreakMask, ref _shardStreakMaskProbed,
+                "Fx/shard-streak");
+        }
+
+        // Radial burn decal, loaded once. `_scorchDecalProbed` separates "not
+        // looked up yet" from "looked up and absent" so a missing asset costs
+        // exactly one Resources.Load for the process, not one per cast.
+        static Texture2D _scorchDecal;
+        static bool _scorchDecalProbed;
+
+        static Texture2D ScorchDecal()
+        {
+            return LoadFxMaskOnce(ref _scorchDecal, ref _scorchDecalProbed,
+                "Fx/scorch-decal");
+        }
+
+        static Texture2D LoadFxFlipbookOnce(ref Texture2D texture, ref bool probed, string path)
+        {
+            if (probed) return texture;
+            probed = true;
+            var candidate = Resources.Load<Texture2D>(path);
+            texture = IsFxFlipbookShape(candidate) ? candidate : null;
+            return texture;
+        }
+
+        static Texture2D LoadFxMaskOnce(ref Texture2D texture, ref bool probed, string path)
+        {
+            if (probed) return texture;
+            probed = true;
+            var candidate = Resources.Load<Texture2D>(path);
+            texture = IsFxMaskShape(candidate) ? candidate : null;
+            return texture;
+        }
+
+        internal static bool IsFxFlipbookShape(Texture2D texture)
+        {
+            if (texture == null) return false;
+            if (texture.width <= 0 || texture.height <= 0) return false;
+            if (texture.width % 4 != 0 || texture.height % 4 != 0) return false;
+            return texture.width / 4 == texture.height / 4;
+        }
+
+        internal static bool IsFxMaskShape(Texture2D texture)
+        {
+            if (texture == null) return false;
+            return texture.width > 0 && texture.height > 0;
+        }
+
+        internal static Vector4 FxFrameSt(float progress)
+        {
+            var frame = Mathf.Clamp(
+                Mathf.FloorToInt(Mathf.Clamp01(progress) * TerrainFlipbook.FrameCount),
+                0, TerrainFlipbook.FrameCount - 1);
+            return TerrainFlipbook.FrameSt(frame);
+        }
+
+        internal static readonly Vector4 FullTextureSt = new Vector4(1f, 1f, 0f, 0f);
+        const int TelegraphReducedMotionFrame = 7;   // brightest total luminance in authored sheet
+
         /// <summary>AOE ground scorch: flat quad decal, alpha fades over life.
         /// diameterWorld is world units (sim radius * 2 * ViewWorld.Scale).
-        /// Pool of 4 - nova(8s cd) + pulse(4s cd) can't exceed it in play.</summary>
+        /// Pool of 4 - nova(8s cd) + pulse(4s cd) can't exceed it in play.
+        ///
+        /// The quad carries a radial burn TEXTURE when one is present
+        /// (Resources/Fx/scorch-decal) and stays a flat tinted disc when it is
+        /// not. Same split TerrainFlipbook uses: the texture carries SHAPE —
+        /// concentric burn rings, cracks, a molten core, alpha falling to zero
+        /// before the quad's square corners — and the per-call tint carries
+        /// IDENTITY, ember-brown for the nova and dark green for the pulse
+        /// field. The tint multiplies the texture, so both readings survive.
+        ///
+        /// Absent-asset guard, same shape as SpawnPickupIcon: a null load
+        /// leaves the material untextured and the effect is exactly what it
+        /// was before. Nothing in this file may hard-depend on an asset
+        /// (see the header contract).</summary>
         void SpawnScorch(float simX, float simY, float diameterWorld, Color color, float life)
         {
             ref var slot = ref _scorches[_scorchCursor];
@@ -797,6 +1218,12 @@ namespace CinderCourt.View
                 quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
                 slot.Quad = quad.transform;
                 slot.Material = ViewWorld.MakeUnlit(color, true);   // transparent seed contract
+                var decal = ScorchDecal();
+                if (decal != null)
+                {
+                    slot.Material.SetTexture("_BaseMap", decal);
+                    slot.Material.mainTexture = decal;
+                }
                 quad.GetComponent<Renderer>().sharedMaterial = slot.Material;
                 quad.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
@@ -809,6 +1236,39 @@ namespace CinderCourt.View
         }
 
         void UpdateScorches(float deltaTime) => StepScorchPool(_scorches, deltaTime);
+
+        void SpawnCrackDecal(float simX, float simY, Color color, float radiusSim, float life, float startAngle)
+        {
+            ref var slot = ref _crackDecals[_crackDecalCursor];
+            _crackDecalCursor = (_crackDecalCursor + 1) % _crackDecals.Length;
+            if (slot.Quad == null)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                RemovePrimitiveCollider(quad);
+                quad.name = "CrackFanDecal";
+                quad.transform.SetParent(transform, false);
+                slot.Quad = quad.transform;
+                slot.Material = ViewWorld.MakeAdditive(Color.white);
+                var mask = CrackFanMask();
+                slot.Material.mainTexture = mask;
+                var renderer = quad.GetComponent<Renderer>();
+                renderer.sharedMaterial = slot.Material;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            var radiusWorld = radiusSim * ViewWorld.Scale;
+            var spin = Mathf.Repeat(startAngle * Mathf.Rad2Deg
+                                    + Mathf.Abs(simX * 37.1f + simY * 91.7f), 360f);
+            slot.Quad.position = ViewWorld.ToWorld(simX, simY, 0.025f);
+            slot.Quad.rotation = Quaternion.Euler(90f, spin, 0f);
+            slot.Quad.localScale = new Vector3(radiusWorld * 2f, radiusWorld * 2f / SimConfig.IsoY, 1f);
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            slot.Material.color = color;
+            slot.Quad.gameObject.SetActive(true);
+        }
+
+        void UpdateCrackDecals(float deltaTime) => StepStaticDecalPool(_crackDecals, deltaTime);
 
         static void StepScorchPool(Scorch[] pool, float deltaTime)
         {
@@ -824,24 +1284,26 @@ namespace CinderCourt.View
             }
         }
 
-        /// <summary>Bolt streak: 2-point line from the player toward the nearest
-        /// living enemy (mirrors the sim's bolt targeting); facing-direction
-        /// fallback at full range. 0.16 s fade.</summary>
+        static void StepStaticDecalPool(StaticDecal[] pool, float deltaTime)
+        {
+            for (var i = 0; i < pool.Length; i++)
+            {
+                ref var decal = ref pool[i];
+                if (decal.Quad == null || !decal.Quad.gameObject.activeSelf) continue;
+                decal.Life -= deltaTime;
+                if (decal.Life <= 0f) { decal.Quad.gameObject.SetActive(false); continue; }
+                var faded = decal.Color;
+                faded.a = decal.Color.a * Mathf.Clamp01(decal.Life / decal.MaxLife);
+                decal.Material.color = faded;
+            }
+        }
+
+        /// <summary>Bolt shot: comet from the player toward the nearest living
+        /// enemy (mirrors the sim's bolt targeting); facing-direction fallback
+        /// at full range. Arrival sparks ride the tracer so they fire when the
+        /// head lands, not when the cast begins.</summary>
         void FireBoltStreak(ISimSnapshot sim)
         {
-            if (_boltStreak == null)
-            {
-                var streakObject = new GameObject("BoltStreak");
-                streakObject.transform.SetParent(transform, false);
-                _boltStreak = streakObject.AddComponent<LineRenderer>();
-                _boltStreak.positionCount = 2;
-                _boltStreak.useWorldSpace = true;
-                _boltStreak.startWidth = 0.07f;
-                _boltStreak.endWidth = 0.015f;
-                _boltStreakMaterial = ViewWorld.MakeAdditive(new Color(0.75f, 0.55f, 1f, 0.9f));
-                _boltStreak.sharedMaterial = _boltStreakMaterial;
-                _boltStreak.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            }
             var player = sim.Player;
             const float BoltRange = 420f;   // HackSpec.BoltRange (view copy — decoration)
             var bestSq = BoltRange * BoltRange;
@@ -859,26 +1321,380 @@ namespace CinderCourt.View
                 targetX = e.X;
                 targetY = e.Y;
             }
-            _boltStreak.SetPosition(0, ViewWorld.ToWorld(player.X, player.Y, 1.1f));
-            _boltStreak.SetPosition(1, ViewWorld.ToWorld(targetX, targetY, 0.9f));
-            _boltStreakTime = 0.16f;
-            _boltStreak.enabled = true;
-            // V3: violet pierce sparks at the streak's landing point.
-            if (_boltSparks != null)
+            FireTracer(
+                ViewWorld.ToWorld(player.X, player.Y, 1.1f),
+                ViewWorld.ToWorld(targetX, targetY, 0.9f),
+                new Color(0.75f, 0.55f, 1f, 0.9f), 0.07f,
+                _boltSparks, ViewPrefs.ReducedMotion ? 7 : 14);
+        }
+
+        // ------------------------------------------------------ shot tracers --
+        /// <summary>Comet flight seconds. Under a tenth of a second: the sim is
+        /// hitscan, so the hit flash lands on the CAST tick and anything slower
+        /// than one percept (~100 ms) would visibly arrive after its own
+        /// impact.</summary>
+        const float TracerFlightSeconds = 0.09f;
+        const float TracerFadeSeconds = 0.18f;
+        /// <summary>Tail lag as a fraction of the flight — the comet body.</summary>
+        const float TracerTailLag = 0.45f;
+
+        /// <summary>Launches one pooled comet. <paramref name="arrivalSparks"/>
+        /// (optional) emits <paramref name="arrivalCount"/> once, when the head
+        /// reaches the target — the "it landed" beat.</summary>
+        void FireTracer(Vector3 from, Vector3 to, Color color, float width,
+                        ParticleSystem arrivalSparks = null, int arrivalCount = 0)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Diagnostic breadcrumb for the browser harness ([TracerProbe] in
+            // the console): separates "never fired" from "fired but invisible/
+            // undetected" — the two hypotheses a 0/N pixel count cannot split.
+            Debug.Log($"[TracerProbe] fire from={from:F2} to={to:F2} width={width:F3}");
+#endif
+            ref var tracer = ref _tracers[_tracerCursor];
+            _tracerCursor = (_tracerCursor + 1) % _tracers.Length;
+            if (tracer.Line == null)
             {
-                _boltSparks.transform.position = ViewWorld.ToWorld(targetX, targetY, 0.8f);
-                _boltSparks.Emit(ViewPrefs.ReducedMotion ? 7 : 14);
+                var tracerObject = new GameObject("ShotTracer");
+                tracerObject.transform.SetParent(transform, false);
+                tracer.Line = tracerObject.AddComponent<LineRenderer>();
+                tracer.Line.positionCount = 2;
+                tracer.Line.useWorldSpace = true;
+                tracer.Line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                tracer.Material = ViewWorld.MakeAdditive(Color.white);
+                tracer.Line.sharedMaterial = tracer.Material;
+            }
+            tracer.Line.startWidth = width;
+            tracer.Line.endWidth = width * 0.2f;
+            tracer.Material.color = color;
+            tracer.From = from;
+            tracer.To = to;
+            tracer.Age = 0f;
+            // ReducedMotion: no racing head — the comet collapses to the old
+            // streak grammar (full-length line, fade only), which is exactly
+            // what that pref bought before this system existed. Arrival sparks
+            // still fire (frame one), so the landing beat survives.
+            tracer.Flight = ViewPrefs.ReducedMotion ? 0f : TracerFlightSeconds;
+            tracer.Fade = TracerFadeSeconds;
+            tracer.BaseAlpha = color.a;
+            // Adaptive comet body. In this parameterization TailLag = 1 pins
+            // the tail at the muzzle (FULL line: tailT = clamp(Age/flight - 1)
+            // = 0, cap 1-1 = 0) and 0.45 is the long-bolt comet; 0 would
+            // collapse tail onto head — a moving DOT. The first draft had the
+            // lerp inverted exactly that way, so point-blank swings (0.9-world
+            // shots, measured ~20 px at the fixed 45%) rendered as dots. Short
+            // shots draw their whole line; the comet look returns by 2.0 world.
+            var shotLength = Vector3.Distance(from, to);
+            tracer.TailLag = Mathf.Lerp(1f, TracerTailLag,
+                Mathf.InverseLerp(0.8f, 2.0f, shotLength));
+            tracer.Arrived = false;
+            tracer.ArrivalSparks = arrivalSparks;
+            tracer.ArrivalCount = arrivalCount;
+            // Launch stub, drawn NOW: head one flight-step ahead of the muzzle.
+            // A comet that fires on the frame a guidance card freezes the run
+            // (timeScale 0 — deltaTime 0, so UpdateTracers cannot stretch it)
+            // must still read as a shot leaving the muzzle, not as nothing.
+            // The first-run card storm hits exactly this: cards open on combat
+            // beats, combat beats are when swings fire. Measured: 24 fires,
+            // 0 visible in a card-heavy first-run capture before this stub.
+            var step = Vector3.LerpUnclamped(from, to,
+                Mathf.Max(0.5f, 1f - tracer.TailLag));   // TailLag=1 must still stub
+            tracer.Line.SetPosition(0, from);
+            tracer.Line.SetPosition(1, tracer.Flight <= 0f ? to : step);
+            tracer.Line.enabled = true;
+        }
+
+        void UpdateTracers(float deltaTime)
+        {
+            for (var i = 0; i < _tracers.Length; i++)
+            {
+                ref var tracer = ref _tracers[i];
+                if (tracer.Line == null || !tracer.Line.enabled) continue;
+                tracer.Age += deltaTime;
+
+                var flight = Mathf.Max(tracer.Flight, 1e-4f);   // 0 = reduced motion
+                var headT = Mathf.Clamp01(tracer.Age / flight);
+                // Tail STOPS at (1 - TailLag) of the path once the head
+                // arrives: the fade must fade a LINE, not a point. The first
+                // draft let the tail chase to 1.0, so from Age ~0.13 s the
+                // segment was zero-length and the whole fade rendered nothing.
+                // TailLag is PER SHOT (0 on point-blank swings — the measured
+                // browser proof had 0.9-world swings drawing ~20 px stubs at
+                // the fixed 45%; a short shot draws its whole line instead).
+                var tailT = tracer.Flight <= 0f
+                    ? 0f   // reduced motion: the full-length streak, no race
+                    : Mathf.Min(
+                        Mathf.Clamp01((tracer.Age - flight * tracer.TailLag) / flight),
+                        1f - tracer.TailLag);
+                tracer.Line.SetPosition(0, Vector3.LerpUnclamped(tracer.From, tracer.To, tailT));
+                tracer.Line.SetPosition(1, Vector3.LerpUnclamped(tracer.From, tracer.To, headT));
+
+                if (!tracer.Arrived && headT >= 1f)
+                {
+                    tracer.Arrived = true;
+                    if (tracer.ArrivalSparks != null)
+                    {
+                        tracer.ArrivalSparks.transform.position = tracer.To;
+                        tracer.ArrivalSparks.Emit(tracer.ArrivalCount);
+                    }
+                }
+
+                var fadeAge = tracer.Age - tracer.Flight;
+                if (fadeAge >= 0f)
+                {
+                    // Hold full alpha through the first third of the fade —
+                    // the comet's whole life is ~16 frames, and a decay that
+                    // starts on frame 6 leaves it dim for most of them. The
+                    // hold is what makes the landed bolt READ; the decay is
+                    // just the exit.
+                    var life = 1f - Mathf.Clamp01(
+                        (fadeAge - tracer.Fade * 0.33f) / (tracer.Fade * 0.67f));
+                    if (fadeAge >= tracer.Fade) { tracer.Line.enabled = false; continue; }
+                    var color = tracer.Material.color;
+                    color.a = tracer.BaseAlpha * life;
+                    tracer.Material.color = color;
+                }
             }
         }
 
-        void UpdateBoltStreak(float deltaTime)
+        /// <summary>QA seam: live comet count (launch/flight/fade all count).</summary>
+        internal int ActiveTracerCountForTest
         {
-            if (_boltStreak == null || !_boltStreak.enabled) return;
-            _boltStreakTime -= deltaTime;
-            if (_boltStreakTime <= 0f) { _boltStreak.enabled = false; return; }
-            var c = _boltStreakMaterial.color;
-            c.a = 0.9f * Mathf.Clamp01(_boltStreakTime / 0.16f);
-            _boltStreakMaterial.color = c;
+            get
+            {
+                var live = 0;
+                for (var i = 0; i < _tracers.Length; i++)
+                    if (_tracers[i].Line != null && _tracers[i].Line.enabled) live++;
+                return live;
+            }
+        }
+
+        /// <summary>QA seam: raw pool entry, for exhaustion/wrap tests only —
+        /// production callers go through the aimed launchers above.</summary>
+        internal void FireTracerForTest(Vector3 from, Vector3 to)
+            => FireTracer(from, to, new Color(1f, 1f, 1f, 0.8f), 0.05f);
+
+        /// <summary>QA seam: advances only the comet clock — EditMode never
+        /// runs LateUpdate, so expiry is otherwise unreachable in tests.</summary>
+        internal void StepTracersForTest(float deltaTime) => UpdateTracers(deltaTime);
+
+        /// <summary>
+        /// Companion shot visuals — basic-attack comets AND signature-skill
+        /// bursts/fans. Per-frame, not event-driven: the swing has no SimEvents
+        /// bit at all, and the skill flash is a 0.35 s display WINDOW whose
+        /// close no event reports — both need a view-side rising edge that is
+        /// updated EVERY frame (an event-gated latch reads still-casting
+        /// forever and suppresses every cast after the first).
+        ///
+        /// The swing gap is the user-reported one: the sim damages from up to
+        /// 200 px away on the cast tick ("명중 이펙트만 있고 쏘는 무엇인가는
+        /// 없는데" — hit sparks with no visible cause). One comet per swing,
+        /// aimed at the slot's own locked target (CompanionTargetIdAt — ids are
+        /// never reused, so this survives enemy-array compaction; a nearest
+        /// rescan would mis-aim whenever the 2 s lock holds a farther enemy).
+        ///
+        /// THE KILLING SWING IS THE SPECIAL CASE: A7.1 clears the lock in the
+        /// same tick the target dies, so on exactly the most-watched hit the
+        /// live id already reads 0. _companionLastTargetId (cached every frame
+        /// while the lock lives) re-aims that comet at the corpse — freshly
+        /// dead enemies keep their position for the 0.34 s fade, which is
+        /// longer than the comet's whole flight.
+        /// </summary>
+        public void SyncCompanionTracers(ISimSnapshot sim)
+        {
+            if (!(sim is IHackSnapshot hack)) return;
+            var count = Mathf.Min(hack.CompanionCount, _companionWasAttacking.Length);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Once-per-second state breadcrumb ([TracerProbe]): CompanionCount 0
+            // here means NOTHING downstream can ever fire — the first question a
+            // zero-comet browser run must answer before blaming geometry.
+            _tracerProbeTimer -= Time.unscaledDeltaTime;
+            if (_tracerProbeTimer <= 0f)
+            {
+                _tracerProbeTimer = 1f;
+                Debug.Log($"[TracerProbe] state count={hack.CompanionCount}"
+                    + $" attacking={(count > 0 && hack.CompanionAttackingAt(0) ? 1 : 0)}"
+                    + $" lock={(count > 0 ? hack.CompanionTargetIdAt(0) : -1)}");
+            }
+#endif
+            for (var slot = 0; slot < count; slot++)
+            {
+                var liveTargetId = hack.CompanionTargetIdAt(slot);
+                if (liveTargetId > 0) _companionLastTargetId[slot] = liveTargetId;
+
+                // --- basic swing: rising edge over the 0.25 s show window ----
+                var attacking = hack.CompanionAttackingAt(slot);
+                var wasAttacking = _companionWasAttacking[slot];
+                _companionWasAttacking[slot] = attacking;
+                if (attacking && !wasAttacking)
+                {
+                    // Aim priority mirrors the sim's own swing rule (A7.4):
+                    // the locked target when it is in range, else the nearest
+                    // enemy in range — "a lock can never cost the slot a
+                    // swing", so lock==0 does NOT mean no swing happened. An
+                    // id-only aim skips exactly those fallback swings; the
+                    // first browser proof (24 frames of live combat) drew
+                    // nothing, consistent with the lock rarely being published
+                    // mid-brawl. (That run's detector also had an additive-
+                    // blend blind spot, so the 0/24 alone does not isolate the
+                    // cause — the A7.4 reading above stands on the sim source.)
+                    var companionX = hack.CompanionXAt(slot);
+                    var companionY = hack.CompanionYAt(slot);
+                    var aimId = liveTargetId > 0 ? liveTargetId : _companionLastTargetId[slot];
+                    float aimX = 0f, aimY = 0f;
+                    var aimed = aimId > 0
+                        && TryFindEnemy(sim, aimId, out aimX, out aimY)
+                        && WithinCompanionRange(companionX, companionY, aimX, aimY);
+                    if (!aimed)
+                        aimed = TryNearestLivingEnemy(sim, companionX, companionY,
+                            HackSpec.CompanionAttackRange, out aimX, out aimY);
+                    if (aimed)
+                        FireTracer(
+                            ViewWorld.ToWorld(companionX, companionY, 1.0f),
+                            ViewWorld.ToWorld(aimX, aimY, 0.9f),
+                            new Color(0.62f, 0.95f, 1f, 0.9f), 0.07f);
+                }
+
+                // --- signature skill: rising edge over the 0.35 s flash ------
+                var casting = hack.CompanionSkillCastingAt(slot);
+                var wasCasting = _companionWasSkillCasting[slot];
+                _companionWasSkillCasting[slot] = casting;
+                if (casting && !wasCasting)
+                {
+                    var skillId = hack.CompanionSkillIdAt(slot);
+                    SpawnBurst(
+                        hack.CompanionXAt(slot),
+                        hack.CompanionYAt(slot),
+                        CompanionSkillColor(skillId),
+                        CompanionSkillBurstRadius(skillId),
+                        0.4f);
+                    // Volley is the SHOOTING skill (scout-echo, up to 3 hits) —
+                    // burst-only it read as "hit sparks on three enemies,
+                    // nothing was fired". Hex/Quake/Flare stay field-shaped —
+                    // auras/eruptions, not shots.
+                    if (skillId == CompanionSkillId.Volley)
+                        FireVolleyTracers(sim,
+                            hack.CompanionXAt(slot), hack.CompanionYAt(slot));
+                }
+            }
+        }
+
+        /// <summary>Position of the enemy with <paramref name="id"/>, dead or
+        /// alive. Dead is deliberate: the swing/volley that KILLED its target
+        /// resolves here one frame later, and the fresh corpse (0.34 s fade) is
+        /// the honest aim point — skipping it would drop the tracer on exactly
+        /// the killing blow.</summary>
+        static bool TryFindEnemy(ISimSnapshot sim, int id, out float x, out float y)
+        {
+            var enemies = sim.Enemies;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy.Id != id) continue;
+                // A long-faded corpse is a stale memory, not a target. The
+                // killing swing resolves here ONE FRAME after death (~0.017 s),
+                // so accept the corpse through the first half of its fade —
+                // anchored to the sim constant, not retyped, so a fade retune
+                // moves this window with it (§4j discipline).
+                if (enemy.Dead && enemy.FadeTime < SimConfig.EnemyFade * 0.5f) break;
+                x = enemy.X;
+                y = enemy.Y;
+                return true;
+            }
+            x = 0f;
+            y = 0f;
+            return false;
+        }
+
+        /// <summary>The sim's own reach test for a companion swing — iso metric
+        /// against HackSpec.CompanionAttackRange, so the comet can only claim a
+        /// shot the sim could legally have taken. Slight slack (1.15x) absorbs
+        /// the one-frame drift between the swing tick and this sync.</summary>
+        static bool WithinCompanionRange(float fromX, float fromY, float toX, float toY)
+        {
+            var dx = toX - fromX;
+            var dy = (toY - fromY) * SimConfig.IsoY;
+            var reach = HackSpec.CompanionAttackRange * 1.15f;
+            return dx * dx + dy * dy <= reach * reach;
+        }
+
+        /// <summary>Nearest living enemy inside <paramref name="range"/> (iso
+        /// metric) — the sim's A7.4 fallback swing rule, mirrored for aim.</summary>
+        static bool TryNearestLivingEnemy(
+            ISimSnapshot sim, float fromX, float fromY, float range,
+            out float x, out float y)
+        {
+            var enemies = sim.Enemies;
+            var bestSq = range * range;
+            var best = -1;
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                // Fresh corpses count: the swing that killed resolves here one
+                // frame later (same rule as TryFindEnemy).
+                if (enemy.Dead && enemy.FadeTime < SimConfig.EnemyFade * 0.5f) continue;
+                var dx = enemy.X - fromX;
+                var dy = (enemy.Y - fromY) * SimConfig.IsoY;
+                var dSq = dx * dx + dy * dy;
+                if (dSq > bestSq) continue;
+                bestSq = dSq;
+                best = i;
+            }
+            if (best < 0)
+            {
+                x = 0f;
+                y = 0f;
+                return false;
+            }
+            x = enemies[best].X;
+            y = enemies[best].Y;
+            return true;
+        }
+
+        /// <summary>Volley comet fan: up to 3 shots from the caster to the
+        /// nearest enemies inside the skill radius, nearest-first — mirrors the
+        /// sim's own pick order (CompanionSkillTests pins it as nearest-first).
+        /// FRESH CORPSES COUNT: the sim already killed its picks on this very
+        /// tick, so a living-only scan would re-aim the fan at survivors the
+        /// volley never hit. View copy of the A8.2 radius, decoration only.</summary>
+        void FireVolleyTracers(ISimSnapshot sim, float casterX, float casterY)
+        {
+            const float VolleyRadius = 240f;   // HackSpec.CompanionSkill(Scout) — view copy
+            const int VolleyShots = 3;
+            var enemies = sim.Enemies;
+            Span<int> picked = stackalloc int[VolleyShots];
+            var pickedCount = 0;
+            for (var shot = 0; shot < VolleyShots; shot++)
+            {
+                var bestSq = VolleyRadius * VolleyRadius;
+                var best = -1;
+                for (var i = 0; i < enemies.Count; i++)
+                {
+                    var e = enemies[i];
+                    // Fresh = died within ~3 frames (FadeTime counts DOWN from
+                    // EnemyFade). Tighter than TryFindEnemy's half-fade window
+                    // on purpose: that lookup is keyed by id (a stale corpse
+                    // can only be THE target), while this scan is positional —
+                    // a looser window would let some OTHER recent kill nearby
+                    // steal a fan slot from a live target.
+                    if (e.Dead && e.FadeTime < SimConfig.EnemyFade - 0.05f) continue;
+                    var already = false;
+                    for (var p = 0; p < pickedCount; p++)
+                        if (picked[p] == i) { already = true; break; }
+                    if (already) continue;
+                    var dx = e.X - casterX;
+                    var dy = (e.Y - casterY) * SimConfig.IsoY;
+                    var dSq = dx * dx + dy * dy;
+                    if (dSq >= bestSq) continue;
+                    bestSq = dSq;
+                    best = i;
+                }
+                if (best < 0) break;
+                picked[pickedCount++] = best;
+                FireTracer(
+                    ViewWorld.ToWorld(casterX, casterY, 1.0f),
+                    ViewWorld.ToWorld(enemies[best].X, enemies[best].Y, 0.9f),
+                    new Color(0.98f, 0.85f, 0.35f, 0.8f), 0.05f);
+            }
         }
 
         void UpdateBursts(float deltaTime)
@@ -889,7 +1705,8 @@ namespace CinderCourt.View
             StepWarningPool(_waveWarnings, deltaTime);   // §W contracting rings
             StepShardPool(_shards, deltaTime);           // §S1 cracks + eruptions
             UpdateScorches(deltaTime);
-            UpdateBoltStreak(deltaTime);
+            UpdateCrackDecals(deltaTime);
+            UpdateTracers(deltaTime);
         }
 
         static void StepRingPool(Burst[] pool, float deltaTime)
@@ -897,10 +1714,27 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var burst = ref pool[i];
-                if (burst.Ring == null || !burst.Ring.enabled) continue;
+                var ringLive = burst.Ring != null && burst.Ring.enabled;
+                var quadLive = burst.Quad != null && burst.Quad.gameObject.activeSelf;
+                if (!ringLive && !quadLive) continue;
                 burst.Life -= deltaTime;
-                if (burst.Life <= 0f) { burst.Ring.enabled = false; continue; }
+                if (burst.Life <= 0f)
+                {
+                    if (burst.Ring != null) burst.Ring.enabled = false;
+                    if (burst.Quad != null) burst.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - burst.Life / burst.MaxLife;
+
+                if (quadLive)
+                {
+                    // ONE-SHOT across the effect's own life, not a fixed frame
+                    // rate. The spark lives 0.18 s; TerrainFlipbook's 12 fps would
+                    // show two frames of sixteen and the burst would never resolve.
+                    burst.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(progress));
+                    continue;   // the sheet carries the expansion and the fade
+                }
+
                 var radius = burst.MaxRadius * progress;
                 for (var s = 0; s < 28; s++)
                 {
@@ -933,12 +1767,16 @@ namespace CinderCourt.View
         {
             public LineRenderer Line;
             public Material Material;
+            public Transform Quad;
+            public Material QuadMaterial;
             public float Life, MaxLife;
             public Vector3 Center;
             public Vector3 Direction;   // unit, iso-space
             public float Length, Rise;  // Rise > 0 = vertical eruption
             public Color Color;
             public float Seed;
+            public bool Textured;
+            public bool Flipbook;
         }
         // 8 crack arms + 10 spikes: one nova fan (8) and one pulse crown (10)
         // can be live together without either evicting the other.
@@ -968,6 +1806,11 @@ namespace CinderCourt.View
         void SpawnCrackFan(float simX, float simY, Color color, float radiusSim,
                            float life, int arms, float startAngle = 0f)
         {
+            if (CrackFanMask() != null)
+            {
+                SpawnCrackDecal(simX, simY, color, radiusSim, life, startAngle);
+                return;
+            }
             for (var a = 0; a < arms; a++)
             {
                 var angle = startAngle + (Mathf.PI * 2f * a) / arms;
@@ -988,6 +1831,14 @@ namespace CinderCourt.View
         void SpawnEruptionCrown(float simX, float simY, Color color, float radiusSim,
                                 float riseWorld, float life, int count)
         {
+            var sheet = EruptionSheet();
+            if (sheet != null)
+            {
+                var radiusWorld = radiusSim * ViewWorld.Scale;
+                SpawnTexturedShard(simX, simY, color, radiusWorld * 2f, life,
+                    Vector3.forward, riseWorld, sheet, flipbook: true, name: "EruptionCrownQuad");
+                return;
+            }
             for (var s = 0; s < count; s++)
             {
                 var angle = (Mathf.PI * 2f * s) / count;
@@ -1019,6 +1870,16 @@ namespace CinderCourt.View
         void SpawnShard(float simX, float simY, Color color, float lengthWorld,
                         float life, Vector3 direction, float rise)
         {
+            if (rise <= 0f)
+            {
+                var mask = ShardStreakMask();
+                if (mask != null)
+                {
+                    SpawnTexturedShard(simX, simY, color, lengthWorld, life,
+                        direction, 0f, mask, flipbook: false, name: "ShardStreakQuad");
+                    return;
+                }
+            }
             ref var slot = ref _shards[_shardCursor];
             _shardCursor = (_shardCursor + 1) % _shards.Length;
             if (slot.Line == null)
@@ -1038,11 +1899,66 @@ namespace CinderCourt.View
             slot.Rise = rise;
             slot.Color = color;
             slot.MaxLife = slot.Life = life;
+            slot.Textured = false;
+            if (slot.Quad != null) slot.Quad.gameObject.SetActive(false);
             // Per-shard seed keeps the jag stable for this shard's whole life
             // (re-randomising per frame would boil, which reads as noise, not
             // fracture) while differing between shards of the same fan.
             slot.Seed = _shardCursor * 12.9898f;
             slot.Line.enabled = true;
+        }
+
+        void SpawnTexturedShard(
+            float simX, float simY, Color color, float lengthWorld, float life,
+            Vector3 direction, float rise, Texture2D texture, bool flipbook, string name)
+        {
+            ref var slot = ref _shards[_shardCursor];
+            _shardCursor = (_shardCursor + 1) % _shards.Length;
+            if (slot.Quad == null)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                RemovePrimitiveCollider(quad);
+                quad.name = name;
+                quad.transform.SetParent(transform, false);
+                slot.Quad = quad.transform;
+                slot.QuadMaterial = ViewWorld.MakeAdditive(Color.white);
+                var renderer = quad.GetComponent<Renderer>();
+                renderer.sharedMaterial = slot.QuadMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+            }
+            else
+            {
+                slot.Quad.name = name;
+            }
+            if (slot.Line != null) slot.Line.enabled = false;
+            slot.QuadMaterial.mainTexture = texture;
+            slot.QuadMaterial.color = color;
+            slot.QuadMaterial.SetVector(BaseMapStId,
+                flipbook ? TerrainFlipbook.FrameSt(0) : FullTextureSt);
+            slot.Center = ViewWorld.ToWorld(simX, simY, 0.05f);
+            slot.Direction = direction.sqrMagnitude < 0.0001f ? Vector3.right : direction.normalized;
+            slot.Length = lengthWorld;
+            slot.Rise = rise;
+            slot.Color = color;
+            slot.MaxLife = slot.Life = life;
+            slot.Textured = true;
+            slot.Flipbook = flipbook;
+            if (rise > 0f)
+            {
+                var yaw = Mathf.Atan2(slot.Direction.x, slot.Direction.z) * Mathf.Rad2Deg;
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(0f, yaw, 0f);
+                slot.Quad.localScale = new Vector3(lengthWorld, 0f, 1f);
+            }
+            else
+            {
+                var yaw = Mathf.Atan2(slot.Direction.z, slot.Direction.x) * Mathf.Rad2Deg;
+                slot.Quad.position = slot.Center;
+                slot.Quad.rotation = Quaternion.Euler(90f, -yaw, 0f);
+                slot.Quad.localScale = new Vector3(0f, 0.18f, 1f);
+            }
+            slot.Quad.gameObject.SetActive(true);
         }
 
         /// <summary>
@@ -1055,15 +1971,45 @@ namespace CinderCourt.View
             for (var i = 0; i < pool.Length; i++)
             {
                 ref var shard = ref pool[i];
-                if (shard.Line == null || !shard.Line.enabled) continue;
+                var lineLive = shard.Line != null && shard.Line.enabled;
+                var quadLive = shard.Quad != null && shard.Quad.gameObject.activeSelf;
+                if (!lineLive && !quadLive) continue;
                 shard.Life -= deltaTime;
-                if (shard.Life <= 0f) { shard.Line.enabled = false; continue; }
+                if (shard.Life <= 0f)
+                {
+                    if (shard.Line != null) shard.Line.enabled = false;
+                    if (shard.Quad != null) shard.Quad.gameObject.SetActive(false);
+                    continue;
+                }
                 var progress = 1f - shard.Life / shard.MaxLife;
                 // Ease-out extend: 0 -> full in the first ~35% of life, so the
                 // shape is already complete when the hit registers.
                 var extend = Mathf.Clamp01(progress / 0.35f);
                 extend = 1f - (1f - extend) * (1f - extend);
                 var reach = shard.Rise > 0f ? shard.Rise : shard.Length;
+                if (quadLive && shard.Textured)
+                {
+                    if (shard.Flipbook)
+                        shard.QuadMaterial.SetVector(BaseMapStId, FxFrameSt(progress));
+                    var fadedQuad = shard.Color;
+                    fadedQuad.a = shard.Color.a * Mathf.Clamp01((1f - progress) * 1.5f);
+                    shard.QuadMaterial.color = fadedQuad;
+                    if (shard.Rise > 0f)
+                    {
+                        shard.Quad.position = shard.Center + Vector3.up * (reach * extend * 0.5f);
+                        var yaw = Mathf.Atan2(shard.Direction.x, shard.Direction.z) * Mathf.Rad2Deg;
+                        shard.Quad.rotation = Quaternion.Euler(0f, yaw, 0f);
+                        shard.Quad.localScale = new Vector3(shard.Length, reach * extend, 1f);
+                    }
+                    else
+                    {
+                        var yaw = Mathf.Atan2(shard.Direction.z, shard.Direction.x) * Mathf.Rad2Deg;
+                        shard.Quad.position = shard.Center + shard.Direction * (reach * extend * 0.5f);
+                        shard.Quad.rotation = Quaternion.Euler(90f, -yaw, 0f);
+                        shard.Quad.localScale = new Vector3(reach * extend, 0.18f, 1f);
+                    }
+                    continue;
+                }
                 for (var s = 0; s < ShardSegments; s++)
                 {
                     var t = (float)s / (ShardSegments - 1);
@@ -1088,27 +2034,48 @@ namespace CinderCourt.View
         /// <summary>End-of-run cleanup: hazard visuals, pickups, live bursts.</summary>
         public void ClearTransient()
         {
-            if (_hazardViews != null)
-            {
-                for (var i = 0; i < _hazardViews.Length; i++)
-                    if (_hazardViews[i].Root != null)
-                        Destroy(_hazardViews[i].Root.gameObject);
-                _hazardViews = null;
-            }
+            _stageContext = string.Empty;
+            DestroyHazardViews();
             foreach (var pair in _pickupViews)
                 if (pair.Value != null) Destroy(pair.Value.gameObject);
             _pickupViews.Clear();
             for (var i = 0; i < _bursts.Length; i++)
                 if (_bursts[i].Ring != null) _bursts[i].Ring.enabled = false;
             for (var i = 0; i < _sparks.Length; i++)
+            {
                 if (_sparks[i].Ring != null) _sparks[i].Ring.enabled = false;
+                if (_sparks[i].Quad != null) _sparks[i].Quad.gameObject.SetActive(false);
+            }
+            for (var i = 0; i < _bursts.Length; i++)
+                if (_bursts[i].Quad != null) _bursts[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _scorches.Length; i++)
                 if (_scorches[i].Quad != null) _scorches[i].Quad.gameObject.SetActive(false);
+            for (var i = 0; i < _crackDecals.Length; i++)
+                if (_crackDecals[i].Quad != null) _crackDecals[i].Quad.gameObject.SetActive(false);
             for (var i = 0; i < _waveWarnings.Length; i++)   // §W dedicated pool
+            {
                 if (_waveWarnings[i].Ring != null) _waveWarnings[i].Ring.enabled = false;
+                if (_waveWarnings[i].Quad != null) _waveWarnings[i].Quad.gameObject.SetActive(false);
+            }
             for (var i = 0; i < _shards.Length; i++)         // §S1 cracks/eruptions
+            {
                 if (_shards[i].Line != null) _shards[i].Line.enabled = false;
-            if (_boltStreak != null) _boltStreak.enabled = false;
+                if (_shards[i].Quad != null) _shards[i].Quad.gameObject.SetActive(false);
+            }
+            // Shot tracers: retire live comets AND drop the attack latches — a
+            // stale true here would swallow the next run's first companion
+            // tracer (the rising edge never fires), the same survive-the-run
+            // class as the idle arrow below.
+            for (var i = 0; i < _tracers.Length; i++)
+                if (_tracers[i].Line != null) _tracers[i].Line.enabled = false;
+            for (var i = 0; i < _companionWasAttacking.Length; i++)
+            {
+                _companionWasAttacking[i] = false;
+                _companionWasSkillCasting[i] = false;
+                _companionLastTargetId[i] = 0;
+            }
+            for (var i = 0; i < ActiveThreatCueCount; i++)
+                SetActiveThreatCueEnabled(i, false);
             // §3.6: the idle arrow must not survive into the lobby; reset the
             // idle accumulator too so the next run starts from a clean 0.
             if (_threatArrow != null) _threatArrow.enabled = false;
@@ -1120,6 +2087,11 @@ namespace CinderCourt.View
             if (_pulseRipple != null) _pulseRipple.Clear();
             if (_novaDebris != null) _novaDebris.Clear();
             if (_aegisFlash != null) _aegisFlash.Clear();
+            if (_deathMotes != null) _deathMotes.Clear();
+            // Ids restart at 1 every run (CinderSim.cs:924 Restart). Without
+            // this wipe the next run's first kills would match a stale latch
+            // entry and silently lose their motes.
+            ClearDeathLatch(_deathLatch, ref _deathLatchCursor);
             _pulseNextEmit = 0f;
             if (_novaRing != null) _novaRing.enabled = false;
             _novaTime = 0f;
@@ -1134,6 +2106,20 @@ namespace CinderCourt.View
             _corpseTime = 0f;
             if (_channelBeam != null) _channelBeam.enabled = false;
             if (_wardShell != null) _wardShell.SetActive(false);
+        }
+
+        void DestroyHazardViews()
+        {
+            if (_hazardViews == null) return;
+            for (var i = 0; i < _hazardViews.Length; i++)
+                if (_hazardViews[i].Root != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(_hazardViews[i].Root.gameObject);
+                    else
+                        DestroyImmediate(_hazardViews[i].Root.gameObject);
+                }
+            _hazardViews = null;
         }
 
         /// <summary>
@@ -1223,6 +2209,14 @@ namespace CinderCourt.View
                             color.r = 1f; color.g = 0.6f; color.b = 0.3f;
                         }
                         view.RingMaterial.color = color;
+                        if (view.BodyMaterial != null)
+                        {
+                            view.BodyMaterial.color = color;
+                            view.BodyMaterial.SetVector(BaseMapStId,
+                                ViewPrefs.ReducedMotion
+                                    ? TerrainFlipbook.FrameSt(TelegraphReducedMotionFrame)
+                                    : FxFrameSt(hazard.CycleT / CampaignSpec.VentPeriod));
+                        }
                         // V2 (interview lane, research telegraph rule): the fill
                         // disc grows with time-to-eruption so "how soon" reads at
                         // a glance — answering the telegraph's question, not just
@@ -1363,8 +2357,38 @@ namespace CinderCourt.View
 
                         // Charcoal overlay covers the swallowed band between
                         // the home edge and FrontX; the ember curtain rides
-                        // the leading edge. Reduced motion: boundary line
-                        // only — overlay/curtain stay hidden.
+                        // the leading edge. The opaque stage surface remains
+                        // visible while live, including reduced motion, so the
+                        // floor below never leaks through the swallowed band.
+                        if (view.Surface != null)
+                        {
+                            if (view.Surface.gameObject.activeSelf != live)
+                                view.Surface.gameObject.SetActive(live);
+                            if (live)
+                            {
+                                var depth = Mathf.Max(0.001f, Mathf.Abs(frontWorld));
+                                var fromRight = view.SurfaceFromRight;
+                                view.Surface.localScale = new Vector3(depth, WallSpanWorld, 1f);
+                                view.Surface.localPosition =
+                                    new Vector3(frontWorld * 0.5f, 0.025f, 0f);
+                                // The authored band represents the complete maximum
+                                // swallow depth. Reveal only the travelled fraction so
+                                // texel density stays fixed while the quad grows; a
+                                // short wall never stretches the whole texture, and a
+                                // full wall never repeats false secondary fronts.
+                                var st = new Vector4(
+                                    Mathf.Clamp01(depth / AshWallMaxDepthWorld),
+                                    1f,
+                                    0f,
+                                    0f);
+                                if (fromRight)
+                                    st.z = 1f - st.x;
+                                var block = SurfaceBlock(ref view);
+                                block.SetVector(BaseMapStId, st);
+                                view.SurfaceRenderer.SetPropertyBlock(block);
+                            }
+                        }
+                        // Reduced motion: state overlay/curtain stay hidden.
                         var showBand = live && !ViewPrefs.ReducedMotion;
                         if (view.Body.gameObject.activeSelf != showBand)
                             view.Body.gameObject.SetActive(showBand);
@@ -1390,6 +2414,278 @@ namespace CinderCourt.View
             }
         }
 
+        /// <summary>
+        /// Cover props, chosen by POSITION rather than by index. Index would make
+        /// the same rock appear in the same slot on every stage, and re-ordering a
+        /// hazard table would silently reshuffle the whole arena's scenery. A
+        /// coordinate hash is stable under both.
+        /// </summary>
+        static string CoverPartFor(in HazardState hazard)
+        {
+            var slot = (Mathf.RoundToInt(hazard.X) * 73856093)
+                     ^ (Mathf.RoundToInt(hazard.Y) * 19349663);
+            return KitCoverParts[(int)((uint)slot % (uint)KitCoverParts.Length)];
+        }
+
+        static readonly string[] KitCoverParts =
+        {
+            "kit-sarcophagus", "kit-column-fallen", "kit-rubble-heap", "kit-altar-plinth",
+            "kit-brazier-great", "kit-arch-collapsed", "kit-statue-base", "kit-barricade",
+        };
+
+        static readonly Dictionary<string, GameObject> KitCache =
+            new Dictionary<string, GameObject>();
+
+        /// <summary>
+        /// Instantiates a generated kit part scaled to <paramref name="target"/>, or
+        /// returns null when that part was never generated.
+        ///
+        /// Scale is derived from MEASURED renderer bounds, not from the 1.0 length the
+        /// Blender pass normalises to. The two agree today, and measuring anyway is
+        /// what keeps them from having to: a re-export with different bounds changes
+        /// the mesh, not this code. EnvironmentBuilder.SpawnLibraryPart takes the same
+        /// approach for the terrain library and for the same reason.
+        /// </summary>
+        // ---- contact (blob) shadows --------------------------------------
+        //
+        // The dungeon runs four realtime POINT lights with LightShadows.None (§E6
+        // "caster 0"), and the URP asset ships m_AdditionalLightShadowsSupported: 0.
+        // So there is no shadow map to switch on without either adding a directional
+        // light — which flattens the "dark room, four warm pools" mood every stage is
+        // lit around — or paying for four cube shadow maps on WebGL.
+        //
+        // A blob buys the one thing a shadow is for at a 55 degree camera: telling the
+        // player where an object MEETS THE FLOOR. Without it a standing column and a
+        // column-shaped decal painted on the floor read the same.
+        //
+        // ONE shared material, not one per object: the mask and the tint never vary,
+        // so per-instance materials would only add draw-call batches.
+        static Material _blobMaterial;
+        static Texture2D _blobTexture;
+        static bool _blobProbed;
+
+        /// <summary>
+        /// A flat quad of soft shadow under <paramref name="parent"/>, sized PER AXIS.
+        ///
+        /// Per axis, not one radius: the stone walls are capsules several times longer
+        /// than they are thick, and a circular blob sized to the long axis would pool
+        /// shadow far past the wall on both sides. A missing texture means no shadow,
+        /// silently — nothing here may hard-depend on the asset.
+        /// </summary>
+        static void SpawnBlobShadow(Transform parent, float halfX, float halfZ)
+        {
+            if (halfX <= 1e-4f || halfZ <= 1e-4f) return;
+            if (!_blobProbed)
+            {
+                _blobTexture = Resources.Load<Texture2D>("Fx/blob-shadow");
+                _blobProbed = true;   // probe ONCE: a miss is a normal state, not an error
+            }
+            if (_blobTexture == null) return;
+
+            if (_blobMaterial == null)
+            {
+                // Through MakeUnlit's transparent path, NOT a fresh Material: a runtime
+                // material cannot summon a URP shader variant that build-time stripping
+                // removed, and a transparent surface created any other way renders
+                // OPAQUE in the WebGL build — a black square under every prop.
+                _blobMaterial = ViewWorld.MakeUnlit(new Color(0f, 0f, 0f, 0.42f), true);
+                _blobMaterial.SetTexture("_BaseMap", _blobTexture);
+                _blobMaterial.mainTexture = _blobTexture;
+            }
+
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            RemovePrimitiveCollider(quad);
+            quad.name = "blob-shadow";
+            quad.transform.SetParent(parent, false);
+            // Lie flat, a hair above the floor. Coplanar would z-fight; the offset is
+            // far below what this camera can resolve.
+            quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            quad.transform.localPosition = new Vector3(0f, 0.012f, 0f);
+            quad.transform.localScale = new Vector3(halfX * 2f, halfZ * 2f, 1f);
+
+            var renderer = quad.GetComponent<Renderer>();
+            renderer.sharedMaterial = _blobMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        /// <param name="castsShadow">
+        /// True for a STANDING SOLID the sim also blocks on — pillar, stone wall, altar
+        /// plinth, pylon shell. Those join the key light's shadow-caster layer and get a
+        /// real directional shadow; everything else keeps the cheap blob.
+        /// </param>
+        static GameObject SpawnKitPart(string partName, Transform parent, Vector3 target,
+                                       bool uniform, bool castsShadow = false)
+        {
+            if (!KitCache.TryGetValue(partName, out var prefab))
+            {
+                prefab = Resources.Load<GameObject>("Environment/" + partName);
+                KitCache[partName] = prefab;
+            }
+            if (prefab == null) return null;
+
+            var clone = UnityEngine.Object.Instantiate(prefab, parent);
+            clone.transform.localPosition = Vector3.zero;
+            clone.transform.localRotation = Quaternion.identity;
+            clone.transform.localScale = Vector3.one;
+
+            var renderers = clone.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+            {
+                UnityEngine.Object.DestroyImmediate(clone);
+                return null;
+            }
+
+            var bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var size = bounds.size;
+            if (size.x <= 1e-4f || size.y <= 1e-4f || size.z <= 1e-4f)
+            {
+                UnityEngine.Object.DestroyImmediate(clone);
+                return null;
+            }
+
+            var scale = new Vector3(target.x / size.x, target.y / size.y, target.z / size.z);
+            if (uniform)
+            {
+                // Props keep their proportions. A sarcophagus squashed to a cover's
+                // exact footprint stops reading as a sarcophagus, and the collider is
+                // a circle regardless — the silhouette is the only thing the player
+                // uses to recognise it.
+                var k = Mathf.Min(scale.x, Mathf.Min(scale.y, scale.z));
+                scale = new Vector3(k, k, k);
+            }
+            clone.transform.localScale = scale;
+
+            // Re-measure at final scale and seat the part on the floor. The mesh is
+            // exported with its base at 0, but a scaled pivot does not stay there.
+            bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            var lift = parent.position.y - bounds.min.y;
+            clone.transform.position += new Vector3(0f, lift, 0f);
+
+            // A solid the player collides with earns a REAL shadow; decoration does not.
+            // The shadow map is already rendered every frame for character casters
+            // (StageMood's key light is LightShadows.Hard), so promoting a handful of
+            // standing solids reuses a pass that exists rather than adding one — which
+            // is why this is cheaper than it looks and why blobs stay for the rest.
+            foreach (var renderer in renderers)
+            {
+                if (castsShadow) StageShadowPolicy.TryConfigureCaster(renderer);
+                else
+                {
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    renderer.receiveShadows = false;
+                }
+            }
+
+            // Footprint from the MEASURED bounds, never from the requested target: the
+            // uniform branch above rewrites the scale to preserve proportions, so a
+            // prop's real footprint is routinely smaller than what was asked for.
+            //
+            // FLAT PIECES GET NO SHADOW. A floor tile IS the floor and has nothing to
+            // cast onto. The altar is why this guard is not cosmetic: its sigil tile
+            // spans the CHANNEL disc, so shadowing it would lay a dark disc across the
+            // exact telegraph the player reads to stand in — dimming a hazard cue in
+            // order to decorate it (§E0.5).
+            // Blob ONLY when there is no real shadow. Drawing both would double the
+            // contact darkness under exactly the objects that already read correctly.
+            if (!castsShadow
+                && bounds.size.y >= Mathf.Max(bounds.size.x, bounds.size.z) * 0.25f)
+                SpawnBlobShadow(parent, bounds.size.x * 0.525f, bounds.size.z * 0.525f);
+            return clone;
+        }
+
+        Material StageSurfaceMaterial(HazardKind kind)
+        {
+            if (string.IsNullOrEmpty(_stageContext)) return null;
+            if (_stageHazardTextureResolver == null)
+                _stageHazardTextureResolver = new StageHazardTextureResolver();
+
+            var result = _stageHazardTextureResolver.Resolve(_stageContext, kind);
+            if (!result.Found || result.Texture == null) return null;
+
+            var key = result.Binding.ResourcePath;
+            if (_stageSurfaceMaterialCache.TryGetValue(key, out var material))
+                return material;
+
+            // LIT, not unlit. This material is applied to the gimmick's SOLID BODY —
+            // the pillar, the stone wall, the altar plinth — which is the same geometry
+            // the kit gives a toon material to. An unlit override here silently undid
+            // the toon conversion on exactly the objects the art direction is about:
+            // they kept their texture but lost the banding and the outline, so a
+            // textured pillar sat next to a cel-shaded cover piece in two languages.
+            //
+            // MakeLit resolves through ViewWorld.LitShader, which is the single place
+            // the toon/PBR choice is made, so this follows the switch instead of
+            // pinning a second opinion about it.
+            //
+            // Readability is not weakened: these are BODIES, not telegraphs. The vent
+            // ring, the current band and the pylon aura are separate surfaces and stay
+            // exactly as they were — §E0.5 is about the cue, not about the rock.
+            material = ViewWorld.MakeLit(Color.white, result.Texture);
+            material.SetTexture("_BaseMap", result.Texture);
+            material.mainTexture = result.Texture;
+            material.SetVector(BaseMapStId, FullTextureSt);
+            _stageSurfaceMaterialCache[key] = material;
+            return material;
+        }
+
+        static void ConfigureHazardSurface(Renderer renderer)
+        {
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        static Vector4 SurfaceRepeatSt(float widthWorld, float heightWorld)
+        {
+            const float TileWorld = 2f;
+            return new Vector4(
+                Mathf.Max(0.001f, widthWorld / TileWorld),
+                Mathf.Max(0.001f, heightWorld / TileWorld),
+                0f,
+                0f);
+        }
+
+        static MaterialPropertyBlock SurfaceBlock(ref HazardView view)
+        {
+            if (view.SurfaceProperties == null)
+                view.SurfaceProperties = new MaterialPropertyBlock();
+            view.SurfaceProperties.Clear();
+            return view.SurfaceProperties;
+        }
+
+        static void SetSurfaceSt(ref HazardView view, Vector4 st)
+        {
+            if (view.SurfaceRenderer == null) return;
+            var block = SurfaceBlock(ref view);
+            block.SetVector(BaseMapStId, st);
+            view.SurfaceRenderer.SetPropertyBlock(block);
+        }
+
+        static void SetRendererSt(Renderer renderer, Vector4 st)
+        {
+            if (renderer == null) return;
+            ConfigureHazardSurface(renderer);
+            var block = new MaterialPropertyBlock();
+            block.SetVector(BaseMapStId, st);
+            renderer.SetPropertyBlock(block);
+        }
+
+        static void AssignSharedMaterial(GameObject target, Material material, Vector4 st)
+        {
+            if (target == null || material == null) return;
+            var renderers = target.GetComponentsInChildren<Renderer>();
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].sharedMaterial = material;
+                ConfigureHazardSurface(renderers[i]);
+                var block = new MaterialPropertyBlock();
+                block.SetVector(BaseMapStId, st);
+                renderers[i].SetPropertyBlock(block);
+            }
+        }
+
         HazardView BuildHazardView(in HazardState hazard)
         {
             var view = new HazardView();
@@ -1405,10 +2701,26 @@ namespace CinderCourt.View
             {
                 case HazardKind.EmberVent:
                 {
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "VentSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            r * 2.18f, 0.006f, r * 2.18f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     disc.transform.localScale = new Vector3(r * 2f, 0.012f, r * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.3f, 0.22f), true);
                     view.Ring = disc.GetComponent<Renderer>();
@@ -1423,18 +2735,88 @@ namespace CinderCourt.View
                     view.FillDisc = fill.transform;
                     view.FillMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.42f, 0.18f, 0.16f), true);
                     fill.GetComponent<Renderer>().sharedMaterial = view.FillMaterial;
+                    var telegraphSheet = TelegraphRingSheet();
+                    if (telegraphSheet != null)
+                    {
+                        var telegraph = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(telegraph);
+                        telegraph.name = "VentTelegraphQuad";
+                        telegraph.transform.SetParent(root.transform, false);
+                        telegraph.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        telegraph.transform.localPosition = new Vector3(0f, 0.012f, 0f);
+                        telegraph.transform.localScale = new Vector3(r * 2.2f, r * 2.2f / SimConfig.IsoY, 1f);
+                        view.Body = telegraph.transform;
+                        view.BodyMaterial = ViewWorld.MakeAdditive(Color.white);
+                        view.BodyMaterial.mainTexture = telegraphSheet;
+                        view.BodyMaterial.SetVector(BaseMapStId, TerrainFlipbook.FrameSt(0));
+                        var telegraphRenderer = telegraph.GetComponent<Renderer>();
+                        telegraphRenderer.sharedMaterial = view.BodyMaterial;
+                        telegraphRenderer.shadowCastingMode =
+                            UnityEngine.Rendering.ShadowCastingMode.Off;
+                        telegraphRenderer.receiveShadows = false;
+                    }
                     break;
                 }
                 case HazardKind.ObsidianPillar:
                 {
-                    var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    RemovePrimitiveCollider(pillar);
-                    pillar.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
-                    pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
-                    pillar.transform.localPosition = new Vector3(0f, 1.1f, 0f);
-                    var material = ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
-                    pillar.GetComponent<Renderer>().sharedMaterial = material;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    // AMENDMENT #17b — TONE. The generated stone kit arrived for the
+                    // StoneWall case only, which left the two kinds of solid in one room
+                    // rendered in two different art languages: a sculpted rock beside an
+                    // untextured primitive cylinder. That reads as an unfinished object
+                    // rather than as a style, and it is most visible exactly where the
+                    // amendment added the most geometry.
+                    //
+                    // The kit mesh replaces the BODY only. The base ring below stays:
+                    // it is not decoration, it is the footprint cue that tells the player
+                    // where the solid begins at the 55 degree pitch, and a prettier body
+                    // does not answer that question.
+                    var pillarPart = SpawnKitPart(
+                        "kit-column-round", root.transform,
+                        new Vector3(r * 2f, 2.2f, r * 2f), uniform: false, castsShadow: true);
+                    if (pillarPart == null)
+                    {
+                        // Missing part is a NORMAL state (the kit shipped 20 of 28), so
+                        // the primitive stays as the fallback rather than as the plan.
+                        var pillar = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(pillar);
+                        pillar.transform.SetParent(root.transform, false);
+                        pillar.transform.localScale = new Vector3(r * 2f, 1.1f, r * 2f);
+                        pillar.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                        view.Body = pillar.transform;
+                        pillar.GetComponent<Renderer>().sharedMaterial =
+                            surfaceMaterial != null
+                                ? surfaceMaterial
+                                : ViewWorld.MakeUnlit(new Color(0.12f, 0.1f, 0.2f), false);
+                        if (surfaceMaterial != null)
+                            SetRendererSt(pillar.GetComponent<Renderer>(),
+                                SurfaceRepeatSt(r * 2f, 2.2f));
+                        // The kit path plants its own shadow from measured bounds; the
+                        // primitive fallback must plant one too, or a stage that happens
+                        // to miss a kit part loses its contact shading along with it.
+                        SpawnBlobShadow(root.transform, r * 1.05f, r * 1.05f);
+                    }
+                    else
+                    {
+                        view.Body = pillarPart.transform;
+                        AssignSharedMaterial(pillarPart, surfaceMaterial, SurfaceRepeatSt(r * 2f, 2.2f));
+                    }
+                    if (surfaceMaterial != null)
+                    {
+                        var contact = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(contact);
+                        contact.name = "PillarContactSurface";
+                        contact.transform.SetParent(root.transform, false);
+                        contact.transform.localScale = new Vector3(
+                            r * 2.35f, 0.006f, r * 2.35f);
+                        view.Surface = contact.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = contact.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(r * 2.35f, r * 2.35f));
+                    }
                     // Faint cyan edge ring at the base for readability.
                     var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(baseRing);
@@ -1446,20 +2828,64 @@ namespace CinderCourt.View
                 }
                 case HazardKind.RelicAltar:
                 {
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(disc);
                     disc.transform.SetParent(root.transform, false);
                     var r = hazard.Radius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "AltarSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            r * 2.08f, 0.006f, r * 2.08f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     disc.transform.localScale = new Vector3(r * 2f, 0.02f, r * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f, 0.5f), true);
                     view.Ring = disc.GetComponent<Renderer>();
                     view.Ring.sharedMaterial = view.RingMaterial;
-                    // Center relic gem.
+
+                    // AMENDMENT #17c — the altar is SOLID at its plinth, so it gets a
+                    // body the player can read as one. TWO meshes, because the altar has
+                    // two radii and drawing either at the other's size would lie:
+                    //
+                    //   sigil floor tile  spans the CHANNEL disc (70) — where you may
+                    //                     stand to hold it. Flat, walkable, no collision.
+                    //   plinth            spans the SOLID body (24) — what stops you.
+                    //
+                    // #17b shipped the tile alone with a comment saying a plinth would
+                    // promise a collision the sim lacked. That was correct then and is
+                    // wrong now; the premise moved, so the geometry moves with it. Both
+                    // scales come off the sim's own constants for the same reason the
+                    // StoneWall case takes its dimensions off the hazard record — a view
+                    // that stops matching the solid behind it is §4k at full size.
+                    var tileWorld = hazard.Radius * ViewWorld.Scale * 1.35f;
+                    SpawnKitPart("kit-floor-tile-sigil", root.transform,
+                        new Vector3(tileWorld, tileWorld * 0.06f, tileWorld), uniform: false);
+
+                    var plinthWorld = CampaignSpec.AltarBodyRadius * ViewWorld.Scale * 2f;
+                    var plinth = SpawnKitPart(
+                        "kit-altar-plinth", root.transform,
+                        new Vector3(plinthWorld, plinthWorld * 0.9f, plinthWorld),
+                        uniform: true, castsShadow: true);
+
+                    // Centre relic gem — the altar's identity read at a glance. It rides
+                    // the plinth when one exists and floats at the old height otherwise,
+                    // because a missing kit part is a normal state here (20 of 28 shipped).
                     var gem = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     RemovePrimitiveCollider(gem);
                     gem.transform.SetParent(root.transform, false);
                     gem.transform.localScale = Vector3.one * 0.22f;
-                    gem.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+                    gem.transform.localPosition =
+                        new Vector3(0f, plinth == null ? 0.5f : plinthWorld * 0.9f + 0.16f, 0f);
                     gem.transform.localRotation = Quaternion.Euler(45f, 0f, 45f);
                     gem.GetComponent<Renderer>().sharedMaterial =
                         ViewWorld.MakeUnlit(new Color(0.56f, 0.91f, 1f), false);
@@ -1472,6 +2898,23 @@ namespace CinderCourt.View
                     // hazard), so the bed skips the usual /IsoY squash.
                     var bandW = CampaignSpec.CurrentHalfW * 2f * ViewWorld.Scale;
                     var bandH = CampaignSpec.CurrentHalfH * 2f * ViewWorld.Scale;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "CurrentSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        surface.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+                        surface.transform.localScale = new Vector3(bandW, bandH, 1f);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(bandW, bandH));
+                    }
                     var bed = GameObject.CreatePrimitive(PrimitiveType.Quad);
                     RemovePrimitiveCollider(bed);
                     bed.transform.SetParent(root.transform, false);
@@ -1550,6 +2993,7 @@ namespace CinderCourt.View
                     // Unlit obsidian body, pillar grammar — but destructible:
                     // the ember band advertises "hit me" and dims with Hp.
                     var r = hazard.Radius * ViewWorld.Scale;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
                     var body = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                     RemovePrimitiveCollider(body);
                     body.transform.SetParent(root.transform, false);
@@ -1558,6 +3002,39 @@ namespace CinderCourt.View
                     view.Body = body.transform;
                     view.BodyMaterial = ViewWorld.MakeUnlit(new Color(0.16f, 0.08f, 0.06f), false);
                     body.GetComponent<Renderer>().sharedMaterial = view.BodyMaterial;
+                    if (surfaceMaterial != null)
+                    {
+                        // The generated pylon resource is authored as a top-down
+                        // scorched underlay, so wrapping it around the cylinder would
+                        // turn floor marks into vertical stripes.  A flush opaque cap
+                        // gives the destructible core its stage albedo while the
+                        // existing body and HP band keep their semantic read.
+                        var coreSurface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(coreSurface);
+                        coreSurface.name = "PylonBodySurface";
+                        coreSurface.transform.SetParent(body.transform, false);
+                        coreSurface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        coreSurface.transform.localPosition = new Vector3(0f, 1.01f, 0f);
+                        coreSurface.transform.localScale = Vector3.one;
+                        var coreRenderer = coreSurface.GetComponent<Renderer>();
+                        coreRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(coreRenderer);
+                        SetRendererSt(coreRenderer, FullTextureSt);
+                    }
+
+                    // AMENDMENT #17b — TONE. A carved brazier shell around the primitive,
+                    // so the pylon belongs to the same stone family as the walls, pillars
+                    // and altars now standing beside it.
+                    //
+                    // AROUND, not INSTEAD OF. `view.Body` is the destructible readout —
+                    // the sim dims and shrinks it as Hp falls — so replacing it would
+                    // hand that job to a mesh nothing updates, and a pylon at 5 Hp would
+                    // look exactly like one at full. The shell is inert dressing; the
+                    // primitive stays the thing that tells the truth about state (§4k).
+                    var shellWorld = r * 2.15f;
+                    SpawnKitPart("kit-brazier-great", root.transform,
+                        new Vector3(shellWorld, shellWorld * 1.15f, shellWorld),
+                        uniform: true, castsShadow: true);
 
                     // Ember-orange band riding the upper body — child of the
                     // body so the destroyed state hides both in one SetActive.
@@ -1578,6 +3055,21 @@ namespace CinderCourt.View
                     RemovePrimitiveCollider(aura);
                     aura.transform.SetParent(root.transform, false);
                     var auraR = CampaignSpec.PylonAuraRadius * ViewWorld.Scale;
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "PylonAuraSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localScale = new Vector3(
+                            auraR * 2f, 0.006f, auraR * 2f / SimConfig.IsoY);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                    }
                     aura.transform.localScale = new Vector3(
                         auraR * 2f, 0.008f, auraR * 2f / SimConfig.IsoY);
                     view.RingMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.5f, 0.2f, 0.10f), true);
@@ -1597,16 +3089,110 @@ namespace CinderCourt.View
                     scorch.SetActive(false);
                     break;
                 }
+                case HazardKind.StoneWall:
+                {
+                    // AMENDMENT #17. Static capsule blocker: a body box plus a base
+                    // ring, mirroring the ObsidianPillar case above because they are
+                    // the same thing in the sim — one routine collides both, a circle
+                    // being a capsule with a zero half-vector.
+                    //
+                    // Every dimension comes off the hazard record, never off a layout
+                    // constant. This surface and CinderSim.ApplyBlockers must describe
+                    // the same solid; §4k is this repo's standing lesson on what it
+                    // costs when a view stops reflecting the state behind it, and a
+                    // wall you can walk through is that failure at full size.
+                    var halfLength = Mathf.Sqrt(
+                        hazard.HalfW * hazard.HalfW + hazard.HalfH * hazard.HalfH);
+                    var radiusWorld = hazard.Radius * ViewWorld.Scale;
+                    var lengthWorld = (halfLength * 2f) * ViewWorld.Scale + radiusWorld * 2f;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    var yaw = halfLength <= 0.0001f
+                        ? 0f
+                        : Mathf.Atan2(hazard.HalfH, hazard.HalfW) * Mathf.Rad2Deg;
+                    root.transform.localRotation = Quaternion.Euler(0f, -yaw, 0f);
+
+                    // Generated kit mesh when one exists, primitive cube otherwise.
+                    // The kit shipped at 20 of 28 parts (credits ran out mid-run), so
+                    // "the mesh is missing" is a NORMAL state here, not an error — a
+                    // hard dependency on it would have made the arena unrenderable for
+                    // a reason that has nothing to do with the arena.
+                    var isWall = halfLength > 0.0001f;
+                    var target = isWall
+                        ? new Vector3(lengthWorld, EnvironmentLayout.StoneWallHeightWorld,
+                            radiusWorld * 2f)
+                        : new Vector3(radiusWorld * 2f, radiusWorld * 1.6f, radiusWorld * 2f);
+                    // StoneWall is the sim's own blocker — walls and cover alike. It is
+                    // the clearest case for a real shadow: the player has to read where
+                    // a solid stands in order to path around it.
+                    var part = SpawnKitPart(
+                        isWall ? "kit-wall-straight" : CoverPartFor(hazard),
+                        root.transform, target, uniform: !isWall, castsShadow: true);
+
+                    if (part != null)
+                    {
+                        view.Body = part.transform;
+                        AssignSharedMaterial(part, surfaceMaterial,
+                            SurfaceRepeatSt(target.x, Mathf.Max(target.z, target.y)));
+                    }
+                    else
+                    {
+                        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        RemovePrimitiveCollider(body);
+                        body.transform.SetParent(root.transform, false);
+                        body.transform.localScale = new Vector3(
+                            lengthWorld, EnvironmentLayout.StoneWallHeightWorld, radiusWorld * 2f);
+                        body.transform.localPosition =
+                            new Vector3(0f, EnvironmentLayout.StoneWallHeightWorld * 0.5f, 0f);
+                        view.Body = body.transform;
+                        body.GetComponent<Renderer>().sharedMaterial =
+                            surfaceMaterial != null
+                                ? surfaceMaterial
+                                : ViewWorld.MakeUnlit(new Color(0.13f, 0.12f, 0.14f), false);
+                        if (surfaceMaterial != null)
+                            SetRendererSt(body.GetComponent<Renderer>(),
+                                SurfaceRepeatSt(lengthWorld, radiusWorld * 2f));
+                    }
+
+                    if (surfaceMaterial != null)
+                    {
+                        var contact = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        RemovePrimitiveCollider(contact);
+                        contact.name = "StoneWallContactSurface";
+                        contact.transform.SetParent(root.transform, false);
+                        contact.transform.localScale = new Vector3(
+                            lengthWorld * 1.03f, 0.008f, radiusWorld * 2.6f);
+                        view.Surface = contact.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = contact.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, SurfaceRepeatSt(lengthWorld, radiusWorld * 2.6f));
+                    }
+
+                    // Base ring: the same readability trick the pillar uses. At the
+                    // 55 degree pitch a low box's footprint is ambiguous, and the
+                    // player needs to know where the solid actually starts.
+                    var baseRing = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    RemovePrimitiveCollider(baseRing);
+                    baseRing.transform.SetParent(root.transform, false);
+                    baseRing.transform.localScale = new Vector3(
+                        lengthWorld * 1.03f, 0.01f, radiusWorld * 2.6f);
+                    baseRing.GetComponent<Renderer>().sharedMaterial =
+                        ViewWorld.MakeUnlit(new Color(0.35f, 0.6f, 0.8f, 0.28f), true);
+                    break;
+                }
                 case HazardKind.AshWall:
                 {
-                    // Root sits at this wall's HOME edge (config X: 248 left
-                    // / 1288 right, y=ArenaY). The lethal band is y-full in
+                    // Root sits at this wall's HOME edge (config X: 33 left
+                    // / 1503 right, y=ArenaY). The lethal band is y-full in
                     // the sim; visuals span the arena height (WallSpanWorld)
                     // — decoration, not judge. HazardState carries no PushX,
                     // so the side is inferred from the anchor X — build-time
                     // lookup grammar, same reasoning as CurrentPushSign.
                     var fromRight = hazard.X
                         > (CampaignSpec.WallEdgeX + CampaignSpec.WallEdgeRightX) * 0.5f;
+                    var surfaceMaterial = StageSurfaceMaterial(hazard.Kind);
+                    view.SurfaceFromRight = fromRight;
 
                     // Boundary line at the home edge: the telegraph blink
                     // surface and the ONLY visual under reduced motion.
@@ -1626,6 +3212,23 @@ namespace CinderCourt.View
                     lineRenderer.shadowCastingMode =
                         UnityEngine.Rendering.ShadowCastingMode.Off;
                     lineRenderer.sharedMaterial = view.EdgeMaterial;
+
+                    if (surfaceMaterial != null)
+                    {
+                        var surface = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                        RemovePrimitiveCollider(surface);
+                        surface.name = "AshWallSurface";
+                        surface.transform.SetParent(root.transform, false);
+                        surface.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                        surface.transform.localPosition = new Vector3(0f, 0.025f, 0f);
+                        view.Surface = surface.transform;
+                        view.SurfaceMaterial = surfaceMaterial;
+                        view.SurfaceRenderer = surface.GetComponent<Renderer>();
+                        view.SurfaceRenderer.sharedMaterial = surfaceMaterial;
+                        ConfigureHazardSurface(view.SurfaceRenderer);
+                        SetSurfaceSt(ref view, FullTextureSt);
+                        surface.SetActive(false);
+                    }
 
                     // Dark warm-charcoal overlay for the swallowed band
                     // between the home edge and FrontX — scaled every frame
@@ -1687,6 +3290,19 @@ namespace CinderCourt.View
         float _playerIdleTime;
         float _prevPlayerX = float.NaN, _prevPlayerY;
         const float ThreatArrowDelay = 0.4f;   // spec §3.6
+        const int ActiveThreatCueCount = 3;    // presentation cap: primary + room threats
+        const float ActiveThreatTieEpsilon = 0.0001f;
+
+        struct ActiveThreatCue
+        {
+            public LineRenderer Line;
+            public Material Material;
+        }
+
+        readonly ActiveThreatCue[] _activeThreatCues = new ActiveThreatCue[ActiveThreatCueCount];
+        readonly int[] _activeThreatIndices = new int[ActiveThreatCueCount];
+        readonly float[] _activeThreatDistancesSq = new float[ActiveThreatCueCount];
+
         public void SyncWard(in PlayerState player)
         {
             // Player world position cache — absorption target for #13 and any
@@ -1697,16 +3313,28 @@ namespace CinderCourt.View
                 _wardShell.SetActive(active);
             if (!active) return;
             _wardShell.transform.position = ViewWorld.ToWorld(player.X, player.Y, 0.85f);
-            // Blink during the last 0.5 s.
-            if (player.WardTime < 0.5f)
+            // Expiry warning. This used to toggle the RENDERER at 10 Hz — a
+            // literal strobe on the effect the player is standing inside, and
+            // one that ignored reduced motion. The fresnel shell carries the
+            // same information as a brightness pulse instead: the shape never
+            // blinks out, it breathes. ViewPrefs.ReducedMotion sets amplitude
+            // 0, which is a steady shell rather than a flashing one.
+            if (_wardMaterial != null && _wardMaterial.HasProperty(WardPulseId))
             {
-                var on = Mathf.FloorToInt(player.WardTime * 10f) % 2 == 0;
-                _wardShell.GetComponent<Renderer>().enabled = on;
+                var expiring = player.WardTime < 0.5f;
+                _wardMaterial.SetFloat(
+                    WardPulseId,
+                    expiring && !ViewPrefs.ReducedMotion ? 0.55f : 0f);
             }
-            else
+            else if (player.WardTime < 0.5f && !ViewPrefs.ReducedMotion)
             {
-                _wardShell.GetComponent<Renderer>().enabled = true;
+                // Seed missing -> flat-alpha fallback, which has no pulse
+                // property; keep the original blink so the warning survives.
+                _wardShell.GetComponent<Renderer>().enabled =
+                    Mathf.FloorToInt(player.WardTime * 10f) % 2 == 0;
+                return;
             }
+            _wardShell.GetComponent<Renderer>().enabled = true;
         }
 
         /// <summary>§3.6 (#9): after 0.4 s of no player movement, point a short
@@ -1776,6 +3404,144 @@ namespace CinderCourt.View
             color.a = 0.7f * ramp * ViewPrefs.MotionScale;
             _threatArrowMaterial.color = color;
             _threatArrow.enabled = true;
+        }
+
+        /// <summary>Court-readability cue: draw ownership for enemies already in
+        /// their committed attack state. This reads existing sim state only; it
+        /// deliberately avoids exposing private group-AI tokens or contact frames.</summary>
+        public void SyncActiveAttackThreats(in PlayerState player, IReadOnlyList<EnemyState> enemies)
+        {
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                _activeThreatIndices[slot] = -1;
+                _activeThreatDistancesSq[slot] = float.MaxValue;
+            }
+
+            for (var i = 0; i < enemies.Count; i++)
+            {
+                var enemy = enemies[i];
+                if (enemy.Dead || enemy.Action != ActorAction.Attack) continue;
+
+                var dx = enemy.X - player.X;
+                var dy = (enemy.Y - player.Y) * SimConfig.IsoY;
+                var distSq = dx * dx + dy * dy;
+                InsertActiveThreatCandidate(enemies, i, distSq);
+            }
+
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                var enemyIndex = _activeThreatIndices[slot];
+                if (enemyIndex < 0)
+                {
+                    SetActiveThreatCueEnabled(slot, false);
+                    continue;
+                }
+
+                DrawActiveThreatCue(slot, in player, enemies[enemyIndex]);
+            }
+        }
+
+        void InsertActiveThreatCandidate(
+            IReadOnlyList<EnemyState> enemies, int candidateIndex, float candidateDistSq)
+        {
+            for (var slot = 0; slot < ActiveThreatCueCount; slot++)
+            {
+                var incumbentIndex = _activeThreatIndices[slot];
+                if (incumbentIndex >= 0
+                    && !IsBetterActiveThreat(
+                        enemies[candidateIndex], candidateDistSq, candidateIndex,
+                        enemies[incumbentIndex], _activeThreatDistancesSq[slot], incumbentIndex))
+                    continue;
+
+                for (var shift = ActiveThreatCueCount - 1; shift > slot; shift--)
+                {
+                    _activeThreatIndices[shift] = _activeThreatIndices[shift - 1];
+                    _activeThreatDistancesSq[shift] = _activeThreatDistancesSq[shift - 1];
+                }
+                _activeThreatIndices[slot] = candidateIndex;
+                _activeThreatDistancesSq[slot] = candidateDistSq;
+                return;
+            }
+        }
+
+        static bool IsBetterActiveThreat(
+            in EnemyState candidate, float candidateDistSq, int candidateIndex,
+            in EnemyState incumbent, float incumbentDistSq, int incumbentIndex)
+        {
+            // Larger ActionTime means the enemy entered Attack earlier and is
+            // closer to contact, so it owns primary salience before distance.
+            if (candidate.ActionTime > incumbent.ActionTime + ActiveThreatTieEpsilon) return true;
+            if (candidate.ActionTime < incumbent.ActionTime - ActiveThreatTieEpsilon) return false;
+            if (candidateDistSq < incumbentDistSq - ActiveThreatTieEpsilon) return true;
+            if (candidateDistSq > incumbentDistSq + ActiveThreatTieEpsilon) return false;
+            return candidateIndex < incumbentIndex;
+        }
+
+        void DrawActiveThreatCue(int slot, in PlayerState player, in EnemyState enemy)
+        {
+            EnsureActiveThreatCue(slot);
+
+            var attacker = ViewWorld.ToWorld(enemy.X, enemy.Y, 0.13f);
+            var target = ViewWorld.ToWorld(player.X, player.Y, 0.13f);
+            var direction = target - attacker;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = new Vector3(enemy.Facing >= 0 ? 1f : -1f, 0f, 0f);
+            else
+                direction.Normalize();
+
+            var perpendicular = new Vector3(-direction.z, 0f, direction.x);
+            var primary = slot == 0;
+            var width = primary ? 0.34f : 0.24f;
+            var reach = primary ? 0.82f : 0.62f;
+            var back = primary ? 0.25f : 0.18f;
+            var basePoint = attacker - direction * back;
+            var apex = attacker + direction * reach;
+
+            var line = _activeThreatCues[slot].Line;
+            line.SetPosition(0, basePoint + perpendicular * width);
+            line.SetPosition(1, apex);
+            line.SetPosition(2, basePoint - perpendicular * width);
+
+            var contactProgress = Mathf.Clamp01(enemy.ActionTime / SimConfig.EnemyContactDelay);
+            var baseAlpha = primary ? 0.86f : 0.48f;
+            var motionPulse = ViewPrefs.ReducedMotion
+                ? 1f
+                : 0.82f + 0.18f * Mathf.Sin((Time.time + slot * 0.17f) * 18f);
+            var color = primary
+                ? new Color(1f, 0.36f, 0.12f, 1f)
+                : new Color(1f, 0.58f, 0.22f, 1f);
+            color.a = baseAlpha * Mathf.Lerp(0.72f, 1f, contactProgress) * motionPulse;
+            _activeThreatCues[slot].Material.color = color;
+
+            line.startWidth = primary ? 0.085f : 0.055f;
+            line.endWidth = primary ? 0.035f : 0.025f;
+            line.enabled = true;
+        }
+
+        void EnsureActiveThreatCue(int slot)
+        {
+            if (_activeThreatCues[slot].Line != null) return;
+
+            var host = new GameObject("ActiveThreatCue" + slot);
+            host.transform.SetParent(transform, false);
+            var line = host.AddComponent<LineRenderer>();
+            line.positionCount = 3;
+            line.useWorldSpace = true;
+            line.loop = false;
+            line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var material = ViewWorld.MakeUnlit(new Color(1f, 0.36f, 0.12f, 0.86f), true);
+            line.sharedMaterial = material;
+            line.enabled = false;
+
+            _activeThreatCues[slot].Line = line;
+            _activeThreatCues[slot].Material = material;
+        }
+
+        void SetActiveThreatCueEnabled(int slot, bool enabled)
+        {
+            if (_activeThreatCues[slot].Line != null)
+                _activeThreatCues[slot].Line.enabled = enabled;
         }
 
         // Icon ids by PickupKind (EmberShard, OilFlask, RelicMote, EquipShard).
@@ -1907,7 +3673,7 @@ namespace CinderCourt.View
             if (_camera == null) _camera = Camera.main;
             if (_pickupIconMaterials[kind] == null)
             {
-                var icon = Resources.Load<Sprite>("Icons/" + PickupIcons[kind]);
+                var icon = IconSprites.Load(PickupIcons[kind]);
                 if (icon == null) return null;
                 // No tint: the icons carry their own palette (ember orange /
                 // amber / cyan / gold) - a multiply tint would shift them.

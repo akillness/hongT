@@ -15,8 +15,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using CinderCourt.Sim;
+using CinderCourt.View;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace CinderCourt.Tests
 {
@@ -33,6 +38,107 @@ namespace CinderCourt.Tests
             "\"([^\"\\\\]*)\"",
             "\"((?:[^\"\\\\\\n]|\\\\.)*)\"",
         };
+
+        [Test]
+        public void HudKorean_ImporterPreservesShippedWebGlFontPolicy()
+        {
+            const string AssetPath = "Assets/Resources/Fonts/HudKorean.otf";
+            var importer = AssetImporter.GetAtPath(AssetPath) as TrueTypeFontImporter;
+
+            Assert.That(importer, Is.Not.Null, AssetPath + " must be imported as a TrueType font");
+            Assert.That(importer.fontRenderingMode, Is.EqualTo(FontRenderingMode.HintedSmooth),
+                "the shipped dynamic atlas must use hinted anti-aliasing");
+            Assert.That(importer.includeFontData, Is.True,
+                "WebGL must embed the font bytes; it has no dependable OS font");
+            Assert.That(importer.characterPadding, Is.EqualTo(1),
+                "the shipped atlas retains its one-pixel glyph padding");
+            Assert.That(importer.fontReferences, Is.Empty,
+                "the importer must not advertise an external fallback that WebGL cannot ship");
+        }
+
+        [Test]
+        public void RuntimeBuiltHudAndLobbyTexts_UseSharedTypographyPolicy()
+        {
+            var shippedFont = Resources.Load<Font>("Fonts/HudKorean");
+            Assert.That(shippedFont, Is.Not.Null, "the shipped HudKorean font must load from Resources");
+
+            var existingEventSystem = Object.FindAnyObjectByType<EventSystem>();
+            var hudObject = new GameObject("FontCoverageTests.Hud");
+            var lobbyObject = new GameObject("FontCoverageTests.Lobby");
+            try
+            {
+                var hud = hudObject.AddComponent<HudView>();
+                hud.Build();
+
+                var lobby = lobbyObject.AddComponent<LobbyView>();
+                var data = new CampaignData
+                {
+                    PrologueDone = true,
+                    ClearedMask = 1,
+                    Roster = new string[0],
+                    Active = string.Empty,
+                    ActiveSlots = new string[0],
+                };
+                lobby.Build(data, default);
+                lobby.Refresh(data);
+
+                AssertSharedTypography("HUD", hudObject, shippedFont);
+                AssertSharedTypography("Lobby", lobbyObject, shippedFont);
+            }
+            finally
+            {
+                Object.DestroyImmediate(hudObject);
+                Object.DestroyImmediate(lobbyObject);
+                if (existingEventSystem == null)
+                {
+                    var createdEventSystem = Object.FindAnyObjectByType<EventSystem>();
+                    if (createdEventSystem != null)
+                        Object.DestroyImmediate(createdEventSystem.gameObject);
+                }
+            }
+        }
+
+        static void AssertSharedTypography(string surface, GameObject root, Font shippedFont)
+        {
+            var labels = root.GetComponentsInChildren<Text>(true);
+            Assert.That(labels, Is.Not.Empty, surface + " factory must build UnityEngine.UI.Text labels");
+
+            var shippedMaterial = shippedFont.material;
+            var violations = new List<string>();
+            foreach (var label in labels)
+            {
+                var id = TextPath(label, root.transform);
+                if (!object.ReferenceEquals(label.font, shippedFont))
+                    violations.Add(id + " does not use the exact shipped HudKorean Font");
+                if (!object.ReferenceEquals(label.material, shippedMaterial))
+                    violations.Add(id + " does not use HudKorean's exact material");
+                if (!Mathf.Approximately(label.lineSpacing, ViewTypography.LineSpacing))
+                    violations.Add(id + $" lineSpacing={label.lineSpacing}, expected {ViewTypography.LineSpacing}");
+                if (label.resizeTextForBestFit)
+                    violations.Add(id + " enables resizeTextForBestFit");
+
+                var expectedStyle = label.fontSize >= ViewTypography.HeadingMinimumSize
+                    ? FontStyle.Bold
+                    : FontStyle.Normal;
+                if (label.fontStyle != expectedStyle)
+                    violations.Add(id + $" fontStyle={label.fontStyle}, expected {expectedStyle} at size {label.fontSize}");
+            }
+
+            Assert.That(violations, Is.Empty,
+                surface + " labels drifted from ViewTypography:\n" + string.Join("\n", violations));
+        }
+
+        static string TextPath(Text label, Transform root)
+        {
+            var parts = new List<string>();
+            for (var current = label.transform; current != null; current = current.parent)
+            {
+                parts.Add(current.name);
+                if (current == root) break;
+            }
+            parts.Reverse();
+            return string.Join("/", parts) + $" [\"{label.text.Replace("\n", "\\n")}\"]";
+        }
 
         [Test]
         public void HudKorean_CoversEveryKoreanCharacterInViewStrings()

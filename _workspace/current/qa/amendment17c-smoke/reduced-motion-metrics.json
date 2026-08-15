@@ -1,0 +1,49 @@
+{
+  "written": "2026-08-11",
+  "contract": "V1 reduced-motion telegraph outer-ring mean luminance delta must remain below 2 percent within one warning cycle.",
+  "representativeRuns": [
+    {
+      "act": 1,
+      "stageId": "ember-gallery",
+      "report": "stages-reduced/02-ember-gallery/browser-report.json",
+      "pageErrors": 0,
+      "metricRole": "numeric gate"
+    },
+    {
+      "act": 2,
+      "stageId": "echo-throne",
+      "report": "stages-reduced/05-echo-throne/browser-report.json",
+      "pageErrors": 0,
+      "metricRole": "render smoke only; sampled frames crossed a changing gameplay warning state"
+    },
+    {
+      "act": 3,
+      "stageId": "ash-march",
+      "report": "stages-reduced/09-ash-march/browser-report.json",
+      "pageErrors": 0,
+      "metricRole": "render smoke only; sampled frames crossed a damage-vignette state"
+    }
+  ],
+  "sourceFrames": [
+    "stages-reduced/02-ember-gallery/03-reduced-telegraph-a.png",
+    "stages-reduced/02-ember-gallery/04-reduced-telegraph-b.png"
+  ],
+  "sampleIntervalMs": 120,
+  "roi": {
+    "description": "Ember Gallery left lower vent outer-ring annulus; the interior fill is excluded so gameplay fill progression cannot masquerade as flipbook motion.",
+    "centerPx": [550, 477],
+    "ellipseRadiiPx": [76, 43],
+    "normalizedRadiusRange": [0.78, 1.03],
+    "sampledPixels": 4632
+  },
+  "luminance": {
+    "formula": "Rec.709: 0.2126 R + 0.7152 G + 0.0722 B",
+    "frameAMean": 91.246,
+    "frameBMean": 90.9213,
+    "meanDeltaPercent": 0.3559,
+    "pixelMeanAbsoluteDeltaPercentOfFullScale": 0.7946
+  },
+  "thresholdPercent": 2.0,
+  "pass": true,
+  "measurementScript": "measure_reduced_roi.py"
+}

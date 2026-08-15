@@ -221,6 +221,67 @@ namespace CinderCourt.Tests
                 "a new run must not open on the previous room's objective");
         }
 
+        // ------------------------------------------------- step tracker (e) --
+        // Playtest 2026-08-12 (강신진): "단계별로 한개씩 목적 주면서 진행하도록
+        // 해야" — while a wave is live the chip must name the ACTION and count
+        // it down, not restate the room's flavor line. Each case below is the
+        // precondition of the next, so together they pin the three beats in
+        // order: kill the wave -> field clear -> final goal.
+
+        [Test]
+        public void Chip_CountsTheWaveDownWhileEnemiesRemain()
+        {
+            var objective = StageCatalog.ObjectiveFor("cinder-span");
+
+            _hud.SyncRoomObjective(objective, false, 7);
+            var readout = _hud.RoomObjectiveReadout;
+            StringAssert.Contains("남은 7", readout);
+            StringAssert.Contains("처치", readout);
+            Assert.That(readout, Does.Not.Contain(objective),
+                "one goal at a time: the flavor line waits for the field to clear");
+
+            // A kill moves the count — the tracker is live, not a static label.
+            _hud.SyncRoomObjective(objective, false, 6);
+            StringAssert.Contains("남은 6", _hud.RoomObjectiveReadout);
+        }
+
+        [Test]
+        public void Chip_ReturnsToTheRoomLineOnceTheFieldIsClear()
+        {
+            var objective = StageCatalog.ObjectiveFor("cinder-span");
+
+            _hud.SyncRoomObjective(objective, false, 5);
+            Assert.That(_hud.RoomObjectiveReadout, Does.Not.Contain(objective),
+                "fixture precondition — the wave beat must be up first");
+
+            _hud.SyncRoomObjective(objective, false, 0);
+            StringAssert.Contains(objective, _hud.RoomObjectiveReadout);
+        }
+
+        [Test]
+        public void Chip_BossBeatOutranksTheRemainingCount()
+        {
+            var objective = StageCatalog.ObjectiveFor("echo-throne");
+
+            // Adds spawning during the boss wave must not demote the final
+            // goal back to "kill the remainder".
+            _hud.SyncRoomObjective(objective, true, 9);
+            var readout = _hud.RoomObjectiveReadout;
+            StringAssert.Contains("최종 목표", readout);
+            StringAssert.Contains(objective, readout);
+            Assert.That(readout, Does.Not.Contain("남은"));
+        }
+
+        [Test]
+        public void Chip_LegacyCallers_KeepTheFlavorOnlyBehavior()
+        {
+            // No live count supplied (tests, non-wave surfaces): exactly the
+            // pre-tracker readout, so the two-arg contract is unchanged.
+            var objective = StageCatalog.ObjectiveFor("ash-verdict");
+            _hud.SyncRoomObjective(objective, false);
+            Assert.That(_hud.RoomObjectiveReadout, Is.EqualTo("목표 • " + objective));
+        }
+
         // ---------------------------------------------------------- hud (d) --
 
         [Test]

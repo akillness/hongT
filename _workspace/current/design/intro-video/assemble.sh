@@ -10,11 +10,16 @@
 # cross-faded. The Korean title lockup is burned in over the final hold using the
 # same subset font the HUD ships (Resources/Fonts/HudKorean.otf).
 #
-# The reel used to carry a 6th "brand hold" render (frames/frame06.png, 1254x1254).
-# It was rejected on review — the subject read as a piece of fruit rather than the
-# lantern-bearing Warden — so the beat sheet is now 5 frames and the title lockup
-# lands over frame05. Edit FRAMES to change the reel; every loop below derives
-# its bounds from it.
+# Beat 6 ("brand hold") history: the original god-tibo-imagen render
+# (1254x1254) was rejected on review — the subject read as a piece of fruit
+# rather than the lantern-bearing Warden — and the beat was cut to 5 frames.
+# 2026-08-09: regenerated with Higgsfield nano_banana_flash using frame03 +
+# frame05 as IMAGE REFERENCES (the capability the codex-cli provider lacked,
+# which is why consistency had to ride a text-only STYLE suffix before). The
+# new frame06.png (1264x848) reads as a full-body hooded Warden with the
+# lantern raised and a clean dark top third, so the beat is back in and the
+# title lockup lands over it. Edit FRAMES to change the reel; every loop below
+# derives its bounds from it.
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT=../../../..
@@ -30,6 +35,7 @@ FRAMES=(
   frames/frame03.png
   frames/frame04.png
   frames/frame05.png
+  frames/frame06.png
 )
 N=${#FRAMES[@]}
 
@@ -72,14 +78,20 @@ done
 TOTAL=$acc
 
 # Title lockup over the final hold + fade to black on the very last beat.
+# y=h*0.18 is MEASURED, not eyeballed: beat 6 puts the lantern flare at the old
+# h*0.34 band, and the gold Korean sub-line sat right on it (mean luma 56.8 in
+# the 30px sub band). Sampling the cropped 1280x720 luma of frame06 per
+# candidate y gave title 35.5->17.4 and sub 56.8->28.2 at h*0.18, which is the
+# clean dark top third the beat was regenerated to provide. Re-measure if the
+# final beat ever changes (script: ffmpeg -vf ...,format=gray -f rawvideo).
 T_IN=$(python3 -c "print(round($TOTAL-2.4,3))")
 FADE_OUT=$(python3 -c "print(round($TOTAL-0.7,3))")
 filter+="[${prev}]drawtext=fontfile='${FONT}':text='ABYSSAL LANTERN':"
-filter+="fontcolor=0xF2EFE6:fontsize=64:x=(w-text_w)/2:y=h*0.34:"
+filter+="fontcolor=0xF2EFE6:fontsize=64:x=(w-text_w)/2:y=h*0.18:"
 filter+="alpha='if(lt(t,${T_IN}),0,min(1,(t-${T_IN})/0.6))':"
 filter+="shadowcolor=0x000000@0.85:shadowx=0:shadowy=3,"
 filter+="drawtext=fontfile='${FONT}':text='잿불의 법정을 지켜라':"
-filter+="fontcolor=0xDEC76A:fontsize=30:x=(w-text_w)/2:y=h*0.34+86:"
+filter+="fontcolor=0xDEC76A:fontsize=30:x=(w-text_w)/2:y=h*0.18+86:"
 filter+="alpha='if(lt(t,${T_IN}+0.35),0,min(1,(t-${T_IN}-0.35)/0.6))':"
 filter+="shadowcolor=0x000000@0.85:shadowx=0:shadowy=2,"
 filter+="fade=t=in:st=0:d=0.5,fade=t=out:st=${FADE_OUT}:d=0.7[vout]"

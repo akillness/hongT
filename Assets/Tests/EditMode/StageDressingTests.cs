@@ -13,8 +13,11 @@
 // well vent(980,500)↔prop-012(1040,250) +117.1 · verdict vent(980,720)↔
 // prop-021(990,940) +80.2 · march pylon(768,520)↔feature-001(700,230) +217.9
 // — all clear; ViewFunPass moved zero rows (margins confirmed both ways).
-// echo-throne still ships no dressing table (T-b split pending), so its new
-// override is outside DressedStages by construction.
+// Cycle-10 (2026-08-09): abyss-chancel and echo-throne are now dressed too, so
+// DressedStages covers all 8 non-self-dressed stages. Their clearance was
+// measured against the frozen CampaignStages anchors before the tables were
+// written (chancel worst margin +75.2 vs vent(1100,450); throne +111.8 vs
+// vent(1030,480)); these tests re-derive it rather than trusting that note.
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
@@ -26,11 +29,15 @@ namespace CinderCourt.Tests
     [TestFixture]
     public sealed class StageDressingTests
     {
-        // Gate: G8 — cycle-2 adds dressed tables for the three new anchor stages.
+        // Gate: G8 — cycle-2 added the three new anchor stages; cycle-10 closed
+        // the last two holes (abyss-chancel/echo-throne) once T-b shipped.
+        // A table that is not listed here is a table nothing checks — the same
+        // silent shape as the particle seed that was broken for its whole life.
         static readonly string[] DressedStages =
         {
             "ember-gallery", "witness-well", "ash-verdict",
             "cinder-sluice", "ember-bastion", "ash-march",
+            "abyss-chancel", "echo-throne",
         };
 
         static GameObject LoadLibrary()
@@ -66,11 +73,10 @@ namespace CinderCourt.Tests
                     Assert.That(table, Is.Not.SameAs(prior), "stages must not share one table");
                 seen.Add(table);
             }
-            // Undressed routes stay undressed until their lanes land.
+            // cinder-span is the ONLY undressed route left: its own terrain
+            // prefab carries authored dressing, so a table would double it.
             Assert.That(StageCatalog.DressingFor("cinder-span"), Is.Null,
                 "cinder-span terrain is already authored — no table expected");
-            Assert.That(StageCatalog.DressingFor("abyss-chancel"), Is.Null);
-            Assert.That(StageCatalog.DressingFor("echo-throne"), Is.Null);
         }
 
         [Test]

@@ -1,0 +1,118 @@
+{
+  "written": "2026-08-10",
+  "method": "Blender headless, right-hand WORLD-space travel summed per N-frame window (scratch best_window.py/curve238.py/probe3.py). hips-relative 프로브(ClipWindowProbe)는 스핀에서 온몸이 돌아 어디서나 높게 나와 창 선택이 무의미해진다(§4m — 정답과 오답이 같아지는 좌표계). 월드 손 이동/발 이동 비가 '칼질인가 발놀림인가'를 가른다.",
+  "defect": "attack2(Axe Spin Attack) 출하 트림 30..37은 손/발 비 1.8 — 스윕 직후 회전 발놀림 구간이었다. 사용자 제보 '다리가 움직이며 이상하게 행동'의 원인. 진짜 칼날 스윕은 20..27(비 5.1).",
+  "measured_windows": {
+    "Charged Slash (242) 22..29": {
+      "hand": 1.092,
+      "foot": 0.105,
+      "ratio": 10.4,
+      "verdict": "keep — 칼질"
+    },
+    "Axe Spin (238) 30..37 [shipped-defect]": {
+      "hand": 0.282,
+      "foot": 0.16,
+      "ratio": 1.8,
+      "verdict": "발놀림 — 폐기"
+    },
+    "Axe Spin (238) 20..27 [fix]": {
+      "hand": 1.69,
+      "foot": 0.333,
+      "ratio": 5.1,
+      "verdict": "진짜 스윕 — attack2 신규 창"
+    },
+    "Weapon Combo 2 (241) 45..55 [shipped]": {
+      "hand": 2.627,
+      "foot": 0.5,
+      "ratio": 5.3,
+      "verdict": "개선 여지"
+    },
+    "Weapon Combo 2 (241) 47..57 [fix]": {
+      "hand": 2.541,
+      "foot": 0.379,
+      "ratio": 6.7,
+      "verdict": "attack3 신규 창"
+    },
+    "Weapon Combo 2 (241) swings": "f23-30(8.8) · f46-53(5.2) · f69-76(10.2) — 한 FBX=한 트림이라 attack2에 별도 창 배정 불가",
+    "Charged Axe Chop (237) 101..108": {
+      "hand": 0.822,
+      "foot": 0.251,
+      "ratio": 3.3,
+      "verdict": "후보였으나 스핀 스윕(5.1)에 밀림"
+    },
+    "Mage Cast (130) 27..34": {
+      "hand": 0.746,
+      "verdict": "cast 트림 — 7f=0.292s=CastPoseDuration"
+    },
+    "Hit Reaction (178)": {
+      "firstMotionFrame": 3,
+      "preamble": 0.075,
+      "verdict": "무트림 — 구 React(2.2%) 선례 내"
+    },
+    "Block Three (140)": {
+      "firstMotionFrame": 10,
+      "preamble": 0.278,
+      "verdict": "무트림 — Body Block 28.3% 무트림 선례 준용, 수치 등재"
+    }
+  },
+  "third_pass_20260810_player_rig": {
+    "why": "생성 클립 11종을 출하 플레이어 메시로 재리깅한 뒤, 창을 다시 뽑았다. 같은 프레임이라도 리그가 바뀌면 스윕 각이 달라진다 — 창은 리그에 딸린 값이다.",
+    "method": "오른손을 오른어깨 기준으로 본 방향 벡터의 프레임간 각도 변화 합(hips 프레임에서 측정, 몸통 회전 제외). scratch arcscan.py / arcwin.py. SwingArcProbe·ClipTrimFitTests가 판정하는 것과 같은 양.",
+    "windows": {
+      "attack (Charged Slash)": {
+        "old": [
+          22,
+          29
+        ],
+        "oldArcDeg": 91.9,
+        "new": [
+          26,
+          33
+        ],
+        "newArcDeg": 187.1,
+        "degPerSec": 642
+      },
+      "attack2 (Axe Spin Attack)": {
+        "kept": [
+          20,
+          27
+        ],
+        "arcDeg": 160.5,
+        "replacedShipped": [
+          30,
+          37
+        ],
+        "replacedArcDeg": 32.5,
+        "note": "출하본이 보여주던 30..37은 32.5도 — 스윙이 아니라 회전 발놀림. 사용자 제보의 직접 원인."
+      },
+      "attack3 (Weapon Combo 2)": {
+        "old": [
+          47,
+          57
+        ],
+        "oldArcDeg": 176.3,
+        "new": [
+          45,
+          55
+        ],
+        "newArcDeg": 219.5,
+        "degPerSec": 527
+      },
+      "critical (Thrust Slash)": {
+        "old": [
+          58,
+          68
+        ],
+        "oldArcDeg": 61.2,
+        "new": [
+          31,
+          41
+        ],
+        "newArcDeg": 181.6,
+        "degPerSec": 436
+      }
+    },
+    "lesson": "프록시 리그에서 고른 창을 그대로 들고 가면, 리타겟이 아니라 창 자체가 틀린다. 리그를 바꾼 커밋은 창도 다시 뽑아야 한다.",
+    "guard": "ClipTrimFitTests.ComboSwingWindows_AreTheMeasuredBladeSweeps가 네 리터럴을 각각 '대체된 창의 각도'와 함께 고정한다 — 되돌리면 눈에 띄게 나쁜 값으로 돌아간다는 사실이 테스트 메시지에 있다."
+  }
+}

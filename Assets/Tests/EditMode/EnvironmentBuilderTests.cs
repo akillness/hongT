@@ -411,6 +411,152 @@ namespace CinderCourt.Tests
                 + "telegraph behind it at the 55° dungeon pitch (§E0.5)");
         }
 
+        [Test]
+        public void GimmickFurniture_DoesNotRingStoneWallHazards()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var hazards = DressingHazardsFor(stageId);
+                if (!ContainsKind(hazards, HazardKind.StoneWall)) continue;
+
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var stoneWallFurniture = 0;
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!IsGimmickFurniture(child)) continue;
+                        if (NearestHazardKind(ToSim(child.position), hazards) == HazardKind.StoneWall)
+                            stoneWallFurniture++;
+                    }
+
+                    Assert.That(stoneWallFurniture, Is.EqualTo(0),
+                        $"{stageId}: StoneWall is already rendered by VfxDirector; "
+                        + "env-floor-5xx furniture around it duplicates the blocker "
+                        + "inside the decision space and clutters the play read.");
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+            }
+        }
+
+        [Test]
+        public void GimmickFurniture_PerKindCountsStayBelowDeclutterCaps()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var hazards = DressingHazardsFor(stageId);
+                GameObject root = null;
+                try
+                {
+                    root = BuildOrFail(stageId);
+                    var expectedCaps = new Dictionary<HazardKind, int>();
+                    for (var i = 0; i < hazards.Length; i++)
+                    {
+                        if (!IsDiscGimmick(hazards[i].Kind)) continue;
+                        if (!expectedCaps.ContainsKey(hazards[i].Kind))
+                            expectedCaps[hazards[i].Kind] = 0;
+                        expectedCaps[hazards[i].Kind] += FurnitureCapPerHazard(hazards[i].Kind);
+                    }
+
+                    var actual = new Dictionary<HazardKind, int>();
+                    foreach (Transform child in root.transform)
+                    {
+                        if (!IsGimmickFurniture(child)) continue;
+                        var kind = NearestHazardKind(ToSim(child.position), hazards);
+                        if (!IsDiscGimmick(kind)) continue;
+                        if (!actual.ContainsKey(kind)) actual[kind] = 0;
+                        actual[kind]++;
+                    }
+
+                    foreach (var pair in expectedCaps)
+                    {
+                        actual.TryGetValue(pair.Key, out var count);
+                        Assert.That(count, Is.LessThanOrEqualTo(pair.Value),
+                            $"{stageId}: {pair.Key} furniture count {count} exceeds "
+                            + $"declutter cap {pair.Value}. Hazard texture beds now "
+                            + "carry the tone, so local dressing must frame the gimmick "
+                            + "instead of forming a noisy ring.");
+                    }
+                }
+                finally { if (root != null) Object.DestroyImmediate(root); }
+            }
+        }
+
+        static HazardConfig[] DressingHazardsFor(string stageId)
+        {
+            var hazards = StageCatalog.PactFor(stageId);
+            Assert.That(hazards, Is.Not.Null.And.Not.Empty,
+                $"{stageId}: EnvironmentBuilder uses StageCatalog.PactFor; the test must inspect the same hazard set.");
+            return hazards;
+        }
+
+        static bool ContainsKind(HazardConfig[] hazards, HazardKind kind)
+        {
+            for (var i = 0; i < hazards.Length; i++)
+                if (hazards[i].Kind == kind) return true;
+            return false;
+        }
+
+        static bool IsGimmickFurniture(Transform child)
+            => child.name.StartsWith("env-floor-5", System.StringComparison.Ordinal)
+               && child.GetComponentInChildren<Renderer>() != null;
+
+        static bool IsDiscGimmick(HazardKind kind)
+            => kind == HazardKind.EmberVent
+               || kind == HazardKind.ObsidianPillar
+               || kind == HazardKind.RelicAltar
+               || kind == HazardKind.EmberPylon;
+
+        static int FurnitureCapPerHazard(HazardKind kind)
+        {
+            switch (kind)
+            {
+                case HazardKind.EmberVent: return 4;
+                case HazardKind.ObsidianPillar: return 3;
+                case HazardKind.RelicAltar: return 3;
+                case HazardKind.EmberPylon: return 3;
+                default: return 0;
+            }
+        }
+
+        static HazardKind NearestHazardKind(Vector2 sim, HazardConfig[] hazards)
+        {
+            var best = float.PositiveInfinity;
+            var bestKind = HazardKind.EmberVent;
+            for (var i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i].Kind == HazardKind.AshWall
+                    || hazards[i].Kind == HazardKind.TideCurrent)
+                    continue;
+
+                var distance = DistanceFromHazardFootprint(sim, hazards[i]);
+                if (distance >= best) continue;
+                best = distance;
+                bestKind = hazards[i].Kind;
+            }
+            return bestKind;
+        }
+
+        static float DistanceFromHazardFootprint(Vector2 sim, HazardConfig hazard)
+        {
+            if (hazard.Kind == HazardKind.StoneWall)
+            {
+                var center = new Vector2(hazard.X, hazard.Y);
+                var half = new Vector2(hazard.HalfW, hazard.HalfH);
+                var segment = half * 2f;
+                if (segment.sqrMagnitude > 0.0001f)
+                {
+                    var a = center - half;
+                    var t = Vector2.Dot(sim - a, segment) / segment.sqrMagnitude;
+                    var nearest = a + segment * Mathf.Clamp01(t);
+                    return Vector2.Distance(sim, nearest) - hazard.Radius;
+                }
+            }
+
+            return Vector2.Distance(sim, new Vector2(hazard.X, hazard.Y)) - hazard.Radius;
+        }
+
         // ------------------------- 2c. outer silhouettes actually stand up --
         //
         // The pass above proved a shape exists; this one proves it is TALL.
@@ -424,10 +570,32 @@ namespace CinderCourt.Tests
         // So assert the opposite of the furniture rule: out here a silhouette
         // MUST exceed the cap, because exceeding it is the entire point.
         [Test]
-        public void OuterSilhouettes_StandTallerThanTheOcclusionCap()
+        public void OuterSilhouettes_AreRetired_TheArenaGrewIntoTheirBand()
         {
-            var covered = 0;
-            var tallest = 0f;
+            // AMENDMENT #17 retires the outer silhouette ring. This test used to pin
+            // its quality (height over the occlusion cap, stacked ember heads, head
+            // above 75% of the shaft); it now pins the RETIREMENT, so the reason
+            // survives in the place someone will look when they wonder where it went.
+            //
+            // The ring stood at ellipse parameter 1.35 / 1.50. At the frozen half
+            // 520x270 that was sim x 66..1470 — comfortably on the painted plate,
+            // which reaches x -82..1618. At the expanded half 735x390 the same
+            // parameters are x -224..1760 and x -335..1871: past the plate on both
+            // sides, hanging over void.
+            //
+            // It cannot simply move inward either. The plate's reach expressed in the
+            // new ellipse is 850/735 = 1.156 in x and 420/390 = 1.077 in y, and the
+            // boundary ring already occupies ~1.02, so the band the silhouettes need
+            // no longer exists between them. Clamping was tried in the original
+            // implementation and rejected there for a reason that still holds: a
+            // rectangular clamp pulls points toward the centre and drops them inside
+            // the combat floor, which §E3 bans.
+            //
+            // Void coverage — the thing this ring was often credited with — was never
+            // its job. AddZoneC's terraces do that, and they are still built;
+            // CameraGroundGrid_LeavesNoRegressingBareVoidFloor is the gate that proves
+            // it. #17 briefly removed Zone C too, on exactly that confusion, and bare
+            // floor jumped to 27.15% against a pinned 2%.
             foreach (var stageId in StageIds)
             {
                 GameObject root = null;
@@ -435,79 +603,18 @@ namespace CinderCourt.Tests
                 {
                     root = BuildOrFail(stageId);
                     var found = 0;
-                    var overCap = 0;
-                    var lit = 0;
-                    var lowHead = 0;
-                    var scattered = 0;
                     foreach (Transform child in root.transform)
                     {
-                        if (!child.name.StartsWith("env-pillar-7", System.StringComparison.Ordinal))
-                            continue;
-                        var rends = child.GetComponentsInChildren<Renderer>();
-                        if (rends.Length == 0) continue;
-                        found++;
-                        var b = rends[0].bounds;
-                        for (var r = 1; r < rends.Length; r++) b.Encapsulate(rends[r].bounds);
-                        if (b.size.y > tallest) tallest = b.size.y;
-                        if (b.size.y > EnvironmentLayout.FurnitureMaxHeight * 1.5f) overCap++;
-
-                        // Each silhouette carries a stack of additive quads at
-                        // ONE point near the top of the shaft. Two things are
-                        // load-bearing and both are asserted: the head rides the
-                        // TOP (a warm point at the base is just a lit rock), and
-                        // the quads are COINCIDENT. StageTints Clamp01s ember, so
-                        // a lone quad sits under CinderPostProfile's 1.05 bloom
-                        // threshold and renders as a flat chip; only overlapping
-                        // quads accumulate past it (ViewWorld.MakeAdditive). Two
-                        // ember quads on opposite ends of the statue would pass a
-                        // naive count and still never glow, so proximity is the
-                        // assertion that actually protects the look.
-                        var heads = new List<Renderer>();
-                        foreach (var rend in rends)
-                        {
-                            var mat = rend.sharedMaterial;
-                            if (mat == null || mat.name != "env-ember") continue;
-                            heads.Add(rend);
-                            var rise = (rend.bounds.center.y - b.min.y)
-                                / Mathf.Max(b.size.y, 1e-4f);
-                            if (rise < 0.75f) lowHead++;
-                        }
-                        if (heads.Count >= 2) lit++;
-                        for (var h = 1; h < heads.Count; h++)
-                        {
-                            if (Vector3.Distance(heads[0].bounds.center,
-                                    heads[h].bounds.center) > 0.02f)
-                                scattered++;
-                        }
+                        if (child.name.StartsWith("env-pillar-7", System.StringComparison.Ordinal))
+                            found++;
                     }
-                    Assert.That(found, Is.GreaterThan(0),
-                        $"{stageId}: no outer silhouettes were built");
-                    Assert.That(overCap, Is.GreaterThan(0),
-                        $"{stageId}: {found} silhouette(s) built but none clears "
-                        + $"1.5x the occlusion cap ({EnvironmentLayout.FurnitureMaxHeight:F3}u) "
-                        + "- the cap is being applied where it must not be, so the "
-                        + "ring is flat chips instead of silhouette");
-                    Assert.That(lit, Is.EqualTo(found),
-                        $"{stageId}: {found} silhouette(s) but only {lit} carry a "
-                        + "stacked (>=2 quad) ember head - a single additive quad "
-                        + "cannot clear the 1.05 bloom threshold, so those posts "
-                        + "render as flat chips instead of warm points");
-                    Assert.That(scattered, Is.Zero,
-                        $"{stageId}: {scattered} ember quad(s) sit >0.02u from "
-                        + "their stack centre - separated quads do not accumulate, "
-                        + "so the head stops blooming");
-                    Assert.That(lowHead, Is.Zero,
-                        $"{stageId}: {lowHead} ember head(s) sit below 75% of "
-                        + "their own shaft - a brazier crowns the column, it "
-                        + "does not hug its base");
-                    covered++;
+                    Assert.That(found, Is.Zero,
+                        $"{stageId}: {found} outer silhouette(s) built. They stand past "
+                        + "the painted plate at the expanded bounds — if they are being "
+                        + "revived, the plate has to grow first.");
                 }
                 finally { if (root != null) Object.DestroyImmediate(root); }
             }
-            TestContext.WriteLine(
-                $"outer silhouettes: tallest={tallest:F3}u vs cap="
-                + $"{EnvironmentLayout.FurnitureMaxHeight:F3}u on {covered} stage(s)");
-            Assert.That(covered, Is.EqualTo(StageIds.Length));
         }
 
         // ------------------------------------------ 3. hazard clearance (§E3) --

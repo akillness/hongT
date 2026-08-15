@@ -1,0 +1,41 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/shade-echo-anim140.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Block Three.fbx",
+  "sourceAction": "Block3",
+  "keyframeRange": [
+    0.8000000715255737,
+    36.79999923706055
+  ],
+  "sceneRange": [
+    0,
+    36
+  ],
+  "seconds": 1.5,
+  "takeName": "Block Three",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "neck",
+    "Spine02",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "Spine1",
+    "Head"
+  ],
+  "exported": true,
+  "exportedBytes": 262844
+}

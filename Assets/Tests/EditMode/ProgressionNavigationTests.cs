@@ -641,6 +641,51 @@ namespace CinderCourt.Tests
             }
         }
 
+        [TestCase(false, TestName = "OpenMetaScreen_RoutesToSanctumEquipment")]
+        [TestCase(true, TestName = "MapMaintenanceButton_RoutesToSanctumEquipment")]
+        public void MaintenanceRoute_UsesTheOwnedSanctumEquipmentSurface(bool clickButton)
+        {
+            var canvas = BuildLobby(Save(true, 0));
+            _lobby.SelectRail(LobbyView.RailMap);
+
+            if (clickButton)
+            {
+                var matches = new List<Button>();
+                foreach (var button in canvas.GetComponentsInChildren<Button>(true))
+                {
+                    var label = button.GetComponentInChildren<Text>(true);
+                    if (label != null && label.text == "정비") matches.Add(button);
+                }
+                Assert.That(matches, Has.Count.EqualTo(1),
+                    "the map must expose exactly one maintenance action");
+                Assert.That(matches[0].gameObject.activeInHierarchy, Is.True,
+                    "the maintenance action must be reachable from the open Map rail");
+                matches[0].onClick.Invoke();
+            }
+            else
+            {
+                _lobby.OpenMetaScreen();
+            }
+
+            Assert.That(_lobby.SelectedRailForTest, Is.EqualTo(LobbyView.RailSanctum),
+                "maintenance must navigate to the Sanctum owner");
+
+            var meta = _lobbyObject.GetComponent<MetaScreenView>();
+            Assert.That(meta, Is.Not.Null, "the lobby must still own its Map/Controls overlay");
+            Assert.That(meta.IsOpen, Is.False,
+                "maintenance must not open the Map/Controls overlay");
+
+            var activeEquipmentHints = 0;
+            foreach (var text in canvas.GetComponentsInChildren<Text>(true))
+            {
+                if (text.text == "유물로 장비를 강화한다 (T0-T5)"
+                    && text.gameObject.activeInHierarchy)
+                    activeEquipmentHints++;
+            }
+            Assert.That(activeEquipmentHints, Is.EqualTo(1),
+                "the Sanctum equipment tab must be the one visible purchase surface");
+        }
+
         // ================================================================ T-A6 ==
 
         /// <summary>

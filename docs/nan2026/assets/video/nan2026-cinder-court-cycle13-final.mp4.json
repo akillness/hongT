@@ -1,0 +1,37 @@
+{
+  "output": "docs/nan2026/assets/video/nan2026-cinder-court-cycle13-final.mp4",
+  "runId": "20260808-achilles-quality",
+  "restoredAt": "2026-08-09T02:01:36.165Z",
+  "buildIdentity": "e853ef3b27239fab",
+  "source": "_workspace/archive/20260808-achilles-quality/submission/video/nan2026-cinder-court-cycle13-unity-play.mp4",
+  "captureUrl": "archive-restored from _workspace/archive/20260808-achilles-quality/submission/video/nan2026-cinder-court-cycle13-unity-play.mp4",
+  "compressionTool": "PATH ffmpeg fallback used under compresso skill route (offline H.264/AAC compression)",
+  "bytes": 4325784,
+  "sha256": "75b441bd1d52d6377ef1e8f26e5b43a6a48d9bd510d93a024e543215d6dbc696",
+  "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1440,
+        "height": 900,
+        "r_frame_rate": "30/1",
+        "duration": "54.966667"
+      }
+    ],
+    "format": {
+      "duration": "54.966667",
+      "size": "4325784"
+    }
+  },
+  "submissionUse": false,
+  "note": "Technical automated-input capture retained for local evidence; regulated submission still requires a human-play YouTube take.",
+  "pageErrors": {
+    "count": null,
+    "reason": "archive-restored artifact; no new browser session was run in this repair step"
+  },
+  "humanUploadRequired": true
+}

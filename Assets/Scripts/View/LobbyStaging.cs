@@ -32,7 +32,16 @@ namespace CinderCourt.View
             _accent.range = 9f;
             _accent.intensity = 2.4f;
             accentObject.transform.position = ArenaMid(1.8f);
+
+            // Standing court geometry. Built once, beside the accent light rather
+            // than after it, so the one light this room owns finally has surfaces to
+            // land on — measured before this, the lobby had TWO renderers and both
+            // were Unlit floor quads, so nothing in the room could be lit at all
+            // (design/concept-gap-check-20260813.md).
+            _court = LobbyCourt.Build(transform);
         }
+
+        GameObject _court;
 
         static Vector3 ArenaMid(float height)
             => ViewWorld.ToWorld(768f, 604f) + new Vector3(0f, height, 0f);
@@ -119,6 +128,16 @@ namespace CinderCourt.View
             instance.transform.position = position;
             instance.transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
             instance.transform.localScale = Vector3.one * scale;
+            // Lobby shadows (2026-08-12): the diorama rides the same key-light
+            // lease a run uses (GameDirector.SetLobbyMood), and that key only
+            // renders casters on its shadow layer — an unconfigured clone
+            // stands in the lobby light without grounding. Same split as
+            // ActorView: mesh/skinned renderers cast, everything else is
+            // excluded rather than left on defaults.
+            var renderers = instance.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+                StageShadowPolicy.TryConfigureCaster(renderers[i]);
+            StageShadowPolicy.NotifyCasterBoundsChanged();
             return instance;
         }
 

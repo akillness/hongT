@@ -341,14 +341,37 @@ namespace CinderCourt.Tests
         {
             Assert.That(StageCatalog.TryGet(id, out var entry), Is.True);
             Assert.That(entry.HazardOverride, Is.Not.Null);
-            Assert.That(entry.HazardOverride.Length, Is.EqualTo(expected.Length));
+
+            // AMENDMENT #17b: an override table is now GIMMICKS ++ GENERATED INTERIOR,
+            // because these four stages were composed through DungeonLayoutSpec like the
+            // six sim anchors already were. Before that they were the only stages with no
+            // interior at all, which is the defect this shape change fixes.
+            //
+            // The authored placements are still pinned EXACTLY, and as a prefix — that is
+            // the part a human wrote and the part a spec signs. The tail is asserted to be
+            // generated (StoneWall) rather than enumerated: pinning generated geometry
+            // here would restate the generator's output in a second place, so a rule
+            // change would have to be typed twice and could be typed differently (§4i).
+            Assert.That(entry.HazardOverride.Length, Is.GreaterThanOrEqualTo(expected.Length),
+                id + " must still carry every authored placement");
 
             // v1.2: bands and pylons carry live fields beyond kind/x/y/phase —
             // pin them ALL (the throne current's push IS the stage identity).
             for (var index = 0; index < expected.Length; index += 1)
                 AssertHazardFieldsEqual(id, index, expected[index], entry.HazardOverride[index]);
 
-            AssertRadialClearance(id, entry.HazardOverride);
+            for (var index = expected.Length; index < entry.HazardOverride.Length; index += 1)
+                Assert.That(entry.HazardOverride[index].Kind, Is.EqualTo(HazardKind.StoneWall),
+                    id + " tail entry " + index + " must be generated interior");
+
+            // Radial clearance is asserted on the AUTHORED table only. The generated
+            // pieces have their own placement rules (sanctum hole, ring standoff,
+            // kind-aware gimmick clearance, pinch rejection) enforced inside the
+            // generator; re-judging them by the hand-placement contract would be a
+            // second, weaker copy of those rules.
+            var authored = new HazardConfig[expected.Length];
+            System.Array.Copy(entry.HazardOverride, authored, expected.Length);
+            AssertRadialClearance(id, authored);
         }
 
         /// <summary>
@@ -357,8 +380,18 @@ namespace CinderCourt.Tests
         /// its altar BY DESIGN — the tide covers the channel). One more documented
         /// v1.2 exemption: altar↔pylon pairs may overlap — the "guarded altar" motif
         /// (verdict 960,540 vs altar r70 clears anyway; march 768,520 sits 84 px from
-        /// the corridor altar: pylon bodies never block movement and altars are pure
-        /// channel discs, so the overlap is mechanically inert and intended).
+        /// the corridor altar).
+        ///
+        /// AMENDMENT #17c REVISED THE REASON, and the exemption survives on a narrower
+        /// one. It used to read "pylon bodies never block movement and altars are pure
+        /// channel discs, so the overlap is mechanically inert" — both halves are now
+        /// false: the pylon is solid at 30 and the altar at 24. What makes the overlap
+        /// harmless is that the SOLIDS do not overlap; only the altar's CHANNEL RANGE
+        /// (70) reaches the pylon, and a channel range is a predicate, not a body. The
+        /// march pair sits 84 px apart against 24+30=54 of solid, so 30 px of floor
+        /// survives between them. If either body radius grows past that, this exemption
+        /// stops being true and must be re-argued rather than re-stated — which is why
+        /// the numbers are written here instead of the word "inert".
         /// v1.3 (pact tables only): a PACT-EXTRA vent (index ≥ <paramref name="pactExtraStart"/>)
         /// may colocate with a base altar or pillar — the "guard vent" motif
         /// (meta-fun-pass-spec M3): a periodic damage disc over a channel disc
@@ -375,6 +408,16 @@ namespace CinderCourt.Tests
                     var a = hazards[left];
                     var b = hazards[right];
                     if (IsBand(a.Kind) || IsBand(b.Kind)) continue;
+                    // AMENDMENT #17: interior furniture is out of scope here, for two
+                    // reasons. This test models every hazard as a circle at (X, Y), and
+                    // a StoneWall is a CAPSULE — its centre distance says nothing about
+                    // whether it overlaps anything, so a pass would be meaningless in
+                    // both directions. And the property being protected is telegraph
+                    // readability between two GIMMICKS; a wall is not a telegraph.
+                    // The layout keeps its own clearance from gimmicks
+                    // (DungeonLayoutSpec.GimmickClearance), and the View pins the
+                    // on-screen version in GroundModules_ClearEveryStageHazard.
+                    if (a.Kind == HazardKind.StoneWall || b.Kind == HazardKind.StoneWall) continue;
                     if (IsGuardedAltarPair(a.Kind, b.Kind)) continue;
                     if (right >= pactExtraStart && IsPactGuardVentPair(a.Kind, b.Kind)) continue;
                     var x = a.X - b.X;

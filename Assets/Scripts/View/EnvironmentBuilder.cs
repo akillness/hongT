@@ -62,6 +62,7 @@ namespace CinderCourt.View
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         static readonly int BaseMapStId = Shader.PropertyToID("_BaseMap_ST");
         static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int RimColorId = Shader.PropertyToID("_RimColor");
 
         /// <summary>UV tiles per world unit (§E9 candidate 3 texture pass). One
         /// tile per 1.28 u = the §E2 module grid (128 sim-px), so a wall segment
@@ -105,6 +106,13 @@ namespace CinderCourt.View
             EnsureMaterials();
             ApplyStageTextures(stageId);
             var tints = StageTints(entry.AccentColor);
+            // Stage-hued rim on the two shared env materials. Material-level,
+            // not MPB: every kit piece shares these two runtime materials
+            // (never serialized), so two SetColor calls re-hue the whole ring/
+            // terrace/gate family at once. Pieces' MPBs carry only _BaseColor +
+            // _BaseMap_ST, so this does not get overridden.
+            if (_stoneMaterial != null) _stoneMaterial.SetColor(RimColorId, tints.Rim);
+            if (_floorMaterial != null) _floorMaterial.SetColor(RimColorId, tints.Rim);
 
             var root = new GameObject("StageEnvironment");
             for (var i = 0; i < modules.Count; i++)
@@ -118,13 +126,14 @@ namespace CinderCourt.View
         // ------------------------------------------------------------ tints --
         readonly struct Tints
         {
-            public readonly Color Stone, Floor, Ember, Water;
-            public Tints(Color stone, Color floor, Color ember, Color water)
+            public readonly Color Stone, Floor, Ember, Water, Rim;
+            public Tints(Color stone, Color floor, Color ember, Color water, Color rim)
             {
                 Stone = stone;
                 Floor = floor;
                 Ember = ember;
                 Water = water;
+                Rim = rim;
             }
         }
 
@@ -145,7 +154,43 @@ namespace CinderCourt.View
                 accent.g * 0.30f + 0.06f,
                 accent.b * 0.45f + 0.12f,
                 0.78f);
-            return new Tints(stone, floor, ember, water);
+            return new Tints(stone, floor, ember, water, RimColorFor(accent));
+        }
+
+        /// <summary>
+        /// Per-stage fresnel rim for every ToonLit surface the stage builds.
+        ///
+        /// ATTRIBUTION, precisely: the PALE ring itself was the missing-normals
+        /// bug (bc799ee9 — N=(0,0,0) pinned rim=pow(1,x)=1 across whole faces;
+        /// the census-measured fingerprint ring÷RimColor = 0.326/0.331/0.331 is
+        /// rim(1.0) × strength(0.35) × (1−lighting.g), only possible with dead
+        /// normals). That fix collapses the rim to grazing angles. What THIS
+        /// function removes is the constant that remains after it: _RimColor
+        /// defaulted to one cold blue (0.72, 0.78, 1.0) on every stage, so every
+        /// silhouette edge on an ember stage still wore an ice-blue liner — a
+        /// small-area but stage-blind film, the same class the 2026-08-12/13
+        /// playtest named twice ("이미지가 덧씌워진 느낌").
+        ///
+        /// The hue moves toward the stage accent but STRONGLY desaturated first
+        /// (same §E0.5 discipline as the Uncapped silhouette branch below:
+        /// scenery must separate from telegraphs by VALUE, never borrow the
+        /// hazard's chroma). Luminance is normalized back to the default rim's
+        /// so the silhouette-separation job — the reason the rim exists — keeps
+        /// its measured strength on every stage.
+        /// </summary>
+        internal static Color RimColorFor(Color accent)
+        {
+            var baseRim = new Color(0.72f, 0.78f, 1.0f, 1f);   // the shader default
+            var grey = accent.r * 0.299f + accent.g * 0.587f + accent.b * 0.114f;
+            var soft = Color.Lerp(accent, new Color(grey, grey, grey, 1f), 0.60f);
+            var rim = Color.Lerp(baseRim, soft, 0.55f);
+            // Restore the default rim's luminance: the hue may move, the
+            // silhouette lift may not (E0.5 reads by value).
+            var baseLuma = baseRim.r * 0.299f + baseRim.g * 0.587f + baseRim.b * 0.114f;
+            var rimLuma = rim.r * 0.299f + rim.g * 0.587f + rim.b * 0.114f;
+            if (rimLuma > 0.001f) rim *= baseLuma / rimLuma;
+            rim.a = 1f;
+            return rim;
         }
 
         // ------------------------------------------------------ materialize --
@@ -360,8 +405,20 @@ namespace CinderCourt.View
             var byFootprint = piece.Uncapped || sourceHalf <= 1e-4f
                 ? float.MaxValue
                 : EnvironmentLayout.FurnitureMaxHalfExtent / sourceHalf;
+            // 2026-08 오브젝트 축소: decorative library parts (env-floor-*/feature/
+            // prop pool) read at 0.70× — the same shrink actors take (ViewWorld
+            // .DungeonObjectScale). Applied AFTER the height/footprint caps solve,
+            // so shrinking can only ever move a part further UNDER the §E0.5
+            // occlusion/clearance budget, never over it. Hazard bodies and
+            // telegraphs are NOT built here (they size off sim Radius × Scale), so
+            // this cannot desync a collision footprint. The sentinel branch is
+            // guarded FIRST: MaxValue means "no measurable source bounds, leave the
+            // authored scale" — multiplying the sentinel by 0.70 would turn it into
+            // a finite ~2.4e38 that slips past the guard and explodes the part.
             var factor = Mathf.Min(byHeight, byFootprint);
-            if (factor < float.MaxValue) clone.transform.localScale = source.localScale * factor;
+            if (factor < float.MaxValue)
+                clone.transform.localScale =
+                    source.localScale * (factor * ViewWorld.DungeonObjectScale);
 
             // Re-measure at the FINAL scale, then counter the baked XZ offset.
             var bounds = renderers[0].bounds;
@@ -402,6 +459,10 @@ namespace CinderCourt.View
                 tint.a = 1f;
                 var block = new MaterialPropertyBlock();
                 block.SetColor(BaseColorId, tint);
+                // Library parts share the terrain FBX's SERIALIZED materials, so
+                // the stage rim must ride the MPB — a material-level SetColor
+                // here would dirty a committed .mat asset.
+                block.SetColor(RimColorId, tints.Rim);
                 r.SetPropertyBlock(block);
             }
         }
@@ -449,6 +510,28 @@ namespace CinderCourt.View
                 _cubeMesh.vertices = v;
                 _cubeMesh.uv = uv;
                 _cubeMesh.triangles = tri;
+                // NORMALS. Their absence is the bug that made the arena's boundary
+                // wall render as blank pale slabs, and it took nine refuted hypotheses
+                // to find because every one of them was about materials or textures.
+                //
+                // A Mesh with no normal channel feeds the shader normalOS = (0,0,0).
+                // Everything downstream then collapses at once:
+                //   lambert = saturate(dot(N, L))            -> 0, so the surface only
+                //                                               ever gets _ShadowFloor
+                //   rim     = pow(1 - dot(N, V), _RimPower)  -> pow(1, anything) = 1,
+                //                                               so the rim runs at FULL
+                //                                               strength over whole faces
+                // and the result is a flat surface painted in _RimColor's blue with no
+                // texture read and no directional light. MEASURED: deleting the rim
+                // term moved the ring from (60, 66, 85) to (8, 9, 12) — 87% of it was
+                // rim — while changing _RimPower from 4 to 10 changed nothing at all,
+                // which is only possible when the base of that pow() is 1.
+                //
+                // 24 verts already exist precisely so each face can carry its own
+                // normal (see the comment above), so RecalculateNormals produces hard
+                // per-face normals here rather than the smoothed ones it would give a
+                // shared-corner cube.
+                _cubeMesh.RecalculateNormals();
                 _cubeMesh.RecalculateBounds();
             }
             if (_quadMesh == null)
@@ -465,6 +548,11 @@ namespace CinderCourt.View
                     new Vector2(1, 1), new Vector2(0, 1),
                 };
                 _quadMesh.triangles = new[] { 0, 3, 2, 0, 2, 1 }; // up-facing
+                // Same omission as the cube, same consequence — see there. The quad is
+                // planar and up-facing, so this is (0,1,0) at every vertex; it is
+                // written as a Recalculate rather than a literal so the two meshes
+                // cannot drift into disagreeing about how they get their normals.
+                _quadMesh.RecalculateNormals();
                 _quadMesh.RecalculateBounds();
             }
         }
@@ -474,6 +562,19 @@ namespace CinderCourt.View
         /// tools/gen_env_textures.sh (god-tibo-imagen, CLAUDE.md §3).
         /// </summary>
         internal const string StageTexturePath = "Textures/Env/";
+
+        /// <summary>
+        /// The cel-shaded stage albedo set (tools/gen_toon_env_textures.sh), tried
+        /// BEFORE the PBR set above.
+        ///
+        /// Two directories rather than one, on purpose. They are different art
+        /// directions that have to coexist while stage 02 is staged, and overwriting
+        /// the PBR maps in place would destroy the set the shipped build still uses —
+        /// this repo has already lost 36 committed textures once to an in-flight
+        /// regeneration. Preferring Toon and falling back to Env means a partially
+        /// generated toon set degrades stage by stage instead of leaving holes.
+        /// </summary>
+        internal const string ToonTexturePath = "Textures/Toon/";
 
         static string _texturedStageId;
 
@@ -489,8 +590,10 @@ namespace CinderCourt.View
         {
             if (_texturedStageId == stageId) return;
             _texturedStageId = stageId;
-            var stone = Resources.Load<Texture2D>(StageTexturePath + stageId + "-stone");
-            var floor = Resources.Load<Texture2D>(StageTexturePath + stageId + "-floor");
+            var stone = Resources.Load<Texture2D>(ToonTexturePath + stageId + "-stone")
+                     ?? Resources.Load<Texture2D>(StageTexturePath + stageId + "-stone");
+            var floor = Resources.Load<Texture2D>(ToonTexturePath + stageId + "-floor")
+                     ?? Resources.Load<Texture2D>(StageTexturePath + stageId + "-floor");
             BindAlbedo(_stoneMaterial, stone);
             BindAlbedo(_floorMaterial, floor);
         }
@@ -585,8 +688,10 @@ namespace CinderCourt.View
         const double Cx = SimConfig.ArenaX;
         const double Cy = SimConfig.ArenaY;
         // Mirrors ViewWorld.Scale (const there too). Grown with it 0.01 ->
-        // 0.0125 so module footprints keep matching sim-space geometry.
-        const double SimToWorld = 0.0125;
+        // 0.0125 -> 0.0150 so module footprints keep matching sim-space geometry.
+        // DungeonFramingAndMoodTests.WorldScale_EnvironmentLayoutUsesTheSameQuotientAsViewWorld
+        // asserts this equals ViewWorld.Scale to 1e-9.
+        const double SimToWorld = 0.0150;
 
         // AMENDMENT #15 (W-MV, MV-2). These were `const double HalfW/HalfH =
         // SimConfig.Arena*` — the sim can now clamp to an expanded ellipse, and
@@ -633,6 +738,19 @@ namespace CinderCourt.View
 
         // §E3 heights (contract): gallery +0.8, bridge +1.1, channel -0.5.
         const float GalleryH = 0.8f;
+
+        /// <summary>
+        /// AMENDMENT #17 stone-wall body height, world units. ONE constant read by both
+        /// renderers of this blocker — EnvironmentBuilder's static module and
+        /// VfxDirector's per-hazard primitive. Two literals would drift, and the
+        /// symptom would be a wall that changes height depending on which path drew it.
+        ///
+        /// Equal to <see cref="GalleryH"/> rather than taller: at the 55 degree dungeon
+        /// pitch a wall hides 0.70x its own height of ground behind it, and the lanes
+        /// have vents in them whose telegraphs must stay readable (§E0.5). Waist height
+        /// still reads solid from this angle because the top face is visible.
+        /// </summary>
+        internal const float StoneWallHeightWorld = GalleryH;
         const float BridgeH = 1.1f;
         const float ChannelH = -0.5f;
 
@@ -813,6 +931,52 @@ namespace CinderCourt.View
             return false;
         }
 
+        static HazardKind NearestHazardKind(HazardConfig[] hazards, double x, double y)
+        {
+            var best = double.PositiveInfinity;
+            var bestKind = HazardKind.EmberVent;
+            for (var i = 0; i < hazards.Length; i++)
+            {
+                if (hazards[i].Kind == HazardKind.AshWall
+                    || hazards[i].Kind == HazardKind.TideCurrent)
+                    continue;
+
+                var distance = DistanceFromHazardFootprint(hazards[i], x, y);
+                if (distance >= best) continue;
+                best = distance;
+                bestKind = hazards[i].Kind;
+            }
+
+            return bestKind;
+        }
+
+        static double DistanceFromHazardFootprint(HazardConfig hazard, double x, double y)
+        {
+            if (hazard.Kind == HazardKind.StoneWall)
+            {
+                var ax = hazard.X - hazard.HalfW;
+                var ay = hazard.Y - hazard.HalfH;
+                var sx = hazard.HalfW * 2.0;
+                var sy = hazard.HalfH * 2.0;
+                var segmentSq = sx * sx + sy * sy;
+                if (segmentSq > 1e-9)
+                {
+                    var t = ((x - ax) * sx + (y - ay) * sy) / segmentSq;
+                    if (t < 0.0) t = 0.0;
+                    else if (t > 1.0) t = 1.0;
+                    var nx = ax + sx * t;
+                    var ny = ay + sy * t;
+                    var ndx = x - nx;
+                    var ndy = y - ny;
+                    return Math.Sqrt(ndx * ndx + ndy * ndy) - hazard.Radius;
+                }
+            }
+
+            var dx = x - hazard.X;
+            var dy = y - hazard.Y;
+            return Math.Sqrt(dx * dx + dy * dy) - hazard.Radius;
+        }
+
         // ------------------------------------- gimmick terrain furniture --
         //
         // The sim gimmicks ARE the level design (DUNGEON_GUIDE §0: dungeons are
@@ -894,8 +1058,11 @@ namespace CinderCourt.View
                 // of clear floor - the middle 50px being the documented safe
                 // corridor a player survives in. Rails there would be smaller
                 // than ClearBase and would clutter the one readable escape.
+                // StoneWall is owned by VfxDirector's capsule path; adding floor
+                // furniture here makes the blocker read as two overlapping props.
                 if (hazard.Kind == HazardKind.AshWall
-                 || hazard.Kind == HazardKind.TideCurrent) continue;
+                 || hazard.Kind == HazardKind.TideCurrent
+                 || hazard.Kind == HazardKind.StoneWall) continue;
 
                 var ringR = hazard.Radius + ClearBase + FurnitureRingMargin;
                 // scale = target height in SIM PX (× ViewWorld.Scale at use).
@@ -907,8 +1074,8 @@ namespace CinderCourt.View
                 switch (hazard.Kind)
                 {
                     case HazardKind.EmberVent:
-                        // Scorched crater rim: many small shards, low and wide.
-                        count = 6; family = "prop"; scale = 17f; shade = 0.55f;
+                        // Scorched crater rim: sparse shards; texture carries the tone.
+                        count = 4; family = "prop"; scale = 17f; shade = 0.55f;
                         break;
                     case HazardKind.ObsidianPillar:
                         // Outcrop base: few, chunkier, clustered.
@@ -916,7 +1083,7 @@ namespace CinderCourt.View
                         break;
                     case HazardKind.RelicAltar:
                         // Dais corners: symmetric, deliberate.
-                        count = 4; family = "feature"; scale = 32f; shade = 1.08f;
+                        count = 3; family = "feature"; scale = 32f; shade = 1.08f;
                         break;
                     default: // EmberPylon
                         // Buttress feet around the breakable column.
@@ -940,6 +1107,7 @@ namespace CinderCourt.View
                     // sits FurnitureRingMargin beyond that, so this rejects only
                     // foreign discs - the same filter every other pass uses.
                     if (NearAnyHazard(hazards, x, y, 0.0)) continue;
+                    if (NearestHazardKind(hazards, x, y) != hazard.Kind) continue;
 
                     var module = NewModule(Kind.Floor,
                         "env-floor-" + (500 + index).ToString("D3"), x, y, 0f,
@@ -993,8 +1161,29 @@ namespace CinderCourt.View
             // read as answers to the sim's own hazards, not as scatter.
             AddGimmickTerrain(modules, stageSeed, hazards);
             var gateInfo = AddRingAndGates(modules, stageSeed, hazards, palette);
+            // The sim's hard blockers are NOT drawn here. VfxDirector owns per-hazard
+            // geometry and already builds the StoneWall capsule; emitting a module too
+            // drew every wall twice, and the duplicate tripped three audits that walk
+            // env-* modules — the boundary-ring sync test read a blocker at e 0.58 as
+            // "the ring never moved", the stop-line test read it as scenery standing on
+            // the combat floor, and the hazard-clearance test measured the module
+            // against the very hazard it was drawing. A blocker is a hazard, so it
+            // belongs on the hazard path.
+            // Zone C STAYS. #17 briefly removed it alongside the silhouettes, on the
+            // reading that both dressed an annulus the widened playfield had eaten.
+            // That was a misread of what this pass is: the silhouette ring is
+            // decoration at e 1.35/1.50, but Zone C's terraces are the VOID-FLOOR
+            // COVERAGE system — they tile out to the frustum (sim x -1650..3200), not
+            // to a ring radius. Removing them exposed bare floor across 27.15% of the
+            // frame against a pinned gate of 2%.
             AddZoneC(modules, stageId, stageSeed, palette);
-            AddOuterSilhouettes(modules, stageSeed, palette);
+            //
+            // AddOuterSilhouettes is gone, and only that. It stands at e 1.35/1.50,
+            // which at half 735 is sim x -224..1760 — past the painted plate's
+            // -82..1618 and far past the camera frame's e 1.097. It would hang over
+            // void to decorate something nobody can see. The boundary read it used to
+            // provide now comes from the ring in AddRingAndGates, which tracks the
+            // active half-axes (#15) and stands where the player actually stops.
             AddTorchesAndLights(modules, stageSeed, hazards, gateInfo);
             return modules;
         }

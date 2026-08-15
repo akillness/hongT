@@ -314,9 +314,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = fontSize;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, fontSize, anchor);
             text.text = content;
             text.color = Ink;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;

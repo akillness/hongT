@@ -101,8 +101,8 @@ namespace CinderCourt.Tests
         /// The shipping viewport table, measured (harness D-4/D-11), not guessed.
         ///
         /// Two scale bands, because the WebGL template has two behaviours:
-        ///   band A  CSS >= 501   aspect-locked to 1280:853   worst 0.4261 px/u
-        ///   band B  CSS <= 500   fill                        worst 0.4383 px/u
+        ///   band A  CSS width >= 501, excluding landscape height <= 500   aspect-locked to 1280:853   worst 0.4261 px/u
+        ///   band B  CSS width <= 500 or landscape height <= 500            fill                        worst 0.4383 px/u
         ///                                                    (within support)
         ///
         /// 375x667 (iPhone SE2) is the support FLOOR named by D-11. 320 CSS is

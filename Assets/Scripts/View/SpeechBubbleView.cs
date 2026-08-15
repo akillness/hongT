@@ -148,9 +148,7 @@ namespace CinderCourt.View
 
             // Same subset font contract as HudView: LegacyRuntime.ttf has no
             // Hangul glyphs, so the Korean subset is required on WebGL.
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
 
             var canvasObject = new GameObject("SpeechBubble");
             canvasObject.transform.SetParent(transform, false);
@@ -199,9 +197,7 @@ namespace CinderCourt.View
             var textObject = new GameObject(name);
             textObject.transform.SetParent(parent, false);
             var text = textObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.horizontalOverflow = wrap;
             text.verticalOverflow = VerticalWrapMode.Overflow;
             text.raycastTarget = false;

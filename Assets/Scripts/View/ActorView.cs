@@ -1,6 +1,7 @@
 // One actor (player / enemy / boss). Maps sim state to transform, Animator,
 // billboarded health bar, and death fade. No per-frame allocations.
 using System.Collections.Generic;
+using System.Text;
 using CinderCourt.Sim;
 using UnityEngine;
 
@@ -19,6 +20,26 @@ namespace CinderCourt.View
         MaterialPropertyBlock _block;
         Renderer[] _renderers;
         Camera _camera;
+
+        readonly struct ShadowCasterRecord
+        {
+            public readonly Renderer Renderer;
+            public readonly Transform Root;
+            public readonly string RootKind;
+
+            public ShadowCasterRecord(Renderer renderer, Transform root, string rootKind)
+            {
+                Renderer = renderer;
+                Root = root;
+                RootKind = rootKind;
+            }
+        }
+
+        static int _nextShadowActorId;
+        readonly List<ShadowCasterRecord> _shadowCasters =
+            new List<ShadowCasterRecord>(8);
+        int _shadowActorId;
+        bool _usesFallback;
 
         ActorAction _lastAction = (ActorAction)(-1);
         float _targetYaw;
@@ -58,11 +79,22 @@ namespace CinderCourt.View
         // registers, short enough that the boss is not a free target — it can
         // still turn and attack the instant its AI decides to.
         //
-        // PUBLIC because the animator's clip retiming reads it: the `show`
-        // state's speed is fitted to this window so the authored clip finishes
-        // inside it instead of being cut mid-roar (CharacterImportPipeline).
+        // PUBLIC because the IMPORT fits the clip to it: CharacterImportPipeline
+        // .ClipTrims trims Mutant Roaring to f8-34 (1.083 s, measured peak f21)
+        // so the roar plays at speed 1 and ENDS as the window closes.
+        //
+        // It did not always work that way. Until 2026-08-09 this comment
+        // claimed the `show` state's SPEED was fitted, and no such fit existed
+        // anywhere — no trim row, no baked m_Speed, no PoseValueForClip entry.
+        // The clip imported whole (5.42 s) into 1.1 s, so the entrance showed
+        // roughly its first fifth and cut mid-bellow. The comment described an
+        // intention; the pipeline never implemented it. (§4i: when a comment
+        // and the code are two sources for one fact, they drift — the fix was
+        // to make the pipeline true, then say what it does.)
         public const float RoarDuration = 1.1f;
-        /// <summary>§M/#4 cast pose window — the `cast` state's fit target.</summary>
+        /// <summary>§M/#4 cast pose window. Same contract as RoarDuration: the
+        /// cast clip is TRIMMED to fit (f23-30 = 0.292 s, measured peak f27),
+        /// not retimed — a speed fit would need ~9x and read as a twitch.</summary>
         public const float CastPoseDuration = 0.30f;
         float _castPoseTime;                  // §M/#4 cast pose window
         float _knockbackTime;                 // §M launch reaction window
@@ -104,14 +136,22 @@ namespace CinderCourt.View
         // 3D perspective replaces it (docs/SIM_SPEC.md coordinate contract).
 
         /// <summary>
-        /// Uniform shrink applied to EVERY actor (player, companions, enemies,
-        /// bosses) on top of its authored base scale — the 2026-10 request to
-        /// render every actor at 0.8x. Applied once at Create so per-frame
-        /// scale math (death pop, boss 1.6x) keeps its existing relationships.
-        /// Actor prefabs are authored in world units, so this is independent of
-        /// ViewWorld.Scale (which grew the floor by 25% in the same change).
+        /// Uniform scale applied to EVERY actor (player, companions, enemies,
+        /// bosses) on top of its authored base scale. Applied once at Create so
+        /// per-frame scale math (death pop, boss 1.6x) keeps its existing
+        /// relationships.
+        ///
+        /// 2026-08 (사용자 요청 "오브젝트 크기를 지금의 0.7배로"): 1.00 -> 0.70.
+        /// This is the actor half of the dungeon object shrink; the environment
+        /// prop half rides <see cref="ViewWorld.DungeonObjectScale"/> in
+        /// EnvironmentBuilder. Actor prefabs are authored in world units, so
+        /// this is independent of ViewWorld.Scale (which sizes the FLOOR / the
+        /// movement area, grown in the same change). The net read is a larger
+        /// traversable floor with smaller figures standing on it — exactly the
+        /// "이동 범위를 높이고 오브젝트를 줄여라" request. Sim hitboxes are
+        /// untouched: this scales the mesh, never the collision radius.
         /// </summary>
-        public const float GlobalScale = 0.8f;
+        public const float GlobalScale = 0.70f;
 
         public static ActorView Create(GameObject prefab, Color fallbackColor, float baseScale)
         {
@@ -132,14 +172,18 @@ namespace CinderCourt.View
             var root = new GameObject("Actor");
             instance.transform.SetParent(root.transform, false);
             var view = root.AddComponent<ActorView>();
+            view._shadowActorId = ++_nextShadowActorId;
+            view._usesFallback = prefab == null;
             view._model = instance.transform;
             view._animator = instance.GetComponentInChildren<Animator>();
-            view._renderers = instance.GetComponentsInChildren<Renderer>();
+            view._renderers = instance.GetComponentsInChildren<Renderer>(true);
+            view.CaptureBaseShadowCasters();
             view._block = new MaterialPropertyBlock();
             view._baseScale = baseScale * GlobalScale;
             view._camera = Camera.main;
             view.BuildHealthBar();
             view.CachePoseClipSeconds();
+            StageShadowPolicy.RegisterActor(view);
 
             return view;
         }
@@ -162,8 +206,10 @@ namespace CinderCourt.View
             RemovePrimitiveCollider(back);
             back.transform.SetParent(_healthRoot, false);
             back.transform.localScale = new Vector3(0.74f, 0.085f, 1f);
-            back.GetComponent<Renderer>().sharedMaterial =
+            var backRenderer = back.GetComponent<Renderer>();
+            backRenderer.sharedMaterial =
                 ViewWorld.MakeUnlit(new Color(0.05f, 0.04f, 0.09f, 0.9f), true);
+            StageShadowPolicy.ConfigureExcludedRenderer(backRenderer);
 
             var fill = GameObject.CreatePrimitive(PrimitiveType.Quad);
             RemovePrimitiveCollider(fill);
@@ -172,6 +218,57 @@ namespace CinderCourt.View
             fill.transform.localScale = new Vector3(0.7f, 0.055f, 1f);
             _healthFill = fill.GetComponent<Renderer>();
             _healthFill.sharedMaterial = ViewWorld.MakeUnlit(new Color(1f, 0.6f, 0.32f), false);
+            StageShadowPolicy.ConfigureExcludedRenderer(_healthFill);
+        }
+
+        void CaptureBaseShadowCasters()
+        {
+            for (var i = 0; i < _renderers.Length; i++)
+            {
+                var renderer = _renderers[i];
+                if (!StageShadowPolicy.TryConfigureCaster(renderer)) continue;
+                RegisterShadowCaster(renderer, _model, "body");
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        void RegisterShadowRoot(Transform root, string rootKind)
+        {
+            if (root == null) return;
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (!StageShadowPolicy.TryConfigureCaster(renderer)) continue;
+                RegisterShadowCaster(renderer, root, rootKind);
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        void RegisterShadowCaster(Renderer renderer, Transform root, string rootKind)
+        {
+            for (var i = 0; i < _shadowCasters.Count; i++)
+                if (_shadowCasters[i].Renderer == renderer) return;
+            _shadowCasters.Add(new ShadowCasterRecord(renderer, root, rootKind));
+        }
+
+        void UnregisterShadowRoot(string rootKind)
+        {
+            for (var i = _shadowCasters.Count - 1; i >= 0; i--)
+            {
+                var record = _shadowCasters[i];
+                if (record.RootKind != rootKind) continue;
+                StageShadowPolicy.ConfigureExcludedRenderer(record.Renderer);
+                _shadowCasters.RemoveAt(i);
+            }
+            StageShadowPolicy.NotifyCasterBoundsChanged();
+        }
+
+        static void DestroyOwnedObject(GameObject target)
+        {
+            if (target == null) return;
+            if (Application.isPlaying) Destroy(target);
+            else DestroyImmediate(target);
         }
 
         /// <param name="simDelta">Sim seconds actually advanced this frame
@@ -312,29 +409,119 @@ namespace CinderCourt.View
 
 
         float _companionLastX;
+        float _companionLastY;
+        bool _companionSampled;
+        float _companionMoveHold;
+
+        /// <summary>Smallest per-step companion displacement that counts as
+        /// locomotion, in world px. Real motion is ~4 px/step at companion
+        /// speed, so this only rejects float noise (~160 ulps at arena scale).
+        /// </summary>
+        internal const float CompanionMoveEpsilon = 0.01f;
+
+        /// <summary>Sim seconds a locomotion pose survives after the last
+        /// moving step (~3 fixed steps at 60 Hz - descriptive, not an identity:
+        /// 3f * FixedStep is 0.050000004f, which is not bit-equal to 0.05f).
+        /// It is a settle tail, not a strobe guard: the strobe is handled by
+        /// decaying on SIM delta (see <see cref="AdvanceCompanionMoveHold"/>).
+        /// AMENDMENT #18's wander dwell is 0.35 s, so 0.30 s of it still reads
+        /// as a genuine pause.
+        /// </summary>
+        internal const float CompanionMoveHoldSeconds = 0.05f;
+
+        /// <summary>True when this step's companion displacement is real
+        /// motion rather than float noise. Pure: the caller owns the hold
+        /// window.</summary>
+        internal static bool CompanionMoved(float deltaX, float deltaY)
+            => deltaX * deltaX + deltaY * deltaY
+               > CompanionMoveEpsilon * CompanionMoveEpsilon;
+
+        /// <summary>Advances the locomotion-pose hold window. Pure.
+        ///
+        /// <paramref name="simDelta"/> is GameView's <c>steps x FixedStep</c>,
+        /// NEVER Time.deltaTime - the same rule the launch heuristics follow
+        /// (GameView §_simDelta). SyncViews runs per RENDER frame while the sim
+        /// advances 0 or 1 fixed steps, so above 60 fps most frames re-read an
+        /// UNCHANGED position. Decaying on render time would expire the hold
+        /// during those frames and strobe the pose Move/Idle at the
+        /// render-vs-sim beat frequency; decaying on sim time makes a zero-step
+        /// frame decay by exactly zero, so the pose simply holds. That is why
+        /// this is structural rather than a tuned constant.</summary>
+        internal static float AdvanceCompanionMoveHold(float hold, bool moved, float simDelta)
+            => moved ? CompanionMoveHoldSeconds : Mathf.Max(0f, hold - simDelta);
+
+        /// <summary>The sim's ±1 facing, gated to the swing frame. Pure.
+        ///
+        /// <c>CompanionFacingAt</c> is ±1 ALWAYS - never 0 (HackTypes §D6.5;
+        /// every write is <c>_player.Facing</c> or <c>targetDeltaX > 0f ? 1 : -1</c>).
+        /// So <c>attackFacing != 0</c> can NEVER stand in for "is swinging". It
+        /// did, and both yaw fallbacks below went unreachable: companions
+        /// hard-snapped to 90°/270° forever and GameView's 16-direction gaze was
+        /// computed then discarded. Gating on <paramref name="attacking"/> - the
+        /// flag that actually means it - is the fix, and it lives HERE rather
+        /// than at the call site so no caller can forget it.</summary>
+        internal static int ResolveCompanionSwingFacing(bool attacking, int simFacing)
+            => attacking ? simFacing : 0;
+
+        /// <summary>Companion pose selection, pure so it can be pinned
+        /// exhaustively (same idiom as <see cref="ResolveActionValue"/>).
+        ///
+        /// The pose reads MOVEMENT, not player proximity. Before AMENDMENT #18
+        /// a no-target companion inside the follow band was genuinely parked, so
+        /// GameView could infer Idle from "close to the player". #18's idle route
+        /// walks 24 px legs entirely inside that band (ComfortRadius 128 px vs
+        /// the 120 px inference), and the stale inference then posed a walking
+        /// body as Idle - the companion slid across the floor with no walk
+        /// cycle. The same inference also froze a companion hard-following a
+        /// moving player inside the band.
+        ///
+        /// Priority: a swing outranks everything (the strike must show), then
+        /// locomotion, then the combat gaze stance - a companion holding a
+        /// target between strikes reads as ready, not asleep.</summary>
+        internal static ActorAction ResolveCompanionAction(
+            bool moving, bool attacking, bool hasGaze)
+        {
+            if (attacking) return ActorAction.Attack;
+            if (moving || hasGaze) return ActorAction.Move;
+            return ActorAction.Idle;
+        }
 
         /// <summary>Companion follower (§4 + G1 combat gaze): position from the
         /// sim; pose/facing prioritized combat-first. attackFacing wins while
         /// the strike shows; combatFacing (nearest enemy in range) holds the
-        /// gaze between strikes; movement dir is the peace-time fallback; near
-        /// the player with no target the companion rests in Idle.</summary>
+        /// gaze between strikes; movement dir is the peace-time fallback; a
+        /// stationary companion with no target rests in Idle.
+        ///
+        /// <paramref name="attackFacing"/> is the sim's RAW ±1 facing - pass
+        /// <c>CompanionFacingAt(slot)</c> unconditionally. Gating it on the swing
+        /// is this method's job, not the caller's
+        /// (<see cref="ResolveCompanionSwingFacing"/>), so the gaze and
+        /// movement-yaw fallbacks stay reachable by construction.</summary>
         public void SyncCompanion(float simX, float simY, int attackFacing, bool attacking,
-                                  float gazeYaw = float.NaN, bool restIdle = false)
+                                  float gazeYaw, float simDelta)
         {
-            var moveFacing = simX >= _companionLastX ? 1 : -1;
-            var facing = attackFacing != 0 ? attackFacing : moveFacing;
+            var swingFacing = ResolveCompanionSwingFacing(attacking, attackFacing);
+            // No previous sample means no travel direction yet: default to +1
+            // rather than comparing against a pooled predecessor's seat (or the
+            // world origin, which only reads +1 because arena X is positive).
+            var moveFacing = !_companionSampled || simX >= _companionLastX ? 1 : -1;
+            var facing = swingFacing != 0 ? swingFacing : moveFacing;
             // G1(c): an in-range enemy owns the yaw even while the body keeps
-            // following the player — without this, M1's movement-delta yaw
+            // following the player - without this, M1's movement-delta yaw
             // wins during Move and the companion stares at its travel path.
             // Full 16-direction angle (M1's 22.5° grammar), not ±1 snap;
             // the attack frame keeps the sim's authoritative ±1 facing.
-            _gazeYaw = attackFacing != 0
-                ? (attackFacing > 0 ? 90f : 270f)
+            _gazeYaw = swingFacing != 0
+                ? (swingFacing > 0 ? 90f : 270f)
                 : gazeYaw;
+            var moved = _companionSampled
+                && CompanionMoved(simX - _companionLastX, simY - _companionLastY);
+            _companionMoveHold = AdvanceCompanionMoveHold(_companionMoveHold, moved, simDelta);
             _companionLastX = simX;
-            var action = attacking ? ActorAction.Attack
-                : restIdle ? ActorAction.Idle
-                : ActorAction.Move;
+            _companionLastY = simY;
+            _companionSampled = true;
+            var action = ResolveCompanionAction(
+                _companionMoveHold > 0f, attacking, !float.IsNaN(gazeYaw));
             Apply(simX, simY, facing, action, 1f, 0.92f, false, 0f, false);
         }
 
@@ -393,7 +580,8 @@ namespace CinderCourt.View
             _equipPropBand[0] = 0;
             if (_equipProps[0] != null)
             {
-                Destroy(_equipProps[0]);
+                UnregisterShadowRoot(EquipmentRootKind(0));
+                DestroyOwnedObject(_equipProps[0]);
                 _equipProps[0] = null;
             }
         }
@@ -415,7 +603,8 @@ namespace CinderCourt.View
                 _equipPropBand[slot] = band;
                 if (_equipProps[slot] != null)
                 {
-                    Destroy(_equipProps[slot]);
+                    UnregisterShadowRoot(EquipmentRootKind(slot));
+                    DestroyOwnedObject(_equipProps[slot]);
                     _equipProps[slot] = null;
                 }
                 if (band == 0) continue;
@@ -434,8 +623,11 @@ namespace CinderCourt.View
                 prop.name = $"EquipProp-{PropSlots[slot]}";
                 ApplyPropPose(prop.transform, slot);
                 _equipProps[slot] = prop;
+                RegisterShadowRoot(prop.transform, EquipmentRootKind(slot));
             }
         }
+
+        static string EquipmentRootKind(int slot) => "equipment:" + PropSlots[slot];
 
         /// <summary>Socket-space pose per slot (meshes are normalized by
         /// tools/blender/convert_equip_props.py: weapon grip at origin blade
@@ -464,7 +656,8 @@ namespace CinderCourt.View
         {
             for (var slot = 0; slot < 3; slot++)
             {
-                if (_equipProps[slot] != null) Destroy(_equipProps[slot]);
+                UnregisterShadowRoot(EquipmentRootKind(slot));
+                DestroyOwnedObject(_equipProps[slot]);
                 _equipProps[slot] = null;
                 _equipPropBand[slot] = 0;
             }
@@ -711,8 +904,184 @@ namespace CinderCourt.View
             }
         }
 
+        internal bool UsesFallbackForShadowDiagnostics => _usesFallback;
+        internal int RegisteredShadowCasterCount => _shadowCasters.Count;
+
+        internal Renderer RegisteredShadowCasterAt(int index)
+            => _shadowCasters[index].Renderer;
+
+        internal string RegisteredShadowCasterKeyAt(int index)
+        {
+            var record = _shadowCasters[index];
+            return ShadowCasterKey(record.Renderer, record.Root, record.RootKind);
+        }
+
+        internal bool ShadowCasterSetsMatch()
+        {
+            var eligible = new HashSet<string>();
+            var liveBody = _model != null
+                ? _model.GetComponentsInChildren<Renderer>(true)
+                : new Renderer[0];
+            for (var i = 0; i < liveBody.Length; i++)
+            {
+                var renderer = liveBody[i];
+                if (!StageShadowPolicy.IsEligibleCaster(renderer)
+                    || IsEquipmentRenderer(renderer)
+                    || (_castGlow != null
+                        && renderer.transform.IsChildOf(_castGlow)))
+                    continue;
+                if (!eligible.Add(ShadowCasterKey(renderer, _model, "body"))) return false;
+            }
+
+            for (var slot = 0; slot < _equipProps.Length; slot++)
+            {
+                var prop = _equipProps[slot];
+                if (prop == null) continue;
+                var renderers = prop.GetComponentsInChildren<Renderer>(true);
+                for (var i = 0; i < renderers.Length; i++)
+                {
+                    var renderer = renderers[i];
+                    if (!StageShadowPolicy.IsEligibleCaster(renderer)) continue;
+                    if (!eligible.Add(ShadowCasterKey(
+                            renderer, prop.transform, EquipmentRootKind(slot))))
+                        return false;
+                }
+            }
+
+            var registered = new HashSet<string>();
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var record = _shadowCasters[i];
+                var renderer = record.Renderer;
+                if (renderer == null
+                    || renderer.shadowCastingMode
+                        != UnityEngine.Rendering.ShadowCastingMode.On
+                    || renderer.receiveShadows
+                    || renderer.renderingLayerMask
+                        != StageShadowPolicy.ActorRenderingLayerMask)
+                    return false;
+                if (!registered.Add(ShadowCasterKey(
+                        renderer, record.Root, record.RootKind)))
+                    return false;
+            }
+            return eligible.SetEquals(registered);
+        }
+
+        bool IsEquipmentRenderer(Renderer renderer)
+        {
+            for (var slot = 0; slot < _equipProps.Length; slot++)
+            {
+                var prop = _equipProps[slot];
+                if (prop != null && renderer.transform.IsChildOf(prop.transform)) return true;
+            }
+            return false;
+        }
+
+        internal void AccumulateShadowCasterExtents(
+            ref float maximumHeight,
+            ref float maximumHorizontalRadius)
+        {
+            var actorOrigin = transform.position;
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var renderer = _shadowCasters[i].Renderer;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy)
+                    continue;
+                var bounds = renderer.bounds;
+                var centerOffset = bounds.center - actorOrigin;
+                maximumHeight = Mathf.Max(
+                    maximumHeight,
+                    Mathf.Abs(centerOffset.y) + bounds.extents.y);
+                maximumHorizontalRadius = Mathf.Max(
+                    maximumHorizontalRadius,
+                    Mathf.Max(
+                        Mathf.Abs(centerOffset.x) + bounds.extents.x,
+                        Mathf.Abs(centerOffset.z) + bounds.extents.z));
+            }
+        }
+
+        internal void AccumulateShadowCasterDistance(Camera camera, ref float maximumDistance)
+        {
+            if (camera == null) return;
+            var cameraPosition = camera.transform.position;
+            for (var i = 0; i < _shadowCasters.Count; i++)
+            {
+                var renderer = _shadowCasters[i].Renderer;
+                if (renderer == null || !renderer.enabled
+                    || !renderer.gameObject.activeInHierarchy)
+                    continue;
+                var bounds = renderer.bounds;
+                for (var x = 0; x <= 1; x++)
+                for (var y = 0; y <= 1; y++)
+                for (var z = 0; z <= 1; z++)
+                {
+                    var corner = new Vector3(
+                        x == 0 ? bounds.min.x : bounds.max.x,
+                        y == 0 ? bounds.min.y : bounds.max.y,
+                        z == 0 ? bounds.min.z : bounds.max.z);
+                    maximumDistance = Mathf.Max(
+                        maximumDistance, Vector3.Distance(cameraPosition, corner));
+                }
+            }
+        }
+
+        string ShadowCasterKey(Renderer renderer, Transform registeredRoot, string rootKind)
+        {
+            if (renderer == null) return $"{_shadowActorId}|{rootKind}|<destroyed>";
+            var mesh = SharedMesh(renderer);
+            return $"{_shadowActorId}|{rootKind}|"
+                + $"{HierarchyIndexPath(renderer.transform, registeredRoot)}|"
+                + $"{renderer.GetType().Name}:{RendererComponentIndex(renderer)}|"
+                + (mesh != null
+                    ? mesh.name + ":" + EntityId.ToULong(mesh.GetEntityId())
+                    : "<no-mesh>");
+        }
+
+        static Mesh SharedMesh(Renderer renderer)
+        {
+            var skinned = renderer as SkinnedMeshRenderer;
+            if (skinned != null) return skinned.sharedMesh;
+            var filter = renderer.GetComponent<MeshFilter>();
+            return filter != null ? filter.sharedMesh : null;
+        }
+
+        static int RendererComponentIndex(Renderer renderer)
+        {
+            var renderers = renderer.GetComponents<Renderer>();
+            var type = renderer.GetType();
+            var index = 0;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i].GetType() != type) continue;
+                if (renderers[i] == renderer) return index;
+                index++;
+            }
+            return -1;
+        }
+
+        static string HierarchyIndexPath(Transform target, Transform registeredRoot)
+        {
+            if (target == registeredRoot) return ".";
+            var path = new StringBuilder(32);
+            var cursor = target;
+            while (cursor != null && cursor != registeredRoot)
+            {
+                if (path.Length > 0) path.Insert(0, '/');
+                path.Insert(0, cursor.GetSiblingIndex());
+                cursor = cursor.parent;
+            }
+            return cursor == registeredRoot ? path.ToString() : "<outside>";
+        }
+
+        void OnEnable() => StageShadowPolicy.RegisterActor(this);
+
+        void OnDisable() => StageShadowPolicy.UnregisterActor(this);
+
         void OnDestroy()
         {
+            StageShadowPolicy.UnregisterActor(this);
+            _shadowCasters.Clear();
             // Ghosts are unparented (world-frozen) — scene teardown must not
             // leak them, their baked meshes, or their cloned materials.
             for (var i = 0; i < GhostCount; i++)
@@ -1023,6 +1392,13 @@ namespace CinderCourt.View
             _deathPop = 0f;
             _prevSimX = float.NaN;
             _prevSimY = float.NaN;
+            // A pooled companion never inherits the previous tenant's seat: the
+            // stale sample reads as one enormous first-frame stride, and the
+            // facing flip at SyncCompanion's first line reads it too.
+            _companionLastX = 0f;
+            _companionLastY = 0f;
+            _companionSampled = false;
+            _companionMoveHold = 0f;
             _eliteTint = false;
             _shieldTint = false;      // R2: pooled actors never keep a shield read
             _shieldApplied = false;   // pool reset below rewrites the block anyway

@@ -1,0 +1,74 @@
+{
+  "output": "_workspace/current/qa/cycle9-browser/active-threat-cue-webgl.mp4",
+  "captureUrl": "http://127.0.0.1:8766/",
+  "requestedSeconds": 55,
+  "compressionTool": "CompressO compresso_ffmpeg",
+  "captureCompletedAt": "2026-08-09T04:24:43.516Z",
+  "buildIdentity": "8e71ae65e3d1ecc5",
+  "bytes": 3198210,
+  "sha256": "b7a1c65ca7aed834ae9679aa53119da57bfc753c486bfd4675b1a7c507a50f28",
+  "loadOffset": 5.343,
+  "probe": "1440,900,30/1,54.966016",
+  "pageErrors": {
+    "count": 0,
+    "unique": {}
+  },
+  "log": {
+    "beats": [
+      {
+        "t": 3.2,
+        "beat": "sortie-open"
+      },
+      {
+        "t": 5,
+        "beat": "ember-gallery"
+      },
+      {
+        "t": 13.6,
+        "beat": "melee-demo-done"
+      },
+      {
+        "t": 13.9,
+        "beat": "hotkey:KeyQ"
+      },
+      {
+        "t": 15.1,
+        "beat": "hotkey:KeyE"
+      },
+      {
+        "t": 16.4,
+        "beat": "hotkey:ShiftLeft"
+      },
+      {
+        "t": 17.6,
+        "beat": "hotkey:KeyF"
+      },
+      {
+        "t": 18.8,
+        "beat": "hotkey:KeyR"
+      },
+      {
+        "t": 19.8,
+        "beat": "skill-demo-done"
+      },
+      {
+        "t": 24,
+        "beat": "console:focus"
+      },
+      {
+        "t": 29.4,
+        "beat": "console:defend"
+      },
+      {
+        "t": 34.8,
+        "beat": "console:shield"
+      },
+      {
+        "t": 41.4,
+        "beat": "console:nova"
+      }
+    ],
+    "attacks": 62,
+    "skills": 46
+  }
+}

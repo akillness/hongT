@@ -2,12 +2,15 @@
 //   1. per-stage generated gimmick textures  → StageTextures_*
 //   2. dungeon camera follows the player     → Follow_*
 //   3. dungeon reads bigger                  → WorldScale_*
-//   4. actors shrink to 0.8, mood lighting   → ActorScale_*, Mood_*, Flicker_*
+//   4. actors restore authored scale, mood lighting → ActorScale_*, Mood_*, Flicker_*
 //
 // EditMode only: construct → inspect → DestroyImmediate. No play mode, no
 // rendering. RenderSettings is global, so the mood fixture snapshots and
 // restores it (the same hazard StageMood.Clear exists for at runtime).
 using System.Reflection;
+using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using UnityEngine;
 using CinderCourt.Sim;
@@ -160,7 +163,7 @@ namespace CinderCourt.Tests
         // -------------------------------------------------- 4. actor scale ---
 
         [Test]
-        public void ActorScale_GlobalShrinkIsAppliedOnTopOfTheAuthoredBaseScale()
+        public void ActorScale_ShrinksUniformlyButKeepsRelativeSilhouettes()
         {
             var view = ActorView.Create(null, Color.white, 1f);
             try
@@ -175,19 +178,27 @@ namespace CinderCourt.Tests
                 {
                     Assert.That((float)field.GetValue(boss),
                         Is.EqualTo(1.6f * ActorView.GlobalScale).Within(1e-5f),
-                        "the shrink must be proportional, not a replacement");
+                        "the global actor scale must be proportional, not a replacement");
                     // Relative silhouettes are the gameplay contract: a boss must
-                    // still read 1.6x its minions after the shrink.
+                    // still read 1.6x its minions AFTER the uniform shrink.
                     Assert.That((float)field.GetValue(boss) / (float)field.GetValue(view),
                         Is.EqualTo(1.6f).Within(1e-5f));
                 }
                 finally { Object.DestroyImmediate(boss.gameObject); }
 
-                Assert.That(ActorView.GlobalScale, Is.EqualTo(0.8f).Within(1e-6f),
-                    "requested actor shrink is 0.8x");
+                // 2026-08 request "오브젝트 크기를 지금의 0.7배로": actors shrink to
+                // 0.70 of authored size while the dungeon FLOOR grows (ViewWorld
+                // .Scale up), so figures read smaller on a larger movement area.
+                // The value is bounded to a legible range — a shrink past ~0.5
+                // would lose the combat silhouette the follow camera depends on.
+                Assert.That(ActorView.GlobalScale, Is.EqualTo(0.70f).Within(1e-6f),
+                    "the object-shrink request pins the actor scale at 0.70");
+                Assert.That(ActorView.GlobalScale, Is.InRange(0.5f, 1f),
+                    "actor shrink must stay inside a legible board-scale range");
             }
             finally { Object.DestroyImmediate(view.gameObject); }
         }
+
 
         // ------------------------------------------------- 4. mood lighting --
 
@@ -222,7 +233,7 @@ namespace CinderCourt.Tests
         }
 
         [Test]
-        public void Mood_EveryStageGetsShadowlessDirectionalKeyAndFill()
+        public void Mood_EveryStageGetsOneShadowedKeyAndShadowlessFill()
         {
             foreach (var stageId in StageIds)
             {
@@ -236,18 +247,43 @@ namespace CinderCourt.Tests
                     Assert.That(lights.Length, Is.EqualTo(2),
                         $"{stageId}: mood is key + fill only — extra realtime " +
                         "lights belong to the §E6 point budget");
-                    foreach (var light in lights)
-                    {
-                        Assert.That(light.type, Is.EqualTo(LightType.Directional),
-                            $"{stageId}: mood lights must not eat per-object " +
-                            "point-light slots in WebGL forward");
-                        Assert.That(light.shadows, Is.EqualTo(LightShadows.None),
-                            $"{stageId}: §E6 allows zero shadow casters");
-                        Assert.That(light.intensity, Is.GreaterThan(0f));
-                    }
-                    Assert.That(lights[0].intensity, Is.GreaterThan(lights[1].intensity),
+                    var key = root.transform.Find("mood-key").GetComponent<Light>();
+                    var fill = root.transform.Find("mood-fill").GetComponent<Light>();
+                    Assert.That(key.type, Is.EqualTo(LightType.Directional));
+                    Assert.That(fill.type, Is.EqualTo(LightType.Directional),
+                        $"{stageId}: mood lights must not eat per-object " +
+                        "point-light slots in WebGL forward");
+                    Assert.That(key.shadows, Is.EqualTo(LightShadows.Hard),
+                        $"{stageId}: the authored stage key owns character shadows");
+                    Assert.That(fill.shadows, Is.EqualTo(LightShadows.None),
+                        $"{stageId}: only the key may render shadows");
+                    Assert.That(RenderSettings.sun, Is.SameAs(key),
+                        $"{stageId}: the authored key must be the deterministic main light");
+                    Assert.That(key.intensity, Is.GreaterThan(0f));
+                    Assert.That(fill.intensity, Is.GreaterThan(0f));
+                    Assert.That(key.intensity, Is.GreaterThan(fill.intensity),
                         $"{stageId}: the fill must stay below the key or the " +
                         "scene flattens");
+                    var ray = key.transform.forward;
+                    var horizontal = new Vector2(ray.x, ray.z).magnitude;
+                    var vertical = Mathf.Abs(ray.y);
+                    var maximumOffsetPerCasterHeight = 1f / Mathf.Tan(
+                        StageMood.MinimumCharacterShadowPitch * Mathf.Deg2Rad);
+                    Assert.That(horizontal / vertical,
+                        Is.LessThanOrEqualTo(maximumOffsetPerCasterHeight + 1e-4f),
+                        $"{stageId}: a shallower key exceeds the receiver's " +
+                        "authored projection budget");
+                    // Dungeon camera pitch is 55 degrees. Keep the projected
+                    // key direction at least 45 degrees off its screen-depth
+                    // axis so a close party reads as silhouettes instead of a
+                    // single plume directly behind the actors.
+                    var screenShadowAngle = Mathf.Atan2(
+                        Mathf.Abs(ray.x),
+                        Mathf.Abs(ray.z) * Mathf.Cos(55f * Mathf.Deg2Rad))
+                        * Mathf.Rad2Deg;
+                    Assert.That(screenShadowAngle, Is.GreaterThanOrEqualTo(45f),
+                        $"{stageId}: character shadows overlap the dungeon " +
+                        "camera depth axis ({screenShadowAngle:F1} degrees)");
                     Assert.That(root.GetComponentsInChildren<Collider>(true), Is.Empty,
                         $"{stageId}: decoration never owns physics");
                 }
@@ -377,6 +413,77 @@ namespace CinderCourt.Tests
             }
         }
 
+        [Test]
+        public void StageTextures_EveryCampaignStageHasDistinctFloorAndStoneAlbedos()
+        {
+            foreach (var stageId in StageIds)
+            {
+                var floorPath = ResourceFile(EnvironmentBuilder.StageTexturePath + stageId + "-floor");
+                var stonePath = ResourceFile(EnvironmentBuilder.StageTexturePath + stageId + "-stone");
+
+                Assert.That(File.Exists(floorPath), Is.True, $"{stageId}: floor albedo missing");
+                Assert.That(File.Exists(stonePath), Is.True, $"{stageId}: stone albedo missing");
+                Assert.That(Sha256(floorPath), Is.Not.EqualTo(Sha256(stonePath)),
+                    $"{stageId}: floor and stone must stay distinct concept textures");
+            }
+        }
+
+        [Test]
+        public void StageHazardTextures_EveryCatalogBindingHasOpaque512NonFlatAlbedo()
+        {
+            var seen = new HashSet<string>();
+            Assert.That(StageHazardVisualCatalog.Bindings, Has.Count.EqualTo(33),
+                "the 9-stage campaign currently has 33 concrete stage×hazard texture bindings");
+
+            foreach (var binding in StageHazardVisualCatalog.Bindings)
+            {
+                Assert.That(IsCampaignStage(binding.StageId), Is.True,
+                    $"{binding.StageId}/{binding.Kind}: non-campaign stage leaked into the visual catalog");
+                Assert.That(seen.Add(binding.ResourcePath), Is.True,
+                    $"{binding.ResourcePath}: duplicate generated hazard resource binding");
+
+                var path = ResourceFile(binding.ResourcePath);
+                Assert.That(File.Exists(path), Is.True,
+                    $"{binding.StageId}/{binding.Kind}: generated hazard albedo missing at {path}");
+
+                var texture = LoadReadablePng(path);
+                try
+                {
+                    Assert.That(texture.width, Is.EqualTo(512), $"{path}: generated output must be 512 px wide");
+                    Assert.That(texture.height, Is.EqualTo(512), $"{path}: generated output must be 512 px high");
+                    Assert.That(IsOpaque(texture), Is.True,
+                        $"{path}: physical underlay/body textures must not reveal the base floor through alpha");
+                    Assert.That(HasNonFlatColor(texture), Is.True,
+                        $"{path}: generated texture is visually flat and cannot carry stage tone");
+                }
+                finally { Object.DestroyImmediate(texture); }
+            }
+        }
+
+        [Test]
+        public void StageHazardTextures_RepeatRolesUsePositiveRuntimeBaseMapSt()
+        {
+            var method = typeof(VfxDirector).GetMethod(
+                "SurfaceRepeatSt", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null,
+                "repeat-role hazard textures must keep a runtime _BaseMap_ST helper");
+
+            foreach (var binding in StageHazardVisualCatalog.Bindings)
+            {
+                if (!UsesRepeatRole(binding.PrimaryRole)) continue;
+
+                var st = (Vector4)method.Invoke(null, new object[] { 2.5f, 1.25f });
+                Assert.That(st.x, Is.GreaterThan(0f),
+                    $"{binding.ResourcePath}: repeat-role _BaseMap_ST x scale must stay positive");
+                Assert.That(st.y, Is.GreaterThan(0f),
+                    $"{binding.ResourcePath}: repeat-role _BaseMap_ST y scale must stay positive");
+                Assert.That(st.z, Is.EqualTo(0f).Within(1e-6f),
+                    $"{binding.ResourcePath}: repeat-role offset starts uncropped unless the hazard sync crops it");
+                Assert.That(st.w, Is.EqualTo(0f).Within(1e-6f),
+                    $"{binding.ResourcePath}: repeat-role offset starts uncropped unless the hazard sync crops it");
+            }
+        }
+
         static Material FindMaterial(GameObject root, string name)
         {
             foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
@@ -385,6 +492,61 @@ namespace CinderCourt.Tests
                         return material;
             Assert.Fail($"material {name} not found under {root.name}");
             return null;
+        }
+
+        static bool IsCampaignStage(string stageId)
+        {
+            for (var i = 0; i < StageIds.Length; i++)
+                if (StageIds[i] == stageId) return true;
+            return false;
+        }
+
+        static bool UsesRepeatRole(string role)
+            => role == "body" || role == "bed" || role == "band" || role == "albedo";
+
+        static string ResourceFile(string resourcePath)
+            => Path.Combine(Directory.GetCurrentDirectory(), "Assets/Resources/" + resourcePath + ".png");
+
+        static string Sha256(string path)
+        {
+            using (var sha = SHA256.Create())
+            using (var stream = File.OpenRead(path))
+                return System.BitConverter.ToString(sha.ComputeHash(stream));
+        }
+
+        static Texture2D LoadReadablePng(string path)
+        {
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            Assert.That(ImageConversion.LoadImage(texture, File.ReadAllBytes(path), false), Is.True,
+                $"{path}: PNG decode failed");
+            return texture;
+        }
+
+        static bool IsOpaque(Texture2D texture)
+        {
+            for (var y = 0; y < texture.height; y += 31)
+                for (var x = 0; x < texture.width; x += 31)
+                    if (texture.GetPixel(x, y).a < 0.995f)
+                        return false;
+            return texture.GetPixel(texture.width - 1, texture.height - 1).a >= 0.995f;
+        }
+
+        static bool HasNonFlatColor(Texture2D texture)
+        {
+            var colors = new HashSet<int>();
+            for (var y = 0; y < texture.height; y += 32)
+            {
+                for (var x = 0; x < texture.width; x += 32)
+                {
+                    var color = texture.GetPixel(x, y);
+                    var r = Mathf.Clamp(Mathf.RoundToInt(color.r * 31f), 0, 31);
+                    var g = Mathf.Clamp(Mathf.RoundToInt(color.g * 31f), 0, 31);
+                    var b = Mathf.Clamp(Mathf.RoundToInt(color.b * 31f), 0, 31);
+                    colors.Add((r << 10) | (g << 5) | b);
+                    if (colors.Count >= 4) return true;
+                }
+            }
+            return false;
         }
     }
 }

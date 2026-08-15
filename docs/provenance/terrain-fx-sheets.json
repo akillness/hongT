@@ -56,9 +56,24 @@
     "pixelFormat": "8-bit grayscale (PNG mode L), no alpha channel, no color — matches the confirmed contract exactly."
   },
   "outputs": [
-    {"file": "Assets/Resources/Terrain/terrain-fx-lava-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 445941},
-    {"file": "Assets/Resources/Terrain/terrain-fx-ice-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 476942},
-    {"file": "Assets/Resources/Terrain/terrain-fx-shift-sheet.png", "dims": "1024x1024", "mode": "L", "bytes": 402861}
+    {
+      "file": "Assets/Resources/Terrain/terrain-fx-lava-sheet.png",
+      "dims": "1024x1024",
+      "mode": "L",
+      "bytes": 445941
+    },
+    {
+      "file": "Assets/Resources/Terrain/terrain-fx-ice-sheet.png",
+      "dims": "1024x1024",
+      "mode": "L",
+      "bytes": 476942
+    },
+    {
+      "file": "Assets/Resources/Terrain/terrain-fx-shift-sheet.png",
+      "dims": "1024x1024",
+      "mode": "L",
+      "bytes": 402861
+    }
   ],
   "deletedSuperseded": [
     "Assets/Resources/Textures/Env/terrain-fx-lava-sheet.png (rev1, color, wrong path — deleted)",
@@ -79,5 +94,25 @@
     "confirmedPath": "Assets/Resources/Terrain/terrain-fx-{lava,ice,shift}-sheet.png — vfx-lane's Resources.Load path (Assets/Resources/Textures/Env/ used by rev1 was NOT loaded by vfx-lane's implementation and has been removed).",
     "importApplied": "wrapMode Clamp (wrapU/V/W: 1) WAS applied, not just recommended — hand-authored .meta files were written for all 3 sheets (2026-08-08, Unity Editor still not run this session, batchmode-only automation per CLAUDE.md §1). Structure copied from an existing Texture2D .meta template (Assets/Resources/Textures/Env/abyss-chancel-floor.png.meta) with wrapU/V/W flipped from 0 (Repeat, correct for that tiling stage texture) to 1 (Clamp, correct for per-cell flipbook sampling), textureType left at 0 (plain Texture2D, not Sprite — matches how a UV-offset flipbook consumer reads a texture, not a sprite atlas), maxTextureSize 1024 kept from the template. Fresh GUIDs issued per file (f1edf0f01fc141938d64ad821b16683a / baa098c5bd304e43a150048b359996c2 / 8a3a68ea340f4c929a9b7739e1631955), collision-checked against every other .meta in Assets/ before writing.",
     "risk": "Hand-authored .meta is unverified against a live Unity Editor import this session — flagged as a follow-up (spot-check textureType/wrapMode once the Editor actually opens the project), not assumed correct."
+  },
+  "regenerationAttempts2026_08_10": {
+    "ask": "skill, 모션 등 vfx 힉스필드로 전면개선해줘",
+    "outcome": "BOTH REVERTED - the shipped sheets are better. Do not retry either approach without changing the method.",
+    "attempt1": {
+      "method": "kling2_6 text-to-video, prompt asked for a top-down overhead view of churning lava / frost / drifting ash on black, camera locked, no horizon",
+      "failure": "the model's camera prior wins. 'Overhead view of lava' resolved to a SCENE WITH A SKY: every extracted frame carried a bright disc reading as a moon over cracked ground. As a flipbook this puts a glowing circle on the dungeon floor, 16 times a loop.",
+      "note": "negative phrasing ('no horizon', 'no sky', 'camera locked') did not suppress it. Wording is not the lever."
+    },
+    "attempt2": {
+      "method": "kling2_6 image-to-video seeded with cell 0 of the SHIPPED sheet (256px upscaled to 512), prompt asked only for the seeded surface to breathe in place",
+      "result": "the seed works - output stayed flat on the surface, no horizon, no invented light source. That part is solved.",
+      "failure": "MOTION AMPLITUDE. Frame-to-frame delta across the 16 cells was near zero: the shipped ice sheet carries a diagonal glint band travelling across cells, the regenerated one is visually static. A flipbook of 16 near-identical frames is worse than no flipbook.",
+      "secondary": "shift over-zoomed - a 256px cell upscaled to 512 reads as a close-up to the model, so cells came back as huge blobs instead of tileable grain."
+    },
+    "whatWouldHaveToChange": "The consumer wants 16 frames of VISIBLE change in 1.333 s. i2v with a locked camera is tuned for the opposite. Either drive the amplitude explicitly (a longer clip sampled sparsely, so 16 frames span more motion), or leave the lane - these are ambient decals, not focal VFX.",
+    "toolKept": {
+      "path": "tools/video/fx_sheet_from_video.py",
+      "why": "the CONTRACT work is done and correct regardless of the source: 4x4 row-major top-left-first, 256px cells, gray, tail crossfaded into the head so the 15->0 wrap is continuous (Animate() is strictly forward; ping-pong would reverse the drift direction every 0.67 s), and the .meta is never regenerated (sRGB 0, clamp wrap, per-target maxTextureSize 1024 would silently revert). Measured wrap delta vs typical adjacent delta: lava 4.2/2.2, ice 8.8/7.9, shift 9.3/8.0 - the seam is within neighbour noise."
+    }
   }
 }

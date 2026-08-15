@@ -65,3 +65,63 @@
 - Raw capture: [[raw/sources/prompts/2026/08/07/133343-019fdc6d-dc6-system-instructions]]
 - Source note: [[wiki/sources/2026-08-07-133343-system-instructions]]
 - Query note: [[wiki/queries/2026-08-07-133343-system-instructions]]
+
+## [2026-08-08 14:27:28] query | pr 확인하고 머지후, 기획문서 내용모두 파악해서 알려줘
+- Raw capture: [[raw/sources/prompts/2026/08/08/142728-019fe1c5-5f9-pr]]
+- Source note: [[wiki/sources/2026-08-08-142728-pr]]
+- Query note: [[wiki/queries/2026-08-08-142728-pr]]
+
+## [2026-08-08 14:27:33] query | # Overview
+- Raw capture: [[raw/sources/prompts/2026/08/08/142733-019fe1c5-868-overview]]
+- Source note: [[wiki/sources/2026-08-08-142733-overview]]
+- Query note: [[wiki/queries/2026-08-08-142733-overview]]
+
+## [2026-08-08 14:34:09] query | 기획문서내용과 session_0117Z4X2aUcXLymPw11SkrLN 진행하던 내용파악해서 알려줘
+- Raw capture: [[raw/sources/prompts/2026/08/08/143409-019fe1c5-5f9-session-0117z4x2aucxlympw11skrln]]
+- Source note: [[wiki/sources/2026-08-08-143409-session-0117z4x2aucxlympw11skrln]]
+- Query note: [[wiki/queries/2026-08-08-143409-session-0117z4x2aucxlympw11skrln]]
+
+## [2026-08-08 23:32:24] query | # Overview
+- Raw capture: [[raw/sources/prompts/2026/08/08/233224-019fe3b8-577-overview]]
+- Source note: [[wiki/sources/2026-08-08-233224-overview]]
+- Query note: [[wiki/queries/2026-08-08-233224-overview]]
+
+## [2026-08-09 01:34:19] query | jeopi 진행중이던내용파악헤
+- Raw capture: [[raw/sources/prompts/2026/08/09/013419-019fe427-253-jeopi]]
+- Source note: [[wiki/sources/2026-08-09-013419-jeopi]]
+- Query note: [[wiki/queries/2026-08-09-013419-jeopi]]
+
+## [2026-08-09 01:43:49] query | 작업요청내용을 확인하고 병렬로진행해. 리소스는 생성해서 적용하자ㅣ
+- Raw capture: [[raw/sources/prompts/2026/08/09/014349-019fe427-253-prompt]]
+- Source note: [[wiki/sources/2026-08-09-014349-prompt]]
+- Query note: [[wiki/queries/2026-08-09-014349-prompt]]
+
+## [2026-08-09 01:56:45] query | subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │
+- Raw capture: [[raw/sources/prompts/2026/08/09/015645-019fe43b-f4c-subagent-game-studio-harness-llm-wiki]]
+- Source note: [[wiki/sources/2026-08-09-015645-subagent-game-studio-harness-llm-wiki]]
+- Query note: [[wiki/queries/2026-08-09-015645-subagent-game-studio-harness-llm-wiki]]
+
+## [2026-08-09 02:36:35] query | subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │
+- Raw capture: [[raw/sources/prompts/2026/08/09/023635-019fe43b-f4c-subagent-game-studio-harness-llm-wiki]]
+- Source note: [[wiki/sources/2026-08-09-023635-subagent-game-studio-harness-llm-wiki]]
+- Query note: [[wiki/queries/2026-08-09-023635-subagent-game-studio-harness-llm-wiki]]
+
+## [2026-08-09 02:43:22] query | subagent 이용해. $game-studio-harness 규칙문서 파악하고 llm-wiki 업데이트 등의 규 │
+- Raw capture: [[raw/sources/prompts/2026/08/09/024322-019fe467-195-subagent-game-studio-harness-llm-wiki]]
+- Source note: [[wiki/sources/2026-08-09-024322-subagent-game-studio-harness-llm-wiki]]
+- Query note: [[wiki/queries/2026-08-09-024322-subagent-game-studio-harness-llm-wiki]]
+
+## [2026-08-09 04:13:18] query | docs/nan2026/final/abyssal-lantern_HongT.mp4 해상도키우고 품질유지해줘.
+- Raw capture: [[raw/sources/prompts/2026/08/09/041318-019fe467-195-docs-nan2026-final-abyssal-lantern-hongt-mp4]]
+- Source note: [[wiki/sources/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4]]
+- Query note: [[wiki/queries/2026-08-09-041318-docs-nan2026-final-abyssal-lantern-hongt-mp4]]
+
+## [2026-08-09 05:29:25] query | 멀티에이전트로 작업하고 $wai-play 품질검사를 통해 prd 수준의 게임으로 연출등 품질올리자.
+- Raw capture: [[raw/sources/prompts/2026/08/09/052925-019fe4e9-d1d-wai-play-prd]]
+- Source note: [[wiki/sources/2026-08-09-052925-wai-play-prd]]
+- Query note: [[wiki/queries/2026-08-09-052925-wai-play-prd]]
+
+## [2026-08-09 05:29:56] query | 깃 풀당기고
+- Raw capture: [[raw/sources/prompts/2026/08/09/052956-019fe4e9-d1d-prompt]]
+- Source note: [[wiki/sources/2026-08-09-052956-prompt]]
+- Query note: [[wiki/queries/2026-08-09-052956-prompt]]

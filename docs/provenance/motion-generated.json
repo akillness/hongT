@@ -1,0 +1,218 @@
+{
+  "asset": "combat motion clips - generated takes",
+  "date": "2026-08-10",
+  "tool": "Higgsfield CLI 1.1.23, job_type 3d_rigging, --enable-animation",
+  "why": "Six combat takes were Mixamo bench clips carried over from the source project. The user asked for the motion set to be replaced. Higgsfield's 3d_rigging job returns a rigged GLB with a baked action from an indexed library; animation_action_id is an opaque integer with no enum, so the library was mapped by sampling ids and reading back what came out.",
+  "libraryProbe": {
+    "method": "generate 3d_rigging on one uploaded mesh, read the action name out of the returned GLB in Blender (8 credits per probe)",
+    "sampled": {
+      "1": "Walking_Woman",
+      "10": "ForwardRight_Run_Fight",
+      "20": "Walk_Fight_Back",
+      "30": "Casual_Walk",
+      "50": "Phone_Call_Gesture",
+      "60": "Walk_to_Sit",
+      "80": "Pop_Dance_LSA2",
+      "100": "Rightward_Spin",
+      "150": "Hit_Reaction_with_Bow",
+      "170": "Standing_Reload",
+      "190": "Knock_Down_1",
+      "195": "Right_Upper_Hook_from_Guard",
+      "200": "Punch_Combo_1",
+      "205": "Punch_Combo_5",
+      "210": "Boxing_Guard_Prep_Straight_Punch",
+      "220": "Shield_Push_Left",
+      "240": "Thrust_Slash",
+      "260": "Push_Forward_and_Stop",
+      "280": "Female_Crouch_Pick_Throw_Forward",
+      "300": "Sit_Cheer_with_Left_Hand",
+      "320": "bicep_curl"
+    },
+    "finding": "combat clusters around 190-260; 1-100 is locomotion and gesture"
+  },
+  "adopted": {
+    "attack": {
+      "id": 200,
+      "source": "Punch_Combo_1",
+      "file": "Punch Combo 1"
+    },
+    "attack2": {
+      "id": 195,
+      "source": "Right_Upper_Hook_from_Guard",
+      "file": "Right Upper Hook"
+    },
+    "attack3": {
+      "id": 205,
+      "source": "Punch_Combo_5",
+      "file": "Punch Combo 5"
+    },
+    "critical": {
+      "id": 240,
+      "source": "Thrust_Slash",
+      "file": "Thrust Slash"
+    },
+    "defence": {
+      "id": 220,
+      "source": "Shield_Push_Left",
+      "file": "Shield Push Left"
+    },
+    "bighit": {
+      "id": 190,
+      "source": "Knock_Down_1",
+      "file": "Knock Down 1"
+    }
+  },
+  "displaced": {
+    "attack": "Standing Melee Attack Horizontal",
+    "attack2": "Hook Punch",
+    "attack3": "Standing Melee Combo Attack Ver. 2",
+    "critical": "Illegal Elbow Punch",
+    "defence": "Body Block",
+    "bighit": "Receive Uppercut To The Face"
+  },
+  "conversion": {
+    "script": "tools/blender/clip_from_glb.py",
+    "noBoneRename": "MEASURED via Assets/Editor/ClipAvatarProbe.cs: the generated rig is Mixamo-named (LeftUpLeg/LeftForeArm/Spine02/lower-case neck) and Unity's humanoid auto-mapper accepts it untouched - isHuman True, 15/15 required bones, against a shipped Mixamo clip as control. A 22-entry BONE_MAP was written, measured to be dead code, and deleted.",
+    "noRootMotionStrip": "ReimportClips already sets lockRootRotation/lockRootHeightY/lockRootPositionXZ (CharacterImportPipeline.cs:314-319). Stripping in Blender would duplicate Unity's in-place projection and risk disagreeing.",
+    "sceneRangeFix": "A plain glb->fbx convert produced a 10.38 s clip from a 2.23 s action: Blender's DEFAULT scene range 1-250 was exported, not the action. The script now reads first/last keyframe off the fcurves. Not a trim - the 0.8-frame key spacing is a 30 fps source read at 24 fps and is correct."
+  },
+  "trims": {
+    "measuredWith": "Assets/Editor/ClipWindowProbe.cs",
+    "poseWindow": "5 frames @12fps = 0.4167 s = 10 frames at the clips' 24 fps",
+    "activeSpan": "0.167..0.333 s (SimConfig.AttackActiveFrom/To)",
+    "attack": {
+      "motion": "f17-21 peak f18",
+      "row": [
+        13,
+        23
+      ],
+      "lands": "0.167..0.333 s of the pose",
+      "speed": "1.00x"
+    },
+    "critical": {
+      "motion": "f62-63 peak f62",
+      "row": [
+        58,
+        68
+      ],
+      "lands": "0.167..0.208 s",
+      "speed": "1.00x",
+      "note": "86.7% of Thrust Slash is windup; untrimmed it clamps to MaxPoseSpeed 4x and still shows only the windup"
+    },
+    "untrimmed": {
+      "attack2": "preamble 22.3% vs displaced 39.2%",
+      "attack3": "preamble 32.6% vs displaced 57.8%",
+      "defence": "preamble 16.6% vs displaced 28.3%",
+      "bighit": "preamble 23.8% vs displaced 5.3% - worse, but a reaction that plays at its authored pace, not squeezed into a pose window"
+    }
+  },
+  "driftFixed": "ClipWindowProbe and ClipTrimFitTests each carried their own copy of the clip table and kept measuring displaced takes after the swap - the trim test read the OLD attack window as live. Both now read CharacterImportPipeline.ClipFileAt so the table is the single source.",
+  "verification": "EditMode 874/874. Trim row mutation-proved: 13..23 -> 16..28 turns TrimRowsLandInsideTheirSourceClips RED.",
+  "credits": "6 clips x 8 + 20 library probes x 8 = ~208",
+  "secondPass_2026_08_10": {
+    "defect": "The first pass picked the wrong FAMILY. attack/attack2/attack3 were swapped to Punch_Combo_1 / Right_Upper_Hook_from_Guard / Punch_Combo_5 — boxing takes — while the player carries a weapon bound to RightHand (ActorView.cs:390-392). The character jabbed with a sword in its fist. Reported by the user as 휘두르지 않는다.",
+    "whyNothingCaughtIt": "Every measurement was LINEAR. A punch has real hand speed, real duration, a real motion window — it simply travels out and back along one ray instead of crossing an arc. ClipWindowProbe answers WHEN the motion happens; it cannot answer WHAT KIND.",
+    "newInstrument": {
+      "path": "Assets/Editor/SwingArcProbe.cs",
+      "measures": "hand angle swept about the right shoulder, in the hips' frame so body rotation does not count as a swing",
+      "output": "docs/provenance/swing-arcs.json — TRACKED, because ClipTrimFitTests reads it and a measurement a test depends on has to travel with the repo"
+    },
+    "measured": {
+      "peakHandSpeed": {
+        "punches": [
+          4.67,
+          3.54,
+          5.74
+        ],
+        "weapons": [
+          37.18,
+          37.73,
+          20.61
+        ]
+      },
+      "sweptArcTrimmed": {
+        "punches": "136.7 / 67.6 / 106.5 deg -> 325 / 233 / 254 deg/s",
+        "weapons": "238.5 / 347.4 / 538.5 deg -> 822 / 1198 / 1282 deg/s",
+        "displacedMixamoReference": "Standing Melee Attack Horizontal 212 deg over 0.50 s = 424 deg/s"
+      }
+    },
+    "libraryMap": {
+      "weaponCluster": {
+        "237": "Charged_Axe_Chop",
+        "238": "Axe_Spin_Attack",
+        "240": "Thrust_Slash",
+        "241": "Weapon_Combo_2",
+        "242": "Charged_Slash"
+      },
+      "punchCluster": "195-205, where the first pass sampled — 40 ids away"
+    },
+    "adopted": {
+      "attack": {
+        "id": 242,
+        "source": "Charged_Slash",
+        "file": "Charged Slash",
+        "trim": [
+          22,
+          29
+        ]
+      },
+      "attack2": {
+        "id": 238,
+        "source": "Axe_Spin_Attack",
+        "file": "Axe Spin Attack",
+        "trim": [
+          30,
+          37
+        ]
+      },
+      "attack3": {
+        "id": 241,
+        "source": "Weapon_Combo_2",
+        "file": "Weapon Combo 2",
+        "trim": [
+          45,
+          55
+        ]
+      },
+      "critical": "unchanged — Thrust_Slash was already a weapon move"
+    },
+    "guard": "ClipTrimFitTests.SwingClipsDescribeAnArcNotAJab, floor 400 deg/s — just under the Mixamo reference, so a take as weak as the one this project shipped for months still passes and a punch does not. Mutation-proved: reverting attack to Punch Combo 1 turns it RED with the measured number.",
+    "credits": "16 library probes x 8 = 128"
+  },
+  "thirdPass_2026_08_10": {
+    "why": "인터뷰 확정(전 계열 무기 가족 통일) 1차분 + 아키텍트 리뷰 수정. 이 블록이 adopted/trims의 idle·bighit·die·show 항목을 대체한다(§4i — 이 파일의 현재 상태 독법은 마지막 패스 블록이 우선).",
+    "adopted": {
+      "idle": {
+        "id": 252,
+        "source": "Idle_12",
+        "file": "Combat Idle",
+        "displaced": "Unarmed Idle"
+      },
+      "bighit": {
+        "id": 188,
+        "source": "Fall_Dead_from_Abdominal_Injury",
+        "file": "Abdominal Hit Fall",
+        "displaced": "Knock Down 1"
+      },
+      "die": {
+        "id": 180,
+        "source": "Shot_in_the_Back_and_Fall",
+        "file": "Shot In The Back",
+        "displaced": "Dying"
+      },
+      "show": {
+        "id": 255,
+        "source": "Angry_Ground_Stomp",
+        "file": "Angry Ground Stomp",
+        "displaced": "Mutant Roaring"
+      }
+    },
+    "trims": {
+      "show": "8..34 재측정(스톰프 모션 f22-24, 1.083s=RoarDuration) — 구 로어 창과 수치 일치는 우연",
+      "bighit": "4..11 — 표시창은 View 노크백 0.18/0.26s뿐이라 트림이 표시 프레임을 고른다. 리코일 피크 f8-10 포함, 사망 테이크의 바닥 접촉 차단. 측정: mesh-gen/hips-height.json",
+      "die": "62..70 — 적 사망 표시창 SimConfig.EnemyFade 0.34s에 무릎→도복 8f=0.333s 정합. 측정: mesh-gen/hips-height.json",
+      "supersedes": "secondPass까지의 trims.untrimmed.bighit 서술과 adopted.bighit(190 Knock_Down_1)은 이 패스로 폐기"
+    },
+    "guards": "ClipTrimFitTests: DieClip_TrimFitsTheEnemyFadeWindow · BigHitClip_TrimStaysInsideTheKnockbackWindow · WeaponFamilySwap_FileAssignmentsArePinned — 변이 증명 3건 RED(test-results-163840.xml) 후 원복(163732.xml 초록)"
+  }
+}

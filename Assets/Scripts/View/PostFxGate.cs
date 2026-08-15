@@ -48,6 +48,16 @@ namespace CinderCourt.View
             Degraded,
         }
 
+        /// <summary>Exactly one watchdog owns an admitted frame in a stage
+        /// epoch. PostFx measures the combined scene first; only a persistent
+        /// post-off decision transfers ownership to the shadow ladder.</summary>
+        public enum MeasurementOwner
+        {
+            None,
+            PostFx,
+            Shadow,
+        }
+
         // ---- [TARGET] watchdog parameters ----------------------------------
         /// <summary>Spec §V4 gate: 60 Hz frame budget.</summary>
         public const float FrameBudgetSeconds = 1f / 60f;
@@ -94,6 +104,9 @@ namespace CinderCourt.View
         /// only on a transition — never per frame.</summary>
         public static string DebugLine { get; private set; } = "postfx: measuring";
 
+        public static int StageEpoch { get; private set; }
+        public static MeasurementOwner CurrentMeasurementOwner { get; private set; }
+
         static PostFxGate _instance;
         UniversalAdditionalCameraData _data;
         bool[] _over;              // ring of over-budget flags
@@ -103,7 +116,9 @@ namespace CinderCourt.View
         bool _stageWantsPost;
         bool _platformAllows = true;
 
-        void Awake()
+        void Awake() => Initialize();
+
+        void Initialize()
         {
             _instance = this;
             _data = GetComponent<UniversalAdditionalCameraData>();
@@ -119,6 +134,8 @@ namespace CinderCourt.View
             }
             Apply();
         }
+
+        internal void InitializeForTests() => Initialize();
 
         void OnDestroy()
         {
@@ -138,16 +155,51 @@ namespace CinderCourt.View
         public static void SetStageActive(bool dungeon)
         {
             if (_instance == null) return;
-            if (_instance._stageWantsPost == dungeon) return;
-            _instance._stageWantsPost = dungeon;
-            // A new stage is a fresh measurement: the previous window's samples
-            // came from a scene that is gone.
-            _instance._warmup = WarmupSeconds;
-            _instance._breachHeld = 0f;
-            _instance._cursor = 0;
+            if (!dungeon)
+            {
+                if (!_instance._stageWantsPost
+                    && CurrentMeasurementOwner == MeasurementOwner.None)
+                    return;
+                _instance._stageWantsPost = false;
+                CurrentMeasurementOwner = MeasurementOwner.None;
+                _instance.ResetWindow();
+                _instance.Apply();
+                return;
+            }
+
+            _instance._stageWantsPost = true;
+            StageEpoch++;
+            _instance.ResetWindow();
+
+            // Holding belongs to the stage that produced it and must never be
+            // reused after a workload transition. Session-latched/capability
+            // decisions remain one-way and start a shadow-owned epoch instead.
+            if (!_instance._platformAllows || Current == Status.OffByPlatform)
+            {
+                CurrentMeasurementOwner = MeasurementOwner.Shadow;
+            }
+            else if (Current == Status.Degraded)
+            {
+                CurrentMeasurementOwner = MeasurementOwner.Shadow;
+            }
+            else
+            {
+                SetStatus(Status.Measuring, "postfx: measuring");
+                CurrentMeasurementOwner = MeasurementOwner.PostFx;
+            }
+            _instance.Apply();
+            if (CurrentMeasurementOwner == MeasurementOwner.Shadow)
+                StageShadowPolicy.BeginShadowMeasurementEpoch(StageEpoch);
+        }
+
+        void ResetWindow()
+        {
+            _warmup = WarmupSeconds;
+            _breachHeld = 0f;
+            _cursor = 0;
             OverBudgetInWindow = 0;
             SamplesInWindow = 0;
-            _instance.Apply();
+            if (_over != null) System.Array.Clear(_over, 0, _over.Length);
         }
 
         void Apply()
@@ -212,6 +264,8 @@ namespace CinderCourt.View
                 $"postfx: DEGRADED — {OverBudgetInWindow}/{WindowFrames} frames over "
                 + $"{FrameBudgetSeconds * 1000f:F1} ms held {HoldSeconds:F1} s; "
                 + "bloom+vignette disabled for this session");
+            CurrentMeasurementOwner = MeasurementOwner.Shadow;
+            StageShadowPolicy.BeginShadowMeasurementEpoch(StageEpoch);
             Debug.Log(DebugLine);
         }
 
@@ -232,6 +286,24 @@ namespace CinderCourt.View
             OverBudgetInWindow = 0;
             SamplesInWindow = 0;
             DebugLine = "postfx: measuring";
+            StageEpoch = 0;
+            CurrentMeasurementOwner = MeasurementOwner.None;
+            if (_instance != null)
+            {
+                _instance._platformAllows = true;
+                _instance._stageWantsPost = false;
+                _instance.ResetWindow();
+                _instance.Apply();
+            }
+        }
+
+        internal static void SeedPersistentStateForTests(Status status)
+        {
+            Current = status;
+            if (_instance == null) return;
+            _instance._platformAllows = status != Status.OffByPlatform;
+            _instance.ResetWindow();
+            _instance.Apply();
         }
 
         /// <summary>

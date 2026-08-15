@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="25" result="Passed" total="25" passed="25" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-09 06:35:42Z" end-time="2026-08-09 06:35:43Z" duration="0.5663544">
+  <test-suite type="TestSuite" id="1000" name="Abyssal Lantern — Cinder Court" fullname="Abyssal Lantern — Cinder Court" runstate="Runnable" testcasecount="850" result="Passed" start-time="2026-08-09 06:35:42Z" end-time="2026-08-09 06:35:43Z" duration="0.566354" total="25" passed="25" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1939" name="CinderCourt.Tests.EditMode.dll" fullname="/Users/jangyoung/orca/workspaces/HongT/main/Library/ScriptAssemblies/CinderCourt.Tests.EditMode.dll" runstate="Runnable" testcasecount="850" result="Passed" start-time="2026-08-09 06:35:42Z" end-time="2026-08-09 06:35:43Z" duration="0.447062" total="25" passed="25" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="40684" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1940" name="CinderCourt" fullname="CinderCourt" runstate="Runnable" testcasecount="850" result="Passed" start-time="2026-08-09 06:35:42Z" end-time="2026-08-09 06:35:43Z" duration="0.436634" total="25" passed="25" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1941" name="Tests" fullname="CinderCourt.Tests" runstate="Runnable" testcasecount="850" result="Passed" start-time="2026-08-09 06:35:42Z" end-time="2026-08-09 06:35:43Z" duration="0.412706" total="25" passed="25" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestFixture" id="1361" name="DungeonFramingAndMoodTests" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.285474" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1367" name="ActorScale_AuthoredScaleRestoresCombatReadability" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.ActorScale_AuthoredScaleRestoresCombatReadability" methodname="ActorScale_AuthoredScaleRestoresCombatReadability" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="782380008" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.088590" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1371" name="Flicker_StaysWithinDepthOfBase_AndDesynchronizesAcrossRoles" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Flicker_StaysWithinDepthOfBase_AndDesynchronizesAcrossRoles" methodname="Flicker_StaysWithinDepthOfBase_AndDesynchronizesAcrossRoles" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="614518812" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.007287" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1365" name="Follow_ClampHoldsTheCameraInsideTheArenaOnBothAxes" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Follow_ClampHoldsTheCameraInsideTheArenaOnBothAxes" methodname="Follow_ClampHoldsTheCameraInsideTheArenaOnBothAxes" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="670865550" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.002019" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1364" name="Follow_ClampPassesThroughPointsInsideTheBand" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Follow_ClampPassesThroughPointsInsideTheBand" methodname="Follow_ClampPassesThroughPointsInsideTheBand" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="446719513" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000329" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1366" name="Follow_DungeonCameraTracksTheAnchor_AndOnlyInDungeon" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Follow_DungeonCameraTracksTheAnchor_AndOnlyInDungeon" methodname="Follow_DungeonCameraTracksTheAnchor_AndOnlyInDungeon" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="1490833182" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.007888" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1370" name="Mood_AmbientAndFogAreStageTintedButNeverBlackAndAreRestorable" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Mood_AmbientAndFogAreStageTintedButNeverBlackAndAreRestorable" methodname="Mood_AmbientAndFogAreStageTintedButNeverBlackAndAreRestorable" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="1524929582" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.009515" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1369" name="Mood_EveryStageGetsShadowlessDirectionalKeyAndFill" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Mood_EveryStageGetsShadowlessDirectionalKeyAndFill" methodname="Mood_EveryStageGetsShadowlessDirectionalKeyAndFill" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="473998278" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.002937" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1368" name="Mood_UnknownStageBuildsNothingAndLeavesRenderSettingsAlone" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.Mood_UnknownStageBuildsNothingAndLeavesRenderSettingsAlone" methodname="Mood_UnknownStageBuildsNothingAndLeavesRenderSettingsAlone" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="322768385" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000336" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1373" name="StageTextures_AreBoundToTheSharedEnvironmentMaterials" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.StageTextures_AreBoundToTheSharedEnvironmentMaterials" methodname="StageTextures_AreBoundToTheSharedEnvironmentMaterials" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="1244248704" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.084408" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1372" name="StageTextures_ExistForEveryStage_AndTileWithoutSmearing" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.StageTextures_ExistForEveryStage_AndTileWithoutSmearing" methodname="StageTextures_ExistForEveryStage_AndTileWithoutSmearing" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="961544904" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.034652" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1363" name="WorldScale_EnvironmentLayoutUsesTheSameQuotientAsViewWorld" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.WorldScale_EnvironmentLayoutUsesTheSameQuotientAsViewWorld" methodname="WorldScale_EnvironmentLayoutUsesTheSameQuotientAsViewWorld" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="213592294" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.001451" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1362" name="WorldScale_GrewByTheLegacyRatio_AndArenaFootprintGrewWithIt" fullname="CinderCourt.Tests.DungeonFramingAndMoodTests.WorldScale_GrewByTheLegacyRatio_AndArenaFootprintGrewWithIt" methodname="WorldScale_GrewByTheLegacyRatio_AndArenaFootprintGrewWithIt" classname="CinderCourt.Tests.DungeonFramingAndMoodTests" runstate="Runnable" seed="924973866" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000298" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1420" name="GameFlowAgentBridgeTests" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.023384" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1423" name="AgentActions_MapThroughInputAdapterSample" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.AgentActions_MapThroughInputAdapterSample" methodname="AgentActions_MapThroughInputAdapterSample" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="255360608" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.002024" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1422" name="Bridge_RunsBeforeGameViewSoActionsCanLandInTheSameRenderFrame" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.Bridge_RunsBeforeGameViewSoActionsCanLandInTheSameRenderFrame" methodname="Bridge_RunsBeforeGameViewSoActionsCanLandInTheSameRenderFrame" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="218502537" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000363" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1431" name="NonClearReasons_AreNotReportedAsSuccess" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.NonClearReasons_AreNotReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.004177" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1428" name="NonClearReasons_AreNotReportedAsSuccess(&quot;running&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.NonClearReasons_AreNotReportedAsSuccess(&quot;running&quot;)" methodname="NonClearReasons_AreNotReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="661734700" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000744" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1429" name="NonClearReasons_AreNotReportedAsSuccess(&quot;overrun&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.NonClearReasons_AreNotReportedAsSuccess(&quot;overrun&quot;)" methodname="NonClearReasons_AreNotReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="778679006" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000290" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1430" name="NonClearReasons_AreNotReportedAsSuccess(&quot;&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.NonClearReasons_AreNotReportedAsSuccess(&quot;&quot;)" methodname="NonClearReasons_AreNotReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="668093119" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000997" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1421" name="ObservationJson_ContainsRequiredSurvivorLikeStateAndHonestStatus" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.ObservationJson_ContainsRequiredSurvivorLikeStateAndHonestStatus" methodname="ObservationJson_ContainsRequiredSurvivorLikeStateAndHonestStatus" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="704543309" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.009857" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-suite type="ParameterizedMethod" id="1427" name="TerminalClearReasons_AreReportedAsSuccess" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.TerminalClearReasons_AreReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.001713" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1424" name="TerminalClearReasons_AreReportedAsSuccess(&quot;stage-clear&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.TerminalClearReasons_AreReportedAsSuccess(&quot;stage-clear&quot;)" methodname="TerminalClearReasons_AreReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="1460254488" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000326" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1425" name="TerminalClearReasons_AreReportedAsSuccess(&quot;prologue-clear&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.TerminalClearReasons_AreReportedAsSuccess(&quot;prologue-clear&quot;)" methodname="TerminalClearReasons_AreReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="1098048887" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000159" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1426" name="TerminalClearReasons_AreReportedAsSuccess(&quot;training-clear&quot;)" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.TerminalClearReasons_AreReportedAsSuccess(&quot;training-clear&quot;)" methodname="TerminalClearReasons_AreReportedAsSuccess" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="1093024558" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000140" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-case id="1432" name="WebGlEntryPoints_DeclareTheirSharedStateDependency" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.WebGlEntryPoints_DeclareTheirSharedStateDependency" methodname="WebGlEntryPoints_DeclareTheirSharedStateDependency" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="26843442" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000982" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1433" name="WebGlScenarioList_UsesTheStandardScenarioIdField" fullname="CinderCourt.Tests.GameFlowAgentBridgeTests.WebGlScenarioList_UsesTheStandardScenarioIdField" methodname="WebGlScenarioList_UsesTheStandardScenarioIdField" classname="CinderCourt.Tests.GameFlowAgentBridgeTests" runstate="Runnable" seed="1209953545" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000684" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+          </test-suite>
+          <test-suite type="TestFixture" id="1622" name="HudVignettePresentationTests" fullname="CinderCourt.Tests.HudVignettePresentationTests" classname="CinderCourt.Tests.HudVignettePresentationTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.002330" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-case id="1623" name="DamageAndLowHealthVignettes_WarnWithoutObscuringCombat" fullname="CinderCourt.Tests.HudVignettePresentationTests.DamageAndLowHealthVignettes_WarnWithoutObscuringCombat" methodname="DamageAndLowHealthVignettes_WarnWithoutObscuringCombat" classname="CinderCourt.Tests.HudVignettePresentationTests" runstate="Runnable" seed="940944767" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000945" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+            </test-case>
+            <test-case id="1624" name="LowHealthVignette_NeverBecomesNegativeWhenMotionIsDisabled" fullname="CinderCourt.Tests.HudVignettePresentationTests.LowHealthVignette_NeverBecomesNegativeWhenMotionIsDisabled" methodname="LowHealthVignette_NeverBecomesNegativeWhenMotionIsDisabled" classname="CinderCourt.Tests.HudVignettePresentationTests" runstate="Runnable" seed="134047312" result="Passed" start-time="2026-08-09 06:35:43Z" end-time="2026-08-09 06:35:43Z" duration="0.000191" asserts="0">
+              <properties>
+                <property name="retryIteration" value="0" />
+                <property name="repeatIteration" value="0" />
+              </properties>
+              <output><![CDATA[<color=#ff6b6b>fail:</color> [15:35:43:4218] <color=#B4FF32>[AI]</color> <color=#58D68D><b>TestResultCollector</b></color> Test run finished, but the pending MCP request id was missing. The test results cannot be delivered to the client.
+Saving results to: /Users/jangyoung/Library/Application Support/HongT/Abyssal Lantern — Cinder Court/TestResults.xml
+]]></output>
+            </test-case>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

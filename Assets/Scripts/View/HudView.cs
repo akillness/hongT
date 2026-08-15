@@ -14,6 +14,13 @@ namespace CinderCourt.View
     // this splits one class across two files, it does not open it to subclasses.
     public sealed partial class HudView : MonoBehaviour
     {
+        // Full-screen danger feedback must warn without hiding the small arena
+        // silhouettes that the player needs to read while under pressure.
+        internal const float DamageVignetteHitAlpha = 0.36f;
+        internal const float LowHealthVignetteBaseAlpha = 0.12f;
+        internal const float LowHealthVignettePulseAlpha = 0.06f;
+        internal const float LowHealthVignettePulseAngularSpeed = 7f;
+
         static readonly string[] LoreBeats =
         {
             "잿불 법정은 군단이 그 기름을 용광로로 바꾸기 전까지 성유물고였다.",
@@ -83,11 +90,14 @@ namespace CinderCourt.View
         public System.Func<int, bool> OnEmberRestOfferSelected;
         public System.Func<bool> OnEmberRestDeferred;
         public System.Action OnEmberRestContinue;
-
+        /// <summary>Dedicated Ember Rest callback for "성소 귀환".</summary>
+        public System.Action OnEmberRestReturnHome;
 
         int _lastHealth = -1, _lastCharge = -1, _lastWave = -1, _lastScore = -1,
             _lastRelics = -1, _lastEnemies = -1;
         float _loreTimer;
+
+
 
         // --- mobile layout (mobile-layout spec #1-#7, #10, #14) ---------------
         // Tier grades the EFFECTIVE canvas width (Screen.width / scaleFactor).
@@ -131,6 +141,16 @@ namespace CinderCourt.View
         RectTransform _levelToastRect, _growthPanelRect;
         readonly RectTransform[] _skillCardRects = new RectTransform[4];
         readonly RectTransform[] _comboPipRects = new RectTransform[3];
+        /// <summary>Permanent "타격 SPACE" legend beside the combo pips. Desktop only —
+        /// see PlaceStrikeKeyLabel.</summary>
+        Text _strikeKeyLabel;
+        /// <summary>Read by the layout tests: they must be able to ask where this sits
+        /// without reaching into the hierarchy by name, because a prefix lookup is only
+        /// a lookup when the name is unique (§4s).</summary>
+        public RectTransform StrikeKeyLabelRectForTest =>
+            _strikeKeyLabel != null ? _strikeKeyLabel.rectTransform : null;
+        public bool StrikeKeyLabelVisibleForTest =>
+            _strikeKeyLabel != null && _strikeKeyLabel.gameObject.activeSelf;
         RectTransform _xpBackRect;            // §U1 readout-overlap test seam
         RectTransform _strikeRect, _dashTouchRect;
 
@@ -216,9 +236,7 @@ namespace CinderCourt.View
         {
             // Subset OTF (NanumBarunGothic, OFL) — LegacyRuntime.ttf has no
             // Hangul glyphs and WebGL has no OS font fallback.
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
 
             var canvasObject = new GameObject("HUD");
             canvasObject.transform.SetParent(transform, false);
@@ -771,6 +789,7 @@ namespace CinderCourt.View
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition =
                         new Vector2(-26 + i * 26 + rowShift, 200 + lift);
+                PlaceStrikeKeyLabel(-36f + rowShift, 200f + lift);
                 // §캡처5: phone stack tops out at pips (200+lift+20) — the
                 // speaker line sits above the whole control stack.
                 if (_speakerLine != null)
@@ -792,6 +811,7 @@ namespace CinderCourt.View
                 // rect (18..106) — 3 verified collisions. Above the row now.
                 for (var i = 0; i < 3; i++)
                     _comboPipRects[i].anchoredPosition = new Vector2(-26 + i * 26, 102 + lift);
+                PlaceStrikeKeyLabel(-36f, 102f + lift);
                 if (_speakerLine != null)
                     _speakerLine.rectTransform.anchoredPosition = new Vector2(0f, 132f + lift);
             }
@@ -881,6 +901,12 @@ namespace CinderCourt.View
         /// (set by GameDirector). Page navigation is the legacy fallback.
         /// </summary>
         public System.Action OnReturnHome;
+
+        void ReturnFromEmberRest()
+        {
+            if (OnEmberRestReturnHome != null) OnEmberRestReturnHome();
+            else ReturnHome();
+        }
 
         void ReturnHome()
         {
@@ -1120,11 +1146,14 @@ namespace CinderCourt.View
                 _emberRestOfferCards[i] = card.GetComponent<Image>();
             }
 
+            var returnHome = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
+                new Vector2(-206, 18), new Vector2(196, 92), "성소 귀환", 17, ReturnFromEmberRest);
+            returnHome.name = "EmberRestReturnHome";
             var defer = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
-                new Vector2(-206, 18), new Vector2(196, 92), "준비 보류", 17, DeferEmberRest);
+                new Vector2(0, 18), new Vector2(196, 92), "준비 보류", 17, DeferEmberRest);
             defer.name = "EmberRestDefer";
             var continueButton = TextButton(_emberRestPanel.transform, new Vector2(0.5f, 0f),
-                new Vector2(10, 18), new Vector2(196, 92), "계속", 17, ContinueEmberRest);
+                new Vector2(206, 18), new Vector2(196, 92), "계속", 17, ContinueEmberRest);
             continueButton.name = "EmberRestContinue";
             _emberRestContinueButton = continueButton.GetComponent<Button>();
             _emberRestDecisionText = Label(_emberRestPanel.transform, 0, -236, 620, 40, "", 15,
@@ -1206,13 +1235,10 @@ namespace CinderCourt.View
         /// its not-found warning: this sprite is optional by design, so a miss
         /// is not worth a log line every time the HUD builds.
         /// </summary>
-        static Sprite TryLoadOptionalSprite(string iconKey)
-        {
-            var sprite = Resources.Load<Sprite>($"Icons/regenerated/{iconKey}");
-            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/generated/{iconKey}");
-            if (sprite == null) sprite = Resources.Load<Sprite>($"Icons/{iconKey}");
-            return sprite;
-        }
+        // Chain lives in IconSprites — this was the only site that walked it
+        // before 2026-08-10, and keeping a private copy here is exactly the
+        // duplicate-table trap (§4i / duplicate-table-copies wiki entry).
+        static Sprite TryLoadOptionalSprite(string iconKey) => IconSprites.Load(iconKey);
 
         void SelectEmberRestOffer(int offerIndex)
         {
@@ -1691,6 +1717,31 @@ namespace CinderCourt.View
             _rotateHintTimer = GuidanceToastSeconds;
         }
 
+        /// <summary>
+        /// True while the shared top-centre band is still showing something the player
+        /// has not had time to read.
+        ///
+        /// WHY THE DRAINER HAS TO ASK. GameDirector queues several control lessons at
+        /// once — movement, combo, and every skill the current oil can afford — and
+        /// drained one per SIM TICK. At 60 Hz that is a card every 16 ms onto ONE
+        /// surface with a 4.5 s timer, so the whole backlog overwrote itself in about
+        /// a sixth of a second, every bit was marked seen forever, and the player read
+        /// whichever card happened to be last. The game did explain; it explained at a
+        /// speed nobody can read, which is indistinguishable from not explaining.
+        ///
+        /// CLAUDE.md §4j already carries the rule ("안내 큐는 한 번에 한 장만 뽑는다")
+        /// and the PAUSE tier honours it through GuidancePaused. The toast tier simply
+        /// had no equivalent, and nothing in EditMode could see the difference because
+        /// the final text is correct either way — the coordinate system where right
+        /// and wrong coincide (§4m). Reading the queue's contents proves nothing here;
+        /// the readable question is how much time separates two cards.
+        ///
+        /// The prologue steps and the rotate hint ride this same surface and this same
+        /// timer, so they are covered by the same gate: a guidance toast can no longer
+        /// wipe "이동 — W A S D" out from under a player who is still reading it.
+        /// </summary>
+        public bool GuidanceToastBusy => _rotateHintTimer > 0f;
+
         // ------------------------------------------------- abandon (C4) -----
         // The reported gap: once inside a campaign stage there was no way out.
         // The death panel's back link existed but sat 26 u under the death-cause
@@ -1955,9 +2006,7 @@ namespace CinderCourt.View
                 var labelObject = new GameObject("MomentumTier");
                 labelObject.transform.SetParent(_momentumGauge.transform, false);
                 _momentumTierLabel = labelObject.AddComponent<Text>();
-                _momentumTierLabel.font = _font;
-                _momentumTierLabel.fontSize = 13;
-                _momentumTierLabel.alignment = TextAnchor.MiddleCenter;
+                ViewTypography.Configure(_momentumTierLabel, _font, 13, TextAnchor.MiddleCenter);
                 _momentumTierLabel.raycastTarget = false;
                 _momentumTierLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
                 var labelRect = _momentumTierLabel.rectTransform;
@@ -2590,10 +2639,38 @@ namespace CinderCourt.View
                 // fills the square, same as any other icon Image. The
                 // existing per-frame Color tint below keeps dimming/
                 // lighting it exactly as before, now over real art.
-                var pipGem = Resources.Load<Sprite>("Icons/hud-combo-pip-gem");
+                var pipGem = IconSprites.Load("hud-combo-pip-gem");
                 if (pipGem != null) _comboPips[i].sprite = pipGem;
 
             }
+
+            // --- strike key legend (desktop only) -------------------------------
+            // Playtest feedback (2026-08-12): "it looks like I am supposed to press
+            // something to attack, but I cannot work out what to press."
+            //
+            // The audit that finds this is a count, not an opinion. Every control on
+            // the bottom stack names its key on a permanent card — SHIFT, Q, E, R, F,
+            // and G/H/V on the companion column. The basic strike, the one thing the
+            // player does most and the first thing they need, had NO permanent
+            // surface at all. Its only mention was a toast that shows once and a
+            // prologue step that is gone by wave 2.
+            //
+            // TOUCH ALREADY HAD ONE: the strike button is a labelled 110 u square
+            // (:3688). So this is a desktop-only gap, which is also why it survived —
+            // the touch layout is where the geometry work happened.
+            //
+            // Built HERE, beside the pips, because the pips are the strike's existing
+            // HUD representation (they show the combo it builds) and because a static
+            // y next to this stack is the trap §4f names: the row lives at y=18 on
+            // desktop and y=100+lift on touch. ApplyLayoutTier positions this in the
+            // SAME two branches as the pips, off the same base numbers, so it cannot
+            // drift from what it labels.
+            _strikeKeyLabel = Label(dungeonRoot, 0, 0, 170, 20, "타격  SPACE", 15,
+                TextAnchor.MiddleRight);
+            var strikeKeyRect = _strikeKeyLabel.rectTransform;
+            strikeKeyRect.anchorMin = strikeKeyRect.anchorMax = new Vector2(0.5f, 0f);
+            strikeKeyRect.pivot = new Vector2(1f, 0f);   // x IS the right edge
+            _strikeKeyLabel.color = new Color(0.82f, 0.86f, 0.95f);
 
             // --- skill row: dash + Q/E/R/F --------------------------------------
             _skillOverlays = new Image[4];
@@ -3003,13 +3080,25 @@ namespace CinderCourt.View
         /// Room objective readout (dungeon-revival spec). An empty/null
         /// <paramref name="objective"/> hides the chip entirely — that is how arena,
         /// prologue and unknown stage ids opt out rather than showing a stale line
-        /// from the previous room. While the room boss is alive the same objective
-        /// is re-framed as the final beat and recolored amber, so the player sees
-        /// the room's win condition change shape instead of a second HUD element
-        /// appearing. Keyed on (objective, bossAlive) so the text is not rebuilt
-        /// every frame.
+        /// from the previous room.
+        ///
+        /// Playtest feedback (2026-08-12, 강신진): "정신없이 싸우고 있는데 나는
+        /// 무얼 해야 할지 모르겠다" — the chip used to show the room's FLAVOR
+        /// line all run long, which names the destination but never the next
+        /// step. The instruction was "단계별로 한개씩 목적 주면서 진행" — one
+        /// goal at a time. So the chip is a STEP TRACKER with three beats:
+        ///
+        ///   wave live (remaining &gt; 0)   목표 • 적을 처치하라 — 남은 N
+        ///   field clear (remaining ≤ 0)  목표 • {room line}
+        ///   boss alive                   최종 목표 • {room line}  (amber)
+        ///
+        /// remaining = living + pending, read from the same snapshot the 적 row
+        /// uses, so only kills move it down. remaining &lt; 0 means "no live
+        /// count" (non-wave surfaces, legacy callers) and keeps the flavor-only
+        /// behavior. Keyed on (objective, bossAlive, remaining) so the text is
+        /// rebuilt per kill — the 적 row's cadence — never per frame.
         /// </summary>
-        public void SyncRoomObjective(string objective, bool bossAlive)
+        public void SyncRoomObjective(string objective, bool bossAlive, int remaining = -1)
         {
             if (_roomObjectivePanel == null || _roomObjectiveText == null) return;
             var active = !string.IsNullOrEmpty(objective);
@@ -3021,13 +3110,23 @@ namespace CinderCourt.View
                 return;
             }
 
-            var key = objective.GetHashCode() * 2 + (bossAlive ? 1 : 0);
+            // The boss beat ignores the trash count on purpose: adds spawning
+            // during the boss wave must not demote the final goal back to
+            // "kill the remainder".
+            var shownRemaining = bossAlive ? -1 : remaining;
+            var key = unchecked(objective.GetHashCode() * 397
+                + shownRemaining * 2 + (bossAlive ? 1 : 0));
             if (key == _lastRoomObjectiveKey) return;
             _lastRoomObjectiveKey = key;
             if (bossAlive)
             {
                 _roomObjectiveText.text = "최종 목표 • " + objective;
                 _roomObjectiveText.color = new Color(1f, 0.83f, 0.45f);
+            }
+            else if (shownRemaining > 0)
+            {
+                _roomObjectiveText.text = $"목표 • 적을 처치하라 — 남은 {shownRemaining}";
+                _roomObjectiveText.color = new Color(0.82f, 0.88f, 0.96f);
             }
             else
             {
@@ -3266,7 +3365,7 @@ namespace CinderCourt.View
         static Image ApplyFrameOverlay(Transform parent, string frameSpriteId)
         {
             if (frameSpriteId == null) return null;
-            var frame = Resources.Load<Sprite>("Icons/" + frameSpriteId);
+            var frame = IconSprites.Load(frameSpriteId);
             if (frame == null) return null;   // missing sprite keeps the flat-color fallback
             var frameObject = new GameObject("Frame");
             frameObject.transform.SetParent(parent, false);
@@ -3406,9 +3505,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -3432,7 +3529,7 @@ namespace CinderCourt.View
             buttonObject.GetComponent<Image>().raycastTarget = true;   // Button hit surface
             // 9-slice ember plate (release skin). Falls back to the flat fill
             // when the sprite is absent so the HUD never regresses to quads.
-            var plate = Resources.Load<Sprite>("Icons/ui-button");
+            var plate = IconSprites.Load("ui-button");
             if (plate != null)
             {
                 var image = buttonObject.GetComponent<Image>();
@@ -3454,7 +3551,7 @@ namespace CinderCourt.View
             var textInset = 0f;
             if (iconId != null)
             {
-                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                var sprite = IconSprites.Load(iconId);
                 if (sprite != null)   // missing sprite would render a white quad
                 {
                     var square = size.y >= size.x - 1f;   // phone tier is 92x92
@@ -3499,6 +3596,33 @@ namespace CinderCourt.View
             return buttonObject;
         }
 
+        /// <summary>
+        /// Parks the strike legend immediately left of the pip row it labels, taking
+        /// the pip row's own left edge and y as arguments rather than re-deriving
+        /// them. Both tier branches call this with the numbers they just used for the
+        /// pips, so the label cannot end up describing a row that has moved — the
+        /// failure mode §4f records ("a static y is only right in one configuration",
+        /// where the growth panel lost 81.6% of itself when touch lifted the row).
+        ///
+        /// HIDDEN ON TOUCH, and that is not a size decision. Touch has a labelled
+        /// 110 u strike button already; a second name for the same action is the
+        /// over-explaining the survey found players punish. It is also why the phone
+        /// tier's left run does not have to clear the 260 u joystick catch box — the
+        /// only tier where this label is visible is the one with no joystick.
+        /// </summary>
+        void PlaceStrikeKeyLabel(float pipLeftX, float pipY)
+        {
+            if (_strikeKeyLabel == null) return;
+            _strikeKeyLabel.gameObject.SetActive(!_touchActive);
+            _strikeKeyLabel.rectTransform.anchoredPosition =
+                new Vector2(pipLeftX - StrikeKeyGap, pipY);
+        }
+
+        /// <summary>Gap between the legend's right edge and the first pip. 12 u is
+        /// the guidance card's minimum and the value the left stack already uses —
+        /// this joins that spacing rather than inventing a second one.</summary>
+        const float StrikeKeyGap = 12f;
+
         GameObject SkillCard(Transform parent, float offsetX, string key, string label,
                              UnityEngine.Events.UnityAction onClick,
                              out Image cooldownOverlay, out CanvasGroup group,
@@ -3520,7 +3644,7 @@ namespace CinderCourt.View
             // cooldown overlay (created last, full-stretch) still darkens it.
             if (iconId != null)
             {
-                var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+                var sprite = IconSprites.Load(iconId);
                 if (sprite != null)   // missing sprite would render a white quad
                 {
                     var iconObject = new GameObject("Icon");
@@ -3631,13 +3755,26 @@ namespace CinderCourt.View
             // button (later sibling = topmost raycast) wins over the catch
             // surface.
             //
-            // Touch-target floor (spec #6): CSS px per canvas unit equals the
-            // CanvasScaler factor divided by devicePixelRatio, and with
-            // ScaleWithScreenSize that quotient is DPR-invariant — it is the
-            // scale factor of the CSS viewport itself. Worst measured case
-            // (390 CSS width portrait, match 0.35) gives 0.488 CSS px/u, so
-            // 44 CSS pt needs >=90 u: base 180 u (88 px), strike 110 u
-            // (54 px), dash 96 u (47 px) all clear the floor.
+            // Touch-target floor (spec #6 / SIM_SPEC_HACKSLASH §9: 44 CSS px):
+            // CSS px per canvas unit equals the CanvasScaler factor divided by
+            // devicePixelRatio, and with ScaleWithScreenSize that quotient is
+            // DPR-invariant — it is the scale factor of the CSS viewport.
+            //
+            // TWO bands matter, and an earlier version of this comment only
+            // knew the first:
+            //   0.488 px/u   390x844 portrait fill
+            //   0.4383 px/u  375x667, the iPhone SE2 support floor
+            // 44 px needs >= 90 u at 0.488 but >= 100.4 u at 0.4383. MEASURED
+            // 2026-08-10 (HudLayoutTests.CombatTouchTargets_ClearThe44CssPxTouchFloor):
+            //   joystick 260 u -> 126.9 / 114.0 px   clears both
+            //   strike   110 u ->  53.7 /  48.2 px   clears both
+            //   dash      96 u ->  46.8 /  42.1 px   FAILED the support floor
+            // Dash is now 102 u (49.8 / 44.7 px). It grows UPWARD only — the
+            // pivot is (1,0), so the bottom edge stays at y=272 and the 12 u
+            // gap to strike's top (150+110=260) is untouched. Growing the hit
+            // area alone would have been the wrong fix if it had collided:
+            // visual, hit target and pitch move together or not at all
+            // (wiki: hongt-lobby-sortie-touch-target-pass).
             _touchJoystickRoot = Panel(root, new Vector2(0, 0), new Vector2(0, 0),
                 new Vector2(0, 0), new Vector2(260, 260), new Color(0f, 0f, 0f, 0f));
             var catchPanel = _touchJoystickRoot;
@@ -3668,14 +3805,14 @@ namespace CinderCourt.View
             // dash — the SHIFT card sits outside the right-thumb arc. 24 u+
             // gap to strike guards against mis-taps.
             var dash = Panel(root, new Vector2(1, 0), new Vector2(1, 0),
-                new Vector2(-24, 272), new Vector2(96, 96),
+                new Vector2(-24, 272), new Vector2(102, 102),
                 new Color(0.17f, 0.68f, 0.84f, 0.4f));
             dash.GetComponent<Image>().raycastTarget = true;   // TouchHold hit surface
             _dashTouchRect = dash.GetComponent<RectTransform>();
             _dashTouchRect.pivot = new Vector2(1, 0);
             var dashTouch = dash.AddComponent<TouchHold>();
             dashTouch.OnStateChanged = state => { if (state) Input.QueueDash(); };
-            Label(dash.transform, 0, 0, 96, 96, "질주", 18, TextAnchor.MiddleCenter);
+            Label(dash.transform, 0, 0, 102, 102, "질주", 18, TextAnchor.MiddleCenter);
             dash.SetActive(false);   // SyncTouchModeSurfaces enables in dungeon
 
             _touchActive = true;
@@ -3692,7 +3829,7 @@ namespace CinderCourt.View
             var spriteObject = new GameObject(iconId);
             spriteObject.transform.SetParent(parent, false);
             var image = spriteObject.AddComponent<Image>();
-            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            var sprite = IconSprites.Load(iconId);
             if (sprite != null)
             {
                 image.sprite = sprite;
@@ -3877,7 +4014,7 @@ namespace CinderCourt.View
             {
                 _vignette.enabled = true;
                 _vignette.color = new Color(0.95f, 0.22f, 0.13f,
-                    0.6f * ViewPrefs.MotionScale);
+                    DamageVignetteHitAlpha * ViewPrefs.MotionScale);
             }
         }
 
@@ -3990,7 +4127,7 @@ namespace CinderCourt.View
             // Low-HP vignette: heartbeat pulse under 35 HP, scaled for reduced motion.
             var lowHp = sim.Mode != SimMode.GameOver && sim.Player.Health < 35f;
             var targetAlpha = lowHp
-                ? (0.25f + 0.2f * Mathf.Sin(Time.time * 7f)) * ViewPrefs.MotionScale
+                ? LowHealthVignetteAlpha(Time.time, ViewPrefs.MotionScale)
                 : 0f;
             var current = _vignette.color;
             var alpha = Mathf.MoveTowards(current.a, targetAlpha, Time.deltaTime * 1.6f);
@@ -4073,6 +4210,14 @@ namespace CinderCourt.View
             SyncStageClearCeremony();
             SyncComboPips();
             SyncBossBarMotion();
+        }
+
+        internal static float LowHealthVignetteAlpha(float time, float motionScale)
+        {
+            return (LowHealthVignetteBaseAlpha
+                + LowHealthVignettePulseAlpha
+                * Mathf.Sin(time * LowHealthVignettePulseAngularSpeed))
+                * Mathf.Max(0f, motionScale);
         }
 
         void SetBossIntroState(float slide, float alpha)
@@ -4237,9 +4382,9 @@ namespace CinderCourt.View
         {
             if (frame == null) return;
             if (_skillFrameNormalSprite == null)
-                _skillFrameNormalSprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame");
+                _skillFrameNormalSprite = IconSprites.Load("hud-skill-card-frame");
             if (_skillFrameReadySprite == null)
-                _skillFrameReadySprite = Resources.Load<Sprite>("Icons/hud-skill-card-frame-ready");
+                _skillFrameReadySprite = IconSprites.Load("hud-skill-card-frame-ready");
             var target = ready ? _skillFrameReadySprite : _skillFrameNormalSprite;
             if (target != null && frame.sprite != target) frame.sprite = target;
         }

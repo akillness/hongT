@@ -286,10 +286,15 @@ _comboVariant는 _dungeon 게이트 뒤
 
 W2·W4도 같은 12행. → 재고정 1회로 묶는다(D-15).
 
-### g6.2 분해 재고정 `[미측정 — 구현 후]`
+### g6.2 분해 재고정 `[W1 MEASURED — W2/W4 대기]`
 
-`qa/golden-decomposition-cycle9.md`에 3단계 기록 예정. T-W4(Σ델타 == 총변화)가
-"변경원이 셋"이라는 전제의 검산이다.
+`qa/golden-decomposition-cycle9.md`에 W1 단독 변화량을 기록했다. Unity EditMode
+850개 중 849 PASS / 0 FAIL / 1 SKIP (`test-results-165028.xml`). 던전 12행 중
+실제로 움직인 행은 4행(ember-gallery, witness-well, cinder-sluice, 반복 기본 던전)
+이고 8행은 byte-identical이었다. Arena·Prologue 제어행도 불변이다.
+
+T-W4(`Σ델타 == 총변화`)는 W2와 W4가 구현된 뒤 닫는다. W4는 4종 행동 설계가
+아직 확정되지 않았으므로 구현·재고정하지 않는다.
 
 ---
 

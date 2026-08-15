@@ -5,16 +5,32 @@
 
 | 후보 | 빈도(11중) | 빈도 판정 | 인상 점수 | 종합 |
 |---|---|---|---|---|
-| tide-current (주기 대향 푸시 레인) | 1 (ETG(t)) | PASS | 미측정 — Phase 1d 후 QA | 조건부 PASS |
+| tide-current (주기 대향 푸시 레인) | 0 (ETG 부재, 직접출처 검증; superseded: 1 ETG(t)) | PASS — 빈도 축 검증 완료(cycle-9 직접출처 감사); 종합은 여전히 인상 미달 | synthetic 3/5; human pending | **FAIL** |
 | ember-pylon (적 보호 파괴 오브젝트) | 1 (PoE(t)) | PASS | 미측정 | 조건부 PASS |
 | ash-wall (시간표 침식 벽) | 2 (HoT, PoE(t)) | PASS | 미측정 | 조건부 PASS |
 | 결정론 해저드 안무(스테이지 = 학습 가능한 고정 타임라인) | 0 — 서베이 key gap | PASS (메타 요소) | 미측정 | 조건부 PASS |
 
 - 기존 3기믹 대비: vent(2/11 — 배치형은 실은 희소), pillar(10/11 포화),
   altar(5/11 흔함). 신규 3종은 전부 비포화 영역.
-- 리스크: pylon·current 빈도 셀은 (t) thin evidence — G8 최종 판정 시 QA가
-  분모(≥5 타이틀) 및 출처 라벨 재검증(test-plan §C G8 행).
-- 종합 판정은 인상 점수 측정 후 gate-measurements.md#g8에서 확정.
+- 리스크: pylon 빈도 셀은 여전히 (t) thin evidence — G8 최종 판정 시 QA가
+  분모(≥5 타이틀) 및 출처 라벨을 재검증해야 한다(test-plan §C G8 행). tide-current
+  빈도 셀은 cycle-9에서 직접출처로 재검증되어 이 재검증 대상에서 제외된다(아래 참조).
+- cycle-9 합성 블라인드 패널은 `qa/cycle9-g8-ballots.md`에 보존했다. 인상 중앙값
+  3/5로 기준 미달이며 인간 실전 세션 없이는 PASS가 아니다.
+- **cycle-9 출처 정정 (접근일 2026-08-08):** tide-current의 유일한 양성 셀
+  `ETG(t)`(얇은 색인-스니펫 근거)를 직접 출처로 재검증한 결과, ETG는 한 방향으로
+  연속 이동하는 컨베이어만 보유하고 HongT의 주기적 양방향/축정렬 대향 푸시 레인과
+  일치하지 않는다 — 정확한 기믹은 ETG에 **부재**한다. 근거:
+  [Enter the Gungeon — Heavy Boots](https://enterthegungeon.wiki.gg/wiki/Heavy_Boots)
+  (컨베이어가 플레이어를 한 방향으로 지속적으로 이동시킨다고 기술),
+  [Enter the Gungeon — Traps](https://enterthegungeon.wiki.gg/wiki/Traps)
+  (기획 해저드 오브젝트 카탈로그에 컨베이어가 없음). 빈도는 `1/11(t)`에서
+  `0/11(직접출처 검증)`로 정정한다. 이 정정은 **ETG 한 건만 검증**하며 나머지
+  10개 타이틀이나 장르 전반의 부재를 입증하지 않는다. 원문 빈도표 정정 위치:
+  `design/trend-survey/dungeon-gimmick-trends.md`. 감사 이력 보존: 이전 값
+  `1 (ETG(t))`, UNVERIFIED — 상단 표는 정정값을 반영하고 이 각주가 이전 값을 보존한다.
+- **G8 종합은 여전히 FAIL/human-blocked다.** 빈도 축 정정은 인상 점수(중앙값 3/5 <
+  4/5 기준)나 인간 실전 세션 부재를 해소하지 않는다; PASS를 수여하지 않는다.
 
 ---
 

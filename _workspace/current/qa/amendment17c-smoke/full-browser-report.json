@@ -1,0 +1,358 @@
+{
+  "phase": "full",
+  "url": "http://127.0.0.1:8766/",
+  "viewport": "1440x900",
+  "results": [
+    {
+      "index": 0,
+      "stageId": "cinder-span",
+      "title": "재의 다리",
+      "act": 1,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "gameFlow": {
+        "entryPass": true,
+        "movementPass": true,
+        "entryObservation": {
+          "api_version": "gameflow_standard_v2",
+          "game_type": "survivor_like",
+          "player": {
+            "hp": 132,
+            "max_hp": 132,
+            "level": 1,
+            "exp": 10,
+            "position": {
+              "x": 768,
+              "y": 646
+            }
+          },
+          "world": {
+            "elapsed": 7.009,
+            "enemy_count": 5,
+            "current_phase": "running",
+            "wave": 1
+          },
+          "combat": {
+            "kills": 1,
+            "score": 100
+          },
+          "resources": {
+            "exp_orbs": 0,
+            "pickups": 1,
+            "charge": 100
+          },
+          "upgrade": {
+            "is_selecting_upgrade": false,
+            "options": []
+          },
+          "boss": {
+            "exists": false,
+            "hp": 0,
+            "max_hp": 0,
+            "phase": 0,
+            "phase_count": 2
+          },
+          "status": {
+            "done": false,
+            "success": false,
+            "failed": false,
+            "reason": "running"
+          }
+        },
+        "movementObservation": {
+          "api_version": "gameflow_standard_v2",
+          "game_type": "survivor_like",
+          "player": {
+            "hp": 125,
+            "max_hp": 132,
+            "level": 1,
+            "exp": 10,
+            "position": {
+              "x": 860.49,
+              "y": 570.755
+            }
+          },
+          "world": {
+            "elapsed": 8.035,
+            "enemy_count": 5,
+            "current_phase": "running",
+            "wave": 1
+          },
+          "combat": {
+            "kills": 1,
+            "score": 100
+          },
+          "resources": {
+            "exp_orbs": 0,
+            "pickups": 1,
+            "charge": 100
+          },
+          "upgrade": {
+            "is_selecting_upgrade": false,
+            "options": []
+          },
+          "boss": {
+            "exists": false,
+            "hp": 0,
+            "max_hp": 0,
+            "phase": 0,
+            "phase_count": 2
+          },
+          "status": {
+            "done": false,
+            "success": false,
+            "failed": false,
+            "reason": "running"
+          }
+        }
+      },
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 1,
+      "stageId": "ember-gallery",
+      "title": "불씨 회랑",
+      "act": 1,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 2,
+      "stageId": "abyss-chancel",
+      "title": "서약의 성당",
+      "act": 1,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 3,
+      "stageId": "witness-well",
+      "title": "증언의 우물",
+      "act": 2,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 4,
+      "stageId": "echo-throne",
+      "title": "메아리 왕좌",
+      "act": 2,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 5,
+      "stageId": "ash-verdict",
+      "title": "재의 판결",
+      "act": 2,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 6,
+      "stageId": "cinder-sluice",
+      "title": "재의 수문",
+      "act": 3,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 7,
+      "stageId": "ember-bastion",
+      "title": "불씨 요새",
+      "act": 3,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 8,
+      "stageId": "ash-march",
+      "title": "재의 행진",
+      "act": 3,
+      "mode": "normal",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-moved-ne.png",
+        "04-moved-sw.png",
+        "05-melee.png",
+        "06-v3-rift-q.png",
+        "07-v2-eruption-e.png",
+        "08-v4-shard-shift.png",
+        "09-v2-aegis-f.png",
+        "10-v3-nova-r.png",
+        "11-vent-wave-1.png",
+        "11-vent-wave-2.png",
+        "11-vent-wave-3.png",
+        "12-post-vfx.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    }
+  ],
+  "automationPass": true,
+  "pageErrors": [],
+  "rebuiltAfterTargetedAct3Recovery": true
+}

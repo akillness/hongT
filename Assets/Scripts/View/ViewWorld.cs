@@ -8,19 +8,36 @@ namespace CinderCourt.View
     {
         // Dungeon-scale request (2026-10): the sim contract (CLAUDE.md §2) is
         // FROZEN at a 1536x1024 arena, so "make the dungeon bigger" can only be
-        // a VIEW change — the sim-to-world quotient. 0.01 -> 0.0125 grows every
+        // a VIEW change — the sim-to-world quotient. 0.01 -> 0.0125 grew every
         // world-space distance derived from sim coordinates by 25% while actor
         // prefab sizes (authored directly in world units) stay put, so the floor
         // reads larger and the characters read smaller standing on it. Camera
         // constants tuned against the old quotient are compensated with
         // LegacyScaleRatio so only the dungeon framing actually changes.
-        public const float Scale = 0.0125f;
+        //
+        // 2026-08 amendment (사용자: "던전이동영역을 높이고 오브젝트 크기를 0.7배"):
+        // 0.0125 -> 0.0150 raises the traversable floor a further 20% WITHOUT
+        // touching the sim (the 735x390 dungeon clamp ellipse and the golden
+        // digests are unchanged — the same ellipse just maps to more world units).
+        // The paired object shrink lives in DungeonObjectScale below.
+        public const float Scale = 0.0150f;
 
         /// <summary>Pre-2026-10 sim-to-world quotient (framing compensation).</summary>
         public const float LegacyScale = 0.01f;
 
         /// <summary>Restores legacy framing for a world-unit camera constant.</summary>
         public const float LegacyScaleRatio = Scale / LegacyScale;
+
+        /// <summary>
+        /// Uniform shrink applied to DUNGEON OBJECTS (characters, environment
+        /// props, decorative VFX geometry) — 사용자 요청 "오브젝트 크기를 지금의
+        /// 0.7배로". Distinct from <see cref="Scale"/>, which sizes the FLOOR and
+        /// the sim-derived movement area: the floor grows, the things standing on
+        /// it shrink. Sim hazard COLLISION radii are NOT multiplied by this — they
+        /// define gameplay judgement and the golden digest (CLAUDE.md §2), so only
+        /// the visual footprint of an object is reduced, never its hitbox.
+        /// </summary>
+        public const float DungeonObjectScale = 0.70f;
 
         public static Vector3 ToWorld(float simX, float simY, float height = 0f)
             => new Vector3(simX * Scale, height, -simY * Scale);
@@ -124,6 +141,44 @@ namespace CinderCourt.View
             return clone;
         }
 
+        static Material _wardSeed;
+        static bool _wardSeedProbed;
+
+        /// <summary>
+        /// Ward shell material: a fresnel rim rather than flat alpha.
+        ///
+        /// The ward is the most-seen effect in the game — a 3 s bubble the
+        /// player stands inside — and it shipped as a default Sphere with
+        /// a = 0.28 everywhere, which is the one thing a curved shell does NOT
+        /// look like. Fresnel makes it near-invisible head-on and bright at the
+        /// silhouette, so the volume reads without fogging the fight.
+        ///
+        /// Same seed-clone contract as MakeParticleAdditive, for the same
+        /// reason: CinderCourt/Vfx/WardFresnel is referenced by exactly one
+        /// asset (Resources/Materials/ward-fresnel-seed), and without that
+        /// reference WebGL variant stripping removes it and the shell renders
+        /// pink. Falls back to the proven flat-alpha look when the seed is
+        /// missing, which is precisely the appearance this replaces — a
+        /// decorative upgrade must never be able to break a build.
+        /// </summary>
+        public static Material MakeWardShell(Color color)
+        {
+            if (!_wardSeedProbed)
+            {
+                _wardSeedProbed = true;
+                _wardSeed = Resources.Load<Material>("Materials/ward-fresnel-seed");
+            }
+            if (_wardSeed == null)
+            {
+                var fallback = color;
+                fallback.a = 0.28f;                 // the pre-fresnel constant
+                return MakeUnlit(fallback, true);
+            }
+            var clone = new Material(_wardSeed);
+            clone.SetColor("_BaseColor", color);
+            return clone;
+        }
+
         static Shader _lit;
 
         /// <summary>
@@ -136,10 +191,23 @@ namespace CinderCourt.View
         {
             get
             {
+                if (_lit != null) return _lit;
+                // Toon first, URP/Lit as the fallback. This ONE accessor backs every
+                // lit environment surface (stone, floor, gates, terraces), so the
+                // stage-02 art direction switches here rather than at each call site —
+                // and a single place to switch is also a single place to switch back.
+                //
+                // Fallback is not politeness: Shader.Find returns null for a shader
+                // that failed to compile or was stripped from the build, and a null
+                // shader renders the whole dungeon magenta. Degrading to Lit keeps a
+                // broken toon pass from taking the environment with it.
+                _lit = Shader.Find(ToonLitShaderName);
                 if (_lit == null) _lit = Shader.Find("Universal Render Pipeline/Lit");
                 return _lit;
             }
         }
+
+        public const string ToonLitShaderName = "CinderCourt/ToonLit";
 
         /// <summary>
         /// Opaque LIT material with an optional albedo map. Used by the stage

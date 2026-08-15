@@ -23,6 +23,12 @@ namespace CinderCourt.View
         CutsceneView _cutscene;
         IntroVideoView _intro;
 
+        /// <summary>localStorage flag: the concept reel has played once on this
+        /// browser. Deliberately not part of CampaignStore — it is a boot-route
+        /// preference, not run progress, and wiping a campaign should not make
+        /// the premise replay.</summary>
+        const string ConceptSeenKey = "abyssal-lantern:cinder-court:concept-seen";
+
 
         State _state = State.Lobby;
         CampaignData _data;
@@ -40,6 +46,7 @@ namespace CinderCourt.View
         GameObject _stageEnvironment;     // EnvironmentBuilder root (AMENDMENT #12)
         string _stageEnvironmentId = "";
         GameObject _stageMood;            // StageMood rig (separate light root)
+        GameObject _lobbyMood;            // lobby StageMood rig (selected stage's light)
         string _emberRestNextStageId = "";
         PreparationOffer _emberRestPreparation;
         bool _emberRestDecisionMade;
@@ -77,6 +84,7 @@ namespace CinderCourt.View
             _hud.OnEmberRestOfferSelected = SelectEmberRestOffer;
             _hud.OnEmberRestDeferred = DeferEmberRest;
             _hud.OnEmberRestContinue = ContinueFromEmberRest;
+            _hud.OnEmberRestReturnHome = ReturnFromEmberRest;
             // Marking happens on DISMISS, never on show: a card the player never
             // read must not be consumed (a run can end with one up).
             _hud.OnGuidanceDismissed = MarkGuidanceSeen;
@@ -104,13 +112,44 @@ namespace CinderCourt.View
             var mode = WebGLStorage.QueryParam("mode");
             var stage = WebGLStorage.QueryParam("stage");
 
-            // Brand intro reel replaces the plain engine loading screen. It is a
-            // pure overlay (sorting 520) above the route that boots underneath,
-            // so no state is gated on it. QA deep links and ?intro=off skip it.
+            // Brand reel replaces the plain engine loading screen; on a first
+            // run the concept reel follows it so the premise lands before the
+            // menu does. Both are a pure overlay (sorting 520) above the route
+            // booting underneath, so no state is gated on either, and a skip
+            // abandons the whole sequence rather than advancing a clip.
+            //
+            // The story beats are FIRST RUN ONLY. This route fires on every
+            // boot with an empty mode, and ?intro=off is a QA deep link no
+            // player will find, so unconditional extra clips would tax every
+            // return visit. The flag is written at play time, not on
+            // completion: someone who skips has seen enough, and a reload
+            // mid-reel must not restart the premise.
+            //
+            // Three beats on a first run — logo, premise, threat. Boot is the
+            // only place they can go: every other candidate (stage-entry
+            // cutscene, boss entrance) sits over a sim that has already begun.
             if (_intro != null && string.IsNullOrEmpty(mode)
                 && WebGLStorage.QueryParam("intro") != "off")
             {
-                _intro.Play();
+                if (WebGLStorage.GetString(ConceptSeenKey) == "1")
+                {
+                    _intro.Play();
+                }
+                else
+                {
+                    // Watcher voice, second person, one sentence a beat — the
+                    // same grammar as every StoryCatalog.StageStart line. The
+                    // logo carries no caption: there is nothing to narrate over
+                    // a wordmark, and a line there would read as a subtitle for
+                    // the studio name.
+                    _intro.PlaySequence(
+                        new IntroVideoView.Beat(IntroVideoView.ClipRelativePath),
+                        new IntroVideoView.Beat(IntroVideoView.ConceptClipRelativePath,
+                            "등불 하나가 잿불의 법정을 건넙니다. 사슬은 아직 무엇도 놓지 않았습니다."),
+                        new IntroVideoView.Beat(IntroVideoView.ThreatClipRelativePath,
+                            "판결을 내린 자가 아직 그 자리에 서 있습니다. 등불을 들고 마주하세요."));
+                    WebGLStorage.SetString(ConceptSeenKey, "1");
+                }
                 if (_audio != null) _audio.SetBgmContext("intro");   // W12
             }
 
@@ -123,15 +162,134 @@ namespace CinderCourt.View
         }
 
         // ------------------------------------------------------------- lobby --
+        // Act cinematic latched by a clear. It is played either in EnterLobby
+        // or between Ember Rest and its direct successor; null means no beat is
+        // waiting to be delivered.
+        string _pendingActReel;
+        string _pendingActNarration;
+        string _actContinuationStageId = "";
+        PreparationOffer _actContinuationPreparation;
+        bool _actContinuationPending;
+
+        /// <summary>Reel + watcher line for a stage that ENDS an act, null
+        /// otherwise.
+        ///
+        /// The catalog is nine stages in three acts of three, so an act ends at
+        /// CatalogIndex 2, 5 and 8. Derived from the index rather than a list
+        /// of ids: a tenth stage appended to the catalog then simply extends
+        /// the pattern instead of silently never firing.
+        ///
+        /// A first clear is not required. Replaying the last stage of an act
+        /// plays its cinematic again — the alternative is a beat the player
+        /// sees exactly once and cannot revisit, and the reel is skippable.</summary>
+        static (string reel, string narration)? ActBeatFor(string stageId)
+        {
+            if (!StageCatalog.TryGet(stageId, out var entry)) return null;
+            switch (entry.CatalogIndex)
+            {
+                case 2:
+                    return (IntroVideoView.Act1ClipRelativePath,
+                        "첫 세 재판이 끝났습니다. 사슬은 느슨해졌을 뿐, 끊어지지 않았습니다.");
+                case 5:
+                    return (IntroVideoView.Act2ClipRelativePath,
+                        "판결은 당신을 향하지 않았습니다. 더 깊은 곳에서 명령이 이어집니다.");
+                case 8:
+                    return (IntroVideoView.Act3ClipRelativePath,
+                        "행진이 멈췄습니다. 등불은 이제 당신의 손에서 다른 길을 밝힙니다.");
+                default:
+                    return null;
+            }
+        }
+
+        /// <summary>
+        /// Consumes the latched act beat and optionally delays a direct
+        /// successor until the reel has completed, failed, timed out, or been
+        /// skipped. All four outcomes share IntroVideoView's exactly-once
+        /// completion path, so an unavailable video can never strand campaign
+        /// progression.
+        /// </summary>
+        bool TryPlayPendingActCinematic(string continuationStageId = "",
+                                        PreparationOffer continuationPreparation = default)
+        {
+            if (string.IsNullOrEmpty(_pendingActReel)) return false;
+            // No overlay to play through (EditMode fixtures, stripped boots):
+            // leave the latch alone instead of consuming a beat nothing can
+            // deliver — the next transition with an intro view still owns it.
+            if (_intro == null) return false;
+
+            var reel = _pendingActReel;
+            var line = _pendingActNarration;
+            _pendingActReel = null;
+            _pendingActNarration = null;
+
+            if (!string.IsNullOrEmpty(continuationStageId))
+            {
+                CancelActContinuation();
+                _actContinuationStageId = continuationStageId;
+                _actContinuationPreparation = continuationPreparation;
+                _actContinuationPending = true;
+                _intro.OnFinished += ContinueAfterActCinematic;
+            }
+
+            _intro.PlaySequence(new IntroVideoView.Beat(reel, line));
+            return true;
+        }
+
+        void ContinueAfterActCinematic()
+        {
+            if (_intro != null) _intro.OnFinished -= ContinueAfterActCinematic;
+            if (!_actContinuationPending) return;
+
+            var stageId = _actContinuationStageId;
+            var preparation = _actContinuationPreparation;
+            _actContinuationStageId = "";
+            _actContinuationPreparation = default;
+            _actContinuationPending = false;
+            StartDungeon(stageId, preparation);
+        }
+
+        void CancelActContinuation()
+        {
+            if (_intro != null) _intro.OnFinished -= ContinueAfterActCinematic;
+            _actContinuationStageId = "";
+            _actContinuationPreparation = default;
+            _actContinuationPending = false;
+        }
+
         void EnterLobby()
         {
+            CancelActContinuation();
             _state = State.Lobby;
             ClearEmberRestRoute();
-            if (_audio != null) _audio.SetBgmContext("lobby");   // W12
+            if (_audio != null)
+            {
+                // §4o: a surface that holds the run comes down when the run
+                // does. EnterLobby is where death, abandon and clear all
+                // converge (the bed swap below proves it), so stopping VO here
+                // covers every exit without a per-path list that can rot.
+                _audio.StopVoice();
+                _audio.SetBgmContext("lobby");   // W12
+            }
             if (_cutscene != null) _cutscene.Hide();   // no stale loading screen over the lobby
-            SetStageTerrain(null);        // back to the base court plate
+            // Lobby backdrop (2026-08-12 request: the lobby was the one place
+            // with no background and no shadows). The sanctum dresses itself as
+            // the stage the campaign is AT (same rule as StartPlayNow: first
+            // uncleared unlocked stage, else the last unlocked one): its
+            // terrain plate replaces the bare court and its mood rig lights
+            // the diorama — the same key/fill + shadow lease a run uses, at
+            // the frozen arena half-axes. EnvironmentBuilder and PostFxGate
+            // stay dungeon-only (AMENDMENT #12/#15, §V4): no wall ring, no
+            // playfield change, no post — light and ground only.
+            // Null (fresh save, nothing unlocked) keeps the field's cinder-span
+            // default: the pre-prologue sanctum still shows the first door.
+            _selectedStage = CurrentCampaignStageId() ?? _selectedStage;
+            SetStageTerrain(StageCatalog.TryGet(_selectedStage, out var selectedEntry)
+                ? selectedEntry.TerrainId
+                : null,
+                _selectedStage);
             ApplyStageDressing(null);
             SetStageEnvironment(null);
+            SetLobbyMood(_selectedStage);
             _game.EndRun();
             _lobby.Refresh(_data);
             _lobby.Show();
@@ -140,31 +298,81 @@ namespace CinderCourt.View
             _rig.SetProfile(CameraRig.Profile.Lobby);
             _input.Mode = InputAdapter.Profile.Arena; // inert while lobby UI is up
             _hud.SetHudVisible(false);
+
+            // Act cinematic, latched by the clear that ended an act. It rides
+            // the same overlay as the boot reels (sorting 520) over a lobby
+            // that has already settled, so a failed or missing clip costs the
+            // beat and nothing else — IntroVideoView finishes immediately and
+            // the player is already where they were going.
+            TryPlayPendingActCinematic();
         }
 
         /// <summary>
-        /// Dungeon ground swap: instantiate Resources/Terrain/terrain-<stage>
+        /// Dungeon ground swap: instantiate Resources/Terrain/terrain-<stageId>
         /// at the arena center (court plate stays underneath as safety net).
         /// Pass null to return to the base court look.
+        ///
+        /// <paramref name="logicalStageId"/> is the stage whose CONCEPT the
+        /// plate serves this time — three plates cover nine stages, so the same
+        /// mesh reappears under different accents. The plate's ToonLit rim is
+        /// re-hued per logical stage (EnvironmentBuilder.RimColorFor — the
+        /// stage-blind-constant removal that remains after bc799ee9's normals
+        /// fix); the key is the (plate, logical) PAIR so a shared plate
+        /// re-tints when a different stage borrows it.
         /// </summary>
-        void SetStageTerrain(string stageId)
+        void SetStageTerrain(string stageId, string logicalStageId = null)
         {
-            if (_stageTerrainId == (stageId ?? "")) return;
-            if (_stageTerrain != null)
+            var key = (stageId ?? "") + "|" + (logicalStageId ?? "");
+            if (_stageTerrainId == key) return;
+            var samePlate = _stageTerrain != null
+                && _stageTerrainId.Split('|')[0] == (stageId ?? "");
+            _stageTerrainId = key;
+            if (!samePlate)
             {
-                if (Application.isPlaying) Destroy(_stageTerrain);
-                else DestroyImmediate(_stageTerrain);
-                _stageTerrain = null;
+                if (_stageTerrain != null)
+                {
+                    if (Application.isPlaying) Destroy(_stageTerrain);
+                    else DestroyImmediate(_stageTerrain);
+                    _stageTerrain = null;
+                }
+                if (string.IsNullOrEmpty(stageId)) return;
+                var prefab = Resources.Load<GameObject>("Terrain/terrain-" + stageId);
+                if (prefab == null) return;   // stage without terrain keeps the court
+                _stageTerrain = Instantiate(prefab);
+                _stageTerrain.name = "StageTerrain";
+                // Arena center in view space; terrain FBX is origin-centered, top y=0.
+                _stageTerrain.transform.position = ViewWorld.ToWorld(768f, 512f, 0f);
             }
-            _stageTerrainId = stageId ?? "";
-            if (string.IsNullOrEmpty(stageId)) return;
-            var prefab = Resources.Load<GameObject>("Terrain/terrain-" + stageId);
-            if (prefab == null) return;   // stage without terrain keeps the court
-            _stageTerrain = Instantiate(prefab);
-            _stageTerrain.name = "StageTerrain";
-            // Arena center in view space; terrain FBX is origin-centered, top y=0.
-            _stageTerrain.transform.position = ViewWorld.ToWorld(768f, 512f, 0f);
+            ApplyTerrainRim(logicalStageId);
         }
+
+        /// <summary>
+        /// Stage-hued fresnel rim on the terrain plate's renderers, via MPB —
+        /// the plate's materials are SERIALIZED assets shared by three prefabs,
+        /// so a material-level SetColor would dirty committed .mat files and
+        /// leak one stage's hue into the next (EnvironmentBuilder's shared env
+        /// materials are runtime clones, the opposite case). No logical stage
+        /// (lobby fallback with nothing unlocked) keeps the shader default.
+        /// </summary>
+        void ApplyTerrainRim(string logicalStageId)
+        {
+            if (_stageTerrain == null || string.IsNullOrEmpty(logicalStageId)) return;
+            if (!StageCatalog.TryGet(logicalStageId, out var entry)) return;
+            var rim = EnvironmentBuilder.RimColorFor(entry.AccentColor);
+            var block = new MaterialPropertyBlock();
+            var renderers = _stageTerrain.GetComponentsInChildren<Renderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                // Preserve whatever the block already carries (none today —
+                // the plate is instantiated bare) rather than replacing it.
+                renderer.GetPropertyBlock(block);
+                block.SetColor(TerrainRimColorId, rim);
+                renderer.SetPropertyBlock(block);
+            }
+        }
+
+        static readonly int TerrainRimColorId = Shader.PropertyToID("_RimColor");
 
         /// <summary>
         /// Stage dressing pass (spec §Lane T-a): clone named children of the
@@ -233,7 +441,19 @@ namespace CinderCourt.View
         /// </summary>
         void SetStageEnvironment(string stageId)
         {
-            if (_stageEnvironmentId == (stageId ?? "")) return;
+            // The lobby mood never survives a mode transition: every Start*
+            // route and EnterLobby itself pass through here, and a surviving
+            // lobby key light would double-light the stage rig built below
+            // (EnterLobby re-applies its own via SetLobbyMood afterwards).
+            ClearLobbyMood();
+            if (_stageEnvironmentId == (stageId ?? ""))
+            {
+                // A retry/re-entry can reuse the same deterministic environment,
+                // but it is still a fresh performance workload. Never admit the
+                // previous attempt's PostFx/shadow samples into the new run.
+                if (!string.IsNullOrEmpty(stageId)) PostFxGate.SetStageActive(true);
+                return;
+            }
             if (_stageEnvironment != null)
             {
                 if (Application.isPlaying) Destroy(_stageEnvironment);
@@ -242,10 +462,12 @@ namespace CinderCourt.View
             }
             if (_stageMood != null)
             {
+                // Restore the global sun/ambient/URP lease synchronously while
+                // the old key still exists. Destroy is delayed in Play mode.
+                StageMood.Clear();
                 if (Application.isPlaying) Destroy(_stageMood);
                 else DestroyImmediate(_stageMood);
                 _stageMood = null;
-                StageMood.Clear();      // RenderSettings is global
             }
             _stageEnvironmentId = stageId ?? "";
             if (string.IsNullOrEmpty(stageId))
@@ -257,8 +479,10 @@ namespace CinderCourt.View
                     _rig.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
                 VfxDirector.SetPlayfield(SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
                 PostFxGate.SetStageActive(false);   // §V4: post is dungeon-only
+                ApplyVoidFloorHue(null);            // court modes keep the baked tone
                 return;
             }
+            ApplyVoidFloorHue(stageId);
             // AMENDMENT #15 (W-MV, MV-2): the boundary wall ring must be laid
             // out against the half-axes the SIM will clamp to, or an expanded
             // clamp puts the player outside the ring. This runs BEFORE
@@ -276,7 +500,104 @@ namespace CinderCourt.View
             PostFxGate.SetStageActive(true);
             // Atmosphere rig lives OUTSIDE the environment root: §E6 caps that
             // root at 4 realtime point lights.
-            _stageMood = StageMood.Apply(stageId);
+            _stageMood = StageMood.Apply(stageId, halfWidth, halfHeight);
+        }
+
+        // --- outskirt darkness, per stage --------------------------------------
+        // VoidFloor is the scene-baked quad under everything past the apron. Two
+        // magenta paint-bakes disagree on its frame share — CameraRig.cs records
+        // 0.25% (2026-08 pull-in decision), pale-ring-investigation.md measured
+        // 61,510 px = 4.75% ("아레나 바깥 보라 영역"). The decider named here —
+        // per-release pre/post HUE delta on the outskirt band — RAN on the first
+        // release that shipped this hook (2026-08-13, 8f0ccd59, cinder-span,
+        // tools/qa/measure_outskirt_seam.py --pre renderer-census frame):
+        // R−B moved +0.3..+3.1 and luma ~0 on every band. VERDICT: at the
+        // shipped orbit the CameraRig claim holds — the visible outskirt is
+        // fogged terrain/kit, not this quad (the 4.75% bake counted pixels the
+        // fog band owns). The hook stays because it is correct, tested, and
+        // ~free (one MPB per stage entry), and because the fog band is a LIVE
+        // tuning surface (CameraRig FogStart/EndOffset) — any future widening
+        // re-exposes this quad, already stage-hued instead of stage-blind. But
+        // no future cycle should credit visible outskirt change to it at
+        // today's camera: the visible fix was bc799ee9 (normals) + the rim hue
+        // on silhouette edges.
+        //
+        // The hue moves toward the stage accent; the VALUE stays the baked
+        // tone's. SceneBuilder tuned that value against the apron seam by
+        // measurement (a 4x step reads as "the world ends here"), and this
+        // hook must not be able to undo that tuning — so the lerp is followed
+        // by a luminance renormalization, mirroring RimColorFor's discipline.
+        Renderer _voidFloorRenderer;
+        Color _voidFloorBakedTone;
+        bool _voidFloorFound;
+
+        void ApplyVoidFloorHue(string stageId)
+        {
+            if (!_voidFloorFound)
+            {
+                var quad = GameObject.Find("VoidFloor");
+                _voidFloorRenderer = quad != null ? quad.GetComponent<Renderer>() : null;
+                if (_voidFloorRenderer != null && _voidFloorRenderer.sharedMaterial != null)
+                    _voidFloorBakedTone =
+                        _voidFloorRenderer.sharedMaterial.GetColor(VoidBaseColorId);
+                _voidFloorFound = true;   // scene-baked: absent stays absent
+            }
+            if (_voidFloorRenderer == null) return;
+            var block = new MaterialPropertyBlock();
+            if (!string.IsNullOrEmpty(stageId) && StageCatalog.TryGet(stageId, out var entry))
+            {
+                _voidFloorRenderer.GetPropertyBlock(block);
+                block.SetColor(VoidBaseColorId,
+                    VoidTintFor(_voidFloorBakedTone, entry.AccentColor));
+                _voidFloorRenderer.SetPropertyBlock(block);
+                return;
+            }
+            // Court modes (lobby/arena/prologue/trial): back to the baked tone.
+            _voidFloorRenderer.SetPropertyBlock(block);   // empty block = clear
+        }
+
+        static readonly int VoidBaseColorId = Shader.PropertyToID("_BaseColor");
+
+        /// <summary>
+        /// Stage-hued outskirt tone: hue from the accent, VALUE from the baked
+        /// tone (luminance-renormalized so SceneBuilder's measured seam tuning
+        /// survives every stage — internal so a test can pin exactly that).
+        /// </summary>
+        internal static Color VoidTintFor(Color baked, Color accent)
+        {
+            var tinted = Color.Lerp(baked, accent, 0.35f);
+            var bakedLuma = baked.r * 0.299f + baked.g * 0.587f + baked.b * 0.114f;
+            var tintedLuma = tinted.r * 0.299f + tinted.g * 0.587f + tinted.b * 0.114f;
+            if (tintedLuma > 0.001f) tinted *= bakedLuma / tintedLuma;
+            tinted.a = 1f;
+            return tinted;
+        }
+
+        /// <summary>
+        /// Lobby atmosphere: the SELECTED stage's mood rig (key/fill light +
+        /// ambient/fog tint + the StageShadowPolicy lease) over the sanctum
+        /// diorama, sized to the frozen arena half-axes the lobby keeps.
+        /// The run's rig (_stageMood) and this one are never alive together:
+        /// SetStageEnvironment clears this on every transition, and StageMood
+        /// .Apply single-owns the global lease besides.
+        /// </summary>
+        void SetLobbyMood(string stageId)
+        {
+            ClearLobbyMood();
+            _lobbyMood = StageMood.Apply(stageId,
+                SimConfig.ArenaHalfWidth, SimConfig.ArenaHalfHeight);
+        }
+
+        void ClearLobbyMood()
+        {
+            if (_lobbyMood == null) return;
+            // Same discipline as _stageMood: restore the global lease
+            // synchronously while the old key still exists (Destroy is
+            // deferred in Play mode).
+            StageMood.Clear();
+            if (Application.isPlaying) Destroy(_lobbyMood);
+            else DestroyImmediate(_lobbyMood);
+            _lobbyMood = null;
         }
 
         void ReturnToLobby() => EnterLobby();
@@ -336,8 +657,65 @@ namespace CinderCourt.View
         // ------------------------------------------------------------ sorties --
         void OnSortie(string target)
         {
+            if (target == PlayNowTarget) { StartPlayNow(); return; }
             if (target == "prologue") { StartPrologue(); return; }
             if (IsStageUnlocked(target)) StartDungeon(target);
+        }
+
+        /// <summary>The one-button route's target id. Not a stage — a request to pick one.</summary>
+        public const string PlayNowTarget = "play-now";
+
+        /// <summary>
+        /// Put the player in the game, choosing the destination for them.
+        ///
+        /// WHY THIS EXISTS. Playtest feedback (2026-08-12): "there is no tutorial and I
+        /// cannot tell what the UI is, so I cannot start" and "a first-timer cannot even
+        /// work out what kind of game this is". The lobby asked a newcomer to read three
+        /// unlabelled rail icons, open the right one, expand the right act, and pick
+        /// among nine cards — every one of which is locked until a training run they
+        /// have not been told about. That is four decisions before the first frame of
+        /// gameplay, and the feedback is that players quit at the first of them.
+        ///
+        /// The rule this route follows: THE PLAYER PRESSES ONE THING AND IS PLAYING.
+        /// Choosing between "prologue" and "next stage" is a decision the game can make
+        /// from the save, so the game makes it.
+        ///
+        /// Order matters and is not arbitrary:
+        ///   1. prologue while it is undone — it is the only mode that teaches, and
+        ///      every campaign stage is gated behind it anyway, so sending a newcomer
+        ///      anywhere else would land them on a locked card.
+        ///   2. otherwise the first unlocked stage they have not cleared — "continue",
+        ///      which is what a returning player means by "play".
+        ///   3. otherwise the last unlocked stage — a completionist replaying; never a
+        ///      dead end, because a button that sometimes does nothing is worse than no
+        ///      button (the run-holding-surface lesson, §4o, in the other direction).
+        /// </summary>
+        void StartPlayNow()
+        {
+            if (!_data.PrologueDone) { StartPrologue(); return; }
+
+            var target = CurrentCampaignStageId();
+            if (target != null) StartDungeon(target);
+            else StartPrologue();   // nothing unlocked at all: the tutorial is still the answer
+        }
+
+        /// <summary>
+        /// Where the campaign currently IS: the first unlocked stage not yet
+        /// cleared, else the last unlocked stage, else null (fresh save with
+        /// nothing unlocked). One rule shared by the 지금 플레이 route and the
+        /// lobby's sanctum dressing, so the door the button opens is the door
+        /// the room shows.
+        /// </summary>
+        string CurrentCampaignStageId()
+        {
+            string fallback = null;
+            foreach (var entry in StageCatalog.Entries)
+            {
+                if (!StageCatalog.IsUnlocked(in _data, in entry)) continue;
+                fallback = entry.Id;
+                if (!StageCatalog.IsCleared(in _data, in entry)) return entry.Id;
+            }
+            return fallback;
         }
 
         void StartArena()
@@ -455,6 +833,15 @@ namespace CinderCourt.View
 
         void StartDungeon(string stageId, PreparationOffer preparation = default)
         {
+            // Act cinematic latched by the previous clear. EnterLobby delivers
+            // it on the lobby route, but a victory card offers routes that
+            // NEVER pass the lobby — retry, Ember Rest continue, a direct
+            // sortie — and a latch nobody consumes here surfaced one or more
+            // stages LATE, over whichever lobby visit happened next (the
+            // 2026-08-12 "video arrives pushed back" report). The gate sits
+            // before any run state changes; the reel's exactly-once completion
+            // callback re-enters with the latch already cleared.
+            if (TryPlayPendingActCinematic(stageId, preparation)) return;
             if (!preparation.IsValid) ClearEmberRestRoute();
             if (!StageCatalog.TryGet(stageId, out var entry))
             {
@@ -493,7 +880,7 @@ namespace CinderCourt.View
             _state = State.Dungeon;
             _runStageId = entry.Id;
             _runEndPersisted = false;
-            SetStageTerrain(entry.TerrainId); // logical stage terrain can differ from its Sim anchor
+            SetStageTerrain(entry.TerrainId, entry.Id); // 3 plates serve 9 stages — rim re-hues per logical stage
             ApplyStageDressing(entry.Id);     // per-LOGICAL-stage dressing (spec §T-a)
             SetStageEnvironment(entry.Id);    // modular environment (AMENDMENT #12)
             PrepareRunUi();
@@ -516,6 +903,14 @@ namespace CinderCourt.View
                 : entry.Boss.Visual == EnemyVisual.BossMonarch
                     ? "scene-boss-entry"
                     : "scene-stage-entry";
+            // Per-stage frame when one has been authored, generic otherwise. All
+            // nine stages used to collapse onto the three literals above, so the
+            // loading screen said nothing about WHICH door you were opening —
+            // the accent, the terrain and the boss archetype all stopped at the
+            // catalog. CutsceneView already degrades to the dark backdrop on a
+            // miss, but resolving here keeps the generic frame as the floor
+            // instead of dropping to no art at all while the set fills in.
+            cutsceneSprite = StageCutsceneSprite(cutsceneSprite, entry.Id);
             _cutscene.Show(cutsceneSprite, entry.Kicker, entry.Title, introNarration);
             // W12: the loading/story frame rides its own bed, then the stage
             // track takes over when the cutscene yields to live play (the
@@ -523,7 +918,58 @@ namespace CinderCourt.View
             if (_audio != null) _audio.SetBgmContext("stage");
 
             if (StoryCatalog.TryGet(entry.StoryKey, StoryCatalog.StageStart, out var speaker, out var text))
-                _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f));
+            {
+                // The watcher's opening is the one story beat that does NOT go
+                // through DispatchStory — it fires here, over the cutscene, so
+                // its VO has to be cued here too or the most 연출-heavy moment
+                // in the run is the only silent one. VO first: its length sets
+                // the bubble hold (see VoiceHold).
+                var hold = VoiceHold(entry.StoryKey, StoryCatalog.StageStart);
+                _speech.Show(speaker, text, ViewWorld.ToWorld(768f, 500f, 1.4f), hold);
+            }
+        }
+
+        // Cached per stage id: Resources.Load on a miss is not free, and this
+        // runs on every sortie including retries. Empty string = "no per-stage
+        // frame authored", which is the common case until the set is complete.
+        readonly System.Collections.Generic.Dictionary<string, string> _stageCutsceneCache =
+            new System.Collections.Generic.Dictionary<string, string>(9);
+
+        /// <summary>
+        /// Loading-frame resolution, most specific art first:
+        ///   1. `<c>generic</c>-<c>stageId</c>`   (context frame authored for THIS stage)
+        ///   2. `scene-stage-entry-<c>stageId</c>` (the stage's own key art)
+        ///   3. <paramref name="generic"/>         (context frame shared by all stages)
+        /// Authoring a new frame is therefore a drop-in: no code change, no
+        /// catalog entry — the file appearing under Resources/Scenes is the
+        /// whole opt-in.
+        ///
+        /// Step 2 is why the chain exists. All nine stages ship a
+        /// scene-stage-entry-* frame, but the transition/boss contexts have
+        /// almost none — the single-level fallback sent every Ember Rest
+        /// continuation to the SAME scene-transition.png and every monarch
+        /// stage to the SAME scene-boss-entry.png, so the loading screen said
+        /// nothing about WHICH door was being opened (the 2026-08-12 "fixed
+        /// image every entry" report). Per-stage art outranks per-context art
+        /// because the player reads the place before the occasion.
+        /// </summary>
+        internal string StageCutsceneSprite(string generic, string stageId)
+        {
+            if (string.IsNullOrEmpty(stageId)) return generic;
+            var key = generic + "-" + stageId;
+            if (!_stageCutsceneCache.TryGetValue(key, out var resolved))
+            {
+                resolved = key;
+                if (Resources.Load<Sprite>("Scenes/" + resolved) == null)
+                {
+                    resolved = "scene-stage-entry-" + stageId;
+                    if (resolved == key
+                        || Resources.Load<Sprite>("Scenes/" + resolved) == null)
+                        resolved = generic;
+                }
+                _stageCutsceneCache[key] = resolved;
+            }
+            return resolved;
         }
 
         void PrepareRunUi()
@@ -609,7 +1055,14 @@ namespace CinderCourt.View
             _emberRestPreparation = default;
             _emberRestDecisionMade = false;
             _hud.HideEmberRest();
+            // StartDungeon owns the pending-act-cinematic gate for EVERY entry
+            // path (sortie, retry, Ember Rest continue), so no second gate here.
             StartDungeon(nextStageId, preparation);
+        }
+
+        void ReturnFromEmberRest()
+        {
+            ReturnToLobby();
         }
 
         void ClearEmberRestRoute()
@@ -841,6 +1294,18 @@ namespace CinderCourt.View
                 {
                     PersistDungeonClear(sim);
                     shouldBeginEmberRest = HasDirectEmberRestSuccessor(out _, out _);
+                    // An act ends every third stage. Latch it here — where the
+                    // clear is known — and play it at the next TRANSITION,
+                    // whichever comes first: EnterLobby, or the StartDungeon
+                    // gate (retry, direct sortie, Ember Rest continue). Never
+                    // on the clear frame itself — that would put a five-second
+                    // overlay over a victory card the player is still reading.
+                    var actBeat = ActBeatFor(_runStageId);
+                    if (actBeat != null)
+                    {
+                        _pendingActReel = actBeat.Value.reel;
+                        _pendingActNarration = actBeat.Value.narration;
+                    }
                 }
                 else if (_state == State.Training)
                 {
@@ -997,6 +1462,11 @@ namespace CinderCourt.View
         void DrainGuidanceQueue()
         {
             if (_guidanceQueue.Count == 0 || _hud == null || _hud.GuidancePaused) return;
+            // One card at a time — including the toast tier. This runs per SIM TICK,
+            // so without this line a backlog drains at 60 cards/second onto a single
+            // surface and the player reads only the last one. See HudView
+            // .GuidanceToastBusy for the measurement and why no unit test caught it.
+            if (_hud.GuidanceToastBusy) return;
             var bit = _guidanceQueue[0];
             _guidanceQueue.RemoveAt(0);
             if (GuidanceCatalog.Seen(in _data, bit)) return;
@@ -1042,44 +1512,56 @@ namespace CinderCourt.View
 
         void PersistDungeonClear(ICinderSim sim)
         {
-            if (!StageCatalog.TryGet(_runStageId, out var entry)) return;
-            StageCatalog.MarkCleared(ref _data, in entry, out var firstClear);
+            BankDungeonClear(ref _data, _runStageId, _runWasPact, sim);
+        }
+
+        /// <summary>Single settlement authority shared by the live callback and
+        /// deterministic economy evidence. It mutates only persisted campaign
+        /// data; the simulation snapshot remains read-only.</summary>
+        internal static void BankDungeonClear(
+            ref CampaignData data,
+            string stageId,
+            bool pact,
+            ICinderSim sim)
+        {
+            if (!StageCatalog.TryGet(stageId, out var entry)) return;
+            StageCatalog.MarkCleared(ref data, in entry, out var firstClear);
             // Stat points: +2 per clear, +1 first boss kill (spec §5).
-            _data.Points += firstClear ? 3 : 2;
+            data.Points += firstClear ? 3 : 2;
             // v1.3 M3 (entry 5): pact clear pays sim.Relics × 2 — the ONLY
             // doubled term. First-clear bonus stays single (agreed 비중복);
             // in practice the pact toggle only exists on cleared cards, so a
             // pact run's firstClear is false unless a QA deep link races the
             // toggle — the bonus line below stays independent either way.
-            _data.Relics += _runWasPact ? sim.Relics * PactRelicMultiplier : sim.Relics;
+            data.Relics += pact ? sim.Relics * PactRelicMultiplier : sim.Relics;
             // Cycle-2 first-clear relic bonus (negotiation-record entry 1,
             // signed designer+pm): view-side grant, sim untouched. One-time —
             // gated on firstClear like the companion reward below.
-            if (firstClear) _data.Relics += FirstClearRelicBonus(entry.Id);
+            if (firstClear) data.Relics += FirstClearRelicBonus(entry.Id);
 
             // Equipment ranks earned in-run become the new baseline (§6 path a).
             var campaign = sim as ICampaignSnapshot;
             if (campaign != null)
             {
-                _data.Weapon = Mathf.Max(_data.Weapon, campaign.WeaponRank);
-                _data.Lantern = Mathf.Max(_data.Lantern, campaign.LanternRank);
-                _data.Cloak = Mathf.Max(_data.Cloak, campaign.CloakRank);
+                data.Weapon = Mathf.Max(data.Weapon, campaign.WeaponRank);
+                data.Lantern = Mathf.Max(data.Lantern, campaign.LanternRank);
+                data.Cloak = Mathf.Max(data.Cloak, campaign.CloakRank);
             }
 
             // Only base stages retain their established companion rewards.
             if (firstClear && !string.IsNullOrEmpty(entry.CompanionReward))
             {
-                AddToRoster(entry.CompanionReward);
-                if (_data.ActiveSlots == null || _data.ActiveSlots.Length == 0)
+                AddToRoster(ref data, entry.CompanionReward);
+                if (data.ActiveSlots == null || data.ActiveSlots.Length == 0)
                 {
-                    _data.Active = entry.CompanionReward;
-                    _data.ActiveSlots = new[] { entry.CompanionReward };
+                    data.Active = entry.CompanionReward;
+                    data.ActiveSlots = new[] { entry.CompanionReward };
                 }
 
             }
 
             var hack = sim as IHackSnapshot;
-            if (hack != null) MergeRoster(hack.RosterMask);
+            if (hack != null) MergeRoster(ref data, hack.RosterMask);
         }
 
         /// <summary>
@@ -1101,6 +1583,11 @@ namespace CinderCourt.View
 
         void MergeRoster(int rosterMask)
         {
+            MergeRoster(ref _data, rosterMask);
+        }
+
+        static void MergeRoster(ref CampaignData data, int rosterMask)
+        {
             for (var visual = 0; visual < 4; visual++)
             {
                 if ((rosterMask & (1 << visual)) == 0) continue;
@@ -1111,22 +1598,52 @@ namespace CinderCourt.View
                     (int)EnemyVisual.Possessed => "possessed",
                     _ => "ember-cohort",
                 };
-                AddToRoster(baseId + "-echo");
+                AddToRoster(ref data, baseId + "-echo");
             }
         }
 
         void AddToRoster(string id)
         {
-            var roster = _data.Roster ?? new string[0];
+            AddToRoster(ref _data, id);
+        }
+
+        static void AddToRoster(ref CampaignData data, string id)
+        {
+            var roster = data.Roster ?? new string[0];
             for (var i = 0; i < roster.Length; i++)
                 if (roster[i] == id) return;
             var grown = new string[roster.Length + 1];
             for (var i = 0; i < roster.Length; i++) grown[i] = roster[i];
             grown[roster.Length] = id;
-            _data.Roster = grown;
+            data.Roster = grown;
         }
 
         // ------------------------------------------------------------- story --
+        // VO (2026-08-09 amendment) rides ALONGSIDE the existing text, never
+        // instead of it: every PlayVoice below sits next to the _speech.Show
+        // that already puts the same line on screen, so a build with no VO
+        // assets is exactly the build that shipped yesterday.
+        //
+        // Keys are stage+beat, not beat alone. A generic "bossEntry" clip would
+        // speak one stage's line over another stage's subtitle — the two
+        // sources would contradict each other on screen (§4i). Composing the
+        // key means an unrecorded beat resolves to a missing clip and stays
+        // silent, which is the additive contract, while a recorded one always
+        // matches the text beside it.
+        static string VoiceKey(string storyKey, string beatKind)
+            => storyKey + "-" + beatKind;
+
+        /// <summary>
+        /// Cue a beat's narration and report how long the bubble must stay up.
+        /// SpeechBubbleView's own hold is paced for READING (~17 chars/s); the
+        /// TTS speaks at ~7, so an unadjusted bubble vanishes up to 1.74 s
+        /// before its own voice finishes [MEASURED, docs/provenance/voice.json].
+        /// Returns 0 when nothing plays, which is exactly the value Show treats
+        /// as "use your own formula" — so a build with no VO behaves as before.
+        /// </summary>
+        float VoiceHold(string storyKey, string beatKind)
+            => _audio == null ? 0f : _audio.PlayVoice(VoiceKey(storyKey, beatKind));
+
         void DispatchStory(SimEvents events, ICinderSim sim)
         {
             var storyKey = StageCatalog.TryGet(_runStageId, out var stage)
@@ -1138,7 +1655,9 @@ namespace CinderCourt.View
                 if (StoryCatalog.TryGet(storyKey, StoryCatalog.BossEntry,
                         out var entrySpeaker, out var entryText))
                 {
-                    _speech.Show(entrySpeaker, entryText, bossAnchor);
+                    // VO first: its length decides the bubble's hold.
+                    var hold = VoiceHold(storyKey, StoryCatalog.BossEntry);
+                    _speech.Show(entrySpeaker, entryText, bossAnchor, hold);
                     // §캡처5: speaker-prefixed screen subtitle doubles the boss
                     // beat (bubble stays the in-world grammar).
                     _hud.ShowSpeakerLine(entrySpeaker, entryText);
@@ -1158,14 +1677,18 @@ namespace CinderCourt.View
                     : StoryCatalog.BossPhase2;
                 if (StoryCatalog.TryGet(storyKey, phaseBeat, out var phaseSpeaker, out var phaseText))
                 {
-                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim));
+                    var hold = VoiceHold(storyKey, phaseBeat);
+                    _speech.Show(phaseSpeaker, phaseText, BossAnchor(sim), hold);
                     _hud.ShowSpeakerLine(phaseSpeaker, phaseText);
                 }
             }
             if ((events & SimEvents.StageCleared) != 0 &&
                 StoryCatalog.TryGet(storyKey, StoryCatalog.Completion, out var doneSpeaker, out var doneText))
+            {
+                var hold = VoiceHold(storyKey, StoryCatalog.Completion);
                 _speech.Show(doneSpeaker, doneText,
-                    ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 1.6f));
+                    ViewWorld.ToWorld(sim.Player.X, sim.Player.Y, 1.6f), hold);
+            }
         }
 
         static Vector3 BossAnchor(ICinderSim sim)
@@ -1233,6 +1756,49 @@ namespace CinderCourt.View
                     break;
             }
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // --- runtime renderer census (pale-ring-investigation.md, next probe) --
+        //
+        // The investigation's one positive fact: the arena boundary ring renders
+        // through CinderCourt/ToonLit, yet EVERY .mat asset and every
+        // SetPropertyBlock site disclaims it. The remaining hypothesis is a
+        // material that never exists as a .mat — FBX-embedded, or runtime-made —
+        // which no Assets/**.mat search can see. The only graph that contains
+        // such an object is the PLAYING scene, so this walks it there.
+        //
+        // DEVELOPMENT_BUILD-gated like the shadow toggle API: diagnostic surface,
+        // zero release cost. Trigger from the browser console:
+        //   unityInstance.SendMessage("GameRoot", "DumpRendererCensus")
+        // and recover the [RingProbe] lines from the console.
+        public void DumpRendererCensus()
+        {
+            var block = new MaterialPropertyBlock();
+            var renderers = FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+            Debug.Log($"[RingProbe] BEGIN state={_state} stage={_runStageId} renderers={renderers.Length}");
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var r = renderers[i];
+                if (r == null || !r.enabled || !r.gameObject.activeInHierarchy) continue;
+                var material = r.sharedMaterial;
+                var bounds = r.bounds;
+                r.GetPropertyBlock(block);
+                var mpb = block.isEmpty ? "none"
+                    : block.HasColor("_BaseColor")
+                        ? block.GetColor("_BaseColor").ToString("F3")
+                        : "no-color";
+                var path = r.transform.parent == null
+                    ? r.name
+                    : $"{r.transform.parent.name}/{r.name}";
+                Debug.Log(
+                    $"[RingProbe] path={path} mat={(material == null ? "null" : material.name)}"
+                    + $" shader={(material == null || material.shader == null ? "null" : material.shader.name)}"
+                    + $" center={bounds.center.ToString("F2")} ext={bounds.extents.ToString("F2")}"
+                    + $" mpb={mpb}");
+            }
+            Debug.Log("[RingProbe] END");
+        }
+#endif
 
         void StepToast(int next)
         {

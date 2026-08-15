@@ -1,0 +1,63 @@
+{
+  "phase": "reduced",
+  "url": "http://127.0.0.1:8766/",
+  "viewport": "1440x900",
+  "results": [
+    {
+      "index": 1,
+      "stageId": "ember-gallery",
+      "title": "불씨 회랑",
+      "act": 1,
+      "mode": "reduced",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-reduced-telegraph-a.png",
+        "04-reduced-telegraph-b.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 4,
+      "stageId": "echo-throne",
+      "title": "메아리 왕좌",
+      "act": 2,
+      "mode": "reduced",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-reduced-telegraph-a.png",
+        "04-reduced-telegraph-b.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    },
+    {
+      "index": 8,
+      "stageId": "ash-march",
+      "title": "재의 행진",
+      "act": 3,
+      "mode": "reduced",
+      "url": "http://127.0.0.1:8766/",
+      "viewport": "1440x900",
+      "screenshots": [
+        "00-sortie.png",
+        "01-stage-card.png",
+        "02-entered.png",
+        "03-reduced-telegraph-a.png",
+        "04-reduced-telegraph-b.png"
+      ],
+      "automationPass": true,
+      "pageErrors": []
+    }
+  ],
+  "automationPass": true,
+  "pageErrors": []
+}

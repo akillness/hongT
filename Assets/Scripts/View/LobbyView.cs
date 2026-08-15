@@ -71,11 +71,7 @@ namespace CinderCourt.View
         /// <summary>Catalog order. Index 0 is deliberately the inert None so the
         /// stored ints are the SigilKind enum values with no remapping.</summary>
         internal static readonly SigilKind[] SigilOrder = ProgressionGuide.SigilOrder;
-        /// <summary>Internal so MetaScreenView can name the same sigils
-        /// (MetaScreenView.cs:452,475) — one copy of the vocabulary, two
-        /// surfaces reading it. The ORDER moved to ProgressionGuide in
-        /// AMENDMENT #8; the NAMES stay here because nothing outside the view
-        /// layer needs them.</summary>
+        /// <summary>View-layer names for the sanctum sigil rows.</summary>
         internal static readonly string[] SigilNames = { "역류인", "판결인", "집행인", "점화인", "증언인" };
         /// <summary>Which gimmick each sigil binds — the line that tells the
         /// player WHERE it matters, not just what number moves.</summary>
@@ -278,11 +274,10 @@ namespace CinderCourt.View
         GameObject[] _tabContents;
         Image[] _tabBackgrounds;
 
-        // W8 campaign minimap + W7 tab meta screen. The minimap occupies the
-        // centre gutter between SANCTUM and SORTIE on desktop; the stacked
-        // (phone) layout has no gutter, so there it hides and the full-screen
-        // 지도 tab of the meta screen is the route instead — a third full-width
-        // card would push the already-tall stacked column further off screen.
+        // W8 campaign minimap + the full-screen map/controls reference surface.
+        // The minimap occupies the centre gutter between SANCTUM and SORTIE on
+        // desktop; the stacked layout has no gutter, so its full-screen map tab
+        // remains the map route there.
         CampaignMapView _map;
         RectTransform _mapPanelRect;
         MetaScreenView _meta;
@@ -331,9 +326,7 @@ namespace CinderCourt.View
         public void Build(CampaignData data, LobbyCallbacks callbacks)
         {
             _callbacks = callbacks;
-            _font = Resources.Load<Font>("Fonts/HudKorean");
-            if (_font == null)
-                _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _font = ViewTypography.ResolveFont();
 
             var canvasObject = new GameObject("Lobby");
             canvasObject.transform.SetParent(transform, false);
@@ -406,21 +399,17 @@ namespace CinderCourt.View
             // floor on BOTH axes with margin and neither joins the lobby's
             // debt table (LobbyLayoutTests holds that table exactly).
             //
-            // D-R4: the first one used to be called 지도, inside the panel the
-            // rail's 지도 icon opens. A map button inside the map is a route
-            // that describes itself; "전체 지도" says what it actually is — the
-            // full-screen one, as opposed to the constellation directly above
-            // it. 정비 keeps its word: it opens MetaScreenView's equip tab,
-            // which is a different surface from the sanctum's equip tab (D-6
-            // holds that duplication open with a cycle-9 expiry).
+            // "전체 지도" opens the full-screen map. "정비" returns to the
+            // sanctum's single equipment presentation instead of opening a
+            // duplicate read-only equipment surface.
             var mapButton = TextButton(panel.transform, new Vector2(0, 1),
                 new Vector2(16, -208), new Vector2(196, 96), "전체 지도", 17,
                 () => _meta?.Show(in _lastData, MetaScreenView.TabMap));
             mapButton.name = "OpenMapButton";
             var gearButton = TextButton(panel.transform, new Vector2(0, 1),
                 new Vector2(212, -208), new Vector2(196, 96), "정비", 17,
-                () => _meta?.Show(in _lastData, MetaScreenView.TabEquip));
-            gearButton.name = "MetaScreenButton";
+                OpenSanctumEquipment);
+            gearButton.name = "SanctumEquipmentButton";
         }
 
         // ------------------------------------------------------------- rail --
@@ -441,8 +430,90 @@ namespace CinderCourt.View
         /// could be deleted with it (D-3) and why the replacement invariant is
         /// containment, not overlap (D-10).
         /// </summary>
+        /// <summary>
+        /// The one-button route into gameplay, sitting BELOW the three rail icons.
+        ///
+        /// Playtest feedback (2026-08-12) was that a newcomer cannot start at all:
+        /// "there is no tutorial and I cannot tell what the UI is". The lobby's entry
+        /// point was three unlabelled fantasy glyphs, and the correct one opened a list
+        /// where every card was locked behind a training run nobody had mentioned. The
+        /// player had to make four decisions before seeing a frame of the game.
+        ///
+        /// So this button makes all four of them. It is deliberately the LOUDEST thing
+        /// on the screen — wider than the rail, plated, gold — because the feedback was
+        /// not "the button was in the wrong place", it was "I could not find where to
+        /// begin". A second-most-obvious start button would not have fixed that.
+        ///
+        /// The label says what happens, not where it goes. "출정" is the game's word and
+        /// a returning player knows it; a first-timer does not, and the survey lesson in
+        /// this repo is that they leave rather than learn.
+        ///
+        /// GEOMETRY — 103.3 u tall, not the 62 u the first draft used. 62 u measured
+        /// 30.3 CSS px in the touch-floor sweep and failed the 44 px floor on BOTH axes:
+        /// the game's most important button was its least pressable control. 103.3 is the
+        /// rail icons' number and it is not round for a reason (LobbyContainmentTests
+        /// :553) — it is exactly 44.0 px at the band-A worst 0.4261 px/u, so this button
+        /// clears the floor at the support floor and not merely at the audit's basis.
+        ///
+        /// BELOW the rail, not above it. Above it is off-canvas: the rail starts at
+        /// PanelTop -72 and this button is 103.3 tall, so an "above" placement puts its
+        /// top edge past y=0 and the plate is clipped by the canvas. Below also puts it
+        /// in thumb reach on the portrait phone this sweep measures, and it leaves the
+        /// pinned rail pitch (three 103.3 squares on a 115.3 stride) untouched — that
+        /// pitch is asserted in two other files and is not this feature's to move.
+        /// </summary>
+        void BuildPlayNow(Transform root)
+        {
+            var button = TextButton(root, new Vector2(0, 1),
+                new Vector2(RailLeft - 6, PanelTop - 3 * (RailIcon + RailGap)),
+                new Vector2(RailIcon + 12, PlayNowHeight),
+                "▶  바로 시작", 19, () => _callbacks.OnSortie?.Invoke(GameDirectorPlayNowTarget),
+                plated: true);
+            button.name = "PlayNow";
+
+            // The plate carries emphasis by SPRITE, not by tint. TextButton's own
+            // comment (:2274) says a sprite would multiply-tint, and the first draft
+            // of this button proved it in the shipped frame: gold multiplied into the
+            // dark ember plate came out muddy brown, and the near-black label I had
+            // chosen for gold became unreadable on it. A tint can only ever DARKEN a
+            // dark plate — there is no colour that brightens one. So emphasis has to
+            // come from the three things that are not the fill: the warmer plate, a
+            // gold border where every other panel is cyan, and size.
+            var plate = button.GetComponent<Image>();
+            if (plate != null) PlateStateful(plate, true);
+            Border(button.transform, true, Gold);
+
+            var label = button.GetComponentInChildren<Text>();
+            if (label != null)
+            {
+                label.color = Gold;
+                // Lifted off centre so the caption below has its own band. Left at
+                // centre the two lines collide, and a label overlapping its own
+                // explanation is the single-builder overlap this repo audits for
+                // (§4f) — authored here in one function precisely so it cannot.
+                label.alignment = TextAnchor.UpperCenter;
+                var rect = label.rectTransform;
+                rect.offsetMin = new Vector2(rect.offsetMin.x, rect.offsetMin.y + 24f);
+            }
+
+            // A caption under the label, not a tooltip: a tooltip requires knowing to
+            // hover, which is the same "you must already know" trap the rail icons set.
+            var hint = Label(button.transform, 0, -(PlayNowHeight - 34f), RailIcon + 12, 26,
+                "튜토리얼부터\n자동으로", 11, TextAnchor.UpperCenter);
+            hint.color = InkDim;
+        }
+
+        /// <summary>Deliberately equal to RailIcon: see BuildPlayNow's GEOMETRY note.
+        /// Shrinking this below 103.3 re-opens the touch-floor failure it was raised
+        /// to close, and LobbyLayoutTests' debt table is what will say so.</summary>
+        const float PlayNowHeight = RailIcon;
+        /// <summary>Mirrors GameDirector.PlayNowTarget. The View may not reference the
+        /// director, so the two share the literal and a test pins them together.</summary>
+        public const string GameDirectorPlayNowTarget = "play-now";
+
         void BuildRail(Transform root)
         {
+            BuildPlayNow(root);
             for (var i = 0; i < 3; i++)
             {
                 var index = i;
@@ -472,7 +543,7 @@ namespace CinderCourt.View
                 // Glyph above it. The caption is not decoration: three fantasy
                 // silhouettes at 45 px are recognition, and recognition is not
                 // the same as knowing which one you have not opened yet.
-                var sprite = Resources.Load<Sprite>("Icons/" + RailIconIds[i]);
+                var sprite = IconSprites.Load(RailIconIds[i]);
                 if (sprite != null)   // Image without sprite = white quad
                 {
                     var glyphObject = new GameObject("Glyph");
@@ -597,9 +668,13 @@ namespace CinderCourt.View
             => _railButtons[Mathf.Clamp(index, 0, 2)] == null
                 ? null : (RectTransform)_railButtons[Mathf.Clamp(index, 0, 2)].transform;
 
-        /// <summary>Opens the tab meta screen on its default tab. Public so a
-        /// future deep link (or a QA route) can reach it without a click.</summary>
-        public void OpenMetaScreen() => _meta?.Show(in _lastData, MetaScreenView.TabEquip);
+        /// <summary>Opens the sanctum directly on its equipment tab.</summary>
+        public void OpenMetaScreen() => OpenSanctumEquipment();
+        void OpenSanctumEquipment()
+        {
+            SelectRail(RailSanctum);
+            SelectTab(1);
+        }
 
         /// <summary>Test seam: the word a sortie card is actually showing on its
         /// right edge. "" is the de-duplicated state — the map owns it.</summary>
@@ -1549,7 +1624,7 @@ namespace CinderCourt.View
                 var card = Card(body, -slot * CardPitch, 68);
                 _stageCardRects[i] = card.GetComponent<RectTransform>();
                 Eyebrow(card.transform, 12, -6, entry.Kicker, entry.Title);
-                var glyphSprite = Resources.Load<Sprite>("Icons/" + entry.HazardIcon);
+                var glyphSprite = IconSprites.Load(entry.HazardIcon);
                 if (glyphSprite != null)
                 {
                     var glyphObject = new GameObject("HazardGlyph");
@@ -2166,7 +2241,7 @@ namespace CinderCourt.View
         /// <summary>36px sprite at the row's left edge; no-op when missing.</summary>
         void RowIcon(Transform row, string iconId)
         {
-            var sprite = Resources.Load<Sprite>("Icons/" + iconId);
+            var sprite = IconSprites.Load(iconId);
             if (sprite == null) return;   // Image without sprite = white quad
             var iconObject = new GameObject("Icon");
             iconObject.transform.SetParent(row, false);
@@ -2188,9 +2263,7 @@ namespace CinderCourt.View
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(parent, false);
             var text = labelObject.AddComponent<Text>();
-            text.font = _font;
-            text.fontSize = size;
-            text.alignment = anchor;
+            ViewTypography.Configure(text, _font, size, anchor);
             text.text = content;
             text.color = new Color(0.92f, 0.94f, 1f);
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -2214,7 +2287,7 @@ namespace CinderCourt.View
             // 9-slice ember plate for stateless action buttons. Stateful groups
             // (tabs, roster) keep the flat fill because Refresh/SelectTab drive
             // Image.color as the state signal - a sprite would multiply-tint.
-            var plate = plated ? Resources.Load<Sprite>("Icons/ui-button") : null;
+            var plate = plated ? IconSprites.Load("ui-button") : null;
             if (plate != null)
             {
                 var image = buttonObject.GetComponent<Image>();
@@ -2273,19 +2346,34 @@ namespace CinderCourt.View
         /// (top-bar underline).</summary>
         void Border(Transform parent, bool full)
         {
-            Line(parent, new Vector2(0, 0), new Vector2(1, 0));          // bottom
+            Border(parent, full, BorderColor);
+        }
+
+        /// <summary>Border in a caller-chosen colour. Additive overload: the two-arg
+        /// form is the house border and stays the default for every existing caller.
+        /// The colour exists for surfaces that must NOT read as one more panel — the
+        /// start button is the only one today, and it is the one control a first-timer
+        /// has to find without being told.</summary>
+        void Border(Transform parent, bool full, Color color)
+        {
+            Line(parent, new Vector2(0, 0), new Vector2(1, 0), color);    // bottom
             if (!full) return;
-            Line(parent, new Vector2(0, 1), new Vector2(1, 1));          // top
-            LineVertical(parent, 0);
-            LineVertical(parent, 1);
+            Line(parent, new Vector2(0, 1), new Vector2(1, 1), color);    // top
+            LineVertical(parent, 0, color);
+            LineVertical(parent, 1, color);
         }
 
         void Line(Transform parent, Vector2 anchorMin, Vector2 anchorMax)
         {
+            Line(parent, anchorMin, anchorMax, BorderColor);
+        }
+
+        void Line(Transform parent, Vector2 anchorMin, Vector2 anchorMax, Color color)
+        {
             var line = new GameObject("Line");
             line.transform.SetParent(parent, false);
             var image = line.AddComponent<Image>();
-            image.color = BorderColor;
+            image.color = color;
             image.raycastTarget = false;
             var rect = line.GetComponent<RectTransform>();
             rect.anchorMin = anchorMin;
@@ -2297,10 +2385,15 @@ namespace CinderCourt.View
 
         void LineVertical(Transform parent, float anchorX)
         {
+            LineVertical(parent, anchorX, BorderColor);
+        }
+
+        void LineVertical(Transform parent, float anchorX, Color color)
+        {
             var line = new GameObject("Line");
             line.transform.SetParent(parent, false);
             var image = line.AddComponent<Image>();
-            image.color = BorderColor;
+            image.color = color;
             image.raycastTarget = false;
             var rect = line.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(anchorX, 0);

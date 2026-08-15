@@ -1,0 +1,20 @@
+{
+  "pass": "campaign difficulty curve",
+  "date": "2026-08-10",
+  "finding": "The campaign got EASIER as it progressed. Player power compounds across a run of runs (meta stats to 10, equipment to rank 5) while the wave budget was stage-blind — it grows with the WAVE and the DDA band, and both reset at the start of every run.",
+  "measured": {
+    "playerAtCap": "damage 58 -> 98 (1.69x), health 100 -> 220 (2.20x), effective 3.72x",
+    "enemyLoad": "stage 0 3612 -> stage 8 9010 = 2.49x",
+    "relativeDifficultyAtStage8": "0.67x of stage 0, sagging monotonically",
+    "ddaCannotFixIt": "band +2 multiplies EVERY stage by the same 1.250, moving the curve without changing its slope: 0.67 -> 0.80"
+  },
+  "whatWasNotTouched": "CampaignTypes.cs carries a // FROZEN CONTRACT header and its wave table (5/6/7/8/8/9 per anchor) is pinned byte-exact by DungeonGoldenDigestTests.Golden_ClassicCampaignAnchors_AreUnchanged. Giving each of the nine catalog stages its own wave count was therefore not available. The pairs that share an anchor (0/1, 2/3, 4/5) still field an identical enemy budget — they differ by hazard override, terrain and boss archetype, which is a legitimate 'same pack, different arena' design.",
+  "change": {
+    "where": "WaveBudgetSpec.StageProgressionPermille = 90, applied in EffectiveBudget(wave, band, stageIndex)",
+    "why here": "DungeonProgressionSpec is dungeon-only and gated behind DungeonProgressionConfig, which zeroes for arena, prologue and the classic campaign anchors — so no golden can see it. The gate confirmed it: 886/886 with zero re-pinning.",
+    "shape": "90 permille per SIM ANCHOR index (0..5, the only stage identity the sim receives) = 1.00/1.09/1.18/1.27/1.36/1.45",
+    "result": "stage 8 load 2.49 * 1.45 = 3.61x against a 3.72x player -> 0.97 relative, flat within the resolution the anchor mapping allows"
+  },
+  "arenaUnchanged": "EffectiveBudget(wave, band) kept as an overload and stage 0 is byte-identical to it — asserted over 12 waves by ArenaBudgetIsUnchangedByTheCampaignTerm",
+  "verification": "CampaignProgressionCurveTests runs real sims and reads WaveBudget: 100/109/118/127/136/145 by anchor. Mutation-proved — permille 0 turns two tests RED with the measured numbers in the message."
+}

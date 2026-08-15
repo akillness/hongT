@@ -15,6 +15,36 @@ namespace CinderCourt.Tests
     {
         private const string CampaignKey = "abyssal-lantern:unity:campaign";
 
+        // Routes now acquire the lobby's StageMood/shadow lease on Attach, so
+        // the fixture snapshots the global render state the same way
+        // StageShadowLifecycleTests does — a leaked sun would bleed between
+        // suites.
+        private Light _originalSun;
+        private UnityEngine.Rendering.AmbientMode _originalAmbientMode;
+        private Color _originalAmbient;
+        private Color _originalFog;
+
+        [SetUp]
+        public void CaptureRenderGlobals()
+        {
+            _originalSun = RenderSettings.sun;
+            _originalAmbientMode = RenderSettings.ambientMode;
+            _originalAmbient = RenderSettings.ambientLight;
+            _originalFog = RenderSettings.fogColor;
+            StageShadowPolicy.ResetSessionForTests();
+        }
+
+        [TearDown]
+        public void RestoreRenderGlobals()
+        {
+            StageMood.Clear();
+            RenderSettings.sun = _originalSun;
+            RenderSettings.ambientMode = _originalAmbientMode;
+            RenderSettings.ambientLight = _originalAmbient;
+            RenderSettings.fogColor = _originalFog;
+            StageShadowPolicy.ResetSessionForTests();
+        }
+
         [UnityTest]
         public IEnumerator CampaignClear_PersistsUnlockAndCarriesSelectedOrDeferredRestIntoDirectSuccessor()
         {
@@ -30,6 +60,280 @@ namespace CinderCourt.Tests
                 {
                     route.Dispose();
                 }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EmberRest_ReturnHomeButton_IsReachableFromPlayerHud()
+        {
+            var route = new CampaignRoute();
+            try
+            {
+                yield return null; // Let Unity invoke GameView.Start and initialize this route.
+                route.StartCinderSpanThroughLobbyCallback();
+                var cleared = route.Game.Sim as CinderSim;
+                Assert.That(cleared, Is.Not.Null, "the sortie callback must start the cinder-span simulation");
+                ClearCinderSpan(cleared);
+
+                route.Game.OnRunEvents.Invoke(cleared.Events, cleared);
+                var rest = route.Game.EmberRestSnapshot;
+                Assert.That(rest, Is.Not.Null, "a cleared stage with a direct successor must open Ember Rest");
+                Assert.That(rest.EmberRestOpen, Is.True, "the GameDirector callback must open Ember Rest");
+
+                var returnHome = route.HudButtonNamed("EmberRestReturnHome");
+                Assert.That(returnHome, Is.Not.Null, "the Ember Rest panel must expose a 성소 귀환 button");
+                Assert.That(returnHome.gameObject.activeInHierarchy, Is.True,
+                    "the Ember Rest return-home button must be visible to the player");
+                Assert.That(returnHome.interactable, Is.True,
+                    "the Ember Rest return-home button must be click-ready when panel is open");
+                returnHome.onClick.Invoke();
+
+                Assert.That(route.Director.Current, Is.EqualTo(GameDirector.State.Lobby),
+                    "clicking Ember Rest 성소 귀환 must leave the route through lobby");
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Act I/II have direct successors, so their normal route is Ember Rest
+        /// "continue" rather than the lobby. The act reel must hold that handoff
+        /// and release it exactly once on the shared completed/skipped/failed
+        /// callback; otherwise the next ordinary clear overwrites the pending
+        /// beat and the player never sees it.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator EmberRestDirectSuccessor_WaitsForPendingActCinematic()
+        {
+            var route = new CampaignRoute(withIntro: true);
+            try
+            {
+                yield return null;
+                route.StartCinderSpanThroughLobbyCallback();
+                var completed = route.Game.Sim as CinderSim;
+                Assert.That(completed, Is.Not.Null);
+                ClearCinderSpan(completed);
+                route.Game.OnRunEvents.Invoke(completed.Events, completed);
+                Assert.That(route.Hud.OnEmberRestDeferred.Invoke(), Is.True);
+
+                route.PrimeActCinematic(
+                    IntroVideoView.Act1ClipRelativePath,
+                    "첫 세 재판이 끝났습니다.");
+                route.Hud.OnEmberRestContinue.Invoke();
+
+                Assert.That(route.Intro.Active, Is.True,
+                    "the act reel must start before the direct successor");
+                Assert.That(route.Game.Sim, Is.SameAs(completed),
+                    "StartDungeon must wait for the cinematic completion callback");
+
+                route.Intro.Skip();
+                for (var i = 0; i < 8; i++) route.Intro.Step(0.25f);
+
+                Assert.That(route.Intro.Active, Is.False);
+                Assert.That(route.Game.Sim, Is.Not.SameAs(completed),
+                    "skip is one of the safe completion paths and must release progression");
+                Assert.That(((ICampaignSnapshot)route.Game.Sim).StageId,
+                    Is.EqualTo(StageCatalog.Entries[1].SimAnchorId));
+                Assert.That(route.Intro.OnFinished, Is.Null,
+                    "the continuation callback is one-shot and must not leak into a later reel");
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// The loading frame must name WHICH door is being opened. Every stage
+        /// ships scene-stage-entry-&lt;id&gt; key art, so no context (transition,
+        /// boss entry) may ever collapse onto its shared generic frame — that
+        /// was the "same image on every entry" report: Ember Rest continuations
+        /// all rode scene-transition.png and monarch stages all rode
+        /// scene-boss-entry.png while nine per-stage frames sat unused.
+        /// </summary>
+        [Test]
+        public void StageCutsceneSprite_PerStageArtOutranksTheGenericFrame()
+        {
+            var root = new GameObject("StageCutsceneSpriteTests");
+            try
+            {
+                var director = root.AddComponent<GameDirector>();
+                foreach (var entry in StageCatalog.Entries)
+                {
+                    var stageArt = "scene-stage-entry-" + entry.Id;
+                    // §4m: assert the premise — the chain only means something
+                    // while the per-stage key-art set actually exists.
+                    Assert.That(Resources.Load<Sprite>("Scenes/" + stageArt), Is.Not.Null,
+                        $"{entry.Id}: missing stage key art; the fallback-chain contract rests on it");
+
+                    foreach (var generic in new[]
+                             { "scene-stage-entry", "scene-transition", "scene-boss-entry" })
+                    {
+                        var resolved = director.StageCutsceneSprite(generic, entry.Id);
+                        Assert.That(resolved, Is.Not.EqualTo(generic),
+                            $"{entry.Id}/{generic}: with per-stage art authored the loading frame "
+                            + "must never fall back to the shared generic");
+                        Assert.That(Resources.Load<Sprite>("Scenes/" + resolved), Is.Not.Null,
+                            $"{entry.Id}/{generic}: the resolver may only name frames that exist");
+                        var contextArt = generic + "-" + entry.Id;
+                        if (Resources.Load<Sprite>("Scenes/" + contextArt) != null)
+                            Assert.That(resolved, Is.EqualTo(contextArt),
+                                $"{entry.Id}/{generic}: an authored context frame outranks stage key art");
+                        else
+                            Assert.That(resolved, Is.EqualTo(stageArt),
+                                $"{entry.Id}/{generic}: without a context frame the stage key art wins");
+                    }
+                }
+
+                Assert.That(director.StageCutsceneSprite("scene-transition", "no-such-stage"),
+                    Is.EqualTo("scene-transition"), "unknown stages keep the generic floor");
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        /// <summary>
+        /// The act reel is consumed at the NEXT transition, whichever it is. A
+        /// latch only drained by EnterLobby surfaced the cinematic one or more
+        /// stages late when the player took a lobby-less route (retry, direct
+        /// sortie) — the "video arrives pushed back" report. StartDungeon owns
+        /// the gate now, before any run state changes.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator DirectSortie_WaitsForPendingActCinematic()
+        {
+            var route = new CampaignRoute(withIntro: true);
+            try
+            {
+                yield return null;
+                route.PrimeActCinematic(
+                    IntroVideoView.Act1ClipRelativePath,
+                    "첫 세 재판이 끝났습니다.");
+
+                route.ClickFirstDescent();
+
+                Assert.That(route.Intro.Active, Is.True,
+                    "a direct sortie must deliver the latched act reel before the run");
+                Assert.That(route.Game.Sim, Is.Null,
+                    "the run must not start underneath the reel");
+                Assert.That(route.Director.Current, Is.EqualTo(GameDirector.State.Lobby),
+                    "the mode switch waits for the reel's completion callback");
+
+                route.Intro.Skip();
+                for (var i = 0; i < 8; i++) route.Intro.Step(0.25f);
+
+                Assert.That(route.Intro.Active, Is.False);
+                Assert.That(route.Director.Current, Is.EqualTo(GameDirector.State.Dungeon),
+                    "skip is a completion path and must release the sortie");
+                Assert.That(((ICampaignSnapshot)route.Game.Sim).StageId,
+                    Is.EqualTo(StageCatalog.Entries[0].SimAnchorId));
+                Assert.That(route.Intro.OnFinished, Is.Null,
+                    "the continuation callback is one-shot");
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 2026-08-12 request: the lobby carries a background and shadows. The
+        /// sanctum dresses itself as the campaign's current stage — terrain
+        /// plate, mood rig (whose key light is the global sun + shadow lease) —
+        /// and the diorama's renderers join the caster layer. Entering a run
+        /// swaps to the run's own rig: exactly one StageMood root ever exists.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Lobby_CarriesStageMoodTerrainAndShadowLease()
+        {
+            var route = new CampaignRoute();
+            try
+            {
+                yield return null;
+                var policy = StageShadowPolicy.Current;
+                Assert.That(policy, Is.Not.Null, "the lobby must own a shadow lease");
+                Assert.That(policy.OwnsLease, Is.True);
+                Assert.That(RenderSettings.sun, Is.SameAs(policy.KeyLight),
+                    "the lobby mood key light is the sun while the lobby is up");
+                Assert.That(GameObject.Find(StageMood.RootName), Is.Not.Null,
+                    "the lobby applies the campaign stage's mood rig");
+                Assert.That(GameObject.Find("StageTerrain"), Is.Not.Null,
+                    "the campaign stage's terrain plate dresses the lobby");
+
+                var staging = route.Director.GetComponentInChildren<LobbyStaging>(true);
+                Assert.That(staging, Is.Not.Null);
+                var casters = 0;
+                foreach (var renderer in staging.GetComponentsInChildren<Renderer>())
+                {
+                    if (!StageShadowPolicy.IsEligibleCaster(renderer)) continue;
+                    // Court PROPS opt out, and the opt-out is a component in the object
+                    // graph rather than a name check — see LobbyCourtProp for the
+                    // measurement that separates them. This contract was written when
+                    // the diorama was three actors; it is right about actors and about
+                    // architecture, and small scenery is a category it never saw. With
+                    // every court piece casting, very-dark pixels in the play area went
+                    // from 1.90% to 9.75% and two opaque black masses appeared beside
+                    // the warden and the boss. Architecture still casts, so every claim
+                    // this assertion had when it was written still holds.
+                    if (renderer.GetComponentInParent<LobbyCourtProp>() != null) continue;
+                    Assert.That(renderer.shadowCastingMode,
+                        Is.EqualTo(UnityEngine.Rendering.ShadowCastingMode.On),
+                        $"{renderer.name}: diorama meshes must cast into the lobby key light");
+                    Assert.That(
+                        renderer.renderingLayerMask
+                            & StageShadowPolicy.CharacterShadowRenderingLayerMask,
+                        Is.Not.EqualTo(0u),
+                        $"{renderer.name}: casters must join the key light's shadow layer");
+                    casters++;
+                }
+                Assert.That(casters, Is.GreaterThan(0),
+                    "the diorama must contribute casters (the stage boss always composes)");
+
+                route.StartCinderSpanThroughLobbyCallback();
+
+                var moodRoots = 0;
+                foreach (var candidate in
+                         Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+                    if (candidate.name == StageMood.RootName) moodRoots++;
+                Assert.That(moodRoots, Is.EqualTo(1),
+                    "the lobby rig never survives into a run — one lease, one rig");
+                Assert.That(StageShadowPolicy.Current, Is.Not.Null);
+                Assert.That(StageShadowPolicy.Current.OwnsLease, Is.True);
+            }
+            finally
+            {
+                route.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Pre-prologue, nothing is unlocked and the campaign-position rule
+        /// returns null — the lobby must keep its first-door floor rather than
+        /// composing an empty room (§4l: the losing path is the one nobody
+        /// smokes).
+        /// </summary>
+        [UnityTest]
+        public IEnumerator FreshSaveLobby_StillComposesTheFirstDoorDiorama()
+        {
+            var route = new CampaignRoute(prologueDone: false);
+            try
+            {
+                yield return null;
+                var staging = route.Director.GetComponentInChildren<LobbyStaging>(true);
+                Assert.That(staging, Is.Not.Null);
+                Assert.That(staging.GetComponentsInChildren<Renderer>().Length,
+                    Is.GreaterThan(0),
+                    "a fresh save falls back to the first door, never to an empty sanctum");
+                Assert.That(GameObject.Find(StageMood.RootName), Is.Not.Null,
+                    "the fallback stage still lights the lobby");
+            }
+            finally
+            {
+                route.Dispose();
             }
         }
 
@@ -569,8 +873,9 @@ namespace CinderCourt.Tests
             public readonly LobbyView Lobby;
             public readonly HudView Hud;
             public readonly GameView Game;
+            public readonly IntroVideoView Intro;
 
-            public CampaignRoute()
+            public CampaignRoute(bool withIntro = false, bool prologueDone = true)
             {
                 foreach (var gameObject in Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include,
                              FindObjectsSortMode.None))
@@ -585,7 +890,7 @@ namespace CinderCourt.Tests
 
                 var initial = new CampaignData
                 {
-                    PrologueDone = true,
+                    PrologueDone = prologueDone,
                     Attack = 9,
                     Vitality = 9,
                     Swiftness = 9,
@@ -609,13 +914,32 @@ namespace CinderCourt.Tests
                 Game = AddChild<GameView>("Game");
                 var speech = AddChild<SpeechBubbleView>("Speech");
                 var cutscene = AddChild<CutsceneView>("Cutscene");
+                Intro = withIntro ? AddChild<IntroVideoView>("IntroVideo") : null;
                 Hud.Build();
                 Game.Input = input;
                 Game.Hud = Hud;
                 Game.Audio = audio;
                 Game.Vfx = vfx;
                 Game.Rig = rig;
-                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx, Game, speech, cutscene);
+                Director.Attach(null, Lobby, staging, rig, input, Hud, audio, vfx,
+                    Game, speech, cutscene, Intro);
+                // Attach may start the ordinary boot reel. This harness is
+                // testing an act transition and primes that beat explicitly.
+                if (Intro != null) Intro.Hide();
+            }
+
+            public void PrimeActCinematic(string reel, string narration)
+            {
+                SetDirectorField("_pendingActReel", reel);
+                SetDirectorField("_pendingActNarration", narration);
+            }
+
+            private void SetDirectorField(string name, object value)
+            {
+                var field = typeof(GameDirector).GetField(name,
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"GameDirector must retain {name}");
+                field.SetValue(Director, value);
             }
 
             /// <summary>
@@ -652,6 +976,21 @@ namespace CinderCourt.Tests
 
             public void StartCinderSpanThroughLobbyCallback()
             {
+                ClickFirstDescent();
+                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Dungeon),
+                    "the first sortie callback must enter the dungeon route");
+                Assert.That(((ICampaignSnapshot)Game.Sim).StageId, Is.EqualTo(StageCatalog.Entries[0].SimAnchorId),
+                    "the first sortie callback must begin cinder-span's frozen Sim stage");
+            }
+
+            /// <summary>
+            /// Clicks the first stage's 강하 button and nothing more — the
+            /// pending-act-cinematic gate means a click no longer implies an
+            /// immediate dungeon entry, so callers assert the outcome they
+            /// expect.
+            /// </summary>
+            public void ClickFirstDescent()
+            {
                 OpenSortieThroughRail();
 
                 Button firstDescent = null;
@@ -673,29 +1012,57 @@ namespace CinderCourt.Tests
                 Assert.That(firstDescent.interactable, Is.True,
                     "the initially available cinder-span sortie must be enterable");
                 firstDescent.onClick.Invoke();
-                Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Dungeon),
-                    "the first sortie callback must enter the dungeon route");
-                Assert.That(((ICampaignSnapshot)Game.Sim).StageId, Is.EqualTo(StageCatalog.Entries[0].SimAnchorId),
-                    "the first sortie callback must begin cinder-span's frozen Sim stage");
             }
 
-            /// <summary>Exits a finished run the way the player does — the HUD's
-            /// return-home action, which re-enters and refreshes the lobby.</summary>
+            /// <summary>Find a HUD button by exact object name.</summary>
+            public Button HudButtonNamed(string name)
+            {
+                return FirstButtonNamed(Hud.gameObject, name);
+            }
+
+            /// <summary>Find a Lobby button by exact object name.</summary>
+            private Button FirstButtonNamed(string name)
+            {
+                return FirstButtonNamed(Lobby.gameObject, name);
+            }
+
+            private Button FirstButtonNamed(GameObject root, string name)
+            {
+                foreach (var button in root.GetComponentsInChildren<Button>(true))
+                {
+                    if (string.Equals(button.gameObject.name, name, System.StringComparison.Ordinal))
+                        return button;
+                }
+
+                return null;
+            }
+
+            private Button FirstButtonLabelled(string prefix)
+            {
+                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
+                {
+                    var label = button.GetComponentInChildren<Text>(true);
+                    if (label != null && label.text.StartsWith(prefix, System.StringComparison.Ordinal))
+                        return button;
+                }
+
+                return null;
+            }
+
+            /// <summary>Return from Dungeon to Lobby via the Ember Rest "성소 귀환" HUD button.</summary>
             public void ReturnToLobbyThroughHud()
             {
-                Assert.That(Hud.OnReturnHome, Is.Not.Null,
-                    "GameDirector must wire the HUD return-home action");
-                Hud.OnReturnHome.Invoke();
+                var returnHome = HudButtonNamed("EmberRestReturnHome");
+                Assert.That(returnHome, Is.Not.Null, "the Ember Rest panel must expose the 성소 귀환 button");
+                Assert.That(returnHome.gameObject.activeInHierarchy, Is.True,
+                    "the Ember Rest return button must be visible to return to campaign lobby");
+                Assert.That(returnHome.interactable, Is.True,
+                    "the Ember Rest return button must be click-ready once the panel is open");
+                returnHome.onClick.Invoke();
                 Assert.That(Director.Current, Is.EqualTo(GameDirector.State.Lobby),
-                    "returning home must re-enter the lobby route");
+                    "clicking 성소 귀환 must return the route to lobby");
             }
 
-            /// <summary>Arms the first stage card's 서약 toggle through its real
-            /// button. The toggle is only built-visible on a cleared card, so a
-            /// hidden button here means the reveal contract regressed — which is
-            /// why the rail is opened first rather than asserted around: since
-            /// D-12 a closed lobby hides the toggle for a reason that has
-            /// nothing to do with the clear state this is testing.</summary>
             public void ArmPactOnFirstStageCard()
             {
                 OpenSortieThroughRail();
@@ -725,24 +1092,7 @@ namespace CinderCourt.Tests
                     "the repeat sortie must enter the dungeon route");
             }
 
-            private Button FirstButtonNamed(string name)
-            {
-                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
-                    if (string.Equals(button.gameObject.name, name, System.StringComparison.Ordinal))
-                        return button;
-                return null;
-            }
 
-            private Button FirstButtonLabelled(string prefix)
-            {
-                foreach (var button in Lobby.GetComponentsInChildren<Button>(true))
-                {
-                    var label = button.GetComponentInChildren<Text>(true);
-                    if (label != null && label.text.StartsWith(prefix, System.StringComparison.Ordinal))
-                        return button;
-                }
-                return null;
-            }
 
             public void Dispose()
             {

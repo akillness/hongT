@@ -27,22 +27,39 @@ namespace CinderCourt.Tests
 
         // --- factory / config -------------------------------------------------
 
+        /// <summary>
+        /// Gimmicks only. AMENDMENT #17 appends layout blockers
+        /// (<see cref="HazardKind.StoneWall"/>) to the same array, so a raw Length is
+        /// no longer the stage's gimmick count — which is what these assertions were
+        /// always about. Counting by kind keeps them measuring the table's contract
+        /// instead of the interior's density, which is free to change per stage.
+        /// </summary>
+        static int GimmickCount(HazardConfig[] hazards)
+        {
+            var count = 0;
+            foreach (var hazard in hazards)
+            {
+                if (hazard.Kind != HazardKind.StoneWall) count++;
+            }
+            return count;
+        }
+
         [Test]
         public void StageTable_MatchesAmendment()
         {
             var stage1 = Stage(CampaignStages.CinderSpan);
             Assert.AreEqual(5, stage1.Waves);
             Assert.AreEqual(EnemyVisual.BossCommander, stage1.BossVisual);
-            Assert.AreEqual(2, stage1.Hazards.Length);
+            Assert.AreEqual(2, GimmickCount(stage1.Hazards));
 
             var stage2 = Stage(CampaignStages.AbyssChancel);
             Assert.AreEqual(6, stage2.Waves);
-            Assert.AreEqual(4, stage2.Hazards.Length);
+            Assert.AreEqual(4, GimmickCount(stage2.Hazards));
 
             var stage3 = Stage(CampaignStages.EchoThrone);
             Assert.AreEqual(7, stage3.Waves);
             Assert.AreEqual(EnemyVisual.BossMonarch, stage3.BossVisual);
-            Assert.AreEqual(3, stage3.Hazards.Length);
+            Assert.AreEqual(3, GimmickCount(stage3.Hazards));
 
             Assert.IsFalse(CampaignStages.TryGet("no-such-stage", 0, 0, 0, out _));
         }
@@ -254,6 +271,42 @@ namespace CinderCourt.Tests
             }
         }
 
+        /// <summary>
+        /// <see cref="WalkOnto"/> that reports how many ticks it spent. #17c needs the
+        /// COST of a route, not just its endpoint: once a gimmick is solid, "did the
+        /// player arrive" stops distinguishing a short detour from a walk around the
+        /// whole arena, and on the ash-wall stage that difference is the whole contract.
+        /// </summary>
+        static int WalkOntoCounting(CinderSim sim, float targetX, float targetY, int maxTicks)
+        {
+            for (var t = 0; t < maxTicks; t++)
+            {
+                var dx = targetX - sim.Player.X;
+                var dy = targetY - sim.Player.Y;
+                if (dx * dx + dy * dy < 20f * 20f) return t;
+                var len = MathF.Max(0.001f, MathF.Sqrt(dx * dx + dy * dy));
+                var input = new SimInput { MoveX = dx / len, MoveY = dy / len };
+                sim.Tick(in input);
+            }
+            return maxTicks;
+        }
+
+        /// <summary>Ticks an unobstructed walk of <paramref name="distance"/> would take.</summary>
+        static int TicksFor(float distance)
+            => (int)MathF.Max(1f, MathF.Ceiling(distance / (SimConfig.PlayerSpeed * SimConfig.FixedStep)));
+
+        /// <summary>
+        /// Iso distance — the metric every hazard range in this sim is judged in
+        /// (hypot(dx, dy * IsoY)). Written once because a euclidean check would pass at
+        /// bearings the sim rejects and fail at bearings it accepts.
+        /// </summary>
+        static float IsoDistance(float ax, float ay, float bx, float by)
+        {
+            var dx = bx - ax;
+            var dy = (by - ay) * SimConfig.IsoY;
+            return MathF.Sqrt(dx * dx + dy * dy);
+        }
+
         static SimInput HoldPosition(CinderSim sim, float targetX, float targetY)
         {
             var dx = targetX - sim.Player.X;
@@ -422,16 +475,18 @@ namespace CinderCourt.Tests
             // vent(500,604,0.9) · vent(1030,604,2.1) · pillar(768,604) — the two vents
             // bomb the only safe corridor (y 580..630) between the widened lanes.
             var sluice = Stage(CampaignStages.CinderSluice).Hazards;
-            Assert.AreEqual(5, sluice.Length);
+            Assert.AreEqual(5, GimmickCount(sluice));
             Assert.AreEqual(HazardKind.TideCurrent, sluice[0].Kind);
-            Assert.AreEqual(768f, sluice[0].X); Assert.AreEqual(470f, sluice[0].Y);
+            Assert.AreEqual(768f, sluice[0].X);
+            Assert.AreEqual(CampaignSpec.CurrentNorthBandY, sluice[0].Y);
             Assert.AreEqual(CampaignSpec.CurrentPush, sluice[0].PushX);
             Assert.AreEqual(0f, sluice[0].PushY);
             Assert.AreEqual(0f, sluice[0].Phase);
             Assert.AreEqual(CampaignSpec.CurrentHalfW, sluice[0].HalfW);
             Assert.AreEqual(CampaignSpec.CurrentHalfH, sluice[0].HalfH);
             Assert.AreEqual(HazardKind.TideCurrent, sluice[1].Kind);
-            Assert.AreEqual(768f, sluice[1].X); Assert.AreEqual(740f, sluice[1].Y);
+            Assert.AreEqual(768f, sluice[1].X);
+            Assert.AreEqual(CampaignSpec.CurrentSouthBandY, sluice[1].Y);
             Assert.AreEqual(-CampaignSpec.CurrentPush, sluice[1].PushX);
             Assert.AreEqual(3f, sluice[1].Phase);
             Assert.AreEqual(HazardKind.EmberVent, sluice[2].Kind);
@@ -448,7 +503,7 @@ namespace CinderCourt.Tests
             // pillar(640,650) · pillar(900,560) · vent(768,604,0.6) — the third pylon
             // closes the aura net over the spawn convergence point (768,604).
             var bastion = Stage(CampaignStages.EmberBastion).Hazards;
-            Assert.AreEqual(6, bastion.Length);
+            Assert.AreEqual(6, GimmickCount(bastion));
             Assert.AreEqual(HazardKind.EmberPylon, bastion[0].Kind);
             Assert.AreEqual(560f, bastion[0].X); Assert.AreEqual(500f, bastion[0].Y);
             Assert.AreEqual(CampaignSpec.PylonHp, bastion[0].Hp);
@@ -472,7 +527,7 @@ namespace CinderCourt.Tests
             // covers it at iso 119: wall rhythm + shield war + altar risk converge,
             // campaign-fun-pass-spec.md §8).
             var march = Stage(CampaignStages.AshMarch).Hazards;
-            Assert.AreEqual(6, march.Length);
+            Assert.AreEqual(6, GimmickCount(march));
             Assert.AreEqual(HazardKind.AshWall, march[0].Kind);
             Assert.AreEqual(CampaignSpec.WallEdgeX, march[0].X);
             Assert.AreEqual(0f, march[0].Phase);
@@ -508,9 +563,9 @@ namespace CinderCourt.Tests
             // clear of BOTH corridor vents (500,604)/(1030,604) — v1.1 widened the
             // lanes (halfH 110) and vent-bombed the corridor, so the park spot is
             // pinned outside every blast disc below.
-            WalkOnto(sim, 650f, 470f, 60 * 4);
+            WalkOnto(sim, 650f, CampaignSpec.CurrentNorthBandY, 60 * 4);
             Assert.Less(sim.Player.X, 700f, "park must stay west of the pillar column");
-            Assert.LessOrEqual(MathF.Abs(sim.Player.Y - 470f), CampaignSpec.CurrentHalfH,
+            Assert.LessOrEqual(MathF.Abs(sim.Player.Y - CampaignSpec.CurrentNorthBandY), CampaignSpec.CurrentHalfH,
                 "park must sit inside lane A (y 360-580)");
             foreach (var (ventX, ventY) in new[] { (500f, 604f), (1030f, 604f) })
             {
@@ -531,12 +586,12 @@ namespace CinderCourt.Tests
             var idleStills = 0;
             for (var t = 0; t < 60 * 12 && sim.Mode != SimMode.GameOver; t++)
             {
-                var activeBefore = FindHazard(sim, HazardKind.TideCurrent, 768f, 470f).Active;
+                var activeBefore = FindHazard(sim, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active;
                 var xBefore = sim.Player.X;
                 var inBand = MathF.Abs(xBefore - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(sim.Player.Y - 470f) <= CampaignSpec.CurrentHalfH;
+                    && MathF.Abs(sim.Player.Y - CampaignSpec.CurrentNorthBandY) <= CampaignSpec.CurrentHalfH;
                 sim.Tick(in parkCast);
-                var activeAfter = FindHazard(sim, HazardKind.TideCurrent, 768f, 470f).Active;
+                var activeAfter = FindHazard(sim, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active;
                 if (!inBand) continue;
                 if (activeBefore && activeAfter)
                 {
@@ -559,13 +614,20 @@ namespace CinderCourt.Tests
             // across one active window while the player stays parked.
             var config2 = Stage(CampaignStages.CinderSluice, cloak: 5);
             var sim2 = new CinderSim(in config2);
-            WalkOnto(sim2, 650f, 470f, 60 * 4);
+            // Park INSIDE lane A but away from the band's own centre line. #17 moved
+            // that centre 470 -> 420, and at y 420 the frozen diamond only spans
+            // x 602..934 — the player ends up wedged near the top vertex and every
+            // enemy that can reach lane A approaches from below-right, so all of them
+            // walk -x faster than the current pushes +x and the max displacement comes
+            // back negative. y 520 is still inside the band (260..580) and leaves
+            // x 410..1126 of playfield, which is the roomy spot the original 470 was.
+            WalkOnto(sim2, 650f, SimConfig.ArenaY - 84f, 60 * 4);
             for (var guard = 0; guard < 60 * 7; guard++)
             {
-                if (FindHazard(sim2, HazardKind.TideCurrent, 768f, 470f).Active) break;
+                if (FindHazard(sim2, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active) break;
                 sim2.Tick(Idle);
             }
-            Assert.IsTrue(FindHazard(sim2, HazardKind.TideCurrent, 768f, 470f).Active,
+            Assert.IsTrue(FindHazard(sim2, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentNorthBandY).Active,
                 "lane A must activate within one period");
             var startX = new System.Collections.Generic.Dictionary<int, float>();
             for (var i = 0; i < sim2.Enemies.Count; i++)
@@ -573,7 +635,7 @@ namespace CinderCourt.Tests
                 var enemy = sim2.Enemies[i];
                 if (!enemy.Dead
                     && MathF.Abs(enemy.X - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(enemy.Y - 470f) <= CampaignSpec.CurrentHalfH)
+                    && MathF.Abs(enemy.Y - CampaignSpec.CurrentNorthBandY) <= CampaignSpec.CurrentHalfH)
                     startX[enemy.Id] = enemy.X;
             }
             Assert.Greater(startX.Count, 0, "an enemy must be inside lane A at activation");
@@ -596,7 +658,7 @@ namespace CinderCourt.Tests
             // Lane A, held +x through two active windows: never beyond the L1 diamond.
             var config = Stage(CampaignStages.CinderSluice, cloak: 5);
             var sim = new CinderSim(in config);
-            WalkOnto(sim, 990f, 470f, 60 * 8);
+            WalkOnto(sim, 990f, CampaignSpec.CurrentNorthBandY, 60 * 8);
             var right = new SimInput { MoveX = 1f };
             var maxX = sim.Player.X;
             for (var t = 0; t < 60 * 14 && sim.Mode != SimMode.GameOver; t++)
@@ -612,17 +674,17 @@ namespace CinderCourt.Tests
             // Lane B: parked at (830,740), x strictly decreases across active ticks.
             var configB = Stage(CampaignStages.CinderSluice, cloak: 5);
             var simB = new CinderSim(in configB);
-            WalkOnto(simB, 830f, 740f, 60 * 4);
+            WalkOnto(simB, 830f, CampaignSpec.CurrentSouthBandY, 60 * 4);
             var decreases = 0;
             var nonDecreases = 0;
             for (var t = 0; t < 60 * 12 && simB.Mode != SimMode.GameOver; t++)
             {
-                var activeBefore = FindHazard(simB, HazardKind.TideCurrent, 768f, 740f).Active;
+                var activeBefore = FindHazard(simB, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentSouthBandY).Active;
                 var xBefore = simB.Player.X;
                 var inBand = MathF.Abs(xBefore - 768f) <= CampaignSpec.CurrentHalfW
-                    && MathF.Abs(simB.Player.Y - 740f) <= CampaignSpec.CurrentHalfH;
+                    && MathF.Abs(simB.Player.Y - CampaignSpec.CurrentSouthBandY) <= CampaignSpec.CurrentHalfH;
                 simB.Tick(Idle);
-                var activeAfter = FindHazard(simB, HazardKind.TideCurrent, 768f, 740f).Active;
+                var activeAfter = FindHazard(simB, HazardKind.TideCurrent, 768f, CampaignSpec.CurrentSouthBandY).Active;
                 if (!inBand || !activeBefore || !activeAfter) continue;
                 if (simB.Player.X < xBefore) decreases++;
                 else nonDecreases++;
@@ -911,15 +973,44 @@ namespace CinderCourt.Tests
                 }
             }
             var tolerance = CampaignSpec.WallSpeed / 60f + 0.01f;   // one fixed step of travel
-            Assert.AreEqual(248f, leftSamples[270], tolerance, "t=4.5: rest ends, left depth still 0");
-            Assert.AreEqual(328f, leftSamples[420], tolerance, "t=7.0: advance 248+(7-6)*80");
-            Assert.AreEqual(808f, leftSamples[810], tolerance, "t=13.5: hold at 248+560 — PAST centre 768");
-            Assert.AreEqual(488f, leftSamples[1200], tolerance, "t=20.0: recede 808-(20-16)*80");
-            // Right wall local t = stage t + 11.5 — half a period out of phase.
-            Assert.AreEqual(728f, rightSamples[270], tolerance, "t=4.5: right local 16.0, hold end at 1288-560");
-            Assert.AreEqual(928f, rightSamples[420], tolerance, "t=7.0: right local 18.5, recede 728+(18.5-16)*80");
-            Assert.AreEqual(1288f, rightSamples[810], tolerance, "t=13.5: right local 2.0, resting at its edge");
-            Assert.AreEqual(1088f, rightSamples[1200], tolerance, "t=20.0: right local 8.5, advance 1288-(8.5-6)*80");
+            Assert.AreEqual(CampaignSpec.WallEdgeX, leftSamples[270], tolerance,
+                "t=4.5: rest ends, left depth still 0");
+            // AMENDMENT #17 rewrote these from literals to the timetable's own terms.
+            // The edges moved (248/1288 -> 33/1503) and the speed with them (80 ->
+            // WallDepthMax / WallAdvance = 110.71), so any literal here is a second
+            // source for a number CampaignSpec already owns (CLAUDE.md §4i).
+            //
+            // Worth noting what did NOT move: the full-depth positions, 808 and 728.
+            // WallDepthMax is derived from WallOvershoot, so both jaws still stop
+            // exactly 40 px past centre however far out the edges go. Only the
+            // mid-phase samples shift, because only the rate changed.
+            const float advanceStart = CampaignSpec.WallRest + CampaignSpec.WallTelegraph;
+            const float recedeStart = advanceStart + CampaignSpec.WallAdvance + CampaignSpec.WallHold;
+
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + (7.0f - advanceStart) * CampaignSpec.WallSpeed,
+                leftSamples[420], tolerance, "t=7.0: one second into the advance");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax,
+                leftSamples[810], tolerance, "t=13.5: hold at full depth — PAST centre 768");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeX + CampaignSpec.WallDepthMax
+                    - (20.0f - recedeStart) * CampaignSpec.WallSpeed,
+                leftSamples[1200], tolerance, "t=20.0: four seconds into the recede");
+            // Right wall local t = stage t + half a period — the jaws alternate.
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - CampaignSpec.WallDepthMax,
+                rightSamples[270], tolerance, "t=4.5: right local at hold, full depth");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - CampaignSpec.WallDepthMax
+                    + (18.5f - recedeStart) * CampaignSpec.WallSpeed,
+                rightSamples[420], tolerance, "t=7.0: right local 18.5, receding");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX,
+                rightSamples[810], tolerance, "t=13.5: right local 2.0, resting at its edge");
+            Assert.AreEqual(
+                CampaignSpec.WallEdgeRightX - (8.5f - advanceStart) * CampaignSpec.WallSpeed,
+                rightSamples[1200], tolerance, "t=20.0: right local 8.5, advancing");
 
             // (2) exact-10 drops on the 0.6 s grid. Killer-park at (300,604) — the L1
             // clamp pins x≈282-324 — one-shots wave arrivals (weapon 5: 75.4 vs ≤80 hp
@@ -1386,27 +1477,33 @@ namespace CinderCourt.Tests
                     // supporting furniture here — ember-bastion's identity is its
                     // three EmberPylons.
                     //
-                    // Why the target moved. A9 momentum (main b97d609) multiplies
-                    // swing damage, so the run resolves differently and the centre
-                    // bot's fixed zigzag no longer interacts with that corner. A
-                    // probe run INSIDE Unity (standalone dotnet disagrees here —
-                    // CLAUDE.md §4) swept every hazard at +50/120/200/300/400 px:
+                    // v1.5 re-probe (AMENDMENT #17c — pylons became SOLID at body 30,
+                    // so the bot's run resolves differently again). Swept INSIDE Unity
+                    // (standalone dotnet disagrees on digests — CLAUDE.md §4), every
+                    // bastion hazard at +50/120/200/300/400 px, baseline 3050|3|12|3:
                     //
-                    //   Pillar x=900   invisible at ALL five displacements
-                    //   Pylon  x=980   invisible at ALL five displacements
-                    //   Pylon  x=560   invisible +50, observed from +120
-                    //   Pylon  x=768   OBSERVED at +50   (3050|12 kills -> 2450|10)
+                    //   Pylon  x=980   OBSERVED at ALL FIVE  (+50 -> 2750|11)
+                    //   Pylon  x=560   blind +50/+200/+400, observed +120/+300
+                    //   Pylon  x=768   blind at ALL five     <- the v1.4 target, now dead
+                    //   Pillar x=640   score-identical; only the final position moves
+                    //   Pillar x=900   blind at all five
+                    //   Vent, StoneWall  blind at all five
                     //
-                    // x=768 is the v1.1 third pylon whose aura covers the spawn, so
-                    // the bot meets it immediately and a 50 px nudge already moves
-                    // the shield off the enemies it was covering. That keeps the
-                    // original small-nudge intent AND makes it observable.
+                    // x=980 is chosen because it is observable at EVERY displacement,
+                    // not merely at the one this recipe happens to use. The previous two
+                    // recipes each died the next time bot behaviour moved; a target with
+                    // margin on both sides survives a nudge to the script. It is still a
+                    // pylon, so "ember-bastion's identity is its three EmberPylons" holds.
+                    //
+                    // Note x=560's alternating blind/observed pattern: visibility is NOT
+                    // monotonic in displacement, so "a bigger nudge must be easier to see"
+                    // is false here. That is why this is swept and never reasoned about.
                     // Re-run the probe if the recipe changes again; do not guess.
                     for (var i = 0; i < hazards.Length; i++)
-                        if (hazards[i].Kind == HazardKind.EmberPylon && hazards[i].X == 768f)
+                        if (hazards[i].Kind == HazardKind.EmberPylon && hazards[i].X == 980f)
                         { hazards[i].X += 50f; return; }
-                    Assert.Fail("ember-bastion lost its x=768 spawn-covering pylon — re-probe "
-                        + "the recipe (a mutation the bot cannot observe proves nothing)");
+                    Assert.Fail("ember-bastion lost its x=980 pylon — re-probe the recipe "
+                        + "(a mutation the bot cannot observe proves nothing)");
                 },
                 RunCentreScript);
 
@@ -1414,11 +1511,90 @@ namespace CinderCourt.Tests
                 CampaignStages.AshMarch,
                 hazards =>
                 {
+                    // v1.5 re-probe (AMENDMENT #17c). The pinned `Phase += 0.3` went
+                    // blind when altars and pylons became solid and the corridor bot's
+                    // run resolved differently. Swept inside Unity, left wall (h=0),
+                    // baseline vs mutated on the full digest:
+                    //
+                    //   phase +0.05 T  +0.1 F  +0.2 F  +0.3 F  +0.45 T  +0.6 F
+                    //         +1.2  F  +2.4 T  +4   T  +5.75 T +11.5 T
+                    //   x     -200 T  -120 T  -50 T  +50 T  +120 T  +200 T  +300 T
+                    //
+                    // Phase visibility is PATCHY — five of eleven blind, and the pinned
+                    // one was among them. X is observable at every displacement swept,
+                    // so the recipe moves to placement, which is also what this test is
+                    // named for and what the ember-bastion sibling already uses. Picking
+                    // a target with margin on both sides is the lesson from the previous
+                    // two recipes, each of which died at the next behaviour change.
+                    // Re-run Probe_AshMarchMutationSweep_TEMP if it changes again.
                     for (var i = 0; i < hazards.Length; i++)
-                        if (hazards[i].Kind == HazardKind.AshWall) { hazards[i].Phase += 0.3f; return; }
+                        if (hazards[i].Kind == HazardKind.AshWall) { hazards[i].X += 50f; return; }
                     Assert.Fail("no wall on ash-march");
                 },
                 RunCorridorBot);
+        }
+
+        /// <summary>
+        /// The re-probe tool the ash-march mutation recipe above points at. NOT a
+        /// regression test: it asserts nothing, it MEASURES which mutations the corridor
+        /// bot can observe and writes the table to
+        /// _workspace/current/engineering/ash-march-mutation-sweep.txt.
+        ///
+        /// [Explicit] because it runs ~175 full 1800-tick sims. Kept in the suite rather
+        /// than deleted because every previous recipe died the next time bot behaviour
+        /// moved, and each time the fix started with rebuilding this sweep from scratch.
+        /// Run it with:
+        ///   Unity -batchmode -runTests -testPlatform EditMode \
+        ///     -testFilter CinderCourt.Tests.CampaignSimTests.Probe_AshMarchMutationSweep_TEMP
+        /// </summary>
+        [Test, Explicit]
+        public void Probe_AshMarchMutationSweep_TEMP()
+        {
+            var baselineConfig = Dungeon213(CampaignStages.AshMarch);
+            var baseline = RunCorridorBot(baselineConfig);
+
+            static string Key((RunDigest Digest, float X, float Y) run)
+                => $"{run.Digest.Score}|{run.Digest.Wave}|{run.Digest.Kills}|"
+                 + $"{run.Digest.Relics}|{run.Digest.HealthRemaining:R}|{run.Digest.Reason}|"
+                 + $"{run.X:R}|{run.Y:R}";
+
+            // Report to a FILE, not to TestContext.Progress. Measured: in batch mode the
+            // Progress stream reaches neither the results XML nor the Unity log, so a
+            // sweep that "passed" reported nothing at all — the probe silently produced
+            // no evidence while looking like it worked.
+            var report = new System.Text.StringBuilder();
+
+            void Probe(string label, int hazardIndex, Action<HazardConfig[]> mutate)
+            {
+                var config = Dungeon213(CampaignStages.AshMarch);
+                var hazards = (HazardConfig[])config.Hazards.Clone();
+                mutate(hazards);
+                config.Hazards = hazards;
+                var result = RunCorridorBot(config);
+                report.AppendLine(
+                    $"{label} h={hazardIndex} kind={hazards[hazardIndex].Kind} "
+                  + $"changed={Key(result) != Key(baseline)} result={Key(result)}");
+            }
+
+            report.AppendLine($"BASE {Key(baseline)} hazards={baselineConfig.Hazards.Length}");
+            for (var i = 0; i < baselineConfig.Hazards.Length; i++)
+            {
+                var index = i;
+                var source = baselineConfig.Hazards[index];
+                if (source.Kind == HazardKind.StoneWall) continue;
+
+                foreach (var delta in new[] { -200f, -120f, -50f, 50f, 120f, 200f, 300f })
+                {
+                    Probe($"x{delta:+0;-0}", index, hazards => hazards[index].X += delta);
+                    Probe($"y{delta:+0;-0}", index, hazards => hazards[index].Y += delta);
+                }
+
+                foreach (var delta in new[] { 0.05f, 0.1f, 0.2f, 0.3f, 0.45f, 0.6f, 1.2f, 2.4f, 4f, 5.75f, 11.5f })
+                    Probe($"phase+{delta:R}", index, hazards => hazards[index].Phase += delta);
+            }
+
+            System.IO.File.WriteAllText(
+                "_workspace/current/engineering/ash-march-mutation-sweep.txt", report.ToString());
         }
 
         delegate void HazardMutation(HazardConfig[] hazards);
@@ -1606,7 +1782,7 @@ namespace CinderCourt.Tests
         public void EmberGallery_VentRing_PulsesInPhaseOrder()
         {
             var config = CatalogStage("ember-gallery", 0, 0, 5);
-            Assert.AreEqual(5, config.Hazards.Length, "gallery v1.2: 4 ring vents + centre pillar");
+            Assert.AreEqual(5, GimmickCount(config.Hazards), "gallery v1.2: 4 ring vents + centre pillar");
             var ringPhases = new[] { 0f, 0.6f, 1.2f, 1.8f };
             for (var i = 0; i < 4; i++)
             {
@@ -1814,30 +1990,85 @@ namespace CinderCourt.Tests
             Assert.GreaterOrEqual(shieldedDrops, 3, "the finale pylon must shield altar-side wall ticks");
             Assert.GreaterOrEqual(rawDrops, 3, "deep-band enemies outside the aura still take raw ticks");
 
-            // (b) corridor invariant — the pylon body never blocks: stand ON the
-            // altar under the pylon aura, then walk straight through (768,520).
+            // (b) corridor invariant, AMENDED BY #17c. The altar and the pylon are now
+            // solid at their bodies (24 / 30), so the two old assertions asserted a
+            // world that no longer exists — and they were different in kind:
+            //
+            //   "hold the altar y band (604 +-14)" was a PREMISE. The player used to
+            //   stand on the altar's centre; now they are held on the channel ring at
+            //   body + push = 50 iso, i.e. y 639.2 exactly. The CONTRACT was never the
+            //   coordinate — it is that the player can channel WHILE inside the pylon
+            //   aura. Both halves are now asserted from the constants that define them,
+            //   so a later radius edit moves the assertion instead of breaking it (§4m).
+            //
+            //   "pass straight THROUGH the pylon body row" is a genuine SAFETY contract,
+            //   not a stylistic one: ash-march is the stage with the advancing ash wall,
+            //   where failing to cross a row is the wall catching you. It is amended to
+            //   "get across within a BOUNDED detour" — never to "may be blocked". The
+            //   bound is the same 2.5x geodesic ratio the layout gate uses, so the two
+            //   places that care about detours agree by construction.
             Assert.AreEqual(768f, sim.Player.X, 2f, "player must stand at x 768 (altar) under the pylon");
-            Assert.AreEqual(604f, sim.Player.Y, 14f, "player must hold the altar y band");
+            var altarIso = IsoDistance(768f, 604f, sim.Player.X, sim.Player.Y);
+            Assert.LessOrEqual(altarIso, CampaignSpec.AltarRadius,
+                "player must be inside the altar channel ring");
+            var auraIso = IsoDistance(768f, 520f, sim.Player.X, sim.Player.Y);
+            Assert.LessOrEqual(auraIso, CampaignSpec.PylonAuraRadius,
+                "player must still be inside the finale pylon aura");
+
             var through = new CinderSim(in config);
-            WalkOnto(through, 768f, 604f, 60 * 4);
-            WalkOnto(through, 768f, 470f, 60 * 4);   // path crosses pylon centre (768,520)
-            Assert.AreEqual(768f, through.Player.X, 2f, "corridor x must stay walkable through the pylon");
-            Assert.Less(through.Player.Y, 520f, "the player must pass THROUGH the pylon body row");
+            WalkOntoCounting(through, 768f, 604f, 60 * 4);
+            var startY = through.Player.Y;
+            const float crossY = 440f;          // north of the pylon row (520) and its body
+            var straightTicks = TicksFor(MathF.Abs(startY - crossY));
+
+            // Two legs: step off the corridor, cross the row, come back to it. A single
+            // straight walk cannot express this — a dead-on approach has no tangential
+            // component, so the player rests against the body forever. That is ordinary
+            // collision, not a defect; the contract is that a route EXISTS and is cheap.
+            var used = WalkOntoCounting(through, 688f, 520f, 60 * 4)
+                     + WalkOntoCounting(through, 768f, crossY, 60 * 4);
+
+            Assert.Less(through.Player.Y, 470f, "the player must get across the pylon body row");
+            Assert.AreEqual(768f, through.Player.X, 24f, "the player must return to the corridor x");
+            Assert.LessOrEqual(used, straightTicks * 2.5f,
+                $"crossing must stay inside a 2.5x detour ({used} ticks vs {straightTicks} straight) — "
+                + "ash-march closes an ash wall behind this move");
         }
 
         /// <summary>
-        /// Park on the altar (768,604) and swing only when the nearest live enemy
-        /// is inside iso 100 and in the facing arc — the struck enemy is then
-        /// provably near the altar (contact ring ≈ iso 70). Returns the intended
-        /// target index, -1 when this tick cannot be a clean gated strike.
+        /// Hold the altar (768,604) and swing only when the nearest live enemy is
+        /// inside iso 100 and in the facing arc. Returns the intended target index,
+        /// -1 when this tick cannot be a clean gated strike.
+        ///
+        /// AMENDMENT #17c: "held" means INSIDE THE CHANNEL RING, not within 12 px of
+        /// the centre. The altar is solid at its plinth now, so a walker aimed at the
+        /// centre is stopped at body + push = 50 iso and the old 12 px gate could never
+        /// open — the whole test reported "no strike happened" (-1) rather than a wrong
+        /// number, which is the shape a stale PREMISE takes. The gate now asks the
+        /// question the gimmick itself asks (iso within AltarRadius), so it tracks the
+        /// radii instead of a hand-picked tolerance (§4i).
+        ///
+        /// The struck enemy stays provably inside the pylon aura, which is what the
+        /// caller checks: the player sits at most 50 iso off the altar and strikes
+        /// within iso 100, so the target is within 150 of the altar against an aura of
+        /// 280.
         /// </summary>
+        /// <summary>
+        /// How near the ALTAR a struck enemy must be for the altar-gate tests to own it.
+        /// Sized against the tightest consumer: ash-verdict's pylon sits iso 212 from the
+        /// altar and shields to 280, so a target inside 60 of the altar is inside 272 of
+        /// the pylon — shielded with 8 px to spare. Written as a derivation because the
+        /// margin is thin enough that a later placement edit must re-check it.
+        /// </summary>
+        const float AltarStrikeReach = 60f;
+
         static SimInput AltarGateStrikeInput(CinderSim sim, out int targetIdx)
         {
             targetIdx = -1;
             var input = default(SimInput);
             float px = sim.Player.X, py = sim.Player.Y;
             float dx = 768f - px, dy = 604f - py;
-            if (dx * dx + dy * dy > 12f * 12f)
+            if (IsoDistance(768f, 604f, px, py) > CampaignSpec.AltarRadius)
             {
                 var len = MathF.Max(0.001f, MathF.Sqrt(dx * dx + dy * dy));
                 input.MoveX = dx / len;
@@ -1850,6 +2081,16 @@ namespace CinderCourt.Tests
             {
                 var enemy = sim.Enemies[i];
                 if (enemy.Dead) continue;
+
+                // Measured from the ALTAR, not from the player. The player used to BE
+                // the altar's centre, so the two were the same question; now they are
+                // held 50 iso off it and "within 100 of me" reaches 150 past the altar
+                // — far enough to strike an enemy the finale pylon is not shielding.
+                // Measured: that returned raw 58 damage where the test asserts 30.16,
+                // i.e. the gate silently changed which enemies it selected. 60 keeps the
+                // target inside 272 of the pylon against an aura of 280.
+                if (IsoDistance(768f, 604f, enemy.X, enemy.Y) > AltarStrikeReach) continue;
+
                 float ex = enemy.X - px, ey = (enemy.Y - py) * SimConfig.IsoY;
                 var d2 = ex * ex + ey * ey;
                 if (d2 < bestD2) { bestD2 = d2; bestDx = ex; targetIdx = i; }
@@ -2057,10 +2298,16 @@ namespace CinderCourt.Tests
 
                 var ticks = hasWall ? 60 * 23 : hasCurrent ? 60 * 12 : 60 * 3;
                 var bot = hasWall ? (CensusBot)CorridorMidInput : BotInput;
-                AssertTelegraphCensus(new CinderSim(in config), config.Hazards, id + " (pact)", ticks, bot);
+                // AMENDMENT #17: mirror what the SIM carries, not what the table lists.
+                // PactStage builds a frozen-bounds run, and a frozen-bounds run strips
+                // the layout blockers the expanded playfield placed — so the raw table
+                // has entries the sim never publishes. Same routine the constructor
+                // uses, so the two cannot drift.
+                var carried = CinderSim.WithoutLayoutBlockers(config.Hazards);
+                AssertTelegraphCensus(new CinderSim(in config), carried, id + " (pact)", ticks, bot);
 
                 if (hasWall)
-                    AssertAnalyticCensus(config.Hazards, id + " (pact)", 60 * 276);
+                    AssertAnalyticCensus(carried, id + " (pact)", 60 * 276);
             }
         }
 

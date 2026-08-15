@@ -1,0 +1,43 @@
+{
+  "input": "/Users/jangyoung/orca/workspaces/HongT/main/_workspace/current/engineering/mesh-gen/player-rig/anim130.glb",
+  "output": "/Users/jangyoung/orca/workspaces/HongT/main/Assets/Art/Motion/Mage Cast.fbx",
+  "sourceAction": "mage_soell_cast_1",
+  "keyframeRange": [
+    0.8000000715255737,
+    85.5999984741211
+  ],
+  "sceneRange": [
+    0,
+    85
+  ],
+  "seconds": 3.5416666666666665,
+  "takeName": "Mage Cast",
+  "bones": [
+    "Hips",
+    "LeftUpLeg",
+    "LeftLeg",
+    "LeftFoot",
+    "LeftToeBase",
+    "RightUpLeg",
+    "RightLeg",
+    "RightFoot",
+    "RightToeBase",
+    "Spine02",
+    "Spine01",
+    "Spine",
+    "LeftShoulder",
+    "LeftArm",
+    "LeftForeArm",
+    "LeftHand",
+    "RightShoulder",
+    "RightArm",
+    "RightForeArm",
+    "RightHand",
+    "neck",
+    "Head",
+    "head_end",
+    "headfront"
+  ],
+  "exported": true,
+  "exportedBytes": 695356
+}

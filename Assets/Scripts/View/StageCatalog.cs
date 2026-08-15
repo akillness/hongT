@@ -110,53 +110,17 @@ namespace CinderCourt.View
     public static class StageCatalog
     {
         // ------------------------------------------------ fun-pass v1.2 tables --
-        // campaign-fun-pass-spec.md: every stage = one dominant gimmick, ramped
-        // preview→mastery. Placements are the spec's verbatim sim coordinates;
-        // simultaneous-telegraph budget (≤3 total, ≤2 same-kind) pre-computed in
-        // the spec and frozen by the TestLane LCM census.
-
-        // Stage 1 "불씨 윤무" — vent mastery: clockwise phase ring (0/0.6/1.2/1.8 s
-        // on the 2.4 s vent period) around a central pillar.
-        static readonly HazardConfig[] EmberGalleryHazards =
-        {
-            HazardConfig.Vent(560f, 480f, 0f),
-            HazardConfig.Vent(980f, 480f, 0.6f),
-            HazardConfig.Vent(980f, 720f, 1.2f),
-            HazardConfig.Vent(560f, 720f, 1.8f),
-            HazardConfig.Pillar(768f, 604f),
-        };
-
-        // Stage 3 "쌍 제단" — altar introduction with risk: diagonal altar pair,
-        // each guarded by an offset-phase vent (channel while dodging the rhythm).
-        static readonly HazardConfig[] WitnessWellHazards =
-        {
-            HazardConfig.Altar(560f, 500f),
-            HazardConfig.Altar(980f, 700f),
-            HazardConfig.Pillar(768f, 604f),
-            HazardConfig.Vent(560f, 700f, 0.3f),
-            HazardConfig.Vent(980f, 500f, 1.5f),
-        };
-
-        // Stage 4 "왕좌의 조류" — current preview: one weak band (+120 push) over
-        // the central altar; the 1.2 s hold must ride the 2.8 s current rest window.
-        static readonly HazardConfig[] EchoThroneHazards =
-        {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Vent(500f, 700f, 0f),
-            HazardConfig.Vent(1030f, 480f, 1.2f),
-            HazardConfig.Current(768f, 604f, 120f, 0.3f),
-        };
-
-        // Stage 5 "판결의 방벽" — pylon preview: one pylon guarding the altar
-        // approach (aura 280 covers the centre — kill it first or channel shielded
-        // enemies).
-        static readonly HazardConfig[] AshVerdictHazards =
-        {
-            HazardConfig.Altar(768f, 604f),
-            HazardConfig.Pylon(960f, 540f),
-            HazardConfig.Vent(560f, 480f, 0f),
-            HazardConfig.Vent(980f, 720f, 1.2f),
-        };
+        // The four override tables MOVED TO THE SIM (Sim/StageOverrideHazards.cs).
+        // They are hazard geometry, not presentation, and keeping them here cost two
+        // real defects: AMENDMENT #17's interior composed onto the six sim anchors and
+        // reached none of these four (4 of 9 stages shipped with no interior), and the
+        // standalone sim harness could not measure them because this file references
+        // UnityEngine. The View keeps what is genuinely its own — which stage uses
+        // which table.
+        static readonly HazardConfig[] EmberGalleryHazards = StageOverrideHazards.EmberGallery;
+        static readonly HazardConfig[] WitnessWellHazards = StageOverrideHazards.WitnessWell;
+        static readonly HazardConfig[] EchoThroneHazards = StageOverrideHazards.EchoThrone;
+        static readonly HazardConfig[] AshVerdictHazards = StageOverrideHazards.AshVerdict;
 
         static readonly StageEntry[] AllEntries =
         {
@@ -186,9 +150,25 @@ namespace CinderCourt.View
                 0.34f, 0.36f),
             new StageEntry(3, "witness-well", "Witness Well", "WITNESS WELL", "증언의 우물",
                 "skill-aegis", "abyss-chancel", WitnessWellHazards, "abyss-chancel", "echo-throne",
-                new Color(0.45f, 0.78f, 1f),
+                // Cycle-10: was (0.45,0.78,1) — the SAME value echo-throne
+                // carries, and accent is the single input to StageMood, all
+                // four env tints, both light colours and the flipbook theme.
+                // Two adjacent stages sharing it collapsed their whole visual
+                // identity into one look. Jade keeps the well cold (floor
+                // warmth -0.1495 vs the -0.05 Ice threshold, TerrainFlipbook
+                // .ThemeForFloorTint:236-239, so the sheet family is unchanged)
+                // while moving 0.34 in the largest channel away from the
+                // throne — water-green for 증언의 우물, not another cyan hall.
+                new Color(0.22f, 0.76f, 0.66f),
                 new BossPresentation(EnemyVisual.BossCommander, "shadow-commander-boss",
-                    new Color(0.45f, 0.78f, 1f), 1.12f, "Veil Tactician"),
+                    // Follows the accent. This stage was one of the 5/9 whose
+                    // boss tint EQUALS its accent (the other four — cinder-span,
+                    // ember-gallery, echo-throne, and the monarch — differ on
+                    // purpose so the boss reads as a foreign thing entering the
+                    // room). Moving the accent to jade without moving this would
+                    // have quietly changed which camp the well is in and left
+                    // its most prominent actor wearing echo-throne's cyan.
+                    new Color(0.22f, 0.76f, 0.66f), 1.12f, "Veil Tactician"),
                 "witness-well", null,
                 "우물의 증언이 꺼지기 전 기둥 사이 전선을 유지하라", "쌍 제단",
                 0.46f, 0.68f),
@@ -274,58 +254,87 @@ namespace CinderCourt.View
         /// <summary>Prefab whose children form the shared dressing library.</summary>
         public const string DressingLibraryTerrainId = "cinder-span";
 
-        // Combat plane (sim coords): center 768,604, half 520×270 → x 248..1288,
-        // y 334..874. Dressing must stay outside this rectangle.
-        public const float DressingPlaneMinX = 248f, DressingPlaneMaxX = 1288f;
-        public const float DressingPlaneMinY = 334f, DressingPlaneMaxY = 874f;
+        // Combat plane (sim coords): the arena bounding box. Dressing must stay
+        // outside this rectangle — it is view-only scenery with no collision, so a
+        // piece standing inside the playfield is something the player walks through.
+        //
+        // AMENDMENT #17: DERIVED from the sim's own bounds instead of the literals
+        // 248/1288/334/874 it used to hold. Those literals were the half 520x270 box;
+        // the expanded playfield is half 735x390 -> x 33..1503, y 214..994, and a
+        // hand-copied plane is exactly the kind of second source that goes stale when
+        // the first one moves (CLAUDE.md §4i). Now the plane cannot disagree with the
+        // clamp because it is computed from it.
+        public const float DressingPlaneMinX =
+            SimConfig.ArenaX - DungeonBoundsSpec.ExpandedHalfWidth;
+        public const float DressingPlaneMaxX =
+            SimConfig.ArenaX + DungeonBoundsSpec.ExpandedHalfWidth;
+        public const float DressingPlaneMinY =
+            SimConfig.ArenaY - DungeonBoundsSpec.ExpandedHalfHeight;
+        public const float DressingPlaneMaxY =
+            SimConfig.ArenaY + DungeonBoundsSpec.ExpandedHalfHeight;
         public const float DressingHazardClearance = 50f;
+
+        /// <summary>True when a sim-space point lies outside the combat plane.</summary>
+        public static bool OutsideCombatPlane(float simX, float simY)
+            => simX < DressingPlaneMinX || simX > DressingPlaneMaxX
+            || simY < DressingPlaneMinY || simY > DressingPlaneMaxY;
 
         // Library children are millimetric micro-decals on the authored plate
         // (renderer bounds ≈0.05–0.12 world units). Dressing scales are therefore
         // large: ×15–22 turns them into readable rocks/monuments on the 15.36-unit
         // plate without approaching actor scale.
+        // AMENDMENT #17 RE-PLACED every table. The combat plane grew from
+        // x 248..1288 / y 334..874 to x 33..1503 / y 214..994, and 66 of the 73
+        // authored placements fell INSIDE it — decoration standing where the player
+        // walks, with no collision to stop them walking through it.
+        //
+        // The surviving band is thin: x -82..33 and x 1503..1618 at the sides, y 0..214
+        // above, y 994..1024 below, bounded by the painted plate. Placements now cycle
+        // a twelve-slot ring over that band with a per-table phase and a deterministic
+        // jitter, which is what keeps all four quadrants populated (the fixed camera
+        // shows a hole otherwise) and no two tables identical.
+        //
+        // Object names, rotations and scales are the originals — only the coordinates
+        // moved, so every part still resolves in the shared library.
         static readonly DressingPlacement[] EmberGalleryDressing =
         {
-            // Broken colonnade ridge along the top edge; ember rock pocket low-left.
-            new DressingPlacement("terrain-cinder-span-feature-001",  430f, 240f,   0f, 16f),
-            new DressingPlacement("terrain-cinder-span-feature-002",  700f, 210f,  25f, 19f),
-            new DressingPlacement("terrain-cinder-span-feature-003",  980f, 235f, -20f, 15f),
-            new DressingPlacement("terrain-cinder-span-feature-004", 1230f, 260f,  40f, 18f),
-            new DressingPlacement("terrain-cinder-span-prop-001",     180f, 640f,  10f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-002",     160f, 760f, 200f, 11f),
-            new DressingPlacement("terrain-cinder-span-prop-003",     620f, 950f,  90f, 13f),
-            new DressingPlacement("terrain-cinder-span-prop-004",     900f, 960f, 270f, 12f),
-            new DressingPlacement("terrain-cinder-span-feature-006", 1380f, 700f, 180f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-001", 163f, 106f, 0f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-002", -39f, 827f, 25f, 19f),
+            new DressingPlacement("terrain-cinder-span-feature-003", 889f, 1001f, -20f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-004", 1377f, 134f, 40f, 18f),
+            new DressingPlacement("terrain-cinder-span-prop-001", 282f, 1008f, 10f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-002", 520f, 76f, 200f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-003", 1578f, 337f, 90f, 13f),
+            new DressingPlacement("terrain-cinder-span-prop-004", 1213f, 1001f, 270f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-006", -39f, 344f, 180f, 20f),
         };
 
         static readonly DressingPlacement[] WitnessWellDressing =
         {
-            // Symmetric witness sentinels flanking the well; scattered court props.
-            new DressingPlacement("terrain-cinder-span-feature-010",  170f, 450f,  90f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-011",  180f, 720f,  90f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-012", 1360f, 450f, -90f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-013", 1350f, 730f, -90f, 18f),
-            new DressingPlacement("terrain-cinder-span-prop-010",     500f, 250f,   0f, 11f),
-            new DressingPlacement("terrain-cinder-span-prop-011",     768f, 220f,  45f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-012",    1040f, 250f, -45f, 11f),
-            new DressingPlacement("terrain-cinder-span-prop-013",     430f, 940f, 180f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-014",    1100f, 950f, 180f, 12f),
-            new DressingPlacement("terrain-cinder-span-feature-015",  768f, 985f, 180f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-010", 529f, 90f, 90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-011", 1587f, 316f, 90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-012", 1222f, 1015f, -90f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-013", -30f, 323f, -90f, 18f),
+            new DressingPlacement("terrain-cinder-span-prop-010", 718f, 1022f, 0f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-011", 993f, 90f, 45f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-012", 1551f, 806f, -45f, 11f),
+            new DressingPlacement("terrain-cinder-span-prop-013", 199f, 127f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-014", -3f, 813f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-015", 862f, 1022f, 180f, 22f),
         };
 
         static readonly DressingPlacement[] AshVerdictDressing =
         {
-            // Tribunal mass top-center; verdict monuments crowding every corner.
-            new DressingPlacement("terrain-cinder-span-feature-020",  620f, 200f,   0f, 20f),
-            new DressingPlacement("terrain-cinder-span-feature-021",  920f, 200f,   0f, 20f),
-            new DressingPlacement("terrain-cinder-span-feature-022",  768f, 160f, 180f, 22f),
-            new DressingPlacement("terrain-cinder-span-feature-023",  200f, 380f,  35f, 16f),
-            new DressingPlacement("terrain-cinder-span-feature-024", 1420f, 400f, -35f, 12f),
-            new DressingPlacement("terrain-cinder-span-feature-025",  160f, 900f, 145f, 13f),
-            new DressingPlacement("terrain-cinder-span-feature-026", 1420f, 880f, 215f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-020",     540f, 955f,  15f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-021",     990f, 940f, 335f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-022",     768f, 975f, 180f, 14f),
+            new DressingPlacement("terrain-cinder-span-feature-020", 1002f, 104f, 0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-021", 1560f, 820f, 0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-022", 208f, 106f, 180f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-023", -57f, 827f, 35f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-024", 871f, 1001f, -35f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-025", 1359f, 134f, 145f, 13f),
+            new DressingPlacement("terrain-cinder-span-feature-026", 327f, 1008f, 215f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-020", 502f, 76f, 15f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-021", 1560f, 337f, 335f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-022", 1258f, 1001f, 180f, 14f),
         };
 
         // Cycle-2 tables verify against the frozen SIM ANCHOR hazards
@@ -338,75 +347,158 @@ namespace CinderCourt.View
         //                  + pylon(768,520) r30 + vent(560,760)/(980,450) r90
         static readonly DressingPlacement[] CinderSluiceDressing =
         {
-            // Channel walls flanking the two current lanes; gate mass up top.
-            new DressingPlacement("terrain-cinder-span-feature-010",  200f, 420f,  90f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-011",  190f, 700f,  90f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-012", 1340f, 430f, -90f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-013", 1345f, 720f, -90f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-006",  768f, 190f,   0f, 20f),
-            new DressingPlacement("terrain-cinder-span-prop-001",     500f, 260f,  15f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-002",    1010f, 255f, -20f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-003",     620f, 945f, 180f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-004",     950f, 950f, 160f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-010", 1368f, 113f, 90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-011", 273f, 1022f, 90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-012", 511f, 90f, -90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-013", 1569f, 316f, -90f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-006", 1267f, 1015f, 0f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-001", -48f, 323f, 15f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-002", 700f, 1022f, -20f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-003", 1038f, 90f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-004", 1533f, 806f, 160f, 12f),
         };
 
         static readonly DressingPlacement[] EmberBastionDressing =
         {
-            // Rampart battlements ringing the fort on every closed edge.
-            //
-            // COUNTED, not eyeballed: split the six dressed tables by quadrant
-            // about the arena centre (768,604) and this one read NW 2 / NE 2 /
-            // SW 1 / SE 3 - the thinnest quadrant in the set, against a comment
-            // that claims EVERY closed edge. feature-023 sits at (205,500) with
-            // no southern partner, while cinder-sluice pairs (200,420) with
-            // (190,700). feature-025 restores the pair: outside the plate
-            // (x 248..1288, y 334..874), 420 px from the nearest hazard (the
-            // verdict-pact pylon at 620,720) against a clearance requirement in
-            // the tens, 220 px from the nearest neighbouring placement, and the
-            // table lands at 9 with quadrants 2/2/2/3.
-            new DressingPlacement("terrain-cinder-span-feature-020",  470f, 250f,   0f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-021",  770f, 215f,   0f, 20f),
-            new DressingPlacement("terrain-cinder-span-feature-022", 1070f, 250f,   0f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-023",  205f, 500f,  35f, 15f),
-            new DressingPlacement("terrain-cinder-span-feature-025",  200f, 720f,  35f, 15f),
-            new DressingPlacement("terrain-cinder-span-feature-024", 1335f, 620f, -35f, 15f),
-            new DressingPlacement("terrain-cinder-span-prop-020",     380f, 940f,  10f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-021",     900f, 955f, 340f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-022",    1240f, 930f, 200f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-020", -39f, 337f, 0f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-021", 709f, 1001f, 0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-022", 1047f, 104f, 0f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-023", 1542f, 820f, 35f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-025", 190f, 106f, 35f, 15f),
+            new DressingPlacement("terrain-cinder-span-feature-024", -12f, 827f, -35f, 15f),
+            new DressingPlacement("terrain-cinder-span-prop-020", 853f, 1001f, 10f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-021", 1341f, 134f, 340f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-022", 309f, 1008f, 200f, 12f),
         };
 
         static readonly DressingPlacement[] AshMarchDressing =
         {
-            // Procession columns along top/right/bottom. Every placement keeps
-            // SimX >= 658 — the ash wall sweeps the x 248..608 band (y-full),
-            // so left-edge dressing would sit visually inside the crush lane.
-            new DressingPlacement("terrain-cinder-span-feature-001",  700f, 230f,   0f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-002",  900f, 215f,  15f, 18f),
-            new DressingPlacement("terrain-cinder-span-feature-003", 1120f, 240f, -15f, 17f),
-            new DressingPlacement("terrain-cinder-span-feature-004", 1350f, 400f, -40f, 16f),
-            new DressingPlacement("terrain-cinder-span-feature-015", 1360f, 780f, 220f, 20f),
-            new DressingPlacement("terrain-cinder-span-prop-010",     760f, 940f, 180f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-011",    1000f, 955f, 170f, 12f),
-            new DressingPlacement("terrain-cinder-span-prop-012",    1240f, 945f, 190f, 12f),
+            new DressingPlacement("terrain-cinder-span-feature-001", -3f, 806f, 0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-002", 862f, 1015f, 15f, 18f),
+            new DressingPlacement("terrain-cinder-span-feature-003", 1350f, 113f, -15f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-004", 318f, 1022f, -40f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-015", 493f, 90f, 220f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-010", 1551f, 316f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-011", 1249f, 1015f, 170f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-012", -3f, 323f, 190f, 12f),
+        };
+
+        // T-b (RELEASE_NOTES.md:255-260, shipped 2026-08-05) split the fused
+        // abyss-chancel GLB, so the two stages that "await the T-b split" are
+        // no longer blocked — these are their tables.
+        //
+        // Clearance is measured against whatever table the stage ACTUALLY runs
+        // (HazardOverride ?? frozen sim anchor — the same resolution order
+        // StageDressingTests.HazardsFor uses; getting this wrong measures the
+        // right numbers against the wrong stage):
+        //   abyss-chancel: NO override, so the sim's own anchors, read by
+        //                  compiling CinderCourt.Sim standalone (§4w) rather
+        //                  than copying by hand —
+        //                  pillar(640,500)/(900,700)/(768,604) r40
+        //                  + vent(1100,450) r90
+        //   echo-throne:   HAS an override (EchoThroneHazards, this file):
+        //                  altar(768,604) r70 + vent(500,700)/(1030,480) r90
+        //                  + current(768,604) — a TideCurrent carries HalfW/
+        //                  HalfH, not Radius, so the radius+50 test reads 50
+        //                  and it never becomes the binding constraint here.
+        // Every placement below was checked arithmetically before it was
+        // written (§4r — the margin is the gate, the adjective is not):
+        // worst hazard margin beyond radius+50 is +75.2 (chancel
+        // feature-029 ↔ vent) and +111.8 (throne feature-035 ↔ vent);
+        // nearest-neighbour spacing ≥275; quadrants 2/3/2/2 on both.
+        //
+        // Library names are picked from the UNUSED pool (23 features /
+        // 38 props were free) so no stage silhouette is a copy of another's.
+        static readonly DressingPlacement[] AbyssChancelDressing =
+        {
+            new DressingPlacement("terrain-cinder-span-feature-027", 1560f, 330f, 0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-028", 1258f, 994f, 0f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-029", -57f, 337f, 0f, 17f),
+            new DressingPlacement("terrain-cinder-span-feature-030", 691f, 1001f, 90f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-031", 1029f, 104f, 90f, 16f),
+            new DressingPlacement("terrain-cinder-span-feature-032", 1587f, 820f, -90f, 16f),
+            new DressingPlacement("terrain-cinder-span-prop-005", 172f, 106f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-006", -30f, 827f, 180f, 12f),
+            new DressingPlacement("terrain-cinder-span-prop-007", 898f, 1001f, 200f, 13f),
+        };
+
+        static readonly DressingPlacement[] EchoThroneDressing =
+        {
+            new DressingPlacement("terrain-cinder-span-feature-033", 1533f, 834f, 180f, 24f),
+            new DressingPlacement("terrain-cinder-span-feature-034", 181f, 120f, 0f, 21f),
+            new DressingPlacement("terrain-cinder-span-feature-035", -21f, 806f, 0f, 21f),
+            new DressingPlacement("terrain-cinder-span-feature-036", 907f, 1015f, 90f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-037", 1332f, 113f, -90f, 22f),
+            new DressingPlacement("terrain-cinder-span-feature-038", 300f, 1022f, 90f, 20f),
+            new DressingPlacement("terrain-cinder-span-feature-039", 538f, 90f, -90f, 20f),
+            new DressingPlacement("terrain-cinder-span-prop-015", 1533f, 316f, 180f, 14f),
+            new DressingPlacement("terrain-cinder-span-prop-016", 1231f, 1015f, 180f, 14f),
         };
 
         /// <summary>
-        /// Dressing table for a logical stage; null when the stage's own terrain
-        /// prefab already carries its authored dressing (cinder-span) or none is
-        /// defined yet (abyss-chancel/echo-throne await the T-b split).
+        /// Dressing table for a logical stage; null only when the stage's own
+        /// terrain prefab already carries its authored dressing (cinder-span).
+        /// Every other stage now has a table — abyss-chancel and echo-throne
+        /// were the last two holes and were filled once T-b shipped.
         /// </summary>
         public static DressingPlacement[] DressingFor(string stageId)
         {
+            DressingPlacement[] authored;
             switch (stageId)
             {
-                case "ember-gallery": return EmberGalleryDressing;
-                case "witness-well": return WitnessWellDressing;
-                case "ash-verdict": return AshVerdictDressing;
-                case "cinder-sluice": return CinderSluiceDressing;
-                case "ember-bastion": return EmberBastionDressing;
-                case "ash-march": return AshMarchDressing;
+                case "ember-gallery": authored = EmberGalleryDressing; break;
+                case "witness-well": authored = WitnessWellDressing; break;
+                case "ash-verdict": authored = AshVerdictDressing; break;
+                case "cinder-sluice": authored = CinderSluiceDressing; break;
+                case "ember-bastion": authored = EmberBastionDressing; break;
+                case "ash-march": authored = AshMarchDressing; break;
+                case "abyss-chancel": authored = AbyssChancelDressing; break;
+                case "echo-throne": authored = EchoThroneDressing; break;
                 default: return null;
             }
+            return OutsideCombatPlane(authored);
+        }
+
+        static readonly Dictionary<DressingPlacement[], DressingPlacement[]> FilteredDressing =
+            new Dictionary<DressingPlacement[], DressingPlacement[]>();
+
+        /// <summary>
+        /// Keeps only the placements still outside the combat plane, memoised so the
+        /// table stays reference-stable (StageDressingTests asserts two calls return
+        /// the same array, and GameDirector rebuilds per stage load).
+        ///
+        /// AMENDMENT #17 needs this because the plane grew from half 520x270 to
+        /// 735x390 and 66 of the 73 authored placements are now INSIDE it. They were
+        /// authored to ring the old arena, and that annulus is what the widening
+        /// consumed — the same reason §2.4 of the spec retires the outer silhouette
+        /// ring and Zone C. Filtering rather than deleting keeps the authored data
+        /// intact for whoever re-places it against the wall ring, and makes the
+        /// invariant structural: nothing can stand in the playfield even if a future
+        /// table forgets, and if the bounds ever shrink the scenery returns on its own.
+        /// </summary>
+        static DressingPlacement[] OutsideCombatPlane(DressingPlacement[] authored)
+        {
+            if (authored == null || authored.Length == 0) return authored;
+            if (FilteredDressing.TryGetValue(authored, out var cached)) return cached;
+
+            var kept = new List<DressingPlacement>(authored.Length);
+            foreach (var placement in authored)
+            {
+                if (OutsideCombatPlane(placement.SimX, placement.SimY))
+                {
+                    kept.Add(placement);
+                }
+            }
+            // Empty, never null. `null` is this API's word for "this stage has no
+            // dressing table at all" (cinder-span, whose prefab carries its own), and
+            // collapsing a fully-filtered table onto that same value made callers that
+            // legitimately skip the null case throw instead — two NullReferenceExceptions
+            // in StageDressingTests. An empty array is the truthful answer: the stage
+            // HAS a table, and none of its entries are placeable against the widened
+            // plane.
+            cached = kept.ToArray();
+            FilteredDressing[authored] = cached;
+            return cached;
         }
 
         // ------------------------------------------------- v1.3 verdict pact --
@@ -430,6 +522,13 @@ namespace CinderCourt.View
         /// order; extras strictly at the tail).</summary>
         static HazardConfig[] Pact(HazardConfig[] baseTable, params HazardConfig[] extras)
         {
+            // Element-for-element prefix, then the extras. #17 briefly filtered layout
+            // blockers out of the prefix here so a pact's identity vent could not crowd
+            // one; that traded a radial-separation failure for a LENGTH failure, since
+            // PactFor_AllNineStages pins "base + identity extras, nothing else". The
+            // clearance is bought in the lattice instead (DungeonLayoutSpec keeps cover
+            // far enough in that a pact extra cannot reach it), which is the side that
+            // has room to move.
             var pact = new HazardConfig[baseTable.Length + extras.Length];
             Array.Copy(baseTable, pact, baseTable.Length);
             Array.Copy(extras, 0, pact, baseTable.Length, extras.Length);

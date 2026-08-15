@@ -1,0 +1,92 @@
+{
+  "evidenceId": "browser-shadow-mobile",
+  "candidateSourceSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
+  "buildMode": "Development",
+  "contentMarker": "f9884b3ee63d969b",
+  "result": "PASS",
+  "method": "A/B/A receiver toggle on one frozen frame; toggle effect must dominate temporal drift",
+  "url": "http://127.0.0.1:8783/",
+  "measurements": {
+    "viewport": "375x667",
+    "capture": {
+      "width": 375,
+      "height": 667
+    },
+    "apiShape": {
+      "hasReceiverToggle": true,
+      "hasFreeze": true,
+      "apiVersion": "gameflow_standard_v2"
+    },
+    "stage": "cinder-span",
+    "wave": null,
+    "freeze": {
+      "effective": true,
+      "elapsedBefore": 7.079,
+      "elapsedAfter": 7.079
+    },
+    "framesPerState": 3,
+    "shippedStability": {
+      "series": [
+        43.3347,
+        43.3347,
+        43.3347,
+        43.3347,
+        43.3347,
+        43.3347,
+        43.3347,
+        43.3347
+      ],
+      "spread": 0,
+      "seconds": 12
+    },
+    "settleFrames": {
+      "shipped": 1,
+      "shadowRemoved": 1
+    },
+    "receiverRemoval": {
+      "landed": true,
+      "attempts": 1,
+      "lumaBefore": 43.3347,
+      "lumaAfter": 43.3653
+    },
+    "shippedMeanLuma": 43.3347,
+    "receiverOffMeanLuma": 43.3653,
+    "restoredMeanLuma": 43.3347,
+    "shippedFrameLumas": [
+      43.3347,
+      43.3347,
+      43.3347
+    ],
+    "receiverOffFrameLumas": [
+      43.3653,
+      43.3653,
+      43.3653
+    ],
+    "meanLumaGap": -0.0306,
+    "noiseFloor": 0.0031,
+    "signalToNoise": 10.005,
+    "shadowPixelFootprint": {
+      "changedPixels": 477,
+      "changedRatio": 0.001907,
+      "meanDarkeningWithinFootprint": 16.046,
+      "sameStateChangedPixels": 0,
+      "minChangedPixels": 60
+    },
+    "gates": {
+      "darkerWithShadows": true,
+      "everyFrameDarker": true,
+      "shadowCoversPixels": true,
+      "footprintIsDarkened": true,
+      "separatedFromNoise": true,
+      "freezeEffective": true,
+      "receiverToggleLanded": true,
+      "shippedStateStable": true,
+      "pageErrorFree": true
+    },
+    "restorationRatio": 1
+  },
+  "notes": [
+    "receiver re-enable restored 100.0% of the 0.0306 luma the shipped state carries"
+  ],
+  "errors": []
+}
