@@ -1,23 +1,27 @@
 {
-  "releaseBaseSha": "af3df15d3c65857d90cec257f6324e89bdcf47bc",
-  "baselineProbeSha": "af3df15d3c65857d90cec257f6324e89bdcf47bc",
-  "candidateSourceSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
-  "generatedAt": "2026-08-13T21:07:50+0900",
-  "sourceUpstream": "origin/akillness/main",
+  "releaseBaseSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
+  "baselineProbeSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
+  "candidateSourceSha": "7e64ce02c92d28d58b391ff8f3dfaae8933a529d",
+  "generatedAt": "2026-08-15T09:28:02+0900",
+  "sourceUpstream": "origin/main",
   "unityVersion": "6000.5.6f1",
   "commands": [
+    "gh pr create --base main --head akillness/main   # PR #8, 130 commits, merge state CLEAN",
+    "gh pr merge 8 --merge                            # -> 7e64ce02",
+    "git pull --ff-only origin main && git push origin HEAD:refs/heads/akillness/main  # both refs at 7e64ce02",
+    "bash tools/gen_hud_font.sh                       # CLAUDE.md §4b post-merge contract: exit 0, coverage FULL, 611 glyphs, font unchanged",
     "rm -rf tools/deploy/__pycache__",
     "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-pre.json",
-    "bash tools/deploy/run_release_gate.sh 1   # now 5 steps: +prop sheet luminance/contrast + cross-file constant",
-    "python3 -B tools/deploy/make_release_evidence.py editmode --results .../test-results-205957.xml --candidate 3c9d8dc4 --out ...",
-    "python3 -B tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log .../build-development-210043.log --candidate 3c9d8dc4 --out ...",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 3c9d8dc4 --content-marker f9884b3ee63d969b (harness blob be4af6fe6aef4ecfec7095ddaba9cdbf932cd805ce1802a2d5c571a1b8082c50)",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 3c9d8dc4 --content-marker f9884b3ee63d969b",
-    "bash tools/deploy/run_release_gate.sh 2",
-    "python3 -B tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log .../build-210149.log --candidate 3c9d8dc4 --out ...",
+    "bash tools/deploy/run_release_gate.sh 1",
+    "python3 -B tools/deploy/make_release_evidence.py editmode --results .../test-results-091834.xml --candidate 7e64ce02 --out ...",
+    "python3 -B tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log .../build-development-091928.log --candidate 7e64ce02 --out ...",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 7e64ce02 --content-marker 8bcd0d1aaf8ddefc (harness blob be4af6fe6aef4ecfec7095ddaba9cdbf932cd805ce1802a2d5c571a1b8082c50)",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 7e64ce02 --content-marker 8bcd0d1aaf8ddefc",
+    "bash tools/deploy/run_release_gate.sh 2   # 2 steps now: release build + assert the stripping gate RAN",
+    "python3 -B tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log .../build-092202.log --candidate 7e64ce02 --out ...",
     "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-post.json",
     "python3 -B tools/deploy/release_provenance.py create --metadata .../release-metadata.json --development-build build-development --release-build build-webgl",
-    "# ToonShaderRetentionGate measured CinderCourt/ToonLit: 5 variants retained across 93 shaders in BOTH builds (build-development-210043.log, build-210149.log)"
+    "# ToonShaderRetentionGate: CinderCourt/ToonLit 5 variants retained across 93 shaders, in BOTH builds"
   ],
   "probeHashes": {
     "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
@@ -81,19 +85,19 @@
       "evidenceId": "development-build",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
       "buildMode": "Development",
-      "contentMarker": "f9884b3ee63d969b"
+      "contentMarker": "8bcd0d1aaf8ddefc"
     },
     {
       "evidenceId": "browser-shadow-desktop",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
       "buildMode": "Development",
-      "contentMarker": "f9884b3ee63d969b"
+      "contentMarker": "8bcd0d1aaf8ddefc"
     },
     {
       "evidenceId": "browser-shadow-mobile",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
       "buildMode": "Development",
-      "contentMarker": "f9884b3ee63d969b"
+      "contentMarker": "8bcd0d1aaf8ddefc"
     }
   ]
 }

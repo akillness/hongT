@@ -1,20 +1,20 @@
 {
   "evidenceId": "development-build",
-  "candidateSourceSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
+  "candidateSourceSha": "7e64ce02c92d28d58b391ff8f3dfaae8933a529d",
   "buildMode": "Development",
-  "contentMarker": "f9884b3ee63d969b",
+  "contentMarker": "8bcd0d1aaf8ddefc",
   "result": "PASS",
   "method": "bash tools/unity_batch.sh build-development",
-  "buildLog": "_workspace/current/engineering/unity-logs/build-development-210043.log",
+  "buildLog": "_workspace/current/engineering/unity-logs/build-development-091928.log",
   "unityReported": {
     "result": "Succeeded",
-    "sizeBytes": 195890116,
+    "sizeBytes": 196199012,
     "errors": 0,
     "warnings": 6
   },
   "measuredPayload": {
     "path": "build-development",
-    "contentMarker": "f9884b3ee63d969b",
+    "contentMarker": "8bcd0d1aaf8ddefc",
     "fileCount": 25,
     "byteLength": 174654497
   }
