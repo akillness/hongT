@@ -1,8 +1,8 @@
 {
   "evidenceId": "browser-shadow-mobile",
-  "candidateSourceSha": "02e4a3f0e061586a4591a3fbf947c5ffd3077286",
+  "candidateSourceSha": "e4a1842efcb7f0eadeac945aea9739eebad58290",
   "buildMode": "Development",
-  "contentMarker": "bf59a4a0af9172a7",
+  "contentMarker": "1f885be3088a8ce0",
   "result": "PASS",
   "method": "A/B/A receiver toggle on one frozen frame; toggle effect must dominate temporal drift",
   "url": "http://127.0.0.1:8783/",
@@ -21,20 +21,20 @@
     "wave": null,
     "freeze": {
       "effective": true,
-      "elapsedBefore": 7.18,
-      "elapsedAfter": 7.18
+      "elapsedBefore": 7.422,
+      "elapsedAfter": 7.422
     },
     "framesPerState": 3,
     "shippedStability": {
       "series": [
-        39.752,
-        39.752,
-        39.752,
-        39.752,
-        39.752,
-        39.752,
-        39.752,
-        39.752
+        22.3264,
+        22.3264,
+        22.3264,
+        22.3264,
+        22.3264,
+        22.3264,
+        22.3264,
+        22.3264
       ],
       "spread": 0,
       "seconds": 12
@@ -46,29 +46,29 @@
     "receiverRemoval": {
       "landed": true,
       "attempts": 1,
-      "lumaBefore": 39.752,
-      "lumaAfter": 39.7846
+      "lumaBefore": 22.3264,
+      "lumaAfter": 22.3653
     },
-    "shippedMeanLuma": 39.752,
-    "receiverOffMeanLuma": 39.7846,
-    "restoredMeanLuma": 39.752,
+    "shippedMeanLuma": 22.3264,
+    "receiverOffMeanLuma": 22.3653,
+    "restoredMeanLuma": 22.3264,
     "shippedFrameLumas": [
-      39.752,
-      39.752,
-      39.752
+      22.3264,
+      22.3264,
+      22.3264
     ],
     "receiverOffFrameLumas": [
-      39.7846,
-      39.7846,
-      39.7846
+      22.3653,
+      22.3653,
+      22.3653
     ],
-    "meanLumaGap": -0.0326,
+    "meanLumaGap": -0.0389,
     "noiseFloor": 0.0023,
-    "signalToNoise": 14.044,
+    "signalToNoise": 16.754,
     "shadowPixelFootprint": {
-      "changedPixels": 692,
-      "changedRatio": 0.002102,
-      "meanDarkeningWithinFootprint": 15.526,
+      "changedPixels": 799,
+      "changedRatio": 0.002427,
+      "meanDarkeningWithinFootprint": 16.041,
       "sameStateChangedPixels": 0,
       "minChangedPixels": 60
     },
@@ -86,7 +86,7 @@
     "restorationRatio": 1
   },
   "notes": [
-    "receiver re-enable restored 100.0% of the 0.0326 luma the shipped state carries"
+    "receiver re-enable restored 100.0% of the 0.0389 luma the shipped state carries"
   ],
   "errors": []
 }

@@ -1,21 +1,21 @@
 {
   "evidenceId": "release-build",
-  "candidateSourceSha": "02e4a3f0e061586a4591a3fbf947c5ffd3077286",
+  "candidateSourceSha": "e4a1842efcb7f0eadeac945aea9739eebad58290",
   "buildMode": "Source",
   "contentMarker": null,
   "result": "PASS",
   "method": "bash tools/unity_batch.sh build",
-  "buildLog": "_workspace/current/engineering/unity-logs/build-205650.log",
+  "buildLog": "_workspace/current/engineering/unity-logs/build-224705.log",
   "unityReported": {
     "result": "Succeeded",
-    "sizeBytes": 125531707,
+    "sizeBytes": 125743151,
     "errors": 0,
     "warnings": 6
   },
   "measuredPayload": {
     "path": "build-webgl",
-    "contentMarker": "279146abc69f4969",
+    "contentMarker": "4c778036e814243d",
     "fileCount": 24,
-    "byteLength": 104506992
+    "byteLength": 104259228
   }
 }

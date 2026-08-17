@@ -1,8 +1,8 @@
 {
   "releaseBaseSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
   "baselineProbeSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
-  "candidateSourceSha": "02e4a3f0e061586a4591a3fbf947c5ffd3077286",
-  "generatedAt": "2026-08-17T12:02:27Z",
+  "candidateSourceSha": "e4a1842efcb7f0eadeac945aea9739eebad58290",
+  "generatedAt": "2026-08-17T13:49:56Z",
   "sourceUpstream": "origin/main",
   "unityVersion": "6000.5.6f1",
   "commands": [
@@ -12,19 +12,20 @@
     "node tools/qa/run_shadow_browser_evidence.mjs --viewport 390x844 --evidence-id browser-shadow-mobile",
     "python3 tools/deploy/make_release_evidence.py editmode",
     "python3 tools/deploy/make_release_evidence.py build --kind development",
-    "bash tools/deploy/run_release_gate.sh 2",
+    "bash tools/deploy/run_release_gate.sh 2   (RUN TWICE - see note)",
     "python3 tools/deploy/release_provenance.py snapshot-clean  (AFTER stage 2)",
     "python3 tools/deploy/make_release_evidence.py build --kind release",
-    "cleanStatus pre/post bracket the BUILD SEQUENCE for this release: pre before stage 1, post after stage 2. Both froze clean, so the bytes below came from this candidate and nothing else edited the source while they were being produced.",
-    "probeHashes := sha256(sorted (path, blob-sha256) of StageShadowPolicy.cs, StageMood.cs, VfxDirector.cs, StageShadowReceiver.shader) at baselineProbeSha and candidateSourceSha. Definition recorded here because the schema carries none and the value used before 713d95e9 could not be reproduced from this repository."
+    "the first stage-2 build reported errors=1 with result=Succeeded; the evidence tool refused it, the build was re-run, and errors=0 with an identical byte size. The provenance below describes the SECOND build (build-224705.log).",
+    "cleanStatus pre/post bracket the BUILD SEQUENCE: pre before stage 1, post after the stage-2 rebuild. Both froze clean.",
+    "probeHashes := sha256(sorted (path, blob-sha256) of StageShadowPolicy.cs, StageMood.cs, VfxDirector.cs, StageShadowReceiver.shader) at baselineProbeSha and candidateSourceSha."
   ],
   "probeHashes": {
     "baseline": "1e19d32a07675f10d187a30e8d6a224102e3c68d9296f110c0c080010f2705cd",
     "candidate": "15e1d273b732f9bbf4c7750ef90142c8303e8bc3ab52c47e4cc08180ef4130f1"
   },
   "cleanStatus": {
-    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre-02e4a3f0.json",
-    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post-02e4a3f0.json"
+    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre-e4a1842e.json",
+    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post-e4a1842e.json"
   },
   "outsideInputAllowList": [
     ".*",
@@ -80,19 +81,19 @@
       "evidenceId": "development-build",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
       "buildMode": "Development",
-      "contentMarker": "bf59a4a0af9172a7"
+      "contentMarker": "1f885be3088a8ce0"
     },
     {
       "evidenceId": "browser-shadow-desktop",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
       "buildMode": "Development",
-      "contentMarker": "bf59a4a0af9172a7"
+      "contentMarker": "1f885be3088a8ce0"
     },
     {
       "evidenceId": "browser-shadow-mobile",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
       "buildMode": "Development",
-      "contentMarker": "bf59a4a0af9172a7"
+      "contentMarker": "1f885be3088a8ce0"
     }
   ]
 }
