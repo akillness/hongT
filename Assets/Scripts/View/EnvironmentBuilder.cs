@@ -596,7 +596,49 @@ namespace CinderCourt.View
                      ?? Resources.Load<Texture2D>(StageTexturePath + stageId + "-floor");
             BindAlbedo(_stoneMaterial, stone);
             BindAlbedo(_floorMaterial, floor);
+            BindCourtPlate(floor);
         }
+
+        /// <summary>
+        /// Points the scene's baked CourtBackdrop plate at the CURRENT stage's floor.
+        ///
+        /// The plate is created once by SceneBuilder and never touched again, so
+        /// whatever texture it was baked with shows under every stage. That was
+        /// invisible while it carried a painted scene, and became a defect the moment
+        /// it carried a stage's floor instead: measured 2026-08-17, cinder-span
+        /// rendered with abyss-chancel's violet chancel slabs around its edges — one
+        /// stage's identity leaking under all nine.
+        ///
+        /// Routed through the same lookup the stage materials use rather than a second
+        /// table, so a stage that gains or loses a floor map cannot end up with the
+        /// plate and the arena disagreeing (CLAUDE.md §4e: call the rule, do not
+        /// restate it). A stage with no floor map leaves the plate alone rather than
+        /// clearing it, which keeps the shipped look instead of flashing white.
+        ///
+        /// TILING IS NOT TOUCHED HERE. It lives on the material (_BaseMap_ST) because
+        /// the plate's world size is fixed; only the map changes per stage.
+        /// </summary>
+        static void BindCourtPlate(Texture2D floor)
+        {
+            if (floor == null) return;
+            if (_courtPlate == null)
+            {
+                var found = GameObject.Find("CourtBackdrop");
+                if (found == null) return;
+                _courtPlate = found.GetComponent<Renderer>();
+                if (_courtPlate == null) return;
+            }
+            floor.wrapMode = TextureWrapMode.Repeat;
+            // sharedMaterial, not material: the plate is a single scene object and
+            // instancing its material here would leak one material per stage change
+            // against the §E7 environment budget.
+            var material = _courtPlate.sharedMaterial;
+            if (material == null) return;
+            material.SetTexture(BaseMapId, floor);
+            material.mainTexture = floor;
+        }
+
+        static Renderer _courtPlate;
 
         static void BindAlbedo(Material material, Texture2D texture)
         {
