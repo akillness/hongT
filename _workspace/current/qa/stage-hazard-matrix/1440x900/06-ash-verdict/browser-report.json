@@ -33,11 +33,11 @@
           "h": 22
         },
         "mean": {
-          "r": 179.56,
-          "g": 81.64,
-          "b": 59.14
+          "r": 173.18,
+          "g": 77.18,
+          "b": 56.07
         },
-        "redMinusGreen": 97.93
+        "redMinusGreen": 95.99
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
@@ -46,25 +46,25 @@
           "hp": 132,
           "max_hp": 132,
           "level": 1,
-          "exp": 10,
+          "exp": 0,
           "position": {
             "x": 768,
             "y": 646
           }
         },
         "world": {
-          "elapsed": 4.156,
+          "elapsed": 5.97,
           "enemy_count": 4,
           "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 1,
-          "score": 100
+          "kills": 0,
+          "score": 0
         },
         "resources": {
           "exp_orbs": 0,
-          "pickups": 1,
+          "pickups": 0,
           "charge": 100
         },
         "upgrade": {
@@ -94,58 +94,58 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 320,
+          "w": 303,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "1440x900",
-          "hpFillRatio": 1
+          "hpFillRatio": 0.947
         },
         "viewportCrop": {
           "x": 172,
           "y": 30,
-          "w": 294,
+          "w": 278,
           "h": 22
         },
         "canvasCrop": {
           "x": 91,
           "y": 25,
-          "w": 294,
+          "w": 278,
           "h": 22
         },
         "mean": {
-          "r": 168.65,
-          "g": 77.29,
-          "b": 56.34
+          "r": 176.76,
+          "g": 80.24,
+          "b": 58.28
         },
-        "redMinusGreen": 91.36
+        "redMinusGreen": 96.52
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 132,
+          "hp": 125,
           "max_hp": 132,
           "level": 1,
-          "exp": 10,
+          "exp": 0,
           "position": {
-            "x": 912.458,
-            "y": 560.84
+            "x": 867.587,
+            "y": 597.578
           }
         },
         "world": {
-          "elapsed": 7.048,
-          "enemy_count": 6,
+          "elapsed": 10.246,
+          "enemy_count": 7,
           "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 1,
-          "score": 100
+          "kills": 0,
+          "score": 0
         },
         "resources": {
           "exp_orbs": 0,
-          "pickups": 1,
+          "pickups": 0,
           "charge": 100
         },
         "upgrade": {
@@ -175,67 +175,63 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 313,
+          "w": 269,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "1440x900",
-          "hpFillRatio": 0.9783
+          "hpFillRatio": 0.8409
         },
         "viewportCrop": {
           "x": 172,
           "y": 30,
-          "w": 287,
+          "w": 247,
           "h": 22
         },
         "canvasCrop": {
           "x": 91,
           "y": 25,
-          "w": 287,
+          "w": 247,
           "h": 22
         },
         "mean": {
-          "r": 174.44,
-          "g": 78.57,
-          "b": 57.16
+          "r": 169.15,
+          "g": 76.23,
+          "b": 55.61
         },
-        "redMinusGreen": 95.87
+        "redMinusGreen": 92.92
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 135,
-          "max_hp": 138,
-          "level": 2,
+          "hp": 111,
+          "max_hp": 132,
+          "level": 1,
           "exp": 0,
           "position": {
-            "x": 912.458,
-            "y": 560.84
+            "x": 867.587,
+            "y": 597.578
           }
         },
         "world": {
-          "elapsed": 10.748,
-          "enemy_count": 4,
-          "current_phase": "upgrade",
+          "elapsed": 14.747,
+          "enemy_count": 7,
+          "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 3,
-          "score": 300
+          "kills": 0,
+          "score": 0
         },
         "resources": {
           "exp_orbs": 0,
-          "pickups": 1,
-          "charge": 98.533
+          "pickups": 0,
+          "charge": 78.162
         },
         "upgrade": {
-          "is_selecting_upgrade": true,
-          "options": [
-            "Attack",
-            "Vitality",
-            "Swiftness"
-          ]
+          "is_selecting_upgrade": false,
+          "options": []
         },
         "boss": {
           "exists": false,
@@ -260,54 +256,54 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 297,
+          "w": 252,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "1440x900",
-          "hpFillRatio": 0.9275
+          "hpFillRatio": 0.7879
         },
         "viewportCrop": {
           "x": 172,
           "y": 30,
-          "w": 273,
+          "w": 231,
           "h": 22
         },
         "canvasCrop": {
           "x": 91,
           "y": 25,
-          "w": 273,
+          "w": 231,
           "h": 22
         },
         "mean": {
-          "r": 177.85,
-          "g": 79.51,
-          "b": 58.38
+          "r": 173.21,
+          "g": 74.45,
+          "b": 54.04
         },
-        "redMinusGreen": 98.34
+        "redMinusGreen": 98.76
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 128,
-          "max_hp": 138,
-          "level": 2,
-          "exp": 0,
+          "hp": 104,
+          "max_hp": 132,
+          "level": 1,
+          "exp": 20,
           "position": {
-            "x": 620.407,
-            "y": 373.785
+            "x": 731.239,
+            "y": 504.862
           }
         },
         "world": {
-          "elapsed": 13.881,
-          "enemy_count": 4,
-          "current_phase": "upgrade",
+          "elapsed": 18.581,
+          "enemy_count": 5,
+          "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 3,
-          "score": 300
+          "kills": 2,
+          "score": 200
         },
         "resources": {
           "exp_orbs": 0,
@@ -315,12 +311,8 @@
           "charge": 100
         },
         "upgrade": {
-          "is_selecting_upgrade": true,
-          "options": [
-            "Attack",
-            "Vitality",
-            "Swiftness"
-          ]
+          "is_selecting_upgrade": false,
+          "options": []
         },
         "boss": {
           "exists": false,

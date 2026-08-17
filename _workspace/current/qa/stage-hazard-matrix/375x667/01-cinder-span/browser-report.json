@@ -13,37 +13,37 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 303,
+          "w": 320,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "375x667",
-          "hpFillRatio": 0.947
+          "hpFillRatio": 1
         },
         "viewportCrop": {
           "x": 37,
           "y": 10,
-          "w": 112,
+          "w": 118,
           "h": 9
         },
         "canvasCrop": {
           "x": 36,
           "y": 10,
-          "w": 112,
+          "w": 118,
           "h": 9
         },
         "mean": {
-          "r": 123.47,
-          "g": 57.68,
-          "b": 45.68
+          "r": 138.39,
+          "g": 65.18,
+          "b": 50.31
         },
-        "redMinusGreen": 65.79
+        "redMinusGreen": 73.2
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 125,
+          "hp": 132,
           "max_hp": 132,
           "level": 1,
           "exp": 10,
@@ -53,8 +53,8 @@
           }
         },
         "world": {
-          "elapsed": 7.802,
-          "enemy_count": 5,
+          "elapsed": 6.932,
+          "enemy_count": 3,
           "current_phase": "running",
           "wave": 1
         },
@@ -94,47 +94,47 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 269,
+          "w": 320,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "375x667",
-          "hpFillRatio": 0.8409
+          "hpFillRatio": 1
         },
         "viewportCrop": {
           "x": 37,
           "y": 10,
-          "w": 99,
+          "w": 118,
           "h": 9
         },
         "canvasCrop": {
           "x": 36,
           "y": 10,
-          "w": 99,
+          "w": 118,
           "h": 9
         },
         "mean": {
-          "r": 123.62,
-          "g": 56.79,
-          "b": 44.96
+          "r": 138.39,
+          "g": 65.18,
+          "b": 50.31
         },
-        "redMinusGreen": 66.83
+        "redMinusGreen": 73.21
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 111,
+          "hp": 132,
           "max_hp": 132,
           "level": 1,
           "exp": 10,
           "position": {
-            "x": 972.651,
-            "y": 506.839
+            "x": 876.087,
+            "y": 572.502
           }
         },
         "world": {
-          "elapsed": 9.877,
+          "elapsed": 10.073,
           "enemy_count": 5,
           "current_phase": "running",
           "wave": 1
@@ -175,59 +175,59 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 223,
+          "w": 304,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "375x667",
-          "hpFillRatio": 0.6957
+          "hpFillRatio": 0.9493
         },
         "viewportCrop": {
           "x": 37,
           "y": 10,
-          "w": 82,
+          "w": 112,
           "h": 9
         },
         "canvasCrop": {
           "x": 36,
           "y": 10,
-          "w": 82,
+          "w": 112,
           "h": 9
         },
         "mean": {
-          "r": 121.97,
-          "g": 55.66,
-          "b": 43.72
+          "r": 130.99,
+          "g": 60.88,
+          "b": 47.78
         },
-        "redMinusGreen": 66.31
+        "redMinusGreen": 70.11
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 96,
+          "hp": 131,
           "max_hp": 138,
           "level": 2,
-          "exp": 30,
+          "exp": 0,
           "position": {
-            "x": 972.651,
-            "y": 506.839
+            "x": 876.087,
+            "y": 572.502
           }
         },
         "world": {
-          "elapsed": 12.58,
-          "enemy_count": 0,
+          "elapsed": 14.044,
+          "enemy_count": 3,
           "current_phase": "upgrade",
           "wave": 1
         },
         "combat": {
-          "kills": 6,
-          "score": 1100
+          "kills": 3,
+          "score": 300
         },
         "resources": {
           "exp_orbs": 0,
-          "pickups": 3,
-          "charge": 100
+          "pickups": 2,
+          "charge": 92.02
         },
         "upgrade": {
           "is_selecting_upgrade": true,
@@ -260,50 +260,50 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 223,
+          "w": 288,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "375x667",
-          "hpFillRatio": 0.6957
+          "hpFillRatio": 0.8986
         },
         "viewportCrop": {
           "x": 37,
           "y": 10,
-          "w": 82,
+          "w": 106,
           "h": 9
         },
         "canvasCrop": {
           "x": 36,
           "y": 10,
-          "w": 82,
+          "w": 106,
           "h": 9
         },
         "mean": {
-          "r": 121.97,
-          "g": 55.66,
-          "b": 43.72
+          "r": 135.84,
+          "g": 62.13,
+          "b": 48.72
         },
-        "redMinusGreen": 66.31
+        "redMinusGreen": 73.71
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 96,
+          "hp": 124,
           "max_hp": 138,
           "level": 2,
           "exp": 30,
           "position": {
-            "x": 639.455,
-            "y": 357.813
+            "x": 737.17,
+            "y": 478.038
           }
         },
         "world": {
-          "elapsed": 15.067,
-          "enemy_count": 1,
+          "elapsed": 18.028,
+          "enemy_count": 0,
           "current_phase": "upgrade",
-          "wave": 2
+          "wave": 1
         },
         "combat": {
           "kills": 6,

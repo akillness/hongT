@@ -13,54 +13,54 @@
         "crop": {
           "x": 100,
           "y": 28,
-          "w": 284,
+          "w": 320,
           "h": 24,
           "baseW": 1440,
           "baseH": 900,
           "viewport": "1440x900",
-          "hpFillRatio": 0.8864
+          "hpFillRatio": 1
         },
         "viewportCrop": {
           "x": 172,
           "y": 30,
-          "w": 261,
+          "w": 294,
           "h": 22
         },
         "canvasCrop": {
           "x": 91,
           "y": 25,
-          "w": 261,
+          "w": 294,
           "h": 22
         },
         "mean": {
-          "r": 171.7,
-          "g": 76.58,
-          "b": 55.59
+          "r": 195.51,
+          "g": 78.64,
+          "b": 55.76
         },
-        "redMinusGreen": 95.12
+        "redMinusGreen": 116.87
       },
       "observation": {
         "api_version": "gameflow_standard_v2",
         "game_type": "survivor_like",
         "player": {
-          "hp": 117,
+          "hp": 132,
           "max_hp": 132,
           "level": 1,
-          "exp": 10,
+          "exp": 0,
           "position": {
             "x": 768,
             "y": 646
           }
         },
         "world": {
-          "elapsed": 5.21,
-          "enemy_count": 5,
+          "elapsed": 4.066,
+          "enemy_count": 3,
           "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 1,
-          "score": 100
+          "kills": 0,
+          "score": 0
         },
         "resources": {
           "exp_orbs": 0,
@@ -88,6 +88,168 @@
     },
     {
       "file": "01-combat.png",
+      "hud": {
+        "available": true,
+        "source": "magick",
+        "crop": {
+          "x": 100,
+          "y": 28,
+          "w": 301,
+          "h": 24,
+          "baseW": 1440,
+          "baseH": 900,
+          "viewport": "1440x900",
+          "hpFillRatio": 0.9394
+        },
+        "viewportCrop": {
+          "x": 172,
+          "y": 30,
+          "w": 276,
+          "h": 22
+        },
+        "canvasCrop": {
+          "x": 91,
+          "y": 25,
+          "w": 276,
+          "h": 22
+        },
+        "mean": {
+          "r": 196.03,
+          "g": 81.17,
+          "b": 57.78
+        },
+        "redMinusGreen": 114.86
+      },
+      "observation": {
+        "api_version": "gameflow_standard_v2",
+        "game_type": "survivor_like",
+        "player": {
+          "hp": 124,
+          "max_hp": 132,
+          "level": 1,
+          "exp": 0,
+          "position": {
+            "x": 824.704,
+            "y": 619.795
+          }
+        },
+        "world": {
+          "elapsed": 6.566,
+          "enemy_count": 4,
+          "current_phase": "running",
+          "wave": 1
+        },
+        "combat": {
+          "kills": 0,
+          "score": 0
+        },
+        "resources": {
+          "exp_orbs": 0,
+          "pickups": 0,
+          "charge": 100
+        },
+        "upgrade": {
+          "is_selecting_upgrade": false,
+          "options": []
+        },
+        "boss": {
+          "exists": false,
+          "hp": 0,
+          "max_hp": 0,
+          "phase": 0,
+          "phase_count": 2
+        },
+        "status": {
+          "done": false,
+          "success": false,
+          "failed": false,
+          "reason": "running"
+        }
+      }
+    },
+    {
+      "file": "02-active-hazard-or-boss.png",
+      "hud": {
+        "available": true,
+        "source": "magick",
+        "crop": {
+          "x": 100,
+          "y": 28,
+          "w": 284,
+          "h": 24,
+          "baseW": 1440,
+          "baseH": 900,
+          "viewport": "1440x900",
+          "hpFillRatio": 0.8864
+        },
+        "viewportCrop": {
+          "x": 172,
+          "y": 30,
+          "w": 261,
+          "h": 22
+        },
+        "canvasCrop": {
+          "x": 91,
+          "y": 25,
+          "w": 261,
+          "h": 22
+        },
+        "mean": {
+          "r": 157.79,
+          "g": 70.78,
+          "b": 51.71
+        },
+        "redMinusGreen": 87.01
+      },
+      "observation": {
+        "api_version": "gameflow_standard_v2",
+        "game_type": "survivor_like",
+        "player": {
+          "hp": 117,
+          "max_hp": 132,
+          "level": 1,
+          "exp": 0,
+          "position": {
+            "x": 824.704,
+            "y": 619.795
+          }
+        },
+        "world": {
+          "elapsed": 10.713,
+          "enemy_count": 6,
+          "current_phase": "running",
+          "wave": 1
+        },
+        "combat": {
+          "kills": 0,
+          "score": 0
+        },
+        "resources": {
+          "exp_orbs": 0,
+          "pickups": 0,
+          "charge": 76.006
+        },
+        "upgrade": {
+          "is_selecting_upgrade": false,
+          "options": []
+        },
+        "boss": {
+          "exists": false,
+          "hp": 0,
+          "max_hp": 0,
+          "phase": 0,
+          "phase_count": 2
+        },
+        "status": {
+          "done": false,
+          "success": false,
+          "failed": false,
+          "reason": "running"
+        }
+      }
+    },
+    {
+      "file": "03-close-boundary.png",
       "hud": {
         "available": true,
         "source": "magick",
@@ -127,196 +289,30 @@
           "hp": 109,
           "max_hp": 132,
           "level": 1,
-          "exp": 10,
-          "position": {
-            "x": 835.697,
-            "y": 570.471
-          }
-        },
-        "world": {
-          "elapsed": 8.211,
-          "enemy_count": 7,
-          "current_phase": "running",
-          "wave": 1
-        },
-        "combat": {
-          "kills": 1,
-          "score": 100
-        },
-        "resources": {
-          "exp_orbs": 0,
-          "pickups": 0,
-          "charge": 100
-        },
-        "upgrade": {
-          "is_selecting_upgrade": false,
-          "options": []
-        },
-        "boss": {
-          "exists": false,
-          "hp": 0,
-          "max_hp": 0,
-          "phase": 0,
-          "phase_count": 2
-        },
-        "status": {
-          "done": false,
-          "success": false,
-          "failed": false,
-          "reason": "running"
-        }
-      }
-    },
-    {
-      "file": "02-active-hazard-or-boss.png",
-      "hud": {
-        "available": true,
-        "source": "magick",
-        "crop": {
-          "x": 100,
-          "y": 28,
-          "w": 228,
-          "h": 24,
-          "baseW": 1440,
-          "baseH": 900,
-          "viewport": "1440x900",
-          "hpFillRatio": 0.7121
-        },
-        "viewportCrop": {
-          "x": 172,
-          "y": 30,
-          "w": 209,
-          "h": 22
-        },
-        "canvasCrop": {
-          "x": 91,
-          "y": 25,
-          "w": 209,
-          "h": 22
-        },
-        "mean": {
-          "r": 143.77,
-          "g": 64.7,
-          "b": 47.5
-        },
-        "redMinusGreen": 79.06
-      },
-      "observation": {
-        "api_version": "gameflow_standard_v2",
-        "game_type": "survivor_like",
-        "player": {
-          "hp": 94,
-          "max_hp": 132,
-          "level": 1,
-          "exp": 10,
-          "position": {
-            "x": 835.697,
-            "y": 570.471
-          }
-        },
-        "world": {
-          "elapsed": 10.943,
-          "enemy_count": 7,
-          "current_phase": "running",
-          "wave": 1
-        },
-        "combat": {
-          "kills": 1,
-          "score": 100
-        },
-        "resources": {
-          "exp_orbs": 0,
-          "pickups": 0,
-          "charge": 79.548
-        },
-        "upgrade": {
-          "is_selecting_upgrade": false,
-          "options": []
-        },
-        "boss": {
-          "exists": false,
-          "hp": 0,
-          "max_hp": 0,
-          "phase": 0,
-          "phase_count": 2
-        },
-        "status": {
-          "done": false,
-          "success": false,
-          "failed": false,
-          "reason": "running"
-        }
-      }
-    },
-    {
-      "file": "03-close-boundary.png",
-      "hud": {
-        "available": true,
-        "source": "magick",
-        "crop": {
-          "x": 100,
-          "y": 28,
-          "w": 199,
-          "h": 24,
-          "baseW": 1440,
-          "baseH": 900,
-          "viewport": "1440x900",
-          "hpFillRatio": 0.6232
-        },
-        "viewportCrop": {
-          "x": 172,
-          "y": 30,
-          "w": 183,
-          "h": 22
-        },
-        "canvasCrop": {
-          "x": 91,
-          "y": 25,
-          "w": 183,
-          "h": 22
-        },
-        "mean": {
-          "r": 160.78,
-          "g": 72.1,
-          "b": 52.44
-        },
-        "redMinusGreen": 88.68
-      },
-      "observation": {
-        "api_version": "gameflow_standard_v2",
-        "game_type": "survivor_like",
-        "player": {
-          "hp": 86,
-          "max_hp": 138,
-          "level": 2,
           "exp": 0,
           "position": {
-            "x": 634.496,
-            "y": 432.48
+            "x": 780.846,
+            "y": 589.972
           }
         },
         "world": {
-          "elapsed": 14.042,
-          "enemy_count": 5,
-          "current_phase": "upgrade",
+          "elapsed": 14.057,
+          "enemy_count": 8,
+          "current_phase": "running",
           "wave": 1
         },
         "combat": {
-          "kills": 3,
-          "score": 300
+          "kills": 0,
+          "score": 0
         },
         "resources": {
           "exp_orbs": 0,
-          "pickups": 2,
-          "charge": 100
+          "pickups": 0,
+          "charge": 87.094
         },
         "upgrade": {
-          "is_selecting_upgrade": true,
-          "options": [
-            "Attack",
-            "Vitality",
-            "Swiftness"
-          ]
+          "is_selecting_upgrade": false,
+          "options": []
         },
         "boss": {
           "exists": false,
