@@ -1,35 +1,30 @@
 {
   "releaseBaseSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
   "baselineProbeSha": "3c9d8dc459e54f6c9d1d64454ce74de2ec18269e",
-  "candidateSourceSha": "7e64ce02c92d28d58b391ff8f3dfaae8933a529d",
-  "generatedAt": "2026-08-15T09:28:02+0900",
+  "candidateSourceSha": "02e4a3f0e061586a4591a3fbf947c5ffd3077286",
+  "generatedAt": "2026-08-17T12:02:27Z",
   "sourceUpstream": "origin/main",
   "unityVersion": "6000.5.6f1",
   "commands": [
-    "gh pr create --base main --head akillness/main   # PR #8, 130 commits, merge state CLEAN",
-    "gh pr merge 8 --merge                            # -> 7e64ce02",
-    "git pull --ff-only origin main && git push origin HEAD:refs/heads/akillness/main  # both refs at 7e64ce02",
-    "bash tools/gen_hud_font.sh                       # CLAUDE.md §4b post-merge contract: exit 0, coverage FULL, 611 glyphs, font unchanged",
-    "rm -rf tools/deploy/__pycache__",
-    "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-pre.json",
+    "python3 tools/deploy/release_provenance.py snapshot-clean  (BEFORE stage 1)",
     "bash tools/deploy/run_release_gate.sh 1",
-    "python3 -B tools/deploy/make_release_evidence.py editmode --results .../test-results-091834.xml --candidate 7e64ce02 --out ...",
-    "python3 -B tools/deploy/make_release_evidence.py build --kind development --build-dir build-development --log .../build-development-091928.log --candidate 7e64ce02 --out ...",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop --candidate 7e64ce02 --content-marker 8bcd0d1aaf8ddefc (harness blob be4af6fe6aef4ecfec7095ddaba9cdbf932cd805ce1802a2d5c571a1b8082c50)",
-    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 375x667 --evidence-id browser-shadow-mobile --candidate 7e64ce02 --content-marker 8bcd0d1aaf8ddefc",
-    "bash tools/deploy/run_release_gate.sh 2   # 2 steps now: release build + assert the stripping gate RAN",
-    "python3 -B tools/deploy/make_release_evidence.py build --kind release --build-dir build-webgl --log .../build-092202.log --candidate 7e64ce02 --out ...",
-    "python3 -B tools/deploy/release_provenance.py snapshot-clean --output .../candidate-clean-post.json",
-    "python3 -B tools/deploy/release_provenance.py create --metadata .../release-metadata.json --development-build build-development --release-build build-webgl",
-    "# ToonShaderRetentionGate: CinderCourt/ToonLit 5 variants retained across 93 shaders, in BOTH builds"
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 1440x900 --evidence-id browser-shadow-desktop",
+    "node tools/qa/run_shadow_browser_evidence.mjs --viewport 390x844 --evidence-id browser-shadow-mobile",
+    "python3 tools/deploy/make_release_evidence.py editmode",
+    "python3 tools/deploy/make_release_evidence.py build --kind development",
+    "bash tools/deploy/run_release_gate.sh 2",
+    "python3 tools/deploy/release_provenance.py snapshot-clean  (AFTER stage 2)",
+    "python3 tools/deploy/make_release_evidence.py build --kind release",
+    "cleanStatus pre/post bracket the BUILD SEQUENCE for this release: pre before stage 1, post after stage 2. Both froze clean, so the bytes below came from this candidate and nothing else edited the source while they were being produced.",
+    "probeHashes := sha256(sorted (path, blob-sha256) of StageShadowPolicy.cs, StageMood.cs, VfxDirector.cs, StageShadowReceiver.shader) at baselineProbeSha and candidateSourceSha. Definition recorded here because the schema carries none and the value used before 713d95e9 could not be reproduced from this repository."
   ],
   "probeHashes": {
-    "baseline": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322",
-    "candidate": "9c6f5d705f5710552f329a21981135d78504d42baffb61bf1555cc00e4245322"
+    "baseline": "1e19d32a07675f10d187a30e8d6a224102e3c68d9296f110c0c080010f2705cd",
+    "candidate": "15e1d273b732f9bbf4c7750ef90142c8303e8bc3ab52c47e4cc08180ef4130f1"
   },
   "cleanStatus": {
-    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre.json",
-    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post.json"
+    "pre": "_workspace/current/qa/stage-character-shadows/candidate-clean-pre-02e4a3f0.json",
+    "post": "_workspace/current/qa/stage-character-shadows/candidate-clean-post-02e4a3f0.json"
   },
   "outsideInputAllowList": [
     ".*",
@@ -85,19 +80,19 @@
       "evidenceId": "development-build",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-development-build.json",
       "buildMode": "Development",
-      "contentMarker": "8bcd0d1aaf8ddefc"
+      "contentMarker": "bf59a4a0af9172a7"
     },
     {
       "evidenceId": "browser-shadow-desktop",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-desktop.json",
       "buildMode": "Development",
-      "contentMarker": "8bcd0d1aaf8ddefc"
+      "contentMarker": "bf59a4a0af9172a7"
     },
     {
       "evidenceId": "browser-shadow-mobile",
       "path": "_workspace/current/qa/stage-character-shadows/evidence-browser-shadow-mobile.json",
       "buildMode": "Development",
-      "contentMarker": "8bcd0d1aaf8ddefc"
+      "contentMarker": "bf59a4a0af9172a7"
     }
   ]
 }
