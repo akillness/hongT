@@ -1231,163 +1231,26 @@ namespace CinderCourt.View
         }
         // -------------------------------------- outer silhouettes (§E1.5) --
         //
-        // MEASURED motivation. After the stage textures landed, the frame's
-        // dominant 24-step colour bucket was still 61%, and a spatial map of
-        // where that bucket lives put it in the TOP, BOTTOM and SIDE bands —
-        // the annulus outside Zone C. Zone C stops at e 1.22 while the terrain
-        // plate reaches e 1.63 in x and 2.92 in z, so that annulus is bare
-        // lit plate with nothing standing on it. Pulling the camera to 17.5
-        // brought it further into frame, which is what makes it worth filling.
+        // REMOVED 2026-08-18. AddOuterSilhouettes and its constants (SilhouetteE 1.35 /
+        // SilhouetteEOuter 1.50, the height band, the twelve clock slots) were already
+        // out of the build path — the call site went away when AMENDMENT #15 widened the
+        // playfield, and only the definition was left behind. At half 735 those radii sit
+        // at sim x -224..1760, past the painted plate (-82..1618) and far past the camera
+        // frame (e 1.097): the pass decorated void that nothing can see.
         //
-        // These are the key art's vertical elements (statues and spires ringing
-        // the court) and they are the one thing the environment has never had:
-        // silhouette. Every other module is a low slab.
+        // The boundary read it used to provide comes from the ring in AddRingAndGates,
+        // which tracks the ACTIVE half-axes (#15) and therefore stands where the player
+        // actually stops. That is the substantive difference and the reason this is a
+        // deletion rather than a disable: a ring pinned to a frozen constant would drift
+        // from the clamp the moment the bounds moved again.
         //
-        // Height is UNCAPPED here, deliberately. FurnitureMaxHeight exists so a
-        // gimmick's rim decoration cannot hide the ground telegraph behind it
-        // (§E0.5). Out here there are no telegraphs — hazards live inside the
-        // stop ellipse at e <= 0.954 — so the cap would only be flattening the
-        // exact quality being added. What replaces it is a distance rule: these
-        // stand at e >= 1.40, which is 0.45 past the stop line, so nothing they
-        // occlude is anything the player has to read.
-        // Radii are bounded by the VISIBLE WINDOW, computed for the pulled-in
-        // camera rather than guessed: frustum half-width at the focus plane is
-        // D*tan(21)*1.5 = 10.08 u, and the arena half-width is 6.5 u, so the
-        // side of the frame lands at e ~ 1.55. The plate reaches e 1.63 in x -
-        // already off-screen. Anything placed past 1.55 is only visible when
-        // the player pans that way, which is how the VoidFloor passes wasted
-        // two deploys. Zone C ends at 1.22, so the usable band is 1.22..1.55.
-        internal const double SilhouetteE = 1.35;
-        internal const double SilhouetteEOuter = 1.50;
-        const float SilhouetteMinHeight = 90f;    // sim px
-        const float SilhouetteMaxHeight = 210f;   // sim px
-
-        static void AddOuterSilhouettes(
-            List<Module> modules, uint stageSeed, StagePalette palette)
-        {
-            // Twelve slots on the clock, alternating radius so the ring reads as
-            // a broken colonnade rather than a fence. Gate arcs stay clear: the
-            // entrance and boss doors must stay legible from across the arena.
-            var index = 0;
-            for (var slot = 0; slot < 12; slot++)
-            {
-                var theta = slot * (2.0 * Math.PI / 12.0);
-                var degrees = slot * 30.0;
-                // 0 deg = entrance side, 180 deg = boss side (AddRingAndGates).
-                if (degrees < 25 || degrees > 335) continue;
-                if (degrees > 155 && degrees < 205) continue;
-
-                var seed = ModuleSeed(stageSeed, Kind.Pillar, 4000 + slot);
-                var e = (slot & 1) == 0 ? SilhouetteE : SilhouetteEOuter;
-                e *= 1.0 + Signed(seed, 0, 4) * 0.04;
-                EllipsePoint(e, theta, out var x, out var y);
-
-                // No clamping. The first draft clamped into StageCatalog's
-                // dressing plane and the gates caught two bugs from it: a
-                // rectangular clamp moves points toward the CENTRE, which put
-                // pillars at e 0.85 (inside the combat floor, E3 banned) and
-                // 76 px from a vent (inside its clearance). The second draft
-                // shrank along the ray instead, which was safe but built
-                // nothing - the dressing plane is exactly the arena rectangle
-                // (+-520x270), so every slot fell below Zone C.
-                //
-                // The plane was the wrong constraint entirely: it governs
-                // StageCatalog's authored dressing, and Zone C already stands
-                // outside it. What actually bounds this ring is the terrain
-                // plate (+-850x788 sim px) and the visible window, and e 1.50
-                // sits inside both - 780 px of 850 in x, 405 of 788 in z. So
-                // the radii are the bound, and no clamp is needed.
-
-                var height = SilhouetteMinHeight
-                    + (float)((seed >> 8 & 0xFFu) / 255.0)
-                      * (SilhouetteMaxHeight - SilhouetteMinHeight);
-                var module = NewModule(Kind.Pillar,
-                    "env-pillar-" + (700 + index).ToString("D3"), x, y, 0f,
-                    (float)(degrees + Signed(seed, 18, 5) * 15.0));
-                module.Pieces.Add(new Piece
-                {
-                    Part = Part.Body,
-                    LibraryPart = "feature",
-                    Uncapped = true,
-                    SizeY = height * (float)SimToWorld,
-                    // MEASURED: at Shade 0.88 the ring rendered at luminance
-                    // 1.22 against a floor of 41.5 - 34x darker, internal std
-                    // 0.58, i.e. a flat black cutout rather than a statue.
-                    //
-                    // The cause is the DOUBLE MULTIPLY, not lighting. I first
-                    // wrote here that the ring "stands outside the four E6
-                    // point lights, so it is lit by ambient alone" — that is
-                    // FALSE and it is worth leaving the correction visible.
-                    // StageMood's key (0.55) and fill (0.22) are DIRECTIONAL
-                    // lights, which have no distance falloff and reach this
-                    // ring exactly as they reach the arena; the E6 budget of 4
-                    // covers POINT lights only. What actually crushed it is
-                    // that SpawnLibraryPart writes tints.Stone x Shade into the
-                    // MPB _BaseColor and URP Lit then multiplies that by the
-                    // authored FBX albedo: 0.155 x 0.88 x ~0.35 = 0.048.
-                    //
-                    // So the fix is inverse-albedo compensation, expressed in
-                    // the units this struct already uses. Still darker than the
-                    // floor - the key art's statues are dark shapes against a
-                    // lit court, just not holes in it.
-                    Shade = 3.2f + (float)Signed(seed, 24, 4) * 0.35f,
-                });
-                // Warm point on the colonnade. The key art rings the court with
-                // lit braziers, and that is the one element of it the frame
-                // still lacks — the eight §E6 torches all sit at e ~1.01, just
-                // outside the stop line, so the outer ring reads unlit.
-                //
-                // No new machinery and no budget: Part.Ember already routes to
-                // _emberMaterial (ViewWorld.MakeAdditive), the same additive
-                // quad the torch heads use, so this is a COUNT and PLACEMENT
-                // change on shipping code. It also spends no light — §E6's
-                // ceiling of 4 is POINT lights, and an additive quad is none.
-                //
-                // Height rides the silhouette it sits on, so a taller statue
-                // carries its flame higher. Kept small (0.16 u) so the ring
-                // reads as points, not as a second light source competing with
-                // the arena centre (§E0.5).
-                //
-                // MEASURED, and this is why there are TWO. StageTints Clamp01s
-                // the ember colour on purpose, so ONE additive quad lands just
-                // UNDER CinderPostProfile's 1.05 bloom threshold and can never
-                // flare on its own. The documented way past it is the one
-                // ViewWorld.MakeAdditive states outright - overlapping quads
-                // ACCUMULATE - so the head is two concentric shells rather
-                // than a brighter tint. Doing it here keeps the change local:
-                // unclamping StageTints would have relit every gate, bridge
-                // and torch in all nine stages.
-                //
-                // Deployed numbers, one shell -> two, at the nine ring cores
-                // visible in frame: core peak 131 -> 169 (+29%), and the
-                // radial falloff softened from a 26% single-step drop to 20%.
-                //
-                // An earlier draft of this comment cited a "140 -> 44 in one
-                // 3px step" cliff. That reading is RETRACTED: the sample sat
-                // on a tan floor prop, not on a head. The conclusion survives
-                // the correction - the numbers above are from the heads.
-                var headY = height * (float)SimToWorld * 0.92f;
-                module.Pieces.Add(new Piece
-                {
-                    Part = Part.Ember,
-                    LocalY = headY,
-                    SizeX = 0.16f, SizeY = 0.16f, SizeZ = 0.16f,
-                    Shade = 1f,
-                });
-                module.Pieces.Add(new Piece   // inner shell: the accumulator
-                {
-                    Part = Part.Ember,
-                    LocalY = headY,
-                    SizeX = 0.11f, SizeY = 0.11f, SizeZ = 0.11f,
-                    Shade = 1f,
-                });
-                modules.Add(module);
-                index++;
-            }
-        }
-
-
-
+        // Zone C is NOT part of this removal even though the same spec paragraph asked
+        // for it. Measured: removing it exposed bare floor across 27.15% of the frame
+        // against a pinned 2% gate, because Zone C is the void-floor COVERAGE system and
+        // tiles out to the frustum (sim x -1650..3200) rather than to a ring radius. Two
+        // things the spec grouped together turned out to be one decoration and one
+        // load-bearing system.
+        //
         // ------------------------------------------------------ Zone A (§E3) --
         // Accent panels only (the plate is the real floor): target 6–10 glossy
         // quads at y+0.015 (z-fight guard), filtered against the PACT hazard
